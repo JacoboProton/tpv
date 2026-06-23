@@ -1,3 +1,5 @@
+"use client"
+
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   LayoutGrid, ChefHat, Package, BarChart3, Plus, Minus, X, Check,
@@ -5,8 +7,7 @@ import {
   LogOut, User, Users, ShieldCheck, Download, Printer, Delete, Percent, TrendingUp, 
   Calendar, DollarSign
 } from 'lucide-react';
-import {
-  BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid
+import {  BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid
 } from 'recharts';
 
 // ---------- Paleta de marca: "La Comanda" ----------
@@ -120,10 +121,10 @@ export default function App() {
   const [newProductOpen, setNewProductOpen] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
-  useEffect(() => { loadAll(); }, []);
 
-  async function loadAll() {
+  const loadAll = async () => {
     try {
+      if (typeof window === 'undefined' || !window.storage) return;
       let cat;
       try {
         const r = await window.storage.get(KEYS.CATALOG, true);
@@ -162,9 +163,16 @@ export default function App() {
       setEmployees(emps);
     } catch (e) {
       setFatalError(true);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
+
+  useEffect(() => {
+  console.log("INICIANDO LOADALL");
+  loadAll();
+}, []);
+
 
   function showToast(msg) {
     setToast(msg);
