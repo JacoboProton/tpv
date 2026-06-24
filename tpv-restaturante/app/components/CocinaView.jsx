@@ -33,29 +33,33 @@ export default function CocinaView({ floor, onReady, colors: C }) {
           return (
             <div
               key={order.id}
-              style={{ border: `1px solid ${urgent ? C.wine : C.line}` }}
-              className="rounded-lg overflow-hidden"
+              style={{ 
+                background: C.surface, 
+                border: `1px solid ${urgent ? C.wine : C.line}`,
+                boxShadow: urgent ? '0 0 20px rgba(162,62,62,0.3)' : 'none'
+              }}
+              className={`rounded-lg overflow-hidden transition-all duration-300 hover:shadow-lg ${urgent ? 'animate-pulse' : ''}`}
             >
               <div style={TICKET_EDGE} />
-              <div style={{ background: C.cream, color: C.base }} className="p-3 font-mono">
+              <div style={{ background: urgent ? '#a23e3e' : C.cream, color: urgent ? C.cream : C.base }} className="p-3 font-mono">
                 <div className="flex items-center justify-between mb-2">
                   <p className="font-display text-lg">{table.name}</p>
                   <span
-                    style={{ color: urgent ? C.wine : '#8a7c68' }}
-                    className="flex items-center gap-1 text-xs"
+                    style={{ color: urgent ? '#ffc1c1' : '#8a7c68' }}
+                    className="flex items-center gap-1 text-xs px-2 py-1 rounded-full"
                   >
-                    <Clock className="w-3.5 h-3.5" /> {minutesAgo} min
+                    <Clock className="w-3.5 h-3.5" /> {minutesAgo}'
                   </span>
                 </div>
-                <ul className="text-sm space-y-1 mb-3">
+                <ul className={`text-sm space-y-1 mb-3 ${urgent ? 'font-semibold' : ''}`}>
                   {pending.map(i => <li key={i.id}>{i.qty}× {i.name}</li>)}
                 </ul>
                 <button
                   onClick={() => onReady(order.id)}
-                  style={{ background: C.sage, color: '#fff' }}
-                  className="w-full rounded-md py-2 text-sm font-medium flex items-center justify-center gap-1.5"
+                  style={{ background: urgent ? '#fff' : C.sage, color: urgent ? C.wine : '#fff' }}
+                  className="w-full rounded-md py-2.5 text-sm font-semibold flex items-center justify-center gap-1.5 hover:opacity-90 transition-opacity"
                 >
-                  <Check className="w-4 h-4" /> Marcar como listo
+                  <Check className="w-4 h-4" /> Listo
                 </button>
               </div>
             </div>

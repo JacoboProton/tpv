@@ -1,4 +1,4 @@
-import { User, Package, BarChart3, Users, ShieldCheck } from 'lucide-react';
+import { User, Package, BarChart3, Users, ShieldCheck, ArrowRight } from 'lucide-react';
 
 export default function MenuPrincipal({ employees, onLoginClick, onAlmacenClick, onCajaClick, onConfigClick, colors: C }) {
   return (
@@ -9,71 +9,77 @@ export default function MenuPrincipal({ employees, onLoginClick, onAlmacenClick,
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap');
         .font-display { font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.04em; }
+        @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+        .float-icon { animation: float 3s ease-in-out infinite; }
       `}</style>
 
       <div className="flex flex-col items-center mb-12">
-        <h1 className="font-display text-5xl mb-2" style={{ color: C.brassLight }}>LA COMANDA</h1>
+        <h1 className="font-display text-6xl mb-2" style={{ color: C.brassLight }}>LA COMANDA</h1>
         <p style={{ color: C.muted }} className="text-sm">Sistema de TPV para bares y restaurantes</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 w-full max-w-3xl">
         {/* Entrada */}
         <button
           onClick={onLoginClick}
           style={{ background: C.surface, border: `2px solid ${C.brass}` }}
-          className="rounded-2xl p-8 hover:opacity-90 transition-opacity flex flex-col items-center gap-3"
+          className="rounded-2xl p-8 hover:opacity-90 transition-all duration-300 flex flex-col items-center gap-4 group hover:scale-[1.02]"
         >
-          <div style={{ background: C.surfaceLight }} className="w-16 h-16 rounded-full flex items-center justify-center">
-            <User className="w-8 h-8" style={{ color: C.brassLight }} />
+          <div style={{ background: 'rgba(200,147,43,0.15)' }} className="w-20 h-20 rounded-2xl flex items-center justify-center">
+            <User className="w-10 h-10" style={{ color: C.brassLight }} />
           </div>
-          <h3 className="font-display text-2xl" style={{ color: C.cream }}>ENTRADA</h3>
+          <h3 className="font-display text-3xl" style={{ color: C.cream }}>ENTRADA</h3>
           <p style={{ color: C.muted }} className="text-sm text-center">Inicia sesión como camarero para trabajar</p>
+          <ArrowRight className="w-5 h-5 opacity-0 group-hover:opacity-60 transition-opacity" style={{ color: C.brassLight }} />
         </button>
 
         {/* Almacén */}
         <button
           onClick={onAlmacenClick}
           style={{ background: C.surface, border: `2px solid ${C.sage}` }}
-          className="rounded-2xl p-8 hover:opacity-90 transition-opacity flex flex-col items-center gap-3"
+          className="rounded-2xl p-8 hover:opacity-90 transition-all duration-300 flex flex-col items-center gap-4 group hover:scale-[1.02]"
         >
-          <div style={{ background: C.surfaceLight }} className="w-16 h-16 rounded-full flex items-center justify-center">
-            <Package className="w-8 h-8" style={{ color: C.sageLight }} />
+          <div style={{ background: 'rgba(111,146,114,0.15)' }} className="w-20 h-20 rounded-2xl flex items-center justify-center">
+            <Package className="w-10 h-10" style={{ color: C.sageLight }} />
           </div>
-          <h3 className="font-display text-2xl" style={{ color: C.cream }}>ALMACÉN</h3>
+          <h3 className="font-display text-3xl" style={{ color: C.cream }}>ALMACÉN</h3>
           <p style={{ color: C.muted }} className="text-sm text-center">Gestiona inventario y stock (solo admin)</p>
+          <ArrowRight className="w-5 h-5 opacity-0 group-hover:opacity-60 transition-opacity" style={{ color: C.sageLight }} />
         </button>
 
         {/* Caja / Informes */}
         <button
           onClick={onCajaClick}
           style={{ background: C.surface, border: `2px solid ${C.brassLight}` }}
-          className="rounded-2xl p-8 hover:opacity-90 transition-opacity flex flex-col items-center gap-3"
+          className="rounded-2xl p-8 hover:opacity-90 transition-all duration-300 flex flex-col items-center gap-4 group hover:scale-[1.02]"
         >
-          <div style={{ background: C.surfaceLight }} className="w-16 h-16 rounded-full flex items-center justify-center">
-            <BarChart3 className="w-8 h-8" style={{ color: C.brassLight }} />
+          <div style={{ background: 'rgba(227,181,99,0.15)' }} className="w-20 h-20 rounded-2xl flex items-center justify-center">
+            <BarChart3 className="w-10 h-10" style={{ color: C.brassLight }} />
           </div>
-          <h3 className="font-display text-2xl" style={{ color: C.cream }}>CAJA</h3>
+          <h3 className="font-display text-3xl" style={{ color: C.cream }}>CAJA</h3>
           <p style={{ color: C.muted }} className="text-sm text-center">Informes, cierres y control de efectivo</p>
+          <ArrowRight className="w-5 h-5 opacity-0 group-hover:opacity-60 transition-opacity" style={{ color: C.brassLight }} />
         </button>
 
         {/* Configuración */}
         <button
           onClick={onConfigClick}
           style={{ background: C.surface, border: `2px solid ${C.wine}` }}
-          className="rounded-2xl p-8 hover:opacity-90 transition-opacity flex flex-col items-center gap-3"
+          className="rounded-2xl p-8 hover:opacity-90 transition-all duration-300 flex flex-col items-center gap-4 group hover:scale-[1.02]"
         >
-          <div style={{ background: C.surfaceLight }} className="w-16 h-16 rounded-full flex items-center justify-center">
-            <Users className="w-8 h-8" style={{ color: C.wineLight }} />
+          <div style={{ background: 'rgba(162,62,62,0.15)' }} className="w-20 h-20 rounded-2xl flex items-center justify-center">
+            <Users className="w-10 h-10" style={{ color: C.wineLight }} />
           </div>
-          <h3 className="font-display text-2xl" style={{ color: C.cream }}>CONFIGURACIÓN</h3>
+          <h3 className="font-display text-3xl" style={{ color: C.cream }}>EQUIPO</h3>
           <p style={{ color: C.muted }} className="text-sm text-center">Gestiona empleados y ajustes (solo admin)</p>
+          <ArrowRight className="w-5 h-5 opacity-0 group-hover:opacity-60 transition-opacity" style={{ color: C.wineLight }} />
         </button>
       </div>
 
       {/* Empleados activos */}
       <div
         style={{ background: C.surfaceLight, border: `1px solid ${C.line}` }}
-        className="rounded-xl p-4 mt-12 max-w-2xl w-full"
+        className="rounded-xl p-5 mt-12 max-w-3xl w-full"
       >
         <p style={{ color: C.muted }} className="text-xs uppercase tracking-wide mb-3">Empleados disponibles</p>
         <div className="flex flex-wrap gap-2">
@@ -81,11 +87,11 @@ export default function MenuPrincipal({ employees, onLoginClick, onAlmacenClick,
             <span
               key={emp.id}
               style={{ background: C.surface, border: `1px solid ${C.line}` }}
-              className="text-sm px-3 py-1 rounded-full flex items-center gap-1.5"
+              className="text-sm px-4 py-2 rounded-full flex items-center gap-2"
             >
               {emp.role === 'admin'
-                ? <ShieldCheck className="w-3.5 h-3.5" style={{ color: C.brassLight }} />
-                : <User className="w-3.5 h-3.5" style={{ color: C.muted }} />}
+                ? <ShieldCheck className="w-4 h-4" style={{ color: C.brassLight }} />
+                : <User className="w-4 h-4" style={{ color: C.muted }} />}
               {emp.name}
             </span>
           ))}

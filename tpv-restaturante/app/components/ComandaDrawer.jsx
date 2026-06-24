@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  ArrowLeft, Receipt, ChefHat, CreditCard,
+  ArrowLeft, Receipt, ChefHat, CreditCard, ClipboardList,
   Plus, Minus, Percent, X, Trash2, AlertTriangle,
 } from 'lucide-react';
 import { TICKET_EDGE, euros } from './constants';
@@ -23,6 +23,7 @@ export default function ComandaDrawer({
   const isDebtOnly   = selectedOrder?.items?.length === 1 && selectedOrder.items[0].productId === null;
   const hasItems     = selectedOrder && selectedOrder.items.length > 0;
   const isCuenta     = selectedTable.status === 'cuenta';
+  const hasKitchenItems = selectedOrder && selectedOrder.items.some(i => i.sent && !i.ready);
 
   function handleCancelTable() {
     setConfirmCancel(false);

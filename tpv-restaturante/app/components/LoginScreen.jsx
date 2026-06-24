@@ -1,4 +1,4 @@
-import { ShieldCheck, User, Delete } from 'lucide-react';
+import { ShieldCheck, User, Delete, LogIn } from 'lucide-react';
 
 export default function LoginScreen({
   employees, loginSelected, setLoginSelected,
@@ -12,51 +12,66 @@ export default function LoginScreen({
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap');
         .font-display { font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.04em; }
-        @keyframes shake { 10%,90% { transform: translateX(-1px); } 20%,80% { transform: translateX(2px); } 30%,50%,70% { transform: translateX(-4px); } 40%,60% { transform: translateX(4px); } }
+        @keyframes shake { 10%,90% { transform: translateX(-2px); } 20%,80% { transform: translateX(4px); } 30%,50%,70% { transform: translateX(-6px); } 40%,60% { transform: translateX(6px); } }
         .shake { animation: shake .4s; }
+        @keyframes dotPulse { 0%,100%{opacity:0.3} 50%{opacity:1} }
+        .dot-pulse { animation: dotPulse 1s infinite; }
       `}</style>
 
-      <h1 className="font-display text-4xl mb-1" style={{ color: C.brassLight }}>LA COMANDA</h1>
-      <p style={{ color: C.muted }} className="text-sm mb-8">Identifícate para empezar tu turno</p>
+      <div className="flex flex-col items-center mb-10">
+        <h1 className="font-display text-5xl mb-2" style={{ color: C.brassLight }}>LA COMANDA</h1>
+        <p style={{ color: C.muted }} className="text-sm">TPV Profesional</p>
+      </div>
 
       {!loginSelected ? (
-        <div className="flex flex-col items-center gap-4">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full max-w-sm mb-4">
+        <div className="w-full max-w-lg flex flex-col items-center gap-5">
+          <p style={{ color: C.muted }} className="text-xs uppercase tracking-wide mb-2">Selecciona tu usuario</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full">
             {employees.map(emp => (
               <button
                 key={emp.id}
                 onClick={() => setLoginSelected(emp)}
-                style={{ background: C.surface, border: `1px solid ${C.line}` }}
-                className="rounded-xl p-4 flex flex-col items-center gap-2 hover:opacity-90"
+                style={{ background: C.surface, border: `2px solid ${emp.role === 'admin' ? C.brass : C.line}` }}
+                className="rounded-xl p-5 flex flex-col items-center gap-3 hover:opacity-90 transition-all duration-200 hover:scale-[1.02]"
               >
-                <div style={{ background: C.surfaceLight }} className="w-10 h-10 rounded-full flex items-center justify-center">
+                <div style={{ background: emp.role === 'admin' ? 'rgba(200,147,43,0.2)' : C.surfaceLight }} className="w-14 h-14 rounded-full flex items-center justify-center">
                   {emp.role === 'admin'
-                    ? <ShieldCheck className="w-5 h-5" style={{ color: C.brassLight }} />
-                    : <User className="w-5 h-5" style={{ color: C.muted }} />}
+                    ? <ShieldCheck className="w-7 h-7" style={{ color: C.brassLight }} />
+                    : <User className="w-7 h-7" style={{ color: C.muted }} />}
                 </div>
-                <span className="text-sm font-medium text-center">{emp.name}</span>
+                <span className="text-base font-medium text-center">{emp.name}</span>
+                {emp.role === 'admin' && (
+                  <span style={{ color: C.brassLight }} className="text-[10px] uppercase tracking-wide">Administrador</span>
+                )}
               </button>
             ))}
           </div>
-          <button onClick={onBack} style={{ color: C.muted }} className="text-sm hover:opacity-80">
+          <button onClick={onBack} style={{ color: C.muted }} className="text-sm hover:opacity-80 flex items-center gap-1 mt-4">
             ← Volver al menú
           </button>
         </div>
       ) : (
         <div className="w-full max-w-xs flex flex-col items-center">
-          <p className="text-sm mb-1" style={{ color: C.muted }}>Hola, {loginSelected.name}</p>
-          <p className="text-xs mb-4" style={{ color: C.muted }}>Introduce tu PIN</p>
+          <div className="flex items-center gap-2 mb-3">
+            {loginSelected.role === 'admin'
+              ? <ShieldCheck className="w-5 h-5" style={{ color: C.brassLight }} />
+              : <User className="w-5 h-5" style={{ color: C.muted }} />}
+            <p className="text-sm font-medium" style={{ color: C.cream }}>{loginSelected.name}</p>
+          </div>
+          <p style={{ color: C.muted }} className="text-xs mb-5">Introduce tu PIN de 4 dígitos</p>
 
-          <div className="flex gap-3 mb-6">
+          <div className="flex gap-4 mb-8">
             {[0, 1, 2, 3].map(i => (
               <span
                 key={i}
                 style={{
-                  background: i < pinInput.length ? C.brassLight : C.surfaceLight,
-                  border: `1px solid ${C.line}`,
+                  background: i < pinInput.length ? C.brassLight : 'transparent',
+                  border: `2px solid ${i < pinInput.length ? C.brassLight : C.line}`,
                 }}
-                className="w-3.5 h-3.5 rounded-full"
-              />
+                className={`w-5 h-5 rounded-full flex items-center justify-center ${i === pinInput.length ? 'dot-pulse' : ''}`}
+              >
+                {i < pinInput.length && <span className="w-2.5 h-2.5 rounded-full" style={{ background: C.base }} />}
+              </span>
             ))}
           </div>
 
@@ -65,30 +80,30 @@ export default function LoginScreen({
               <button
                 key={d}
                 onClick={() => onDigit(d)}
-                style={{ background: C.surface, border: `1px solid ${C.line}` }}
-                className="rounded-xl py-4 text-lg font-medium hover:opacity-90"
+                style={{ background: C.surface, border: `2px solid ${C.line}` }}
+                className="rounded-xl py-4 text-xl font-medium hover:opacity-90 transition-all active:scale-95"
               >
                 {d}
               </button>
             ))}
             <button
               onClick={() => { setLoginSelected(null); setPinInput(''); }}
-              style={{ color: C.muted }}
-              className="rounded-xl py-4 text-xs font-medium"
+              style={{ color: C.muted, background: C.surfaceLight }}
+              className="rounded-xl py-3 text-xs font-medium hover:opacity-80"
             >
               Atrás
             </button>
             <button
               onClick={() => onDigit('0')}
-              style={{ background: C.surface, border: `1px solid ${C.line}` }}
-              className="rounded-xl py-4 text-lg font-medium hover:opacity-90"
+              style={{ background: C.surface, border: `2px solid ${C.line}` }}
+              className="rounded-xl py-4 text-xl font-medium hover:opacity-90 transition-all active:scale-95"
             >
               0
             </button>
             <button
               onClick={onDelete}
-              style={{ color: C.muted }}
-              className="rounded-xl py-4 flex items-center justify-center"
+              style={{ color: C.muted, background: C.surfaceLight }}
+              className="rounded-xl py-4 flex items-center justify-center hover:opacity-80 transition-all"
             >
               <Delete className="w-5 h-5" />
             </button>
