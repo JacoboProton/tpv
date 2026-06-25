@@ -8,7 +8,7 @@ import {
   BarChart3, Banknote, CreditCard, Smartphone, Clock, Download, Printer, LogIn, ShieldCheck, User, Save,
 } from 'lucide-react';
 import { euros, round2 } from './constants';
-import { fetchAccessLogs, fetchBackup, fetchStockLog, fetchTurns } from '../../lib/api';
+import { fetchAccessLogs, fetchBackup, fetchStockLog, fetchTurns } from '../lib/api';
 import VerifactuPanel from './VerifactuPanel';
 
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];

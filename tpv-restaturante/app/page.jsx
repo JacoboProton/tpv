@@ -6,7 +6,7 @@ import {
   LogOut, Users, ShieldCheck, Sun, Moon, ClipboardList, WifiOff, Printer,
 } from 'lucide-react';
 
-import { THEMES, seedCatalog, seedFloor, seedEmployees, euros, round2, clone } from './components/constants';
+import { THEMES, seedCatalog, seedFloor, seedEmployees, euros, round2, clone } from '../components/constants';
 import {
   runMigrate, fetchCatalog, saveCatalog,
   fetchFloor, saveFloor,
@@ -21,19 +21,19 @@ import {
 } from '../lib/api';
 import { onNetworkChange, clearMutations, getMutations } from '../lib/offline';
 
-import MenuPrincipal        from './components/MenuPrincipal';
-import LoginScreen          from './components/LoginScreen';
-import SalonView            from './components/SalonView';
-import CocinaView           from './components/CocinaView';
-import InventarioView       from './components/InventarioView';
-import AlmacenMenuView      from './components/AlmacenMenuView';
-import AlmacenDetalleView   from './components/AlmacenDetalleView';
-import InformesView         from './components/InformesView';
-import EmpleadosView        from './components/EmpleadosView';
-import ComandaDrawer        from './components/ComandaDrawer';
-import PaymentModal         from './components/PaymentModal';
-import ComandasAbiertasView from './components/ComandasAbiertasView';
-import ModifierSelector     from './components/ModifierSelector';
+import MenuPrincipal        from '../components/MenuPrincipal';
+import LoginScreen          from '../components/LoginScreen';
+import SalonView            from '../components/SalonView';
+import CocinaView           from '../components/CocinaView';
+import InventarioView       from '../components/InventarioView';
+import AlmacenMenuView      from '../components/AlmacenMenuView';
+import AlmacenDetalleView   from '../components/AlmacenDetalleView';
+import InformesView         from '../components/InformesView';
+import EmpleadosView        from '../components/EmpleadosView';
+import ComandaDrawer        from '../components/ComandaDrawer';
+import PaymentModal         from '../components/PaymentModal';
+import ComandasAbiertasView from '../components/ComandasAbiertasView';
+import ModifierSelector     from '../components/ModifierSelector';
 
 export default function App() {
   // ---------- Tema claro/oscuro ----------

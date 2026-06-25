@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ShieldCheck, RefreshCw, QrCode, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
-import { fetchVerifactuRegistros, verifyVerifactuChain, registerVerifactu } from '../../lib/api';
+import { fetchVerifactuRegistros, verifyVerifactuChain, registerVerifactu } from '../lib/api';
 
 /**
  * VerifactuPanel

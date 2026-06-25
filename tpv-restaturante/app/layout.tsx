@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Bebas_Neue, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { ErrorBoundary } from "./components/ErrorBoundary";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 
 const inter = Inter({
   variable: "--font-inter",
