@@ -4,13 +4,23 @@ import { sql } from '../../../lib/db';
 // GET /api/catalog → { categories: string[], products: Product[] }
 export async function GET() {
   try {
-    const [rows, catRows] = await Promise.all([
-      sql`SELECT id, name, category, price::float AS price, stock, low_stock AS "lowStock", ubicacion, course, image, allergens FROM products ORDER BY category, name`,
+    const [rows, catRows, stockRows] = await Promise.all([
+      sql`SELECT id, name, category, price::float AS price, ubicacion, course, image, allergens FROM products ORDER BY category, name`,
       sql`SELECT name FROM categories ORDER BY name`,
+      sql`SELECT * FROM product_stock ORDER BY product_id, location`,
     ]);
+    const stockByProduct = {};
+    for (const s of stockRows) {
+      if (!stockByProduct[s.product_id]) stockByProduct[s.product_id] = {};
+      stockByProduct[s.product_id][s.location] = { stock: s.stock, lowStock: s.low_stock };
+    }
+    const products = rows.map(p => ({
+      ...p,
+      stockByLocation: stockByProduct[p.id] || {},
+    }));
     return NextResponse.json({
       categories: catRows.map(r => r.name),
-      products: rows,
+      products,
     });
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -30,19 +40,34 @@ export async function PUT(req) {
 
     for (const p of products) {
       queries.push(sql`
-        INSERT INTO products (id, name, category, price, stock, low_stock, ubicacion, course, image, allergens)
-        VALUES (${p.id}, ${p.name}, ${p.category}, ${p.price}, ${p.stock}, ${p.lowStock ?? p.low_stock ?? 5}, ${p.ubicacion ?? 'Bar'}, ${p.course ?? ''}, ${p.image ?? null}, ${p.allergens ?? []})
+        INSERT INTO products (id, name, category, price, ubicacion, course, image, allergens)
+        VALUES (${p.id}, ${p.name}, ${p.category}, ${p.price}, ${p.ubicacion ?? 'Bar'}, ${p.course ?? ''}, ${p.image ?? null}, ${p.allergens ?? []})
         ON CONFLICT (id) DO UPDATE SET
           name      = EXCLUDED.name,
           category  = EXCLUDED.category,
           price     = EXCLUDED.price,
-          stock     = EXCLUDED.stock,
-          low_stock = EXCLUDED.low_stock,
           ubicacion = EXCLUDED.ubicacion,
           course    = EXCLUDED.course,
           image     = EXCLUDED.image,
           allergens = EXCLUDED.allergens
       `);
+      // Stock por ubicación
+      const sbl = p.stockByLocation || {};
+      const locs = Object.keys(sbl);
+      if (locs.length > 0) {
+        // Si no hay registros en product_stock, usar la ubicacion del producto
+        const locations = locs.length > 0 ? locs : [p.ubicacion || 'Bar'];
+        for (const loc of locations) {
+          const entry = sbl[loc] || { stock: 0, lowStock: 5 };
+          queries.push(sql`
+            INSERT INTO product_stock (product_id, location, stock, low_stock)
+            VALUES (${p.id}, ${loc}, ${entry.stock ?? 0}, ${entry.lowStock ?? 5})
+            ON CONFLICT (product_id, location) DO UPDATE SET
+              stock = EXCLUDED.stock,
+              low_stock = EXCLUDED.low_stock
+          `);
+        }
+      }
     }
 
     if (queries.length > 0) {

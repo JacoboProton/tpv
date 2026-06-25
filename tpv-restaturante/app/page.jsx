@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   LayoutGrid, ChefHat, Package, BarChart3, AlertTriangle,
-  LogOut, Users, ShieldCheck, Sun, Moon, ClipboardList, WifiOff, Printer, Settings, Percent,
+  LogOut, Users, ShieldCheck, Sun, Moon, ClipboardList, WifiOff, Printer, Settings, Percent, Truck,
 } from 'lucide-react';
 
 import { THEMES, seedCatalog, seedFloor, seedEmployees, euros, round2, clone } from '../components/constants';
@@ -39,6 +39,7 @@ import PaymentModal         from '../components/PaymentModal';
 import ComandasAbiertasView from '../components/ComandasAbiertasView';
 import ModifierSelector     from '../components/ModifierSelector';
 import OfertasPanel         from '../components/OfertasPanel';
+import DeliveryView         from '../components/DeliveryView';
 
 export default function App() {
   // ---------- Tema claro/oscuro ----------
@@ -501,7 +502,15 @@ export default function App() {
     order.items.forEach(item => {
       if (item.productId) {
         const p = nextCatalog.products.find(p => p.id === item.productId);
-        if (p) p.stock = Math.max(0, p.stock - item.qty);
+        if (p) {
+          // Determinar la ubicación de descuento: si el producto tiene stockByLocation, usar la primera disponible o la de la mesa
+          const locs = Object.keys(p.stockByLocation || {});
+          const location = locs.length > 0 ? locs[0] : (p.ubicacion || 'Bar');
+          const entry = (p.stockByLocation || {})[location] || { stock: p.stock || 0 };
+          entry.stock = Math.max(0, (entry.stock || 0) - item.qty);
+          if (!p.stockByLocation) p.stockByLocation = {};
+          p.stockByLocation[location] = entry;
+        }
       }
     });
 
@@ -510,11 +519,14 @@ export default function App() {
       if (item.productId) {
         const p = nextCatalog.products.find(pr => pr.id === item.productId);
         if (p) {
+          const locs = Object.keys(p.stockByLocation || {});
+          const location = locs.length > 0 ? locs[0] : (p.ubicacion || 'Bar');
+          const entry = p.stockByLocation?.[location] || { stock: 0 };
           saveStockLog({
             productId: item.productId,
             productName: item.name,
-            oldStock: p.stock + item.qty,
-            newStock: p.stock,
+            oldStock: (entry.stock || 0) + item.qty,
+            newStock: entry.stock || 0,
             reason: 'venta',
             employeeName: currentUser?.name,
             createdAt: Date.now(),
@@ -627,6 +639,13 @@ export default function App() {
       table.status = 'ocupada';
     } else {
       order = next.orders[table.orderId];
+      if (!order) {
+        const orderId = 'o_' + Date.now();
+        order = { id: orderId, tableId: table.id, items: [], createdAt: Date.now(), employeeName: currentUser?.name || '-' };
+        next.orders[orderId] = order;
+        table.orderId = orderId;
+        table.status = 'ocupada';
+      }
     }
     const effectivePrice = round2(product.price + extraPrice);
     const existing = order.items.find(i => i.productId === product.id && !i.sent && JSON.stringify(i.modifiers) === JSON.stringify(modifiers));
@@ -717,14 +736,23 @@ export default function App() {
   // ---------- Catalogo ----------
   function addProduct(p) {
     const next = clone(catalog);
-    next.products.push({ id: 'p_' + Date.now(), name: p.name, category: p.category, price: Number(p.price), stock: Number(p.stock), lowStock: Number(p.lowStock), ubicacion: p.ubicacion || 'Bar', discount: 0 });
+    const loc = p.ubicacion || 'Bar';
+    next.products.push({
+      id: 'p_' + Date.now(), name: p.name, category: p.category, price: Number(p.price),
+      ubicacion: loc, discount: 0,
+      stockByLocation: { [loc]: { stock: Number(p.stock), lowStock: Number(p.lowStock) } },
+    });
     if (!next.categories.includes(p.category)) next.categories.push(p.category);
     persistCatalog(next); setNewProductOpen(false);
   }
   function updateProductField(id, field, value) {
     const next = clone(catalog);
     const p = next.products.find(p => p.id === id);
-    p[field] = (field === 'name' || field === 'category' || field === 'ubicacion') ? value : Number(value);
+    if (field === 'stockByLocation') {
+      p.stockByLocation = value;
+    } else {
+      p[field] = (field === 'name' || field === 'category' || field === 'ubicacion') ? value : Number(value);
+    }
     persistCatalog(next);
   }
   function deleteProduct(id) {
@@ -793,6 +821,7 @@ export default function App() {
     { id: 'informes',   label: 'Informes',   icon: BarChart3,     adminOnly: true  },
     { id: 'empleados',  label: 'Equipo',     icon: Users,         adminOnly: true  },
     { id: 'ofertas',    label: 'Ofertas',    icon: Percent,       adminOnly: true  },
+    { id: 'reparto',    label: 'Reparto',    icon: Truck,         adminOnly: true  },
   ].filter(item => !item.adminOnly || currentUser.role === 'admin');
 
   return (
@@ -867,6 +896,7 @@ export default function App() {
               colors={C}
             />
           )}
+          {view === 'reparto'    && <DeliveryView catalog={catalog} colors={C} />}
           {view === 'empleados'  && <EmpleadosView employees={employees} colors={C} onAdd={addEmployee} onUpdateField={updateEmployeeField} onDelete={deleteEmployee} confirmDeleteId={confirmDeleteId} setConfirmDeleteId={setConfirmDeleteId} />}
         </div>
       </main>

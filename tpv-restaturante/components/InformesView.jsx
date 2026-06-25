@@ -798,15 +798,129 @@ function RespaldoTab({ colors: C }) {
   const [backupResult, setBackupResult] = useState(null);
   const [backupError, setBackupError] = useState(null);
 
+  async function fetchBackupData() {
+    const data = await fetchBackup();
+    setBackupResult(data);
+    return data;
+  }
+
   async function handleBackup() {
     setBackupLoading(true);
     setBackupResult(null);
     setBackupError(null);
     try {
-      const data = await fetchBackup();
-      setBackupResult(data);
+      const data = await fetchBackupData();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `respaldo-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
     } catch (err) {
       setBackupError(err.message || 'Error al realizar el respaldo');
+    } finally {
+      setBackupLoading(false);
+    }
+  }
+
+  async function handlePDF() {
+    setBackupLoading(true);
+    setBackupError(null);
+    try {
+      const data = await fetchBackupData();
+      const [{ jsPDF }, { autoTable }] = await Promise.all([
+        import('jspdf'),
+        import('jspdf-autotable'),
+      ]);
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+      let page = 1;
+      function header(title) {
+        if (doc.getCurrentPageInfo().pageNumber > page) {
+          page = doc.getCurrentPageInfo().pageNumber;
+        }
+        doc.setFontSize(16);
+        doc.setTextColor(200, 169, 110);
+        doc.text(title, 14, 20);
+        doc.setFontSize(8);
+        doc.setTextColor(140, 130, 120);
+        doc.text(`La Comanda — ${new Date().toLocaleDateString('es-ES')}`, 196, 20, { align: 'right' });
+        doc.line(14, 24, 196, 24);
+      }
+
+      function addTable(title, cols, rows) {
+        if (rows.length === 0) return;
+        doc.addPage();
+        header(title);
+        autoTable(doc, {
+          startY: 30,
+          head: [cols.map(c => c.label)],
+          body: rows.map(r => cols.map(c => {
+            const v = r[c.key];
+            if (v === null || v === undefined) return '';
+            if (typeof v === 'object') return JSON.stringify(v).slice(0, 80);
+            return String(v);
+          })),
+          styles: { fontSize: 7, cellPadding: 1.5 },
+          headStyles: { fillColor: [122, 139, 106], textColor: 255, fontStyle: 'bold' },
+          alternateRowStyles: { fillColor: [240, 238, 235] },
+        });
+      }
+
+      const { data: d } = data;
+
+      // Resumen inicial
+      doc.setFontSize(20);
+      doc.setTextColor(200, 169, 110);
+      doc.text('RESPALDO DE DATOS', 105, 30, { align: 'center' });
+      doc.setFontSize(11);
+      doc.setTextColor(60, 60, 60);
+      doc.text(`La Comanda — ${new Date(data.exportedAt).toLocaleString('es-ES')}`, 105, 40, { align: 'center' });
+      doc.setFontSize(10);
+      let yy = 55;
+      const stats = data.stats || {};
+      const LABELS = {
+        categories: 'Categorías', products: 'Productos', productStock: 'Stock por ubicación',
+        tables: 'Mesas', orders: 'Pedidos abiertos', sales: 'Ventas',
+        employees: 'Empleados', accessLogs: 'Accesos', stockLog: 'Mov. stock',
+        cancelledOrders: 'Pedidos cancelados', offers: 'Ofertas', settings: 'Configuración',
+        modifiers: 'Modificadores', deliveryRunners: 'Repartidores',
+        deliveryOrders: 'Pedidos domicilio', deliveryTracking: 'Tracking',
+      };
+      for (const [key, label] of Object.entries(LABELS)) {
+        doc.text(`${label}: ${stats[key] || 0}`, 20, yy);
+        yy += 7;
+      }
+
+      // Tablas detalladas
+      addTable('Productos', 
+        [{key:'id',label:'ID'},{key:'name',label:'Nombre'},{key:'category',label:'Categoría'},{key:'price',label:'Precio'},{key:'ubicacion',label:'Ubic.'},{key:'course',label:'Curso'}],
+        d.products || []);
+      addTable('Stock por ubicación',
+        [{key:'product_id',label:'Producto'},{key:'location',label:'Ubic.'},{key:'stock',label:'Stock'},{key:'low_stock',label:'Mínimo'}],
+        d.productStock || []);
+      addTable('Categorías',
+        [{key:'name',label:'Nombre'}],
+        (d.categories || []).map(c => ({ name: c.name || c })));
+      addTable('Mesas',
+        [{key:'id',label:'ID'},{key:'name',label:'Nombre'},{key:'status',label:'Estado'},{key:'type',label:'Tipo'}],
+        d.tables || []);
+      addTable('Ventas',
+        [{key:'id',label:'ID'},{key:'table_name',label:'Mesa'},{key:'total',label:'Total'},{key:'payment_method',label:'Método'},{key:'closed_at',label:'Fecha'}],
+        (d.sales || []).map(s => ({ ...s, closed_at: s.closed_at ? new Date(Number(s.closed_at)).toLocaleDateString('es-ES') : '' })));
+      addTable('Empleados',
+        [{key:'id',label:'ID'},{key:'name',label:'Nombre'},{key:'role',label:'Rol'}],
+        d.employees || []);
+      addTable('Ofertas',
+        [{key:'id',label:'ID'},{key:'name',label:'Nombre'},{key:'discount_pct',label:'Dto%'},{key:'active',label:'Activa'}],
+        (d.offers || []).map(o => ({ ...o, active: o.active ? 'Sí' : 'No' })));
+      addTable('Repartidores',
+        [{key:'name',label:'Nombre'},{key:'phone',label:'Tel.'},{key:'active',label:'Activo'}],
+        (d.deliveryRunners || []).map(r => ({ ...r, active: r.active ? 'Sí' : 'No' })));
+
+      doc.save(`respaldo-${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch (err) {
+      setBackupError(err.message || 'Error al generar PDF');
     } finally {
       setBackupLoading(false);
     }
@@ -820,17 +934,28 @@ function RespaldoTab({ colors: C }) {
           <h3 className="font-display text-xl" style={{ color: C.cream }}>RESPALDO DE DATOS</h3>
         </div>
         <p style={{ color: C.muted }} className="text-sm mb-4">
-          Descarga una copia completa de todos los datos del sistema (catálogo, sala, ventas, empleados, accesos, turnos, stock, pedidos cancelados).
+          Descarga una copia completa de todos los datos del sistema.
         </p>
-        <button
-          onClick={handleBackup}
-          disabled={backupLoading}
-          style={{ background: C.brass, color: C.base }}
-          className="rounded-lg px-5 py-3 text-sm font-semibold flex items-center gap-2 hover:opacity-90 disabled:opacity-50"
-        >
-          <Download className="w-4 h-4" />
-          {backupLoading ? 'Generando respaldo...' : 'Descargar respaldo'}
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={handleBackup}
+            disabled={backupLoading}
+            style={{ background: C.brass, color: C.base }}
+            className="rounded-lg px-4 py-3 text-sm font-semibold flex items-center gap-2 hover:opacity-90 disabled:opacity-50"
+          >
+            <Download className="w-4 h-4" />
+            {backupLoading ? 'Generando...' : 'JSON'}
+          </button>
+          <button
+            onClick={handlePDF}
+            disabled={backupLoading}
+            style={{ background: C.sage, color: '#fff' }}
+            className="rounded-lg px-4 py-3 text-sm font-semibold flex items-center gap-2 hover:opacity-90 disabled:opacity-50"
+          >
+            <Download className="w-4 h-4" />
+            {backupLoading ? 'Generando...' : 'PDF'}
+          </button>
+        </div>
 
         {backupError && (
           <p className="text-sm mt-3" style={{ color: C.wineLight }}>
@@ -843,13 +968,12 @@ function RespaldoTab({ colors: C }) {
         <div style={{ background: C.surface, border: `1px solid ${C.line}` }} className="rounded-xl p-5 max-w-lg mt-4">
           <p className="text-sm font-medium mb-2" style={{ color: C.sage }}>Respaldo generado ✓</p>
           <div className="text-xs space-y-1" style={{ color: C.muted }}>
-            {backupResult.generatedAt && (
-              <p>Generado: {new Date(backupResult.generatedAt).toLocaleString('es-ES')}</p>
+            {backupResult.exportedAt && (
+              <p>Exportado: {new Date(backupResult.exportedAt).toLocaleString('es-ES')}</p>
             )}
             {backupResult.stats && Object.entries(backupResult.stats).map(([key, val]) => (
               <p key={key}>{key}: {val}</p>
             ))}
-            {backupResult.totalSize && <p>Tamaño: {backupResult.totalSize}</p>}
           </div>
         </div>
       )}

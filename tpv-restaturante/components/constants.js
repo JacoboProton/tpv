@@ -108,8 +108,23 @@ export function seedCatalog() {
     { id: 'p12', name: 'Hamburguesa',       category: 'Principales', price: 11.5, stock: 20, lowStock: 5, ubicacion: 'Cocina',  discount: 0, course: 'Principales', allergens: ['gluten', 'lacteos', 'huevos'] },
     { id: 'p13', name: 'Entrecot',          category: 'Principales', price: 16.0, stock: 12, lowStock: 4, ubicacion: 'Cocina',  discount: 0, course: 'Principales', allergens: [] },
     { id: 'p14', name: 'Paella (ración)',   category: 'Principales', price: 13.5, stock: 10, lowStock: 3, ubicacion: 'Cocina',  discount: 0, course: 'Principales', allergens: ['crustaceos', 'moluscos', 'gluten'] },
-    { id: 'p15', name: 'Tarta de queso',    category: 'Postres',    price: 4.5,  stock: 14, lowStock: 4,  ubicacion: 'Almacén', discount: 0, course: 'Postres', allergens: ['lacteos', 'huevos', 'gluten'] },
-    { id: 'p16', name: 'Flan',              category: 'Postres',    price: 3.5,  stock: 16, lowStock: 4,  ubicacion: 'Almacén', discount: 0, course: 'Postres', allergens: ['huevos', 'lacteos'] },
+    { id: 'p15', name: 'Tarta de queso',    category: 'Postres',    price: 4.5,  stock: 14, lowStock: 4,  ubicacion: 'Cocina', discount: 0, course: 'Postres', allergens: ['lacteos', 'huevos', 'gluten'] },
+    { id: 'p16', name: 'Flan',              category: 'Postres',    price: 3.5,  stock: 16, lowStock: 4,  ubicacion: 'Cocina', discount: 0, course: 'Postres', allergens: ['huevos', 'lacteos'] },
+    // Nuevos productos
+    { id: 'p17', name: 'Café solo',         category: 'Bebidas',    price: 1.8,  stock: 50, lowStock: 10, ubicacion: 'Bar',     discount: 0, course: '', allergens: [] },
+    { id: 'p18', name: 'Café con leche',    category: 'Bebidas',    price: 2.0,  stock: 50, lowStock: 10, ubicacion: 'Bar',     discount: 0, course: '', allergens: ['lacteos'] },
+    { id: 'p19', name: 'Cerveza botellín',  category: 'Bebidas',    price: 2.5,  stock: 60, lowStock: 15, ubicacion: 'Bar',     discount: 0, course: '', allergens: ['gluten'] },
+    { id: 'p20', name: 'Zumo de naranja',   category: 'Bebidas',    price: 3.0,  stock: 30, lowStock: 8,  ubicacion: 'Bar',     discount: 0, course: '', allergens: [] },
+    { id: 'p21', name: 'Tortilla de patatas', category: 'Tapas',    price: 5.0,  stock: 20, lowStock: 5,  ubicacion: 'Cocina',  discount: 0, course: 'Entrantes', allergens: ['huevos'] },
+    { id: 'p22', name: 'Ensaladilla rusa',  category: 'Tapas',      price: 5.5,  stock: 18, lowStock: 5,  ubicacion: 'Cocina',  discount: 0, course: 'Entrantes', allergens: ['huevos', 'lacteos'] },
+    { id: 'p23', name: 'Gambas al ajillo',  category: 'Tapas',      price: 9.0,  stock: 15, lowStock: 4,  ubicacion: 'Cocina',  discount: 0, course: 'Entrantes', allergens: ['crustaceos'] },
+    { id: 'p24', name: 'Pulpo a la gallega', category: 'Tapas',     price: 11.0, stock: 12, lowStock: 3,  ubicacion: 'Cocina',  discount: 0, course: 'Entrantes', allergens: ['moluscos'] },
+    { id: 'p25', name: 'Pollo asado',       category: 'Principales', price: 10.0, stock: 15, lowStock: 4, ubicacion: 'Cocina',  discount: 0, course: 'Principales', allergens: [] },
+    { id: 'p26', name: 'Merluza a la plancha', category: 'Principales', price: 13.0, stock: 10, lowStock: 3, ubicacion: 'Cocina', discount: 0, course: 'Principales', allergens: ['pescado'] },
+    { id: 'p27', name: 'Arroz negro',       category: 'Principales', price: 12.5, stock: 10, lowStock: 3, ubicacion: 'Cocina',  discount: 0, course: 'Principales', allergens: ['moluscos', 'crustaceos'] },
+    { id: 'p28', name: 'Lasaña',            category: 'Principales', price: 10.5, stock: 12, lowStock: 4, ubicacion: 'Cocina',  discount: 0, course: 'Principales', allergens: ['gluten', 'lacteos', 'huevos'] },
+    { id: 'p29', name: 'Crema catalana',    category: 'Postres',    price: 4.0,  stock: 14, lowStock: 4,  ubicacion: 'Cocina', discount: 0, course: 'Postres', allergens: ['huevos', 'lacteos'] },
+    { id: 'p30', name: 'Helado vainilla',   category: 'Postres',    price: 3.5,  stock: 18, lowStock: 5,  ubicacion: 'Cocina', discount: 0, course: 'Postres', allergens: ['lacteos'] },
   ];
   return { categories, products };
 }

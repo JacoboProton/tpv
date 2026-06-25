@@ -1,6 +1,20 @@
+"use client";
+
 import { useState, useRef } from 'react';
 import { Plus, AlertTriangle, Trash2, Package, Filter, FolderTree, List, Camera } from 'lucide-react';
 import { euros, ALLERGENS, ALLERGEN_COLORS } from './constants';
+
+function totalStock(p) {
+  const sbl = p.stockByLocation || {};
+  return Object.values(sbl).reduce((s, e) => s + (e.stock || 0), 0);
+}
+
+function isLow(p) {
+  const sbl = p.stockByLocation || {};
+  return Object.values(sbl).some(e => (e.stock || 0) <= (e.lowStock || 0));
+}
+
+const LOCATIONS = ['Bar', 'Cocina', 'Almacén'];
 
 export default function InventarioView({
   catalog, colors: C, onUpdateField,
@@ -19,9 +33,7 @@ export default function InventarioView({
       const res = await fetch('/api/upload', { method: 'POST', body: formData });
       const data = await res.json();
       if (data.url) onUpdateField(productId, 'image', data.url);
-    } catch {
-      // silent
-    }
+    } catch {}
     setUploadingProduct(null);
   }
   const [form, setForm] = useState({
@@ -41,7 +53,7 @@ export default function InventarioView({
 
   const filteredProducts = catalog.products.filter(p => {
     const byCategory = filterCategory === 'Todos' || p.category === filterCategory;
-    const byLowStock = !filterLowOnly || p.stock <= p.lowStock;
+    const byLowStock = !filterLowOnly || isLow(p);
     const bySearch = !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase());
     return byCategory && byLowStock && bySearch;
   });
@@ -53,8 +65,8 @@ export default function InventarioView({
   }
   const categorias = Object.keys(porCategoria).sort();
 
-  const totalValor = filteredProducts.reduce((s, p) => s + p.stock * p.price, 0);
-  const totalBajo = filteredProducts.filter(p => p.stock <= p.lowStock).length;
+  const totalValor = filteredProducts.reduce((s, p) => s + totalStock(p) * p.price, 0);
+  const totalBajo = filteredProducts.filter(isLow).length;
 
   const inputStyle = {
     background: C.surfaceLight,
@@ -63,22 +75,44 @@ export default function InventarioView({
     transition: 'border-color 0.2s, box-shadow 0.2s',
   };
 
+  function updateStock(pId, loc, val) {
+    const nv = parseInt(val) || 0;
+    const p = catalog.products.find(p => p.id === pId);
+    const sbl = { ...(p?.stockByLocation || {}) };
+    sbl[loc] = { stock: nv, lowStock: sbl[loc]?.lowStock ?? 5 };
+    onUpdateField(pId, 'stockByLocation', sbl);
+  }
+
+  function stockBar(p) {
+    const sbl = p.stockByLocation || {};
+    const all = LOCATIONS.map(loc => ({ loc, entry: sbl[loc] }));
+    const hasStock = all.some(({ entry }) => entry);
+    if (!hasStock) {
+      const total = Object.values(sbl).reduce((s, e) => s + (e.stock || 0), 0);
+      const low = Object.values(sbl).reduce((s, e) => s + (e.lowStock || 5), 0);
+      const pct = Math.min(100, low ? Math.round((total / low) * 50) : 0);
+      return { total, low: total <= low / LOCATIONS.length, pct, multi: false };
+    }
+    const total = all.reduce((s, { entry }) => s + (entry?.stock || 0), 0);
+    const minLow = Math.min(...all.filter(({ entry }) => entry).map(({ entry }) => entry.lowStock || 5));
+    return { total, low: total <= minLow, pct: Math.min(100, minLow ? Math.round((total / minLow) * 50) : 0), multi: true };
+  }
+
   function renderProduct(p) {
-    const low = p.stock <= p.lowStock;
-    const pct = Math.min(100, Math.round((p.stock / (p.lowStock || 1)) * 100));
+    const sb = stockBar(p);
     return (
       <div
         key={p.id}
-        style={{ background: C.surface, border: `1px solid ${low ? C.wine : C.line}` }}
-        className={`rounded-lg p-3 flex flex-wrap items-center justify-between gap-3 transition-all ${low ? 'shadow-md shadow-red-500/10' : ''}`}
+        style={{ background: C.surface, border: `1px solid ${sb.low ? C.wine : C.line}` }}
+        className={`rounded-lg p-3 flex flex-wrap items-center gap-3 transition-all ${sb.low ? 'shadow-md shadow-red-500/10' : ''}`}
       >
         <div className="flex items-start gap-3 flex-1 min-w-[8rem]">
           <div className="relative shrink-0">
             {p.image ? (
               <img src={p.image} alt="" className="w-9 h-9 rounded-lg object-cover" />
             ) : (
-              <div style={{ background: low ? 'rgba(176,94,94,0.2)' : 'rgba(122,154,124,0.2)', width: 36, height: 36 }} className="rounded-lg flex items-center justify-center">
-                <Package className="w-4 h-4" style={{ color: low ? C.wineLight : C.sageLight }} />
+              <div style={{ background: sb.low ? 'rgba(176,94,94,0.2)' : 'rgba(122,154,124,0.2)', width: 36, height: 36 }} className="rounded-lg flex items-center justify-center">
+                <Package className="w-4 h-4" style={{ color: sb.low ? C.wineLight : C.sageLight }} />
               </div>
             )}
             <button
@@ -120,23 +154,35 @@ export default function InventarioView({
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div style={{ background: C.surfaceLight }} className="w-20 h-2.5 rounded-full overflow-hidden hidden sm:block">
-            <div style={{ width: `${pct}%`, background: low ? C.wineLight : C.sageLight }} className="h-full transition-all duration-300" />
-          </div>
-
-          <div className="relative">
-            <input
-              type="number" defaultValue={p.stock}
-              onBlur={e => onUpdateField(p.id, 'stock', e.target.value)}
-              style={{ ...inputStyle, color: low ? C.wineLight : C.cream, width: 64 }}
-              className="rounded-lg px-2.5 py-1.5 text-sm text-center font-mono hover:border-gray-500 focus:border-gray-300 focus:outline-none"
-              onMouseEnter={e => { if (!e.target.matches(':focus')) e.target.style.borderColor = C.line; }}
-              onMouseLeave={e => { if (!e.target.matches(':focus')) e.target.style.borderColor = 'transparent'; }}
-              onFocus={e => e.target.style.borderColor = C.brass}
-              onBlurCapture={e => e.target.style.borderColor = 'transparent'}
-            />
-            {low && <AlertTriangle className="w-3.5 h-3.5 absolute -top-1 -right-1" style={{ color: C.wineLight }} />}
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Stock por ubicación */}
+          <div className="flex gap-1.5">
+            {LOCATIONS.map(loc => {
+              const entry = (p.stockByLocation || {})[loc];
+              if (!entry && !sb.multi) return null;
+              const stk = entry?.stock ?? (sb.multi ? null : 0);
+              const low = entry?.lowStock ?? 5;
+              const isLowLoc = stk !== null && stk <= low;
+              if (stk === null) return null;
+              return (
+                <div key={loc} className="flex flex-col items-center">
+                  <span style={{ color: C.muted }} className="text-[10px] uppercase">{loc.slice(0, 3)}</span>
+                  <div className="relative">
+                    <input
+                      type="number" defaultValue={stk}
+                      onBlur={e => updateStock(p.id, loc, e.target.value)}
+                      style={{ ...inputStyle, color: isLowLoc ? C.wineLight : C.cream, width: 52 }}
+                      className="rounded-lg px-1.5 py-1 text-xs text-center font-mono hover:border-gray-500 focus:border-gray-300 focus:outline-none"
+                      onMouseEnter={e => { if (!e.target.matches(':focus')) e.target.style.borderColor = C.line; }}
+                      onMouseLeave={e => { if (!e.target.matches(':focus')) e.target.style.borderColor = 'transparent'; }}
+                      onFocus={e => e.target.style.borderColor = C.brass}
+                      onBlurCapture={e => e.target.style.borderColor = 'transparent'}
+                    />
+                    {isLowLoc && <AlertTriangle className="w-2.5 h-2.5 absolute -top-1 -right-1" style={{ color: C.wineLight }} />}
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           <input
@@ -276,7 +322,7 @@ export default function InventarioView({
           />
           <input
             value={form.stock} onChange={e => setForm({ ...form, stock: e.target.value })}
-            type="number" placeholder="Stock actual"
+            type="number" placeholder="Stock inicial"
             style={{ background: C.surfaceLight, color: C.cream }}
             className="rounded-lg px-3 py-2.5 text-sm"
           />
@@ -310,8 +356,8 @@ export default function InventarioView({
         <div className="flex flex-col gap-4">
           {categorias.map(cat => {
             const items = porCategoria[cat];
-            const catBajo = items.filter(p => p.stock <= p.lowStock).length;
-            const catValor = items.reduce((s, p) => s + p.stock * p.price, 0);
+            const catBajo = items.filter(isLow).length;
+            const catValor = items.reduce((s, p) => s + totalStock(p) * p.price, 0);
             return (
               <div key={cat}>
                 <div className="flex items-center justify-between mb-2 px-1">

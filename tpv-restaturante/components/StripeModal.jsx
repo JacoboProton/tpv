@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
-import { X, AlertTriangle } from 'lucide-react';
+import { X, AlertTriangle, WifiOff } from 'lucide-react';
 import StripePaymentForm from './StripePaymentForm';
 
-// Instancia singleton de Stripe (se carga una sola vez)
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+const pk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+const stripePromise = pk && pk.startsWith('pk_') ? loadStripe(pk) : null;
 
 export default function StripeModal({
   finalTotal,
@@ -116,6 +116,15 @@ export default function StripeModal({
               >
                 Cerrar
               </button>
+            </div>
+          </div>
+        ) : !stripePromise ? (
+          <div style={{ background: 'rgba(162,62,62,0.15)', border: `1px solid rgba(162,62,62,0.4)` }} className="rounded-xl p-4 flex items-start gap-3">
+            <WifiOff className="w-5 h-5 shrink-0 mt-0.5" style={{ color: C.wineLight }} />
+            <div>
+              <p className="text-sm font-medium" style={{ color: C.cream }}>Stripe no configurado</p>
+              <p className="text-xs mt-1" style={{ color: C.muted }}>Falta la clave pública de Stripe (NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)</p>
+              <button onClick={onCancel} style={{ color: C.muted }} className="text-xs mt-3 hover:opacity-80">Cerrar</button>
             </div>
           </div>
         ) : !clientSecret ? (

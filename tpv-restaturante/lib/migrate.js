@@ -181,6 +181,59 @@ export async function runMigrations() {
     }
   }
 
+  // ===== BACKUPS =====
+  await sql`
+    CREATE TABLE IF NOT EXISTS backups (
+      id TEXT PRIMARY KEY, data JSONB NOT NULL, created_at BIGINT NOT NULL
+    )
+  `;
+
+  // ===== DELIVERY =====
+  await sql`
+    CREATE TABLE IF NOT EXISTS delivery_runners (
+      id TEXT PRIMARY KEY, name TEXT NOT NULL, phone TEXT NOT NULL DEFAULT '',
+      active BOOLEAN NOT NULL DEFAULT true, created_at BIGINT NOT NULL
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS delivery_orders (
+      id TEXT PRIMARY KEY, order_id TEXT, table_id TEXT,
+      customer_name TEXT NOT NULL, customer_phone TEXT NOT NULL DEFAULT '',
+      address TEXT NOT NULL, address_lat NUMERIC(10,7), address_lng NUMERIC(10,7),
+      notes TEXT NOT NULL DEFAULT '', runner_id TEXT,
+      items JSONB NOT NULL DEFAULT '[]',
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at BIGINT NOT NULL, estimated_at BIGINT, delivered_at BIGINT
+    )
+  `;
+  await sql`ALTER TABLE delivery_orders ADD COLUMN IF NOT EXISTS items JSONB NOT NULL DEFAULT '[]'`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS delivery_tracking (
+      id SERIAL PRIMARY KEY, delivery_id TEXT NOT NULL REFERENCES delivery_orders(id) ON DELETE CASCADE,
+      status TEXT NOT NULL, location_lat NUMERIC(10,7), location_lng NUMERIC(10,7),
+      note TEXT NOT NULL DEFAULT '', created_at BIGINT NOT NULL
+    )
+  `;
+
+  // ===== STOCK POR UBICACIÓN =====
+  await sql`
+    CREATE TABLE IF NOT EXISTS product_stock (
+      product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      location TEXT NOT NULL,
+      stock INTEGER NOT NULL DEFAULT 0,
+      low_stock INTEGER NOT NULL DEFAULT 5,
+      PRIMARY KEY (product_id, location)
+    )
+  `;
+  // Migrar stock existente (product.stock → product_stock con la ubicación del producto)
+  await sql`
+    INSERT INTO product_stock (product_id, location, stock, low_stock)
+    SELECT id, ubicacion, stock, low_stock FROM products
+    ON CONFLICT (product_id, location) DO NOTHING
+  `;
+
   return { ok: true };
 }
 
@@ -231,7 +284,7 @@ export async function fetchTurns(employeeId, turnDate) {
 }
 
 export async function backupAll() {
-  const [categories, products, tables, orders, sales, employees, accessLogs, stockLog, cancelledOrders] = await Promise.all([
+  const [categories, products, tables, orders, sales, employees, accessLogs, stockLog, cancelledOrders, offers, settings, backups, deliveryRunners, deliveryOrders, deliveryTracking] = await Promise.all([
     sql`SELECT * FROM categories`,
     sql`SELECT * FROM products`,
     sql`SELECT * FROM tables`,
@@ -241,10 +294,16 @@ export async function backupAll() {
     sql`SELECT * FROM access_logs ORDER BY id`,
     sql`SELECT * FROM stock_log ORDER BY id`,
     sql`SELECT * FROM cancelled_orders ORDER BY id`,
+    sql`SELECT * FROM offers`,
+    sql`SELECT * FROM settings`,
+    sql`SELECT * FROM backups ORDER BY created_at DESC LIMIT 10`,
+    sql`SELECT * FROM delivery_runners`,
+    sql`SELECT * FROM delivery_orders`,
+    sql`SELECT * FROM delivery_tracking ORDER BY id`,
   ]);
   return {
     exportedAt: new Date().toISOString(),
-    version: '1.0',
-    data: { categories, products, tables, orders, sales, employees, accessLogs, stockLog, cancelledOrders },
+    version: '2.0',
+    data: { categories, products, tables, orders, sales, employees, accessLogs, stockLog, cancelledOrders, offers, settings, backups, deliveryRunners, deliveryOrders, deliveryTracking },
   };
 }

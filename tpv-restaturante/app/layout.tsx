@@ -44,7 +44,7 @@ export default function RootLayout({
           <ErrorBoundary>{children}</ErrorBoundary>
           <script
             dangerouslySetInnerHTML={{
-              __html: `if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});`,
+              __html: ``,
             }}
           />
         </body>

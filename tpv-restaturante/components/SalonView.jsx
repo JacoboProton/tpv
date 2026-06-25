@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { Calendar, Users, ClipboardList } from 'lucide-react';
+import { Calendar, Users, ClipboardList, QrCode } from 'lucide-react';
 import { clone } from './constants';
+import QRCodeModal from './QRCodeModal';
 
 export default function SalonView({ floor, onSelect, persistFloor, colors: C }) {
   const [showReservationModal, setShowReservationModal] = useState(null);
   const [reservationForm, setReservationForm] = useState({ name: '', time: '', guests: 2 });
+  const [qrTableId, setQrTableId] = useState(null);
 
   function addReservation(tableId) {
     if (!reservationForm.name || !reservationForm.time) return;
@@ -95,6 +97,14 @@ export default function SalonView({ floor, onSelect, persistFloor, colors: C }) 
               )}
 
               <div className="flex gap-1 mt-3">
+                <button
+                  onClick={() => setQrTableId(t.id)}
+                  style={{ background: C.surfaceLight, color: C.muted }}
+                  className="text-xs py-1.5 rounded-lg hover:opacity-80 flex items-center justify-center gap-0.5 px-1.5"
+                  title="QR Carta digital"
+                >
+                  <QrCode className="w-3.5 h-3.5" />
+                </button>
                 {t.reserved && !t.orderId && (
                   <button
                     onClick={() => cancelReservation(t.id)}
@@ -194,6 +204,8 @@ export default function SalonView({ floor, onSelect, persistFloor, colors: C }) 
           </div>
         </div>
       )}
+      {/* Modal QR */}
+      {qrTableId && <QRCodeModal tableId={qrTableId} onClose={() => setQrTableId(null)} />}
     </div>
   );
 }

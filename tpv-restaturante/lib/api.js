@@ -143,3 +143,29 @@ export async function saveOffers(offers) {
 export async function fetchExportSales(year) {
   return apiFetch(`/api/export/sales?year=${year}`);
 }
+
+// Delivery
+export async function fetchDeliveryRunners() {
+  return apiFetch('/api/delivery/runners');
+}
+export async function saveDeliveryRunners(runners) {
+  return apiFetch('/api/delivery/runners', { method: 'PUT', body: JSON.stringify(runners) });
+}
+export async function deleteDeliveryRunner(id) {
+  return apiFetch('/api/delivery/runners', { method: 'DELETE', body: JSON.stringify({ id }) });
+}
+export async function fetchDeliveryOrders() {
+  return apiFetch('/api/delivery/orders');
+}
+export async function createDeliveryOrder(data) {
+  return apiFetch('/api/delivery/orders', { method: 'POST', body: JSON.stringify(data) });
+}
+export async function updateDeliveryOrder(data) {
+  return apiFetch('/api/delivery/orders', { method: 'PUT', body: JSON.stringify(data) });
+}
+export async function fetchDeliveryTracking(deliveryId) {
+  return apiFetch(`/api/delivery/tracking?deliveryId=${deliveryId}`);
+}
+export async function addDeliveryTracking(data) {
+  return apiFetch('/api/delivery/tracking', { method: 'POST', body: JSON.stringify(data) });
+}
