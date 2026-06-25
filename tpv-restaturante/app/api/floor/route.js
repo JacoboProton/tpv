@@ -5,7 +5,7 @@ import { sql } from '../../../lib/db';
 export async function GET() {
   try {
     const [tableRows, orderRows] = await Promise.all([
-      sql`SELECT id, name, status, order_id AS "orderId", reserved, is_fiado AS "isFiado" FROM tables ORDER BY id`,
+      sql`SELECT id, name, status, order_id AS "orderId", reserved, is_fiado AS "isFiado", type FROM tables ORDER BY id`,
       sql`SELECT id, table_id AS "tableId", items, created_at AS "createdAt", employee_name AS "employeeName" FROM orders`,
     ]);
 
@@ -29,13 +29,14 @@ export async function PUT(req) {
 
     for (const t of tables) {
       queries.push(sql`
-        INSERT INTO tables (id, name, status, order_id, reserved, is_fiado)
-        VALUES (${t.id}, ${t.name}, ${t.status}, ${t.orderId ?? null}, ${JSON.stringify(t.reserved ?? null)}, ${t.isFiado ?? false})
+        INSERT INTO tables (id, name, status, order_id, reserved, is_fiado, type)
+        VALUES (${t.id}, ${t.name}, ${t.status}, ${t.orderId ?? null}, ${JSON.stringify(t.reserved ?? null)}, ${t.isFiado ?? false}, ${t.type ?? 'mesa'})
         ON CONFLICT (id) DO UPDATE SET
           status   = EXCLUDED.status,
           order_id = EXCLUDED.order_id,
           reserved = EXCLUDED.reserved,
-          is_fiado = EXCLUDED.is_fiado
+          is_fiado = EXCLUDED.is_fiado,
+          type     = EXCLUDED.type
       `);
     }
 

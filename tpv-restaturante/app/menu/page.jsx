@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import Script from 'next/script';
 import { ALLERGENS, ALLERGEN_COLORS, COURSES, euros } from '../../components/constants';
 
 const C = {
@@ -28,6 +29,38 @@ export default function MenuPage() {
     }).catch(() => {});
   }, []);
 
+  const jsonLd = useMemo(() => {
+    const prods = catalog?.products || [];
+    const cats = catalog?.categories || [];
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'Restaurant',
+      name: 'La Comanda',
+      description: 'Carta digital con productos frescos y de calidad.',
+      servesCuisine: 'Española',
+      hasMenu: {
+        '@type': 'Menu',
+        name: 'Carta La Comanda',
+        hasMenuSection: cats.map(cat => ({
+          '@type': 'MenuSection',
+          name: cat.name,
+          hasMenuItem: prods
+            .filter(p => p.category === cat.name)
+            .map(p => ({
+              '@type': 'MenuItem',
+              name: p.name,
+              description: p.description || '',
+              offers: {
+                '@type': 'Offer',
+                price: p.price,
+                priceCurrency: 'EUR',
+              },
+            })),
+        })),
+      },
+    };
+  }, [catalog]);
+
   if (!catalog) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
@@ -38,6 +71,7 @@ export default function MenuPage() {
 
   const products = catalog.products || [];
   const categories = catalog.categories || [];
+
   const byCategory = {};
   for (const p of products) {
     if (activeCourse !== 'all' && p.course !== activeCourse) continue;
@@ -58,6 +92,11 @@ export default function MenuPage() {
 
   return (
     <div style={{ maxWidth: 480, margin: '0 auto', padding: '16px' }}>
+      <Script
+        id="schema-restaurant"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* Header */}
       <div style={{ textAlign: 'center', padding: '24px 0 16px' }}>
         <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: 1, color: C.brass }}>LA COMANDA</h1>
@@ -120,7 +159,7 @@ export default function MenuPage() {
                   {p.image && (
                     <img
                       src={p.image}
-                      alt=""
+                      alt={p.name || 'Producto'}
                       style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }}
                     />
                   )}
