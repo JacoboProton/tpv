@@ -5,7 +5,7 @@ import { sql } from '../../../lib/db';
 export async function GET() {
   try {
     const [rows, catRows] = await Promise.all([
-      sql`SELECT id, name, category, price::float AS price, stock, low_stock AS "lowStock", ubicacion FROM products ORDER BY category, name`,
+      sql`SELECT id, name, category, price::float AS price, stock, low_stock AS "lowStock", ubicacion, course FROM products ORDER BY category, name`,
       sql`SELECT name FROM categories ORDER BY name`,
     ]);
     return NextResponse.json({
@@ -30,15 +30,16 @@ export async function PUT(req) {
 
     for (const p of products) {
       queries.push(sql`
-        INSERT INTO products (id, name, category, price, stock, low_stock, ubicacion)
-        VALUES (${p.id}, ${p.name}, ${p.category}, ${p.price}, ${p.stock}, ${p.lowStock ?? p.low_stock ?? 5}, ${p.ubicacion ?? 'Bar'})
+        INSERT INTO products (id, name, category, price, stock, low_stock, ubicacion, course)
+        VALUES (${p.id}, ${p.name}, ${p.category}, ${p.price}, ${p.stock}, ${p.lowStock ?? p.low_stock ?? 5}, ${p.ubicacion ?? 'Bar'}, ${p.course ?? ''})
         ON CONFLICT (id) DO UPDATE SET
           name      = EXCLUDED.name,
           category  = EXCLUDED.category,
           price     = EXCLUDED.price,
           stock     = EXCLUDED.stock,
           low_stock = EXCLUDED.low_stock,
-          ubicacion = EXCLUDED.ubicacion
+          ubicacion = EXCLUDED.ubicacion,
+          course    = EXCLUDED.course
       `);
     }
 

@@ -124,6 +124,10 @@ export async function printESCPOS(data) {
   await printerDevice.transferOut(1, data);
 }
 
+export function escposOpenDrawer() {
+  return new Uint8Array([0x1b, 0x70, 0x00, 0x19, 0xfa]);
+}
+
 export async function disconnectPrinter() {
   if (printerDevice) {
     try { await printerDevice.close(); } catch {}

@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { ChefHat, Clock, Check } from 'lucide-react';
 import { TICKET_EDGE } from './constants';
+
+const COURSE_COLORS = { Entrantes: '#6F9272', Principales: '#C8932B', Postres: '#A23E3E' };
 
 export default function CocinaView({ floor, onReady, colors: C }) {
   const [now, setNow] = useState(() => Date.now());
@@ -12,10 +14,11 @@ export default function CocinaView({ floor, onReady, colors: C }) {
     return () => clearInterval(id);
   }, []);
 
-  const tickets = floor.tables
+  const tickets = useMemo(() => floor.tables
     .filter(t => t.orderId)
     .map(t => ({ table: t, order: floor.orders[t.orderId] }))
-    .filter(({ order }) => order.items.some(i => i.sent && !i.ready));
+    .filter(({ order }) => order.items.some(i => i.sent && !i.ready)),
+  [floor]);
 
   if (tickets.length === 0) {
     return (
@@ -38,6 +41,9 @@ export default function CocinaView({ floor, onReady, colors: C }) {
           const minutesAgo = Math.max(0, Math.round((now - Math.min(...sentAts)) / 60000));
           const urgent = minutesAgo >= 10;
 
+          const coursesInTicket = [...new Set(pending.map(i => i.course).filter(Boolean))];
+          const noCourseItems = pending.filter(i => !i.course).length;
+
           return (
             <div
               key={order.id}
@@ -59,9 +65,29 @@ export default function CocinaView({ floor, onReady, colors: C }) {
                     <Clock className="w-3.5 h-3.5" /> {minutesAgo}&apos;
                   </span>
                 </div>
-                <ul className={`text-sm space-y-1 mb-3 ${urgent ? 'font-semibold' : ''}`}>
-                  {pending.map(i => <li key={i.id}>{i.qty}× {i.name}</li>)}
-                </ul>
+
+                {coursesInTicket.map(course => {
+                  const courseItems = pending.filter(i => i.course === course);
+                  return (
+                    <div key={course} className="mb-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: COURSE_COLORS[course] || C.muted }}>
+                        {course}
+                      </p>
+                      <ul className={`text-sm space-y-1 ${urgent ? 'font-semibold' : ''}`}>
+                        {courseItems.map(i => <li key={i.id}>{i.qty}× {i.name}</li>)}
+                      </ul>
+                    </div>
+                  );
+                })}
+
+                {noCourseItems > 0 && (
+                  <div className="mb-2">
+                    <ul className={`text-sm space-y-1 ${urgent ? 'font-semibold' : ''}`}>
+                      {pending.filter(i => !i.course).map(i => <li key={i.id}>{i.qty}× {i.name}</li>)}
+                    </ul>
+                  </div>
+                )}
+
                 <button
                   onClick={() => onReady(order.id)}
                   style={{ background: urgent ? '#fff' : C.sage, color: urgent ? C.wine : '#fff' }}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { euros, round2, clone, seedCatalog, seedFloor, seedEmployees, getDailyMenu } from '../app/components/constants';
+import { euros, round2, clone, seedCatalog, seedFloor, seedEmployees, getDailyMenu } from '../components/constants';
 
 describe('euros', () => {
   it('formats numbers as euros', () => {

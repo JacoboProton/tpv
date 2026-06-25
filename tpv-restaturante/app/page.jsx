@@ -20,6 +20,7 @@ import {
   fetchModifiers,
 } from '../lib/api';
 import { onNetworkChange, clearMutations, getMutations } from '../lib/offline';
+import { escposOpenDrawer, printESCPOS, isPrinterConnected } from '../lib/thermal-printer';
 
 import MenuPrincipal        from '../components/MenuPrincipal';
 import LoginScreen          from '../components/LoginScreen';
@@ -178,7 +179,12 @@ export default function App() {
     if (q.length === 0) return;
     for (const m of q) {
       try {
-        await fetch(m.key, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: m.payload });
+        const h = { 'Content-Type': 'application/json' };
+        const apiKey = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_TPV_API_KEY
+          ? process.env.NEXT_PUBLIC_TPV_API_KEY
+          : (typeof window !== 'undefined' && window.__TPV_API_KEY) || '';
+        if (apiKey) h['x-tpv-key'] = apiKey;
+        await fetch(m.key, { method: 'PUT', headers: h, body: m.payload });
       } catch {}
     }
     clearMutations();
@@ -346,7 +352,6 @@ export default function App() {
   }, 0) : 0;
   const discountedTotal = round2(orderTotal * (1 - orderDiscount / 100));
   const finalTotal      = round2(discountedTotal + tipAmount);
-  const hasUnsent       = selectedOrder ? selectedOrder.items.some(i => !i.sent) : false;
   const splitsUsed      = round2(paymentSplits.reduce((s, p) => s + (Number(p.amount) || 0), 0));
   const remaining       = round2(finalTotal - splitsUsed);
   const canConfirm      = paymentSplits.length > 0 && Math.abs(remaining) < 0.005;
@@ -394,14 +399,16 @@ export default function App() {
     persistFloor(next);
   }
 
-  function sendToKitchen() {
+  function sendToKitchenCourse(course) {
     const next = clone(floor);
     const table = next.tables.find(t => t.id === selectedTableId);
     const order = next.orders[table.orderId];
     let count = 0;
-    order.items.forEach(i => { if (!i.sent) { i.sent = true; i.sentAt = Date.now(); count++; } });
+    order.items.forEach(i => {
+      if (!i.sent && i.course === course) { i.sent = true; i.sentAt = Date.now(); count++; }
+    });
     persistFloor(next);
-    if (count) showToast(`Comanda enviada a cocina (${count} ${count === 1 ? 'linea' : 'lineas'})`);
+    if (count) showToast(`${course} enviado a cocina (${count} ${count === 1 ? 'linea' : 'lineas'})`);
   }
 
   function toggleCuenta() {
@@ -463,7 +470,7 @@ export default function App() {
       const used = round2(paymentSplits.reduce((s, p) => s + (p.method === 'fiado' ? 0 : p.amount), 0));
       const rem  = round2(finalTotal - used);
       if (rem <= 0) return;
-      setPaymentSplits(prev => [...prev.filter(p => p.method !== 'fiado'), { id: 'sp_' + Date.now(), method, amount: rem }]);
+      setPaymentSplits(prev => [...prev.filter(p => p.method !== 'fiado'), { id: 'sp_' + Date.now(), method, amount: rem, itemIds: [] }]);
     }
   }
   function updateSplitAmount(id, value) {
@@ -471,6 +478,17 @@ export default function App() {
     setPaymentSplits(prev => prev.map(p => p.id === id ? { ...p, amount: isNaN(amount) ? 0 : amount } : p));
   }
   function removeSplit(id) { setPaymentSplits(prev => prev.filter(p => p.id !== id)); }
+  function toggleSplitItem(splitId, itemId) {
+    setPaymentSplits(prev => prev.map(p => {
+      if (p.id !== splitId) return p;
+      const ids = p.itemIds || [];
+      const next = ids.includes(itemId) ? ids.filter(id => id !== itemId) : [...ids, itemId];
+      const itemAmount = (selectedOrder?.items || [])
+        .filter(i => next.includes(i.id))
+        .reduce((s, i) => s + i.price * i.qty, 0);
+      return { ...p, itemIds: next, amount: itemAmount > 0 ? itemAmount : p.amount };
+    }));
+  }
 
   function closeBill() {
     const nextFloor   = clone(floor);
@@ -542,6 +560,11 @@ export default function App() {
     );
 
     playChaChing();
+
+    // Abrir cajón si hay pago en efectivo e impresora conectada
+    if (payments.some(p => p.method === 'efectivo') && isPrinterConnected()) {
+      printESCPOS(escposOpenDrawer()).catch(() => {});
+    }
   }
 
   // ---------- Modificadores ----------
@@ -595,6 +618,7 @@ export default function App() {
         id: 'i_' + Date.now() + Math.random().toString(16).slice(2),
         productId: product.id, name: product.name, price: effectivePrice,
         qty: 1, sent: false, ready: false, sentAt: null, notes, modifiers,
+        course: product.course || '',
       });
     }
     persistFloor(next);
@@ -812,12 +836,12 @@ export default function App() {
           selectedTable={selectedTable} selectedOrder={selectedOrder}
           catalog={catalog} activeCategory={activeCategory} setActiveCategory={setActiveCategory}
           orderTotal={orderTotal} orderDiscount={orderDiscount} setOrderDiscount={setOrderDiscount}
-          tipAmount={tipAmount} finalTotal={finalTotal} hasUnsent={hasUnsent}
+          tipAmount={tipAmount} finalTotal={finalTotal}
           onClose={() => setSelectedTableId(null)}
           onAddItem={addItem} onChangeQty={changeQty}
           onRemoveItem={removeItem}
           onCancelTable={cancelTable}
-          onSendToKitchen={sendToKitchen} onToggleCuenta={toggleCuenta}
+          onSendToKitchenCourse={sendToKitchenCourse} onToggleCuenta={toggleCuenta}
           onOpenPayment={() => { setPaymentSplits([]); setTipAmount(0); setPaying(true); }}
           onResetTable={() => {
             const next = clone(floor);
@@ -840,10 +864,13 @@ export default function App() {
           orderDiscount={orderDiscount} tipAmount={tipAmount} setTipAmount={setTipAmount}
           paymentSplits={paymentSplits} remaining={remaining} canConfirm={canConfirm}
           onAddSplit={addSplit} onUpdateSplitAmount={updateSplitAmount} onRemoveSplit={removeSplit}
+          onToggleSplitItem={toggleSplitItem}
           onConfirm={closeBill}
           onCancel={() => { setPaying(false); setPaymentSplits([]); setTipAmount(0); }}
           onPrint={handlePrint}
-          showToast={showToast} colors={C}
+          showToast={showToast}
+          orderItems={selectedOrder?.items || []}
+          colors={C}
         />
       )}
 

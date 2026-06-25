@@ -68,6 +68,8 @@ export const TICKET_PRINT_STYLE = {
   padding: '2mm 3mm',
 };
 
+export const COURSES = ['Entrantes', 'Principales', 'Postres'];
+
 export const PAYMENT_METHODS = [
   { id: 'efectivo', label: 'Efectivo', icon: null },
   { id: 'tarjeta', label: 'Tarjeta', icon: null },
@@ -92,22 +94,22 @@ export function clone(obj) {
 export function seedCatalog() {
   const categories = ['Bebidas', 'Tapas', 'Principales', 'Postres'];
   const products = [
-    { id: 'p1',  name: 'Caña',              category: 'Bebidas',    price: 2.2,  stock: 80, lowStock: 15, ubicacion: 'Bar', discount: 0 },
-    { id: 'p2',  name: 'Tinto de verano',   category: 'Bebidas',    price: 2.8,  stock: 40, lowStock: 10, ubicacion: 'Bar', discount: 0 },
-    { id: 'p3',  name: 'Vermut',            category: 'Bebidas',    price: 3.2,  stock: 25, lowStock: 8,  ubicacion: 'Bar', discount: 0 },
-    { id: 'p4',  name: 'Copa de vino',      category: 'Bebidas',    price: 3.5,  stock: 30, lowStock: 8,  ubicacion: 'Bar', discount: 0 },
-    { id: 'p5',  name: 'Agua',              category: 'Bebidas',    price: 1.5,  stock: 60, lowStock: 12, ubicacion: 'Bar', discount: 0 },
-    { id: 'p6',  name: 'Refresco',          category: 'Bebidas',    price: 2.5,  stock: 50, lowStock: 12, ubicacion: 'Bar', discount: 0 },
-    { id: 'p7',  name: 'Patatas bravas',    category: 'Tapas',      price: 5.5,  stock: 30, lowStock: 8,  ubicacion: 'Cocina', discount: 0 },
-    { id: 'p8',  name: 'Croquetas (6u)',    category: 'Tapas',      price: 6.5,  stock: 24, lowStock: 6,  ubicacion: 'Cocina', discount: 0 },
-    { id: 'p9',  name: 'Calamares',         category: 'Tapas',      price: 8.5,  stock: 20, lowStock: 6,  ubicacion: 'Cocina', discount: 0 },
-    { id: 'p10', name: 'Jamón ibérico',     category: 'Tapas',      price: 12.0, stock: 15, lowStock: 4,  ubicacion: 'Cocina', discount: 0 },
-    { id: 'p11', name: 'Pimientos de padrón', category: 'Tapas',    price: 6.0,  stock: 18, lowStock: 5,  ubicacion: 'Cocina', discount: 0 },
-    { id: 'p12', name: 'Hamburguesa',       category: 'Principales', price: 11.5, stock: 20, lowStock: 5, ubicacion: 'Cocina', discount: 0 },
-    { id: 'p13', name: 'Entrecot',          category: 'Principales', price: 16.0, stock: 12, lowStock: 4, ubicacion: 'Cocina', discount: 0 },
-    { id: 'p14', name: 'Paella (ración)',   category: 'Principales', price: 13.5, stock: 10, lowStock: 3, ubicacion: 'Cocina', discount: 0 },
-    { id: 'p15', name: 'Tarta de queso',    category: 'Postres',    price: 4.5,  stock: 14, lowStock: 4,  ubicacion: 'Almacén', discount: 0 },
-    { id: 'p16', name: 'Flan',              category: 'Postres',    price: 3.5,  stock: 16, lowStock: 4,  ubicacion: 'Almacén', discount: 0 },
+    { id: 'p1',  name: 'Caña',              category: 'Bebidas',    price: 2.2,  stock: 80, lowStock: 15, ubicacion: 'Bar',     discount: 0, course: '' },
+    { id: 'p2',  name: 'Tinto de verano',   category: 'Bebidas',    price: 2.8,  stock: 40, lowStock: 10, ubicacion: 'Bar',     discount: 0, course: '' },
+    { id: 'p3',  name: 'Vermut',            category: 'Bebidas',    price: 3.2,  stock: 25, lowStock: 8,  ubicacion: 'Bar',     discount: 0, course: '' },
+    { id: 'p4',  name: 'Copa de vino',      category: 'Bebidas',    price: 3.5,  stock: 30, lowStock: 8,  ubicacion: 'Bar',     discount: 0, course: '' },
+    { id: 'p5',  name: 'Agua',              category: 'Bebidas',    price: 1.5,  stock: 60, lowStock: 12, ubicacion: 'Bar',     discount: 0, course: '' },
+    { id: 'p6',  name: 'Refresco',          category: 'Bebidas',    price: 2.5,  stock: 50, lowStock: 12, ubicacion: 'Bar',     discount: 0, course: '' },
+    { id: 'p7',  name: 'Patatas bravas',    category: 'Tapas',      price: 5.5,  stock: 30, lowStock: 8,  ubicacion: 'Cocina',  discount: 0, course: 'Entrantes' },
+    { id: 'p8',  name: 'Croquetas (6u)',    category: 'Tapas',      price: 6.5,  stock: 24, lowStock: 6,  ubicacion: 'Cocina',  discount: 0, course: 'Entrantes' },
+    { id: 'p9',  name: 'Calamares',         category: 'Tapas',      price: 8.5,  stock: 20, lowStock: 6,  ubicacion: 'Cocina',  discount: 0, course: 'Entrantes' },
+    { id: 'p10', name: 'Jamón ibérico',     category: 'Tapas',      price: 12.0, stock: 15, lowStock: 4,  ubicacion: 'Cocina',  discount: 0, course: 'Entrantes' },
+    { id: 'p11', name: 'Pimientos de padrón', category: 'Tapas',    price: 6.0,  stock: 18, lowStock: 5,  ubicacion: 'Cocina',  discount: 0, course: 'Entrantes' },
+    { id: 'p12', name: 'Hamburguesa',       category: 'Principales', price: 11.5, stock: 20, lowStock: 5, ubicacion: 'Cocina',  discount: 0, course: 'Principales' },
+    { id: 'p13', name: 'Entrecot',          category: 'Principales', price: 16.0, stock: 12, lowStock: 4, ubicacion: 'Cocina',  discount: 0, course: 'Principales' },
+    { id: 'p14', name: 'Paella (ración)',   category: 'Principales', price: 13.5, stock: 10, lowStock: 3, ubicacion: 'Cocina',  discount: 0, course: 'Principales' },
+    { id: 'p15', name: 'Tarta de queso',    category: 'Postres',    price: 4.5,  stock: 14, lowStock: 4,  ubicacion: 'Almacén', discount: 0, course: 'Postres' },
+    { id: 'p16', name: 'Flan',              category: 'Postres',    price: 3.5,  stock: 16, lowStock: 4,  ubicacion: 'Almacén', discount: 0, course: 'Postres' },
   ];
   return { categories, products };
 }

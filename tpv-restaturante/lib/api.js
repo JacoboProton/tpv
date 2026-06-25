@@ -1,9 +1,19 @@
 import { cacheGet, cacheSet, isOnline, enqueueMutation } from './offline';
 
+const TPV_API_KEY = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_TPV_API_KEY
+  ? process.env.NEXT_PUBLIC_TPV_API_KEY
+  : (typeof window !== 'undefined' && window.__TPV_API_KEY) || '';
+
+function apiHeaders(headers = {}) {
+  headers['Content-Type'] = 'application/json';
+  if (TPV_API_KEY) headers['x-tpv-key'] = TPV_API_KEY;
+  return headers;
+}
+
 async function apiFetch(url, options = {}) {
   try {
     const res = await fetch(url, {
-      headers: { 'Content-Type': 'application/json' },
+      headers: apiHeaders(options.headers),
       ...options,
     });
     if (!res.ok) {
