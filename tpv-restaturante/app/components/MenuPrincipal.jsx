@@ -6,12 +6,6 @@ export default function MenuPrincipal({ employees, onLoginClick, onAlmacenClick,
       style={{ background: C.base, color: C.cream, minHeight: '100vh', fontFamily: "'Inter', sans-serif" }}
       className="flex flex-col items-center justify-center p-6"
     >
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap');
-        .font-display { font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.04em; }
-        @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
-        .float-icon { animation: float 3s ease-in-out infinite; }
-      `}</style>
 
       <div className="flex flex-col items-center mb-12">
         <h1 className="font-display text-6xl mb-2" style={{ color: C.brassLight }}>LA COMANDA</h1>

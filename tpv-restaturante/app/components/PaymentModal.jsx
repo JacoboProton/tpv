@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { Banknote, CreditCard, Smartphone, Clock, X, CheckCircle2 } from 'lucide-react';
+import { Banknote, CreditCard, Smartphone, Clock, X, CheckCircle2, Printer } from 'lucide-react';
 import { euros, round2 } from './constants';
 import StripeModal from './StripeModal';
 
@@ -19,6 +19,7 @@ export default function PaymentModal({
   paymentSplits, remaining, canConfirm,
   onAddSplit, onUpdateSplitAmount, onRemoveSplit,
   onConfirm, onCancel,
+  onPrint,
   showToast,
   colors: C,
 }) {
@@ -151,6 +152,15 @@ export default function PaymentModal({
               );
             })}
           </div>
+
+          {/* Imprimir ticket */}
+          <button
+            onClick={onPrint}
+            style={{ background: C.surfaceLight, color: C.muted, border: `1px solid ${C.line}` }}
+            className="w-full rounded-lg py-2.5 text-xs font-medium flex items-center justify-center gap-2 mb-2 hover:opacity-80 transition-all"
+          >
+            <Printer className="w-4 h-4" /> Imprimir ticket
+          </button>
 
           {/* Botón confirmar */}
           <button

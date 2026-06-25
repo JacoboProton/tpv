@@ -118,7 +118,7 @@ export function generateRegistroFactura(sale, previousHash, numSerie) {
 
   const descripcion = sale.tableName
     ? `Venta mesa ${sale.tableName}`
-    : `Venta TPV ${sale.id}`;
+    : `Venta TPV ${sale.id || sale.saleId || ''}`;
 
   const xml = buildXML({
     nif: NIF_EMISOR,

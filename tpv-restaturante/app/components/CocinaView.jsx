@@ -1,7 +1,17 @@
+"use client";
+
+import { useState, useEffect } from 'react';
 import { ChefHat, Clock, Check } from 'lucide-react';
 import { TICKET_EDGE } from './constants';
 
 export default function CocinaView({ floor, onReady, colors: C }) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 15000);
+    return () => clearInterval(id);
+  }, []);
+
   const tickets = floor.tables
     .filter(t => t.orderId)
     .map(t => ({ table: t, order: floor.orders[t.orderId] }))
@@ -11,9 +21,9 @@ export default function CocinaView({ floor, onReady, colors: C }) {
     return (
       <div className="text-center py-16">
         <ChefHat className="w-10 h-10 mx-auto mb-3" style={{ color: C.muted }} />
-        <p style={{ color: C.muted }} className="text-sm">
-          No hay comandas pendientes. Cuando un camarero envíe un pedido, aparecerá aquí.
-        </p>
+          <p style={{ color: C.muted }} className="text-sm">
+            No hay comandas pendientes. Cuando un camarero env&iacute;e un pedido, aparecer&aacute; aqu&iacute;.
+          </p>
       </div>
     );
   }
@@ -24,10 +34,8 @@ export default function CocinaView({ floor, onReady, colors: C }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         {tickets.map(({ table, order }) => {
           const pending = order.items.filter(i => i.sent && !i.ready);
-          const minutesAgo = Math.max(
-            0,
-            Math.round((Date.now() - Math.min(...pending.map(i => i.sentAt || Date.now()))) / 60000)
-          );
+          const sentAts = pending.map(i => i.sentAt || now);
+          const minutesAgo = Math.max(0, Math.round((now - Math.min(...sentAts)) / 60000));
           const urgent = minutesAgo >= 10;
 
           return (
@@ -48,7 +56,7 @@ export default function CocinaView({ floor, onReady, colors: C }) {
                     style={{ color: urgent ? '#ffc1c1' : '#8a7c68' }}
                     className="flex items-center gap-1 text-xs px-2 py-1 rounded-full"
                   >
-                    <Clock className="w-3.5 h-3.5" /> {minutesAgo}'
+                    <Clock className="w-3.5 h-3.5" /> {minutesAgo}&apos;
                   </span>
                 </div>
                 <ul className={`text-sm space-y-1 mb-3 ${urgent ? 'font-semibold' : ''}`}>

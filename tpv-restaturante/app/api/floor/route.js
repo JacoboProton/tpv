@@ -25,9 +25,10 @@ export async function PUT(req) {
   try {
     const { tables, orders } = await req.json();
 
-    // Upsert mesas
+    const queries = [];
+
     for (const t of tables) {
-      await sql`
+      queries.push(sql`
         INSERT INTO tables (id, name, status, order_id, reserved, is_fiado)
         VALUES (${t.id}, ${t.name}, ${t.status}, ${t.orderId ?? null}, ${JSON.stringify(t.reserved ?? null)}, ${t.isFiado ?? false})
         ON CONFLICT (id) DO UPDATE SET
@@ -35,26 +36,28 @@ export async function PUT(req) {
           order_id = EXCLUDED.order_id,
           reserved = EXCLUDED.reserved,
           is_fiado = EXCLUDED.is_fiado
-      `;
+      `);
     }
 
-    // Borrar pedidos que ya no existen y upsert los actuales
     const orderIds = Object.keys(orders);
     if (orderIds.length > 0) {
       for (const [oid, o] of Object.entries(orders)) {
-        await sql`
+        queries.push(sql`
           INSERT INTO orders (id, table_id, items, created_at, employee_name)
           VALUES (${oid}, ${o.tableId}, ${JSON.stringify(o.items)}, ${o.createdAt}, ${o.employeeName ?? null})
           ON CONFLICT (id) DO UPDATE SET
             table_id      = EXCLUDED.table_id,
             items         = EXCLUDED.items,
             employee_name = EXCLUDED.employee_name
-        `;
+        `);
       }
-      // Limpiar pedidos huérfanos
-      await sql`DELETE FROM orders WHERE id != ALL(${orderIds})`;
+      queries.push(sql`DELETE FROM orders WHERE id != ALL(${orderIds})`);
     } else {
-      await sql`DELETE FROM orders`;
+      queries.push(sql`DELETE FROM orders`);
+    }
+
+    if (queries.length > 0) {
+      await sql.transaction(queries);
     }
 
     return NextResponse.json({ ok: true });

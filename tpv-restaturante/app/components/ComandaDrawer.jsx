@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
-  ArrowLeft, Receipt, ChefHat, CreditCard, ClipboardList,
-  Plus, Minus, Percent, X, Trash2, AlertTriangle,
+  ArrowLeft, Receipt, ChefHat, CreditCard,
+  Plus, Minus, Percent, X, Trash2, AlertTriangle, Check, StickyNote,
 } from 'lucide-react';
 import { TICKET_EDGE, euros } from './constants';
 
@@ -13,9 +13,14 @@ export default function ComandaDrawer({
   onClose, onAddItem, onChangeQty, onRemoveItem, onCancelTable,
   onSendToKitchen, onToggleCuenta,
   onOpenPayment, onResetTable,
+  onUpdateNotes,
   colors: C,
 }) {
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [discountInput, setDiscountInput] = useState('');
+  const [showDiscountModal, setShowDiscountModal] = useState(false);
+  const [editNotesId, setEditNotesId] = useState(null);
+  const [notesInput, setNotesInput] = useState('');
 
   if (!selectedTable) return null;
 
@@ -23,11 +28,21 @@ export default function ComandaDrawer({
   const isDebtOnly   = selectedOrder?.items?.length === 1 && selectedOrder.items[0].productId === null;
   const hasItems     = selectedOrder && selectedOrder.items.length > 0;
   const isCuenta     = selectedTable.status === 'cuenta';
-  const hasKitchenItems = selectedOrder && selectedOrder.items.some(i => i.sent && !i.ready);
 
   function handleCancelTable() {
     setConfirmCancel(false);
     onCancelTable();
+  }
+
+  function handleOpenNotes(item) {
+    setEditNotesId(item.id);
+    setNotesInput(item.notes || '');
+  }
+
+  function handleSaveNotes() {
+    if (editNotesId) onUpdateNotes(editNotesId, notesInput);
+    setEditNotesId(null);
+    setNotesInput('');
   }
 
   return (
@@ -48,7 +63,6 @@ export default function ComandaDrawer({
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Icono papelera — cancelar mesa entera */}
             {hasItems && !isDebtOnly && (
               <button
                 onClick={() => setConfirmCancel(true)}
@@ -69,7 +83,6 @@ export default function ComandaDrawer({
                 💳 Pagar deuda
               </button>
             ) : (
-              /* Cuando NO está en cuenta: mostrar "Pedir cuenta" */
               !isCuenta && (
                 <button
                   onClick={onToggleCuenta}
@@ -94,7 +107,6 @@ export default function ComandaDrawer({
               <p className="text-sm font-medium" style={{ color: C.brassLight }}>Cuenta pedida</p>
             </div>
             <div className="flex gap-2">
-              {/* Cancelar cuenta → vuelve a "ocupada" */}
               <button
                 onClick={onToggleCuenta}
                 style={{ background: C.surface, border: `1px solid ${C.line}`, color: C.muted }}
@@ -102,7 +114,6 @@ export default function ComandaDrawer({
               >
                 Cancelar cuenta
               </button>
-              {/* Cancelar mesa → libera sin cobrar */}
               <button
                 onClick={() => setConfirmCancel(true)}
                 style={{ background: C.wine, color: C.cream }}
@@ -110,7 +121,6 @@ export default function ComandaDrawer({
               >
                 Cancelar mesa
               </button>
-              {/* Cobrar */}
               <button
                 onClick={onOpenPayment}
                 disabled={!hasItems}
@@ -190,18 +200,32 @@ export default function ComandaDrawer({
           <div className="grid grid-cols-2 gap-2 p-4 overflow-y-auto" style={{ maxHeight: '32%' }}>
             {catalog.products
               .filter(p => activeCategory === 'Todos' || p.category === activeCategory)
-              .map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => onAddItem(p)}
-                  disabled={p.stock <= 0}
-                  style={{ background: C.surfaceLight, border: `1px solid ${C.line}`, opacity: p.stock <= 0 ? 0.4 : 1 }}
-                  className="text-left rounded-lg p-2.5 hover:opacity-90 disabled:cursor-not-allowed"
-                >
-                  <p className="text-sm font-medium leading-tight">{p.name}</p>
-                  <p className="font-mono text-xs mt-1" style={{ color: C.brassLight }}>{euros(p.price)}</p>
-                </button>
-              ))}
+              .map(p => {
+                const disc = p.discount || 0;
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => onAddItem(p)}
+                    disabled={p.stock <= 0}
+                    style={{ background: C.surfaceLight, border: `1px solid ${C.line}`, opacity: p.stock <= 0 ? 0.4 : 1 }}
+                    className="text-left rounded-lg p-2.5 hover:opacity-90 disabled:cursor-not-allowed relative"
+                  >
+                    <p className="text-sm font-medium leading-tight">{p.name}</p>
+                    <p className="font-mono text-xs mt-1" style={{ color: C.brassLight }}>
+                      {disc > 0 ? (
+                        <><span className="line-through opacity-60 mr-1">{euros(p.price)}</span> {euros(p.price * (1 - disc / 100))}</>
+                      ) : (
+                        euros(p.price)
+                      )}
+                    </p>
+                    {disc > 0 && (
+                      <span className="absolute top-1 right-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: C.wine, color: C.cream }}>
+                        -{disc}%
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
           </div>
         )}
 
@@ -214,48 +238,94 @@ export default function ComandaDrawer({
                 Sin artículos todavía. Toca un producto para añadirlo.
               </p>
             ) : (
-              selectedOrder.items.map(item => (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between py-1.5"
-                  style={{ borderBottom: '1px dashed #cdbfa3' }}
-                >
-                  <div className="flex-1 pr-2 min-w-0">
-                    <p className="leading-tight truncate">{item.name}</p>
-                    {item.sent && (
-                      <span style={{ color: item.ready ? C.sage : '#a4884a' }} className="text-[11px]">
-                        {item.ready ? '✓ servido' : '● en cocina'}
-                      </span>
+              selectedOrder.items.map(item => {
+                const product = catalog.products.find(p => p.id === item.productId);
+                const disc = product?.discount || 0;
+                const effectivePrice = disc > 0 ? item.price * (1 - disc / 100) : item.price;
+
+                return (
+                  <div key={item.id}>
+                    <div
+                      className="flex items-center justify-between py-1.5"
+                      style={{ borderBottom: '1px dashed #cdbfa3' }}
+                    >
+                      <div className="flex-1 pr-2 min-w-0">
+                        <p className="leading-tight truncate">{item.name}</p>
+                        {item.sent && (
+                          <span style={{ color: item.ready ? C.sage : '#a4884a' }} className="text-[11px]">
+                            {item.ready ? '✓ servido' : '● en cocina'}
+                          </span>
+                        )}
+                        {disc > 0 && (
+                          <span className="text-[10px] ml-1" style={{ color: C.wineLight }}>-{disc}%</span>
+                        )}
+                        {item.modifiers?.length > 0 && (
+                          <p className="text-[10px]" style={{ color: '#8a7c68' }}>
+                            {item.modifiers.map(m => m.optionName).join(', ')}
+                          </p>
+                        )}
+                        {item.notes && (
+                          <p className="text-[10px] italic truncate" style={{ color: '#8a7c68' }}>📝 {item.notes}</p>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        {!item.sent ? (
+                          <>
+                            <button onClick={() => onChangeQty(item.id, -1)} className="p-0.5">
+                              <Minus className="w-3.5 h-3.5" />
+                            </button>
+                            <span className="w-5 text-center text-xs">{item.qty}</span>
+                            <button onClick={() => onChangeQty(item.id, 1)} className="p-0.5">
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="w-5 text-center text-xs">{item.qty}</span>
+                            <button
+                              onClick={() => onRemoveItem(item.id)}
+                              style={{ color: C.wineLight }}
+                              className="p-0.5 hover:opacity-80"
+                              title="Eliminar línea"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )}
+                        <button
+                          onClick={() => handleOpenNotes(item)}
+                          className="p-0.5 hover:opacity-80"
+                          title="Añadir notas"
+                          style={{ color: item.notes ? C.brass : '#8a7c68' }}
+                        >
+                          <StickyNote className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <span className="w-16 text-right shrink-0">{euros(effectivePrice * item.qty)}</span>
+                    </div>
+                    {/* Notes input inline */}
+                    {editNotesId === item.id && (
+                      <div className="flex gap-1 py-1 px-2" style={{ background: 'rgba(0,0,0,0.03)' }}>
+                        <input
+                          type="text"
+                          value={notesInput}
+                          onChange={e => setNotesInput(e.target.value)}
+                          placeholder="Notas..."
+                          className="flex-1 text-xs px-2 py-1 rounded border font-sans"
+                          style={{ border: '1px solid #cdbfa3', background: '#fff' }}
+                          autoFocus
+                          onKeyDown={e => { if (e.key === 'Enter') handleSaveNotes(); if (e.key === 'Escape') setEditNotesId(null); }}
+                        />
+                        <button onClick={handleSaveNotes} className="p-1" style={{ color: C.sage }}>
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     )}
                   </div>
-
-                  {!item.sent ? (
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button onClick={() => onChangeQty(item.id, -1)} className="p-0.5">
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="w-5 text-center text-xs">{item.qty}</span>
-                      <button onClick={() => onChangeQty(item.id, 1)} className="p-0.5">
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="w-5 text-center text-xs">{item.qty}</span>
-                      <button
-                        onClick={() => onRemoveItem(item.id)}
-                        style={{ color: C.wineLight }}
-                        className="p-0.5 hover:opacity-80"
-                        title="Eliminar línea"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  )}
-
-                  <span className="w-16 text-right shrink-0">{euros(item.price * item.qty)}</span>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
 
@@ -286,15 +356,56 @@ export default function ComandaDrawer({
           {/* Barra descuento */}
           <div style={{ background: C.surfaceLight, color: C.muted }} className="px-4 py-2 text-xs flex gap-2">
             <button
-              onClick={() => {
-                const disc = prompt('Descuento %:', orderDiscount.toString());
-                if (disc !== null) setOrderDiscount(Math.min(100, Math.max(0, parseFloat(disc) || 0)));
-              }}
+              onClick={() => { setDiscountInput(String(orderDiscount)); setShowDiscountModal(true); }}
               className="flex items-center gap-1 hover:opacity-80"
             >
-              <Percent className="w-3.5 h-3.5" /> Descuento
+              <Percent className="w-3.5 h-3.5" /> {orderDiscount > 0 ? `${orderDiscount}%` : 'Descuento'}
             </button>
           </div>
+          {/* Modal descuento */}
+          {showDiscountModal && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              style={{ background: 'rgba(0,0,0,0.65)' }}
+              onClick={() => setShowDiscountModal(false)}
+            >
+              <div
+                style={{ background: C.surface, border: `1px solid ${C.line}` }}
+                className="w-full max-w-xs rounded-xl p-5 fade-up"
+                onClick={e => e.stopPropagation()}
+              >
+                <p className="font-display text-lg mb-3" style={{ color: C.cream }}>Descuento</p>
+                <div className="flex items-center gap-2 mb-4">
+                  <input
+                    type="number" min="0" max="100"
+                    value={discountInput}
+                    onChange={e => setDiscountInput(e.target.value)}
+                    style={{ background: C.surfaceLight, color: C.cream }}
+                    className="flex-1 rounded-lg px-3 py-2.5 text-lg font-mono text-center"
+                    autoFocus
+                    onKeyDown={e => { if (e.key === 'Enter') { setOrderDiscount(Math.min(100, Math.max(0, parseFloat(discountInput) || 0))); setShowDiscountModal(false); } }}
+                  />
+                  <span style={{ color: C.muted }} className="text-lg">%</span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setOrderDiscount(Math.min(100, Math.max(0, parseFloat(discountInput) || 0))); setShowDiscountModal(false); }}
+                    style={{ background: C.brass, color: C.base }}
+                    className="flex-1 rounded-lg py-2.5 text-sm font-semibold flex items-center justify-center gap-1.5"
+                  >
+                    <Check className="w-4 h-4" /> Aplicar
+                  </button>
+                  <button
+                    onClick={() => setShowDiscountModal(false)}
+                    style={{ color: C.muted, background: C.surfaceLight }}
+                    className="flex-1 rounded-lg py-2.5 text-sm"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── Acciones principales (solo visibles si NO está en estado "cuenta") ── */}

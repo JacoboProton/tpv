@@ -21,15 +21,26 @@ export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
     const limit = Math.min(parseInt(searchParams.get('limit') ?? '200'), 500);
+    const offset = Math.max(parseInt(searchParams.get('offset') ?? '0'), 0);
 
-    const rows = await sql`
-      SELECT id, employee_id AS "employeeId", employee_name AS "employeeName",
-             role, entry_point AS "entryPoint", logged_at AS "loggedAt"
-      FROM access_logs
-      ORDER BY logged_at DESC
-      LIMIT ${limit}
-    `;
-    return NextResponse.json(rows);
+    const [rows, countResult] = await Promise.all([
+      sql`
+        SELECT id, employee_id AS "employeeId", employee_name AS "employeeName",
+               role, entry_point AS "entryPoint", logged_at AS "loggedAt"
+        FROM access_logs
+        ORDER BY logged_at DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `,
+      sql`SELECT COUNT(*)::int AS total FROM access_logs`,
+    ]);
+
+    return NextResponse.json({
+      rows,
+      total: countResult[0].total,
+      limit,
+      offset,
+      hasMore: offset + limit < countResult[0].total,
+    });
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

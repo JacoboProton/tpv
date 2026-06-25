@@ -42,7 +42,8 @@ export default function StripeModal({
       }
     }
     createIntent();
-  }, []);   // solo al montar
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Apariencia de Stripe Elements adaptada a los colores del TPV
   const appearance = {

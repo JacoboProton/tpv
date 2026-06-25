@@ -31,7 +31,7 @@ export default function VerifactuPanel({ colors: C, sales = [] }) {
     try {
       const data = await fetchVerifactuRegistros();
       setRegistros(data);
-    } catch (err) {
+    } catch {
       showToast('Error al cargar registros Verifactu');
     } finally {
       setLoading(false);
@@ -39,8 +39,10 @@ export default function VerifactuPanel({ colors: C, sales = [] }) {
   }
 
   useEffect(() => {
-    loadRegistros();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    fetchVerifactuRegistros()
+      .then(data => setRegistros(data))
+      .catch(() => showToast('Error al cargar registros Verifactu'))
+      .finally(() => setLoading(false));
   }, []);
 
   // ---------- Verificar cadena ----------
@@ -248,6 +250,7 @@ export default function VerifactuPanel({ colors: C, sales = [] }) {
                 {/* QR expandido */}
                 {qrVisible === reg.id && (
                   <div className="mt-3 flex items-start gap-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(reg.qr_url)}`}
                       alt={`QR ${reg.num_serie}`}

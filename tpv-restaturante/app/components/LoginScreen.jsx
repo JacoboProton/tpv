@@ -1,4 +1,4 @@
-import { ShieldCheck, User, Delete, LogIn } from 'lucide-react';
+import { ShieldCheck, User, Delete } from 'lucide-react';
 
 export default function LoginScreen({
   employees, loginSelected, setLoginSelected,
@@ -10,10 +10,6 @@ export default function LoginScreen({
       className="flex flex-col items-center justify-center p-6"
     >
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap');
-        .font-display { font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.04em; }
-        @keyframes shake { 10%,90% { transform: translateX(-2px); } 20%,80% { transform: translateX(4px); } 30%,50%,70% { transform: translateX(-6px); } 40%,60% { transform: translateX(6px); } }
-        .shake { animation: shake .4s; }
         @keyframes dotPulse { 0%,100%{opacity:0.3} 50%{opacity:1} }
         .dot-pulse { animation: dotPulse 1s infinite; }
       `}</style>

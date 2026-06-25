@@ -1,26 +1,109 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #1C1714;
+  --foreground: #F3ECDF;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-bebas);
+  --font-mono: var(--font-jetbrains);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), sans-serif;
 }
+
+.font-display {
+  font-family: var(--font-bebas), sans-serif;
+  letter-spacing: 0.04em;
+}
+
+.font-mono {
+  font-family: var(--font-jetbrains), monospace;
+}
+
+@keyframes pulseRing {
+  0%,100%{box-shadow:0 0 0 0 rgba(200,147,43,0)}
+  50%{box-shadow:0 0 0 5px rgba(200,147,43,0.25)}
+}
+.pulse-cuenta { animation: pulseRing 1.8s ease-in-out infinite; }
+
+@keyframes fadeUp {
+  from{opacity:0;transform:translateY(6px)}
+  to{opacity:1;transform:translateY(0)}
+}
+.fade-up { animation: fadeUp .25s ease-out; }
+
+input[type=number]::-webkit-inner-spin-button { opacity:1; }
+
+@keyframes shake {
+  10%,90%{transform:translateX(-1px)}
+  20%,80%{transform:translateX(2px)}
+  30%,50%,70%{transform:translateX(-4px)}
+  40%,60%{transform:translateX(4px)}
+}
+.shake { animation: shake .4s; }
+
+@media print {
+  body * { visibility:hidden; }
+  #printable-report, #printable-report * { visibility:visible; }
+  #printable-report { position:absolute;left:0;top:0;width:100%;background:#fff !important;color:#000 !important;padding:0; }
+  .no-print { display:none !important; }
+}
+
+/* Ticket térmico 80mm */
+@media print {
+  #thermal-ticket {
+    width: 80mm;
+    padding: 2mm 3mm;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-size: 10px;
+    line-height: 1.35;
+    background: white;
+    color: black;
+  }
+  #thermal-ticket * {
+    visibility: visible;
+  }
+  #thermal-ticket .ticket-header {
+    text-align: center;
+    font-size: 14px;
+    font-weight: bold;
+    margin-bottom: 4px;
+  }
+  #thermal-ticket .ticket-divider {
+    border-top: 1px dashed #333;
+    margin: 4px 0;
+  }
+  #thermal-ticket .ticket-row {
+    display: flex;
+    justify-content: space-between;
+  }
+  #thermal-ticket .ticket-total {
+    font-size: 12px;
+    font-weight: bold;
+    border-top: 1px solid #333;
+    padding-top: 4px;
+    margin-top: 4px;
+  }
+}
+
+/* Skeleton loading */
+@keyframes skeletonPulse {
+  0%,100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+.skeleton {
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+  border-radius: 12px;
+}
+
+/* Tema claro */
+.light .bg-base { background: #F5F0E8 !important; }
+.light .text-cream { color: #2C241E !important; }

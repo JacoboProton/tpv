@@ -22,14 +22,14 @@ export async function PUT(req) {
   try {
     const { categories, products } = await req.json();
 
-    // Upsert categorías
+    const queries = [];
+
     for (const name of categories) {
-      await sql`INSERT INTO categories (name) VALUES (${name}) ON CONFLICT (name) DO NOTHING`;
+      queries.push(sql`INSERT INTO categories (name) VALUES (${name}) ON CONFLICT (name) DO NOTHING`);
     }
 
-    // Upsert productos
     for (const p of products) {
-      await sql`
+      queries.push(sql`
         INSERT INTO products (id, name, category, price, stock, low_stock, ubicacion)
         VALUES (${p.id}, ${p.name}, ${p.category}, ${p.price}, ${p.stock}, ${p.lowStock ?? p.low_stock ?? 5}, ${p.ubicacion ?? 'Bar'})
         ON CONFLICT (id) DO UPDATE SET
@@ -39,7 +39,11 @@ export async function PUT(req) {
           stock     = EXCLUDED.stock,
           low_stock = EXCLUDED.low_stock,
           ubicacion = EXCLUDED.ubicacion
-      `;
+      `);
+    }
+
+    if (queries.length > 0) {
+      await sql.transaction(queries);
     }
 
     return NextResponse.json({ ok: true });

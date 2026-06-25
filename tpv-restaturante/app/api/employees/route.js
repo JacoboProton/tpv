@@ -15,21 +15,23 @@ export async function GET() {
 export async function PUT(req) {
   try {
     const employees = await req.json();
-    // Upsert todos
+    const queries = [];
     for (const e of employees) {
-      await sql`
+      queries.push(sql`
         INSERT INTO employees (id, name, pin, role)
         VALUES (${e.id}, ${e.name}, ${e.pin}, ${e.role})
         ON CONFLICT (id) DO UPDATE SET
           name = EXCLUDED.name,
           pin  = EXCLUDED.pin,
           role = EXCLUDED.role
-      `;
+      `);
     }
-    // Borrar los que ya no están
     const ids = employees.map(e => e.id);
     if (ids.length > 0) {
-      await sql`DELETE FROM employees WHERE id != ALL(${ids})`;
+      queries.push(sql`DELETE FROM employees WHERE id != ALL(${ids})`);
+    }
+    if (queries.length > 0) {
+      await sql.transaction(queries);
     }
     return NextResponse.json({ ok: true });
   } catch (err) {

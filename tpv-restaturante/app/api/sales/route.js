@@ -2,21 +2,44 @@ import { NextResponse } from 'next/server';
 import { sql } from '../../../lib/db';
 
 // GET /api/sales → Sale[]
-export async function GET() {
+export async function GET(req) {
   try {
-    const rows = await sql`
-      SELECT
-        id, table_id AS "tableId", table_name AS "tableName",
-        items, subtotal::float, discount::float, discount_amount::float AS "discountAmount",
-        total::float, tip::float, total_with_tip::float AS "totalWithTip",
-        payments, payment_method AS "paymentMethod",
-        is_fiado AS "isFiado", is_debt_payment AS "isDebtPayment",
-        employee_id AS "employeeId", employee_name AS "employeeName",
-        closed_at AS "closedAt"
-      FROM sales
-      ORDER BY closed_at DESC
-    `;
-    return NextResponse.json(rows);
+    const { searchParams } = new URL(req.url);
+    const from = searchParams.get('from');
+    const to = searchParams.get('to');
+    const year = searchParams.get('year');
+
+    let query = sql`SELECT * FROM sales`;
+    const conditions = [];
+
+    if (year) {
+      const y = parseInt(year, 10);
+      const start = new Date(y, 0, 1).getTime();
+      const end = new Date(y + 1, 0, 1).getTime();
+      conditions.push(`closed_at >= ${start}`);
+      conditions.push(`closed_at < ${end}`);
+    } else {
+      if (from) { conditions.push(`closed_at >= ${BigInt(from)}`); }
+      if (to) { conditions.push(`closed_at <= ${BigInt(to)}`); }
+    }
+
+    if (conditions.length > 0) {
+      query = sql`${query} WHERE ${sql.unsafe(conditions.join(' AND '))}`;
+    }
+    query = sql`${query} ORDER BY closed_at DESC`;
+
+    const rows = await query;
+    const mapped = rows.map(r => ({
+      id: r.id, tableId: r.table_id, tableName: r.table_name,
+      items: r.items, subtotal: Number(r.subtotal),
+      discount: Number(r.discount), discountAmount: Number(r.discount_amount),
+      total: Number(r.total), tip: Number(r.tip), totalWithTip: Number(r.total_with_tip),
+      payments: r.payments, paymentMethod: r.payment_method,
+      isFiado: r.is_fiado, isDebtPayment: r.is_debt_payment,
+      employeeId: r.employee_id, employeeName: r.employee_name,
+      closedAt: Number(r.closed_at),
+    }));
+    return NextResponse.json(mapped);
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

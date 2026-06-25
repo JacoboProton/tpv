@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../lib/db';
+import { registerSaleInFiskaly } from '../../../lib/fiskaly';
 import { generateRegistroFactura } from '../../../lib/verifactu';
 
-// ---------- GET /api/verifactu ----------
 export async function GET() {
   try {
     const rows = await sql`
@@ -10,21 +10,17 @@ export async function GET() {
     `;
     return NextResponse.json(rows);
   } catch (err) {
-    console.error('Verifactu GET error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 
-// ---------- POST /api/verifactu ----------
 export async function POST(req) {
   try {
     const { saleId, sale } = await req.json();
-
     if (!saleId || !sale) {
       return NextResponse.json({ error: 'saleId y sale son requeridos' }, { status: 400 });
     }
 
-    // Comprobar si ya existe un registro para esta venta
     const existing = await sql`
       SELECT id FROM verifactu_registros WHERE sale_id = ${saleId}
     `;
@@ -35,46 +31,68 @@ export async function POST(req) {
       return NextResponse.json(row[0], { status: 200 });
     }
 
-    // Obtener el último registro para encadenar el hash
-    const lastRows = await sql`
-      SELECT huella, num_serie FROM verifactu_registros ORDER BY id DESC LIMIT 1
-    `;
-
-    const previousHash = lastRows.length > 0 ? lastRows[0].huella : '0';
-
-    // Calcular el siguiente número de secuencia
+    const year = new Date(sale.closedAt ?? Date.now()).getFullYear();
     const countRows = await sql`
       SELECT COUNT(*) as cnt FROM verifactu_registros
+      WHERE num_serie LIKE ${'VERI-' + year + '-%'}
     `;
-    const seq      = parseInt(countRows[0].cnt, 10) + 1;
-    const year     = new Date(sale.closedAt ?? Date.now()).getFullYear();
+    const seq = parseInt(countRows[0].cnt, 10) + 1;
     const numSerie = `VERI-${year}-${String(seq).padStart(6, '0')}`;
 
-    // Generar el registro Verifactu
-    const { xml, hash, qrUrl, registroData } = generateRegistroFactura(sale, previousHash, numSerie);
-
-    const importeTotal  = Number(registroData.importeTotal.toFixed(2));
-    // IGIC Canarias: 7%  →  base = total / 1.07
+    const importeTotal = Number((sale.totalWithTip ?? sale.total ?? 0).toFixed(2));
     const baseImponible = Number((importeTotal / 1.07).toFixed(2));
-    const cuotaIva      = Number((importeTotal - baseImponible).toFixed(2));
-    const now           = Date.now();
+    const cuotaIva = Number((importeTotal - baseImponible).toFixed(2));
+    const fechaExpedicion = new Date(sale.closedAt ?? Date.now()).toISOString().slice(0, 10);
+    const now = Date.now();
 
-    // Guardar en BD
+    let fiskalyInvoiceId = null;
+    let verificationUrl = null;
+    let qrUrl = null;
+    let estado = 'pendiente';
+    let hash = '0';
+    let xml = '';
+
+    const lastRows = await sql`
+      SELECT huella FROM verifactu_registros ORDER BY id DESC LIMIT 1
+    `;
+    const previousHash = lastRows.length > 0 ? lastRows[0].huella : '0';
+
+    try {
+      const fiskalyResult = await registerSaleInFiskaly(sale, numSerie);
+      fiskalyInvoiceId = fiskalyResult.fiskalyInvoiceId;
+      verificationUrl = fiskalyResult.verificationUrl;
+      qrUrl = fiskalyResult.qrUrl;
+      estado = 'registrado';
+
+      const localResult = generateRegistroFactura(sale, previousHash, numSerie);
+      hash = localResult.hash;
+      xml = localResult.xml;
+      if (!qrUrl) qrUrl = localResult.qrUrl;
+    } catch (fkErr) {
+      console.warn('Fiskaly fallback a simulación local:', fkErr.message);
+      const fallback = generateRegistroFactura(sale, previousHash, numSerie);
+      hash = fallback.hash;
+      xml = fallback.xml;
+      qrUrl = fallback.qrUrl;
+      estado = 'simulado';
+    }
+
     const inserted = await sql`
       INSERT INTO verifactu_registros
         (sale_id, num_serie, fecha_expedicion, importe_total, base_imponible,
-         cuota_iva, huella_anterior, huella, xml_registro, qr_url, estado, created_at)
+         cuota_iva, huella_anterior, huella, xml_registro, qr_url, estado, created_at,
+         fiskaly_invoice_id, verification_url)
       VALUES (
-        ${saleId}, ${numSerie}, ${registroData.fechaExpedicion},
+        ${saleId}, ${numSerie}, ${fechaExpedicion},
         ${importeTotal}, ${baseImponible}, ${cuotaIva},
-        ${previousHash}, ${hash}, ${xml}, ${qrUrl}, 'simulado', ${now}
+        ${previousHash}, ${hash}, ${xml}, ${qrUrl || ''}, ${estado}, ${now},
+        ${fiskalyInvoiceId}, ${verificationUrl}
       )
       RETURNING *
     `;
 
     return NextResponse.json(inserted[0], { status: 201 });
   } catch (err) {
-    console.error('Verifactu POST error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

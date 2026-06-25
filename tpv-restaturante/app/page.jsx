@@ -1,12 +1,12 @@
 "use client"
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   LayoutGrid, ChefHat, Package, BarChart3, AlertTriangle,
-  LogOut, Users, ShieldCheck,
+  LogOut, Users, ShieldCheck, Sun, Moon, ClipboardList, WifiOff, Printer,
 } from 'lucide-react';
 
-import { C, seedCatalog, seedFloor, seedEmployees, euros, round2, clone } from './components/constants';
+import { THEMES, seedCatalog, seedFloor, seedEmployees, euros, round2, clone } from './components/constants';
 import {
   runMigrate, fetchCatalog, saveCatalog,
   fetchFloor, saveFloor,
@@ -14,21 +14,32 @@ import {
   fetchEmployees, saveEmployees,
   logAccess,
   registerVerifactu,
+  saveStockLog,
+  saveCancelledOrder,
+  saveTurn,
+  fetchModifiers,
 } from '../lib/api';
+import { onNetworkChange, clearMutations, getMutations } from '../lib/offline';
 
-import MenuPrincipal      from './components/MenuPrincipal';
-import LoginScreen        from './components/LoginScreen';
-import SalonView          from './components/SalonView';
-import CocinaView         from './components/CocinaView';
-import InventarioView     from './components/InventarioView';
-import AlmacenMenuView    from './components/AlmacenMenuView';
-import AlmacenDetalleView from './components/AlmacenDetalleView';
-import InformesView       from './components/InformesView';
-import EmpleadosView      from './components/EmpleadosView';
-import ComandaDrawer      from './components/ComandaDrawer';
-import PaymentModal       from './components/PaymentModal';
+import MenuPrincipal        from './components/MenuPrincipal';
+import LoginScreen          from './components/LoginScreen';
+import SalonView            from './components/SalonView';
+import CocinaView           from './components/CocinaView';
+import InventarioView       from './components/InventarioView';
+import AlmacenMenuView      from './components/AlmacenMenuView';
+import AlmacenDetalleView   from './components/AlmacenDetalleView';
+import InformesView         from './components/InformesView';
+import EmpleadosView        from './components/EmpleadosView';
+import ComandaDrawer        from './components/ComandaDrawer';
+import PaymentModal         from './components/PaymentModal';
+import ComandasAbiertasView from './components/ComandasAbiertasView';
+import ModifierSelector     from './components/ModifierSelector';
 
 export default function App() {
+  // ---------- Tema claro/oscuro ----------
+  const [theme, setTheme] = useState('dark');
+  const C = THEMES[theme];
+
   // ---------- Estado global ----------
   const [loading, setLoading]       = useState(true);
   const [fatalError, setFatalError] = useState(false);
@@ -61,6 +72,51 @@ export default function App() {
   const [newProductOpen, setNewProductOpen]   = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
+  // Offline
+  const [isOffline, setIsOffline] = useState(typeof navigator !== 'undefined' && !navigator.onLine);
+  const [pendingMutations, setPendingMutations] = useState(0);
+
+  // Modificadores
+  const [modifierData, setModifierData] = useState({ groups: [], productModifiers: {} });
+  const [showModifierSelector, setShowModifierSelector] = useState(null);
+
+  // Impresora
+
+  // Audio
+  const audioCtx = useRef(null);
+
+  function playBeep(freq = 660, duration = 0.15) {
+    if (!audioCtx.current) audioCtx.current = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = audioCtx.current;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = freq;
+    gain.gain.value = 0.1;
+    osc.start();
+    osc.stop(ctx.currentTime + duration);
+  }
+
+  function playChaChing() {
+    playBeep(880, 0.15);
+    setTimeout(() => playBeep(1100, 0.15), 150);
+  }
+
+  // Detectar nuevos items en cocina para sonido
+  const prevPendingRef = useRef(0);
+
+  useEffect(() => {
+    if (!floor) return;
+    const pending = Object.values(floor.orders || {}).reduce((sum, o) =>
+      sum + o.items.filter(i => i.sent && !i.ready).length, 0
+    );
+    if (pending > prevPendingRef.current && prevPendingRef.current > 0) {
+      playBeep(660, 0.15);
+    }
+    prevPendingRef.current = pending;
+  }, [floor]);
+
   // ---------- Toast ----------
   function showToast(msg) {
     setToast(msg);
@@ -72,10 +128,8 @@ export default function App() {
   useEffect(() => {
     async function loadAll() {
       try {
-        // 1. Crear tablas si no existen
         await runMigrate();
 
-        // 2. Cargar datos en paralelo
         const [cat, flr, sls, emps] = await Promise.all([
           fetchCatalog(),
           fetchFloor(),
@@ -83,7 +137,6 @@ export default function App() {
           fetchEmployees(),
         ]);
 
-        // 3. Si la BD esta vacia, cargar datos semilla
         if (!cat.products || cat.products.length === 0) {
           const seed = seedCatalog();
           await saveCatalog(seed);
@@ -119,6 +172,32 @@ export default function App() {
     loadAll();
   }, []);
 
+  // ---------- Offline ----------
+  const processMutations = useCallback(async () => {
+    const q = getMutations();
+    if (q.length === 0) return;
+    for (const m of q) {
+      try {
+        await fetch(m.key, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: m.payload });
+      } catch {}
+    }
+    clearMutations();
+    setPendingMutations(0);
+  }, []);
+
+  useEffect(() => {
+    const unsub = onNetworkChange(online => {
+      setIsOffline(!online);
+      if (online) processMutations();
+    });
+    const interval = setInterval(() => {
+      const q = getMutations();
+      setPendingMutations(q.length);
+      if (q.length > 0 && navigator.onLine) processMutations();
+    }, 10000);
+    return () => { unsub(); clearInterval(interval); };
+  }, [processMutations]);
+
   // ---------- Persistencia → Neon ----------
   async function persistCatalog(next) {
     setCatalog(next);
@@ -130,11 +209,37 @@ export default function App() {
     try { await saveFloor(next); }
     catch { showToast('No se ha podido guardar la sala'); }
   }
+  const salesQueue = useRef([]);
+  const salesProcessing = useRef(false);
+
+  async function processSalesQueue() {
+    if (salesProcessing.current || salesQueue.current.length === 0) return;
+    salesProcessing.current = true;
+    while (salesQueue.current.length > 0) {
+      const sale = salesQueue.current[0];
+      try {
+        await addSale(sale);
+        salesQueue.current.shift();
+      } catch {
+        showToast('No se ha podido guardar la venta. Reintentando...');
+        await new Promise(r => setTimeout(r, 2000));
+        try {
+          await addSale(sale);
+          salesQueue.current.shift();
+        } catch {
+          showToast('No se ha podido guardar la venta tras reintentar');
+          salesQueue.current.shift();
+        }
+      }
+    }
+    salesProcessing.current = false;
+  }
+
   async function persistSales(next) {
-    // next es [...sales, nuevaVenta]; solo enviamos la ultima (POST individual)
     setSales(next);
-    try { await addSale(next[next.length - 1]); }
-    catch { showToast('No se ha podido guardar la venta'); }
+    const newSale = next[next.length - 1];
+    salesQueue.current.push(newSale);
+    processSalesQueue();
   }
   async function persistEmployees(next) {
     setEmployees(next);
@@ -158,6 +263,9 @@ export default function App() {
         setCurrentUser(loginSelected);
         setLoginSelected(null);
         setPinInput('');
+
+        // Turno de entrada
+        saveTurn({ employeeId: loginSelected.id, employeeName: loginSelected.name, action: 'entrada', turnDate: new Date().toISOString().slice(0, 10) }).catch(() => {});
 
         // Determinar la vista destino según el punto de entrada
         let targetView = 'salon';
@@ -190,6 +298,9 @@ export default function App() {
   }
   function deleteDigit() { setPinInput(p => p.slice(0, -1)); }
   function logout() {
+    if (currentUser) {
+      saveTurn({ employeeId: currentUser.id, employeeName: currentUser.name, action: 'salida', turnDate: new Date().toISOString().slice(0, 10) }).catch(() => {});
+    }
     setCurrentUser(null); setLoginSelected(null); setPinInput('');
     setSelectedTableId(null); setView('salon'); setMenuMode('menu');
   }
@@ -199,6 +310,7 @@ export default function App() {
   const selectedOrder = selectedTable?.orderId ? floor.orders[selectedTable.orderId] : null;
 
   // Crear orden de deuda si la mesa esta en fiado sin orden activa
+  const debtFloorRef = useRef(null);
   useEffect(() => {
     if (!selectedTable?.isFiado || selectedTable?.orderId || !currentUser) return;
     const lastFiadoSale = [...sales]
@@ -210,15 +322,28 @@ export default function App() {
     const debtOrderId = 'debt_' + Date.now();
     nextFloor.orders[debtOrderId] = {
       id: debtOrderId, tableId: selectedTableId,
-      items: [{ id: 'debt_item', productId: null, name: 'Deuda fiada', price: lastFiadoSale.totalWithTip, qty: 1, sent: true, ready: true }],
+      items: [{ id: 'debt_item', productId: null, name: 'Deuda fiada', price: lastFiadoSale.totalWithTip, qty: 1, sent: true, ready: true, sentAt: null, notes: '' }],
       createdAt: Date.now(), employeeName: 'Deuda anterior',
     };
     table.orderId = debtOrderId;
-    persistFloor(nextFloor);
+    debtFloorRef.current = nextFloor;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTableId, currentUser]);
 
-  const orderTotal      = selectedOrder ? selectedOrder.items.reduce((s, i) => s + i.price * i.qty, 0) : 0;
+  // Aplicar deuda fuera del efecto para no violar purity rules
+  useEffect(() => {
+    if (!debtFloorRef.current) return;
+    const f = debtFloorRef.current;
+    debtFloorRef.current = null;
+    setFloor(f);
+    saveFloor(f).catch(() => showToast('No se ha podido guardar la deuda'));
+  }, []);
+
+  const orderTotal = selectedOrder ? selectedOrder.items.reduce((s, i) => {
+    const p = catalog?.products?.find(pr => pr.id === i.productId);
+    const disc = p?.discount || 0;
+    return s + i.price * (1 - disc / 100) * i.qty;
+  }, 0) : 0;
   const discountedTotal = round2(orderTotal * (1 - orderDiscount / 100));
   const finalTotal      = round2(discountedTotal + tipAmount);
   const hasUnsent       = selectedOrder ? selectedOrder.items.some(i => !i.sent) : false;
@@ -242,7 +367,10 @@ export default function App() {
     }
     const existing = order.items.find(i => i.productId === product.id && !i.sent);
     if (existing) existing.qty += 1;
-    else order.items.push({ id: 'i_' + Date.now() + Math.random().toString(16).slice(2), productId: product.id, name: product.name, price: product.price, qty: 1, sent: false, ready: false });
+    else {
+      const notes = window.prompt('Notas para ' + product.name + '?', '') || '';
+      order.items.push({ id: 'i_' + Date.now() + Math.random().toString(16).slice(2), productId: product.id, name: product.name, price: product.price, qty: 1, sent: false, ready: false, sentAt: null, notes });
+    }
     persistFloor(next);
   }
 
@@ -254,6 +382,15 @@ export default function App() {
     if (!item || item.sent) return;
     item.qty += delta;
     if (item.qty <= 0) order.items = order.items.filter(i => i.id !== itemId);
+    persistFloor(next);
+  }
+
+  function updateItemNotes(itemId, notes) {
+    const next = clone(floor);
+    const table = next.tables.find(t => t.id === selectedTableId);
+    const order = next.orders[table.orderId];
+    const item = order.items.find(i => i.id === itemId);
+    if (item) item.notes = notes;
     persistFloor(next);
   }
 
@@ -286,7 +423,6 @@ export default function App() {
     const table = next.tables.find(t => t.id === selectedTableId);
     const order = next.orders[table.orderId];
     order.items = order.items.filter(i => i.id !== itemId);
-    // Si ya no quedan ítems, liberar la mesa
     if (order.items.length === 0) {
       delete next.orders[table.orderId];
       table.orderId = null;
@@ -300,8 +436,17 @@ export default function App() {
     const next = clone(floor);
     const table = next.tables.find(t => t.id === selectedTableId);
     if (table.orderId) {
+      const order = next.orders[table.orderId];
+      saveCancelledOrder({
+        tableId: table.id,
+        tableName: table.name,
+        orderId: table.orderId,
+        items: order.items,
+        total: order.items.reduce((s, i) => s + i.price * i.qty, 0),
+        employeeName: currentUser?.name,
+        cancelledAt: Date.now(),
+      }).catch(() => {});
       delete next.orders[table.orderId];
-      table.orderId = null;
     }
     table.status  = 'libre';
     table.isFiado = false;
@@ -339,6 +484,25 @@ export default function App() {
         if (p) p.stock = Math.max(0, p.stock - item.qty);
       }
     });
+
+    // Stock log (fire-and-forget)
+    order.items.forEach(item => {
+      if (item.productId) {
+        const p = nextCatalog.products.find(pr => pr.id === item.productId);
+        if (p) {
+          saveStockLog({
+            productId: item.productId,
+            productName: item.name,
+            oldStock: p.stock + item.qty,
+            newStock: p.stock,
+            reason: 'venta',
+            employeeName: currentUser?.name,
+            createdAt: Date.now(),
+          }).catch(() => {});
+        }
+      }
+    });
+
     const subtotal       = order.items.reduce((s, i) => s + i.price * i.qty, 0);
     const discountAmount = round2(subtotal * (orderDiscount / 100));
     const total          = round2(subtotal - discountAmount);
@@ -376,12 +540,133 @@ export default function App() {
       : isFiado ? `Fiado: ${euros(totalWithTip)}${discStr}${tipStr}`
       : `Cobrado: ${euros(totalWithTip)}${discStr}${tipStr}`
     );
+
+    playChaChing();
+  }
+
+  // ---------- Modificadores ----------
+  useEffect(() => {
+    if (!catalog) return;
+    fetchModifiers().then(data => {
+      if (data) setModifierData(data);
+    }).catch(() => {});
+  }, [catalog]);
+
+  function getModifierGroupsForProduct(productId) {
+    const groupIds = modifierData.productModifiers[productId] || [];
+    return modifierData.groups.filter(g => groupIds.includes(g.id));
+  }
+
+  function handleAddItemWithModifiers(product) {
+    const groups = getModifierGroupsForProduct(product.id);
+    if (groups.length > 0) {
+      setShowModifierSelector({ product, groups });
+    } else {
+      addItemWithPrice(product, [], 0);
+    }
+  }
+
+  function confirmModifiersAndAdd(modifiers) {
+    const product = showModifierSelector.product;
+    const extraPrice = modifiers.reduce((s, m) => s + m.priceDelta, 0);
+    setShowModifierSelector(null);
+    addItemWithPrice(product, modifiers, extraPrice);
+  }
+
+  function addItemWithPrice(product, modifiers, extraPrice) {
+    const next = clone(floor);
+    const table = next.tables.find(t => t.id === selectedTableId);
+    let order;
+    if (!table.orderId) {
+      const orderId = 'o_' + Date.now();
+      order = { id: orderId, tableId: table.id, items: [], createdAt: Date.now(), employeeName: currentUser?.name || '-' };
+      next.orders[orderId] = order;
+      table.orderId = orderId;
+      table.status = 'ocupada';
+    } else {
+      order = next.orders[table.orderId];
+    }
+    const effectivePrice = round2(product.price + extraPrice);
+    const existing = order.items.find(i => i.productId === product.id && !i.sent && JSON.stringify(i.modifiers) === JSON.stringify(modifiers));
+    if (existing) existing.qty += 1;
+    else {
+      const notes = window.prompt('Notas para ' + product.name + '?', '') || '';
+      order.items.push({
+        id: 'i_' + Date.now() + Math.random().toString(16).slice(2),
+        productId: product.id, name: product.name, price: effectivePrice,
+        qty: 1, sent: false, ready: false, sentAt: null, notes, modifiers,
+      });
+    }
+    persistFloor(next);
+  }
+
+  // Quitamos la antigua addItem (window.prompt + sin modifiers)
+  function addItem(product) { handleAddItemWithModifiers(product); }
+
+  // ---------- Impresora térmica ----------
+  function handlePrint() {
+    const order = selectedOrder;
+    if (!order) return;
+    const items = order.items.filter(i => i.productId);
+    const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
+    const discountAmount = round2(subtotal * (orderDiscount / 100));
+    const total = subtotal - discountAmount;
+    const totalWithTip = total + tipAmount;
+    const date = new Date().toLocaleString('es-ES');
+
+    function row(item) {
+      const mods = item.modifiers?.length
+        ? item.modifiers.map(m => `  + ${m.optionName}`).join('<br>') + '<br>'
+        : '';
+      return `<div style="font-size:10px;margin-bottom:4px">
+        <b>${item.name}</b><br>${mods}
+        <span>${item.qty} x ${item.price.toFixed(2)}€</span>
+        <span style="float:right">${(item.qty * item.price).toFixed(2)}€</span>
+      </div>`;
+    }
+
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<style>
+  @page { margin:0; size:80mm auto; }
+  body { width:80mm; padding:2mm 3mm; font-family:'Courier New',monospace; font-size:10px; line-height:1.3; color:#000; background:#fff; }
+  .c { text-align:center; }
+  .b { font-weight:bold; }
+  .d { border-top:1px dashed #333; margin:4px 0; }
+  .r { display:flex; justify-content:space-between; }
+</style></head><body>
+  <div class="c b" style="font-size:14px">LA COMANDA</div>
+  <div class="c" style="font-size:9px;margin-bottom:4px">
+    CIF: 78406450W<br>${date}<br>Mesa: ${selectedTable?.name || ''}
+  </div>
+  <div class="d"></div>
+  ${items.map(row).join('')}
+  <div class="d"></div>
+  <div class="r" style="font-size:9px"><span>Subtotal</span><span>${euros(subtotal)}</span></div>
+  ${orderDiscount > 0 ? `<div class="r" style="font-size:9px;color:#666"><span>Dto. ${orderDiscount}%</span><span>-${euros(discountAmount)}</span></div>` : ''}
+  ${tipAmount > 0 ? `<div class="r" style="font-size:9px;color:#666"><span>Propina</span><span>+${euros(tipAmount)}</span></div>` : ''}
+  <div class="r b" style="font-size:12px;border-top:1px solid #000;padding-top:4px;margin-top:4px">
+    <span>TOTAL</span><span>${euros(totalWithTip)}</span>
+  </div>
+  <div class="d"></div>
+  <div class="c" style="font-size:9px;margin-top:4px">Gracias por su visita</div>
+</body></html>`;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    iframe.contentWindow.document.open();
+    iframe.contentWindow.document.write(html);
+    iframe.contentWindow.document.close();
+    iframe.contentWindow.focus();
+    iframe.contentWindow.print();
+    setTimeout(() => document.body.removeChild(iframe), 1000);
   }
 
   // ---------- Catalogo ----------
   function addProduct(p) {
     const next = clone(catalog);
-    next.products.push({ id: 'p_' + Date.now(), name: p.name, category: p.category, price: Number(p.price), stock: Number(p.stock), lowStock: Number(p.lowStock), ubicacion: p.ubicacion || 'Bar' });
+    next.products.push({ id: 'p_' + Date.now(), name: p.name, category: p.category, price: Number(p.price), stock: Number(p.stock), lowStock: Number(p.lowStock), ubicacion: p.ubicacion || 'Bar', discount: 0 });
     if (!next.categories.includes(p.category)) next.categories.push(p.category);
     persistCatalog(next); setNewProductOpen(false);
   }
@@ -409,10 +694,11 @@ export default function App() {
 
   // ---------- Pantallas de carga / error ----------
   if (loading) return (
-    <div style={{ background: C.base, color: C.cream, minHeight: '100vh' }} className="flex items-center justify-center">
-      <div className="flex flex-col items-center gap-3">
-        <div style={{ borderColor: C.brass, borderTopColor: 'transparent' }} className="w-10 h-10 rounded-full border-4 animate-spin" />
-        <p style={{ color: C.muted }} className="text-sm">Conectando con la base de datos...</p>
+    <div style={{ background: C.base, color: C.cream, minHeight: '100vh' }} className="p-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="h-32 rounded-xl animate-pulse" style={{ background: C.surface }} />
+        ))}
       </div>
     </div>
   );
@@ -449,33 +735,23 @@ export default function App() {
   }
 
   const navItems = [
-    { id: 'salon',      label: 'Salon',      icon: LayoutGrid, adminOnly: false },
-    { id: 'cocina',     label: 'Cocina',     icon: ChefHat,    adminOnly: false },
-    { id: 'inventario', label: 'Inventario', icon: Package,    adminOnly: true  },
-    { id: 'informes',   label: 'Informes',   icon: BarChart3,  adminOnly: true  },
-    { id: 'empleados',  label: 'Equipo',     icon: Users,      adminOnly: true  },
+    { id: 'salon',      label: 'Salon',      icon: LayoutGrid,    adminOnly: false },
+    { id: 'cocina',     label: 'Cocina',     icon: ChefHat,       adminOnly: false },
+    { id: 'comandas',   label: 'Comandas',   icon: ClipboardList, adminOnly: false },
+    { id: 'inventario', label: 'Inventario', icon: Package,       adminOnly: true  },
+    { id: 'informes',   label: 'Informes',   icon: BarChart3,     adminOnly: true  },
+    { id: 'empleados',  label: 'Equipo',     icon: Users,         adminOnly: true  },
   ].filter(item => !item.adminOnly || currentUser.role === 'admin');
 
   return (
-    <div style={{ background: C.base, color: C.cream, minHeight: '100vh', fontFamily: "'Inter', sans-serif" }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
-        .font-display { font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.04em; }
-        .font-mono    { font-family: 'JetBrains Mono', monospace; }
-        @keyframes pulseRing { 0%,100%{box-shadow:0 0 0 0 rgba(200,147,43,0)} 50%{box-shadow:0 0 0 5px rgba(200,147,43,0.25)} }
-        .pulse-cuenta { animation: pulseRing 1.8s ease-in-out infinite; }
-        @keyframes fadeUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
-        .fade-up { animation: fadeUp .25s ease-out; }
-        input[type=number]::-webkit-inner-spin-button { opacity:1; }
-        @keyframes shake { 10%,90%{transform:translateX(-1px)} 20%,80%{transform:translateX(2px)} 30%,50%,70%{transform:translateX(-4px)} 40%,60%{transform:translateX(4px)} }
-        .shake { animation: shake .4s; }
-        @media print {
-          body * { visibility:hidden; }
-          #printable-report, #printable-report * { visibility:visible; }
-          #printable-report { position:absolute;left:0;top:0;width:100%;background:#fff !important;color:#000 !important;padding:0; }
-          .no-print { display:none !important; }
-        }
-      `}</style>
+    <div style={{ background: C.base, color: C.cream, minHeight: '100vh' }}>
+
+      {isOffline && (
+        <div style={{ background: C.wine, color: C.cream }} className="flex items-center justify-center gap-2 px-4 py-1.5 text-xs font-medium no-print">
+          <WifiOff className="w-3.5 h-3.5" /> Sin conexión — los cambios se guardarán cuando vuelva la red
+          {pendingMutations > 0 && <span className="ml-1">({pendingMutations} pendientes)</span>}
+        </div>
+      )}
 
       <header style={{ borderBottom: `1px solid ${C.line}`, background: C.base }} className="sticky top-0 z-20 px-4 sm:px-6 py-3 flex items-center justify-between gap-2 no-print">
         <div className="flex items-baseline gap-2">
@@ -500,6 +776,12 @@ export default function App() {
             );
           })}
           <div style={{ borderLeft: `1px solid ${C.line}` }} className="flex items-center gap-2 pl-2 ml-1 shrink-0">
+            <button onClick={handlePrint} title="Imprimir ticket" style={{ color: C.muted }} className="p-2 rounded-lg hover:opacity-80">
+              <Printer className="w-4 h-4" />
+            </button>
+            <button onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} title="Tema" style={{ color: C.muted }} className="p-2 rounded-lg hover:opacity-80">
+              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
             <span style={{ color: C.muted }} className="text-xs hidden md:flex items-center gap-1">
               {currentUser.role === 'admin' && <ShieldCheck className="w-3.5 h-3.5" style={{ color: C.brassLight }} />}
               {currentUser.name}
@@ -511,15 +793,18 @@ export default function App() {
       </header>
 
       <main className="px-4 sm:px-6 py-6 max-w-6xl mx-auto">
-        {view === 'salon'      && <SalonView floor={floor} onSelect={id => { setSelectedTableId(id); setActiveCategory('Todos'); }} persistFloor={persistFloor} colors={C} />}
-        {view === 'cocina'     && <CocinaView floor={floor} onReady={markReady} colors={C} />}
-        {view === 'inventario' && <InventarioView catalog={catalog} colors={C} onUpdateField={updateProductField} newProductOpen={newProductOpen} setNewProductOpen={setNewProductOpen} onAddProduct={addProduct} confirmDeleteId={confirmDeleteId} setConfirmDeleteId={setConfirmDeleteId} onDelete={deleteProduct} />}
-        {view === 'almacen'    && (almacenUbicacion
-          ? <AlmacenDetalleView catalog={catalog} ubicacion={almacenUbicacion} onBack={() => setAlmacenUbicacion(null)} colors={C} onUpdateField={updateProductField} newProductOpen={newProductOpen} setNewProductOpen={setNewProductOpen} onAddProduct={addProduct} confirmDeleteId={confirmDeleteId} setConfirmDeleteId={setConfirmDeleteId} onDelete={deleteProduct} />
-          : <AlmacenMenuView catalog={catalog} onSelectUbicacion={setAlmacenUbicacion} colors={C} />
-        )}
-        {view === 'informes'   && <InformesView sales={sales} employees={employees} colors={C} />}
-        {view === 'empleados'  && <EmpleadosView employees={employees} colors={C} onAdd={addEmployee} onUpdateField={updateEmployeeField} onDelete={deleteEmployee} confirmDeleteId={confirmDeleteId} setConfirmDeleteId={setConfirmDeleteId} />}
+        <div className="fade-up" key={view}>
+          {view === 'salon'      && <SalonView floor={floor} onSelect={id => { setSelectedTableId(id); setActiveCategory('Todos'); }} persistFloor={persistFloor} colors={C} />}
+          {view === 'cocina'     && <CocinaView floor={floor} onReady={markReady} colors={C} />}
+          {view === 'comandas'   && <ComandasAbiertasView floor={floor} colors={C} />}
+          {view === 'inventario' && <InventarioView catalog={catalog} colors={C} onUpdateField={updateProductField} newProductOpen={newProductOpen} setNewProductOpen={setNewProductOpen} onAddProduct={addProduct} confirmDeleteId={confirmDeleteId} setConfirmDeleteId={setConfirmDeleteId} onDelete={deleteProduct} />}
+          {view === 'almacen'    && (almacenUbicacion
+            ? <AlmacenDetalleView catalog={catalog} ubicacion={almacenUbicacion} onBack={() => setAlmacenUbicacion(null)} colors={C} onUpdateField={updateProductField} confirmDeleteId={confirmDeleteId} setConfirmDeleteId={setConfirmDeleteId} onDelete={deleteProduct} />
+            : <AlmacenMenuView catalog={catalog} onSelectUbicacion={setAlmacenUbicacion} colors={C} />
+          )}
+          {view === 'informes'   && <InformesView sales={sales} colors={C} />}
+          {view === 'empleados'  && <EmpleadosView employees={employees} colors={C} onAdd={addEmployee} onUpdateField={updateEmployeeField} onDelete={deleteEmployee} confirmDeleteId={confirmDeleteId} setConfirmDeleteId={setConfirmDeleteId} />}
+        </div>
       </main>
 
       {selectedTable && (
@@ -542,6 +827,7 @@ export default function App() {
             persistFloor(next);
             setSelectedTableId(null);
           }}
+          onUpdateNotes={updateItemNotes}
           colors={C}
         />
       )}
@@ -556,7 +842,18 @@ export default function App() {
           onAddSplit={addSplit} onUpdateSplitAmount={updateSplitAmount} onRemoveSplit={removeSplit}
           onConfirm={closeBill}
           onCancel={() => { setPaying(false); setPaymentSplits([]); setTipAmount(0); }}
+          onPrint={handlePrint}
           showToast={showToast} colors={C}
+        />
+      )}
+
+      {showModifierSelector && (
+        <ModifierSelector
+          product={showModifierSelector.product}
+          modifierGroups={showModifierSelector.groups}
+          onConfirm={confirmModifiersAndAdd}
+          onCancel={() => setShowModifierSelector(null)}
+          colors={C}
         />
       )}
 
