@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { ChefHat, Clock, Check } from 'lucide-react';
 import { TICKET_EDGE } from './constants';
 
-const COURSE_COLORS = { Entrantes: '#6F9272', Principales: '#C8932B', Postres: '#A23E3E' };
+const COURSE_COLORS = { Entrantes: '#7a9a7c', Principales: '#c4a04a', Postres: '#b05e5e' };
 
 export default function CocinaView({ floor, onReady, colors: C }) {
   const [now, setNow] = useState(() => Date.now());
@@ -50,16 +50,16 @@ export default function CocinaView({ floor, onReady, colors: C }) {
               style={{ 
                 background: C.surface, 
                 border: `1px solid ${urgent ? C.wine : C.line}`,
-                boxShadow: urgent ? '0 0 20px rgba(162,62,62,0.3)' : 'none'
+                boxShadow: urgent ? '0 0 20px rgba(176,94,94,0.3)' : 'none'
               }}
               className={`rounded-lg overflow-hidden transition-all duration-300 hover:shadow-lg ${urgent ? 'animate-pulse' : ''}`}
             >
               <div style={TICKET_EDGE} />
-              <div style={{ background: urgent ? '#a23e3e' : C.cream, color: urgent ? C.cream : C.base }} className="p-3 font-mono">
+              <div style={{ background: urgent ? '#b05e5e' : C.cream, color: urgent ? C.cream : C.base }} className="p-3 font-mono">
                 <div className="flex items-center justify-between mb-2">
                   <p className="font-display text-lg">{table.name}</p>
                   <span
-                    style={{ color: urgent ? '#ffc1c1' : '#8a7c68' }}
+                    style={{ color: urgent ? '#ffc1c1' : '#9a8e80' }}
                     className="flex items-center gap-1 text-xs px-2 py-1 rounded-full"
                   >
                     <Clock className="w-3.5 h-3.5" /> {minutesAgo}&apos;
@@ -90,7 +90,7 @@ export default function CocinaView({ floor, onReady, colors: C }) {
 
                 <button
                   onClick={() => onReady(order.id)}
-                  style={{ background: urgent ? '#fff' : C.sage, color: urgent ? C.wine : '#fff' }}
+                  style={{ background: urgent ? '#fff' : C.sage, color: urgent ? C.wineLight : '#fff' }}
                   className="w-full rounded-md py-2.5 text-sm font-semibold flex items-center justify-center gap-1.5 hover:opacity-90 transition-opacity"
                 >
                   <Check className="w-4 h-4" /> Listo

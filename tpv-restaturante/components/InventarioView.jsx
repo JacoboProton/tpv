@@ -1,12 +1,29 @@
-import { useState } from 'react';
-import { Plus, AlertTriangle, Trash2, Package, Filter, FolderTree, List } from 'lucide-react';
-import { euros } from './constants';
+import { useState, useRef } from 'react';
+import { Plus, AlertTriangle, Trash2, Package, Filter, FolderTree, List, Camera } from 'lucide-react';
+import { euros, ALLERGENS, ALLERGEN_COLORS } from './constants';
 
 export default function InventarioView({
   catalog, colors: C, onUpdateField,
   newProductOpen, setNewProductOpen, onAddProduct,
   confirmDeleteId, setConfirmDeleteId, onDelete,
 }) {
+  const fileInputRef = useRef(null);
+  const [uploadingProduct, setUploadingProduct] = useState(null);
+
+  async function handleUploadImage(productId, file) {
+    if (!file) return;
+    setUploadingProduct(productId);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.url) onUpdateField(productId, 'image', data.url);
+    } catch {
+      // silent
+    }
+    setUploadingProduct(null);
+  }
   const [form, setForm] = useState({
     name: '', category: catalog.categories[0] || '', price: '', stock: '', lowStock: '', ubicacion: 'Bar',
   });
@@ -56,12 +73,50 @@ export default function InventarioView({
         className={`rounded-lg p-3 flex flex-wrap items-center justify-between gap-3 transition-all ${low ? 'shadow-md shadow-red-500/10' : ''}`}
       >
         <div className="flex items-start gap-3 flex-1 min-w-[8rem]">
-          <div style={{ background: low ? 'rgba(162,62,62,0.2)' : 'rgba(111,146,114,0.2)', minWidth: 36, minHeight: 36 }} className="rounded-lg flex items-center justify-center">
-            <Package className="w-4 h-4" style={{ color: low ? C.wineLight : C.sageLight }} />
+          <div className="relative shrink-0">
+            {p.image ? (
+              <img src={p.image} alt="" className="w-9 h-9 rounded-lg object-cover" />
+            ) : (
+              <div style={{ background: low ? 'rgba(176,94,94,0.2)' : 'rgba(122,154,124,0.2)', width: 36, height: 36 }} className="rounded-lg flex items-center justify-center">
+                <Package className="w-4 h-4" style={{ color: low ? C.wineLight : C.sageLight }} />
+              </div>
+            )}
+            <button
+              onClick={() => { setUploadingProduct(p.id); setTimeout(() => fileInputRef.current?.click(), 0); }}
+              style={{ background: C.surface, border: `1px solid ${C.line}` }}
+              className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full flex items-center justify-center hover:opacity-80"
+              title="Cambiar imagen"
+            >
+              <Camera className="w-2.5 h-2.5" style={{ color: C.muted }} />
+            </button>
           </div>
           <div>
             <p className="text-sm font-medium">{p.name}</p>
             <p style={{ color: C.muted }} className="text-xs">{p.category} · {p.ubicacion}</p>
+            <div className="flex gap-0.5 mt-0.5 flex-wrap">
+              {ALLERGENS.map(a => {
+                const active = p.allergens?.includes(a.id);
+                return (
+                  <button
+                    key={a.id}
+                    onClick={() => {
+                      const current = p.allergens || [];
+                      const next = active ? current.filter(x => x !== a.id) : [...current, a.id];
+                      onUpdateField(p.id, 'allergens', next);
+                    }}
+                    className="text-[9px] font-bold px-1 rounded-sm leading-tight border-0 cursor-pointer"
+                    style={{
+                      background: active ? ALLERGEN_COLORS[a.id] + '40' : 'transparent',
+                      color: active ? ALLERGEN_COLORS[a.id] : C.muted,
+                      opacity: active ? 1 : 0.4,
+                    }}
+                    title={a.label}
+                  >
+                    {a.abbr}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
@@ -291,6 +346,17 @@ export default function InventarioView({
           {filteredProducts.map(renderProduct)}
         </div>
       )}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={e => {
+          const file = e.target.files?.[0];
+          if (file && uploadingProduct) handleUploadImage(uploadingProduct, file);
+          e.target.value = '';
+        }}
+      />
     </div>
   );
 }

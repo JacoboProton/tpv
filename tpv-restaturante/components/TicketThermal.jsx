@@ -27,7 +27,7 @@ export default function TicketThermal({ sale, tableName, items, showModifiers })
         <div key={i}>
           <div style={{ fontWeight: 'bold' }}>{item.name}</div>
           {showModifiers && item.modifiers?.length > 0 && item.modifiers.map((m, j) => (
-            <div key={j} style={{ fontSize: 9, paddingLeft: 8, color: '#555' }}>
+            <div key={j} style={{ fontSize: 9, paddingLeft: 8, color: '#666' }}>
               + {m.optionName}
             </div>
           ))}
@@ -43,12 +43,12 @@ export default function TicketThermal({ sale, tableName, items, showModifiers })
         <span>Subtotal</span><span>{fmtEuros(subtotal)}</span>
       </div>
       {discountPct > 0 && (
-        <div className="ticket-row" style={{ fontSize: 9, color: '#666' }}>
+        <div className="ticket-row" style={{ fontSize: 9, color: '#777' }}>
           <span>Dto. {discountPct}%</span><span>-{fmtEuros(discountAmount)}</span>
         </div>
       )}
       {tip > 0 && (
-        <div className="ticket-row" style={{ fontSize: 9, color: '#666' }}>
+        <div className="ticket-row" style={{ fontSize: 9, color: '#777' }}>
           <span>Propina</span><span>+{fmtEuros(tip)}</span>
         </div>
       )}

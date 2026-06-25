@@ -125,3 +125,21 @@ export async function saveModifiers(data) {
   cacheSet('modifiers', data);
   return apiFetch('/api/modifiers', { method: 'PUT', body: JSON.stringify(data) });
 }
+
+export async function fetchSettings() {
+  return apiFetch('/api/settings');
+}
+export async function saveSettings(settings) {
+  return apiFetch('/api/settings', { method: 'PUT', body: JSON.stringify(settings) });
+}
+
+export async function fetchOffers() {
+  return apiFetch('/api/offers');
+}
+export async function saveOffers(offers) {
+  return apiFetch('/api/offers', { method: 'PUT', body: JSON.stringify(offers) });
+}
+
+export async function fetchExportSales(year) {
+  return apiFetch(`/api/export/sales?year=${year}`);
+}

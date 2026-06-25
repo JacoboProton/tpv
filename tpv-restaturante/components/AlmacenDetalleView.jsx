@@ -100,6 +100,13 @@ export default function AlmacenDetalleView({
                       style={{ background: C.surfaceLight, border: `1px solid ${low ? C.wine : 'transparent'}` }}
                       className={`rounded-lg p-2.5 flex items-center gap-2 ${low ? 'shadow-sm' : ''}`}
                     >
+                      {p.image ? (
+                        <img src={p.image} alt="" className="w-8 h-8 rounded-md object-cover shrink-0" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-md shrink-0 flex items-center justify-center text-xs font-bold" style={{ background: C.surface, color: C.muted }}>
+                          {p.name.charAt(0)}
+                        </div>
+                      )}
                       <div className="flex-1 min-w-[6rem]">
                         <p className="text-sm font-medium">{p.name}</p>
                         <p style={{ color: C.muted }} className="text-xs font-mono">

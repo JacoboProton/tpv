@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #1C1714;
-  --foreground: #F3ECDF;
+  --background: #1a1d23;
+  --foreground: #e6e1d6;
 }
 
 @theme inline {
@@ -29,8 +29,8 @@ body {
 }
 
 @keyframes pulseRing {
-  0%,100%{box-shadow:0 0 0 0 rgba(200,147,43,0)}
-  50%{box-shadow:0 0 0 5px rgba(200,147,43,0.25)}
+  0%,100%{box-shadow:0 0 0 0 rgba(196,160,74,0)}
+  50%{box-shadow:0 0 0 5px rgba(196,160,74,0.25)}
 }
 .pulse-cuenta { animation: pulseRing 1.8s ease-in-out infinite; }
 
@@ -105,5 +105,5 @@ input[type=number]::-webkit-inner-spin-button { opacity:1; }
 }
 
 /* Tema claro */
-.light .bg-base { background: #F5F0E8 !important; }
-.light .text-cream { color: #2C241E !important; }
+.light .bg-base { background: #f4efe6 !important; }
+.light .text-cream { color: #2c2822 !important; }

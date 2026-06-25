@@ -6,10 +6,10 @@ import { euros, round2 } from './constants';
 import StripeModal from './StripeModal';
 
 const PAYMENT_METHODS = [
-  { id: 'efectivo', label: 'Efectivo', icon: Banknote, color: '#6F9272' },
-  { id: 'tarjeta',  label: 'Tarjeta',  icon: CreditCard, color: '#C8932B' },
-  { id: 'bizum',    label: 'Bizum',    icon: Smartphone, color: '#3B82F6' },
-  { id: 'fiado',    label: 'Fiado',    icon: Clock, color: '#A23E3E' },
+  { id: 'efectivo', label: 'Efectivo', icon: Banknote, color: '#7a9a7c' },
+  { id: 'tarjeta',  label: 'Tarjeta',  icon: CreditCard, color: '#c4a04a' },
+  { id: 'bizum',    label: 'Bizum',    icon: Smartphone, color: '#6b9bf8' },
+  { id: 'fiado',    label: 'Fiado',    icon: Clock, color: '#b05e5e' },
 ];
 
 export default function PaymentModal({

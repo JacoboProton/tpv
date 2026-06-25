@@ -13,6 +13,29 @@ export async function runMigrations() {
   await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS ubicacion TEXT NOT NULL DEFAULT 'Bar'`;
   await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS discount NUMERIC(5,2) NOT NULL DEFAULT 0`;
   await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS course TEXT NOT NULL DEFAULT ''`;
+  await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS image TEXT`;
+  await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS allergens TEXT[] DEFAULT '{}'`;
+
+  await sql`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`;
+  for (const [k, v] of Object.entries({
+    restaurantName: 'LA COMANDA', logoUrl: '', footerText: 'Gracias por su visita', ticketWidth: '80mm',
+  })) {
+    await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
+  }
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS offers (
+      id TEXT PRIMARY KEY, name TEXT NOT NULL, type TEXT NOT NULL DEFAULT 'menu',
+      days INTEGER[] NOT NULL DEFAULT '{1,2,3,4,5}',
+      start_hour INTEGER NOT NULL DEFAULT 13, end_hour INTEGER NOT NULL DEFAULT 16,
+      discount_pct NUMERIC(5,2) NOT NULL DEFAULT 15,
+      product_ids TEXT[] NOT NULL DEFAULT '{}',
+      active BOOLEAN NOT NULL DEFAULT true
+    )
+  `;
+  await sql`INSERT INTO offers (id, name, type, days, start_hour, end_hour, discount_pct, product_ids)
+    VALUES ('offer_menu', 'Menú del día (laborables)', 'menu', '{1,2,3,4,5}', 13, 16, 15, '{p12,p14}')
+    ON CONFLICT (id) DO NOTHING`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS tables (

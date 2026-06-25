@@ -3,7 +3,7 @@ import {
   ArrowLeft, Receipt, ChefHat, CreditCard,
   Plus, Minus, Percent, X, Trash2, AlertTriangle, Check, StickyNote,
 } from 'lucide-react';
-import { TICKET_EDGE, euros } from './constants';
+import { TICKET_EDGE, euros, ALLERGENS, ALLERGEN_COLORS } from './constants';
 
 export default function ComandaDrawer({
   selectedTable, selectedOrder,
@@ -211,16 +211,37 @@ export default function ComandaDrawer({
                     onClick={() => onAddItem(p)}
                     disabled={p.stock <= 0}
                     style={{ background: C.surfaceLight, border: `1px solid ${C.line}`, opacity: p.stock <= 0 ? 0.4 : 1 }}
-                    className="text-left rounded-lg p-2.5 hover:opacity-90 disabled:cursor-not-allowed relative"
+                    className="text-left rounded-lg p-2 hover:opacity-90 disabled:cursor-not-allowed relative flex gap-2.5 items-start"
                   >
-                    <p className="text-sm font-medium leading-tight">{p.name}</p>
-                    <p className="font-mono text-xs mt-1" style={{ color: C.brassLight }}>
-                      {disc > 0 ? (
-                        <><span className="line-through opacity-60 mr-1">{euros(p.price)}</span> {euros(p.price * (1 - disc / 100))}</>
-                      ) : (
-                        euros(p.price)
+                    {p.image ? (
+                      <img src={p.image} alt="" className="w-10 h-10 rounded-md object-cover shrink-0 mt-0.5" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-md shrink-0 mt-0.5 flex items-center justify-center text-base font-bold" style={{ background: C.surface, color: C.muted }}>
+                        {p.name.charAt(0)}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium leading-tight truncate">{p.name}</p>
+                      {p.allergens?.length > 0 && (
+                        <div className="flex gap-0.5 mt-1 flex-wrap">
+                          {p.allergens.map(aid => {
+                            const a = ALLERGENS.find(x => x.id === aid);
+                            return a ? (
+                              <span key={aid} className="text-[9px] font-bold px-1 rounded-sm leading-tight" style={{ background: ALLERGEN_COLORS[aid] + '30', color: ALLERGEN_COLORS[aid] }}>
+                                {a.abbr}
+                              </span>
+                            ) : null;
+                          })}
+                        </div>
                       )}
-                    </p>
+                      <p className="font-mono text-xs mt-1" style={{ color: C.brassLight }}>
+                        {disc > 0 ? (
+                          <><span className="line-through opacity-60 mr-1">{euros(p.price)}</span> {euros(p.price * (1 - disc / 100))}</>
+                        ) : (
+                          euros(p.price)
+                        )}
+                      </p>
+                    </div>
                     {disc > 0 && (
                       <span className="absolute top-1 right-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: C.wine, color: C.cream }}>
                         -{disc}%
@@ -237,7 +258,7 @@ export default function ComandaDrawer({
           <div style={TICKET_EDGE} />
           <div style={{ background: C.cream, color: C.base }} className="flex-1 overflow-y-auto px-4 py-3 font-mono text-sm">
             {!selectedOrder || selectedOrder.items.length === 0 ? (
-              <p style={{ color: '#8a7c68' }} className="text-center py-6 text-xs">
+              <p style={{ color: '#9a8e80' }} className="text-center py-6 text-xs">
                 Sin artículos todavía. Toca un producto para añadirlo.
               </p>
             ) : (
@@ -250,12 +271,12 @@ export default function ComandaDrawer({
                   <div key={item.id}>
                     <div
                       className="flex items-center justify-between py-1.5"
-                      style={{ borderBottom: '1px dashed #cdbfa3' }}
+                      style={{ borderBottom: '1px dashed #d4c4aa' }}
                     >
                       <div className="flex-1 pr-2 min-w-0">
                         <p className="leading-tight truncate">{item.name}</p>
                         {item.sent && (
-                          <span style={{ color: item.ready ? C.sage : '#a4884a' }} className="text-[11px]">
+                          <span style={{ color: item.ready ? C.sage : '#b89850' }} className="text-[11px]">
                             {item.ready ? '✓ servido' : '● en cocina'}
                           </span>
                         )}
@@ -263,12 +284,12 @@ export default function ComandaDrawer({
                           <span className="text-[10px] ml-1" style={{ color: C.wineLight }}>-{disc}%</span>
                         )}
                         {item.modifiers?.length > 0 && (
-                          <p className="text-[10px]" style={{ color: '#8a7c68' }}>
+                          <p className="text-[10px]" style={{ color: '#9a8e80' }}>
                             {item.modifiers.map(m => m.optionName).join(', ')}
                           </p>
                         )}
                         {item.notes && (
-                          <p className="text-[10px] italic truncate" style={{ color: '#8a7c68' }}>📝 {item.notes}</p>
+                          <p className="text-[10px] italic truncate" style={{ color: '#9a8e80' }}>📝 {item.notes}</p>
                         )}
                       </div>
 
@@ -300,7 +321,7 @@ export default function ComandaDrawer({
                           onClick={() => handleOpenNotes(item)}
                           className="p-0.5 hover:opacity-80"
                           title="Añadir notas"
-                          style={{ color: item.notes ? C.brass : '#8a7c68' }}
+                          style={{ color: item.notes ? C.brass : '#9a8e80' }}
                         >
                           <StickyNote className="w-3.5 h-3.5" />
                         </button>
@@ -317,7 +338,7 @@ export default function ComandaDrawer({
                           onChange={e => setNotesInput(e.target.value)}
                           placeholder="Notas..."
                           className="flex-1 text-xs px-2 py-1 rounded border font-sans"
-                          style={{ border: '1px solid #cdbfa3', background: '#fff' }}
+                          style={{ border: '1px solid #d4c4aa', background: '#fff' }}
                           autoFocus
                           onKeyDown={e => { if (e.key === 'Enter') handleSaveNotes(); if (e.key === 'Escape') setEditNotesId(null); }}
                         />
@@ -334,7 +355,7 @@ export default function ComandaDrawer({
 
           {/* Subtotales */}
           <div
-            style={{ background: C.cream, color: C.base, borderTop: '1px dashed #cdbfa3' }}
+            style={{ background: C.cream, color: C.base, borderTop: '1px dashed #d4c4aa' }}
             className="px-4 py-1 font-mono text-xs"
           >
             <div className="flex justify-between py-1">
@@ -418,7 +439,7 @@ export default function ComandaDrawer({
               <div className="flex gap-2 flex-wrap">
                 {unsentCourses.map(course => {
                   const count = selectedOrder.items.filter(i => !i.sent && i.course === course).length;
-                  const colors = { Entrantes: '#6F9272', Principales: '#C8932B', Postres: '#A23E3E' };
+                  const colors = { Entrantes: '#7a9a7c', Principales: '#c4a04a', Postres: '#b05e5e' };
                   const color = colors[course] || C.sage;
                   return (
                     <button

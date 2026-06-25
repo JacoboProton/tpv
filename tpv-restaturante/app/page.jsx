@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   LayoutGrid, ChefHat, Package, BarChart3, AlertTriangle,
-  LogOut, Users, ShieldCheck, Sun, Moon, ClipboardList, WifiOff, Printer,
+  LogOut, Users, ShieldCheck, Sun, Moon, ClipboardList, WifiOff, Printer, Settings, Percent,
 } from 'lucide-react';
 
 import { THEMES, seedCatalog, seedFloor, seedEmployees, euros, round2, clone } from '../components/constants';
@@ -21,6 +21,9 @@ import {
 } from '../lib/api';
 import { onNetworkChange, clearMutations, getMutations } from '../lib/offline';
 import { escposOpenDrawer, printESCPOS, isPrinterConnected } from '../lib/thermal-printer';
+import { fetchSettings, saveSettings, fetchOffers, saveOffers } from '../lib/api';
+import { ALLERGENS } from '../components/constants';
+import { playKitchenAlert, showKitchenNotification, requestNotificationPermission, playBeep } from '../lib/sound';
 
 import MenuPrincipal        from '../components/MenuPrincipal';
 import LoginScreen          from '../components/LoginScreen';
@@ -35,6 +38,7 @@ import ComandaDrawer        from '../components/ComandaDrawer';
 import PaymentModal         from '../components/PaymentModal';
 import ComandasAbiertasView from '../components/ComandasAbiertasView';
 import ModifierSelector     from '../components/ModifierSelector';
+import OfertasPanel         from '../components/OfertasPanel';
 
 export default function App() {
   // ---------- Tema claro/oscuro ----------
@@ -81,31 +85,23 @@ export default function App() {
   const [modifierData, setModifierData] = useState({ groups: [], productModifiers: {} });
   const [showModifierSelector, setShowModifierSelector] = useState(null);
 
+  // Configuración ticket
+  const [ticketSettings, setTicketSettings] = useState({
+    restaurantName: 'LA COMANDA', logoUrl: '', footerText: 'Gracias por su visita', ticketWidth: '80mm',
+  });
+  const [showSettings, setShowSettings] = useState(false);
+
+  // Ofertas
+  const [offers, setOffers] = useState([]);
+
   // Impresora
 
-  // Audio
-  const audioCtx = useRef(null);
-
-  function playBeep(freq = 660, duration = 0.15) {
-    if (!audioCtx.current) audioCtx.current = new (window.AudioContext || window.webkitAudioContext)();
-    const ctx = audioCtx.current;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.frequency.value = freq;
-    gain.gain.value = 0.1;
-    osc.start();
-    osc.stop(ctx.currentTime + duration);
-  }
-
-  function playChaChing() {
-    playBeep(880, 0.15);
-    setTimeout(() => playBeep(1100, 0.15), 150);
-  }
-
-  // Detectar nuevos items en cocina para sonido
+  // Detectar nuevos items en cocina para sonido + notificación
   const prevPendingRef = useRef(0);
+
+  useEffect(() => {
+    requestNotificationPermission();
+  }, []);
 
   useEffect(() => {
     if (!floor) return;
@@ -113,7 +109,8 @@ export default function App() {
       sum + o.items.filter(i => i.sent && !i.ready).length, 0
     );
     if (pending > prevPendingRef.current && prevPendingRef.current > 0) {
-      playBeep(660, 0.15);
+      playKitchenAlert();
+      showKitchenNotification(pending - prevPendingRef.current);
     }
     prevPendingRef.current = pending;
   }, [floor]);
@@ -163,6 +160,11 @@ export default function App() {
         }
 
         setSales(sls);
+
+        const stg = await fetchSettings().catch(() => null);
+        if (stg) setTicketSettings(stg);
+        const off = await fetchOffers().catch(() => []);
+        setOffers(off);
       } catch (err) {
         console.error('Error cargando datos:', err);
         setFatalError(true);
@@ -521,9 +523,24 @@ export default function App() {
       }
     });
 
-    const subtotal       = order.items.reduce((s, i) => s + i.price * i.qty, 0);
-    const discountAmount = round2(subtotal * (orderDiscount / 100));
-    const total          = round2(subtotal - discountAmount);
+    // Aplicar descuentos de ofertas activas a los productos que correspondan
+    const now = new Date();
+    const currentDay = now.getDay() === 0 ? 7 : now.getDay(); // 1=lunes..7=domingo
+    const currentHour = now.getHours();
+    let offerDiscountAmount = 0;
+    for (const offer of offers) {
+      if (!offer.active) continue;
+      if (!offer.days.includes(currentDay)) continue;
+      if (currentHour < offer.startHour || currentHour >= offer.endHour) continue;
+      for (const item of order.items) {
+        if (item.productId && offer.productIds.includes(item.productId)) {
+          offerDiscountAmount += round2(item.price * item.qty * (offer.discountPct / 100));
+        }
+      }
+    }
+    const subtotal        = order.items.reduce((s, i) => s + i.price * i.qty, 0);
+    const discountAmount  = round2(round2(subtotal * (orderDiscount / 100)) + offerDiscountAmount);
+    const total           = round2(subtotal - discountAmount);
     const totalWithTip   = round2(total + tipAmount);
     const payments       = paymentSplits.map(s => ({ method: s.method, amount: round2(s.amount) }));
     const isFiado        = payments.some(p => p.method === 'fiado');
@@ -535,6 +552,7 @@ export default function App() {
       subtotal, discount: orderDiscount, discountAmount, total, tip: tipAmount, totalWithTip,
       payments: isFiado ? [{ method: 'fiado', amount: totalWithTip }] : payments,
       paymentMethod: methodLabel, isFiado, isDebtPayment: wasDebt,
+      offerDiscount: offerDiscountAmount,
       employeeId: currentUser?.id || null, employeeName: currentUser?.name || 'Sin asignar',
       closedAt: Date.now(),
     };
@@ -553,13 +571,14 @@ export default function App() {
 
     const tipStr  = tipAmount > 0 ? ` (+${euros(tipAmount)} propina)` : '';
     const discStr = orderDiscount > 0 ? ` (${orderDiscount}% desc)` : '';
+    const offerStr = offerDiscountAmount > 0 ? ` (oferta -${euros(offerDiscountAmount)})` : '';
     showToast(
-      wasDebt ? `Deuda pagada: ${euros(totalWithTip)}${discStr}${tipStr}`
-      : isFiado ? `Fiado: ${euros(totalWithTip)}${discStr}${tipStr}`
-      : `Cobrado: ${euros(totalWithTip)}${discStr}${tipStr}`
+      wasDebt ? `Deuda pagada: ${euros(totalWithTip)}${discStr}${offerStr}${tipStr}`
+      : isFiado ? `Fiado: ${euros(totalWithTip)}${discStr}${offerStr}${tipStr}`
+      : `Cobrado: ${euros(totalWithTip)}${discStr}${offerStr}${tipStr}`
     );
 
-    playChaChing();
+    playBeep(880, 0.15); setTimeout(() => playBeep(1100, 0.15), 150);
 
     // Abrir cajón si hay pago en efectivo e impresora conectada
     if (payments.some(p => p.method === 'efectivo') && isPrinterConnected()) {
@@ -637,13 +656,20 @@ export default function App() {
     const total = subtotal - discountAmount;
     const totalWithTip = total + tipAmount;
     const date = new Date().toLocaleString('es-ES');
+    const { restaurantName, logoUrl, footerText, ticketWidth } = ticketSettings;
 
     function row(item) {
       const mods = item.modifiers?.length
         ? item.modifiers.map(m => `  + ${m.optionName}`).join('<br>') + '<br>'
         : '';
+      const product = catalog?.products?.find(p => p.id === item.productId);
+      const itemAllergens = product?.allergens || [];
+      const aIcons = itemAllergens.map(aid => {
+        const a = ALLERGENS.find(x => x.id === aid);
+        return a ? `<span style="font-size:8px;color:#888;margin-right:2px">[${a.abbr}]</span>` : '';
+      }).join('');
       return `<div style="font-size:10px;margin-bottom:4px">
-        <b>${item.name}</b><br>${mods}
+        <b>${item.name}</b> ${aIcons}<br>${mods}
         <span>${item.qty} x ${item.price.toFixed(2)}€</span>
         <span style="float:right">${(item.qty * item.price).toFixed(2)}€</span>
       </div>`;
@@ -652,14 +678,15 @@ export default function App() {
     const html = `<!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <style>
-  @page { margin:0; size:80mm auto; }
-  body { width:80mm; padding:2mm 3mm; font-family:'Courier New',monospace; font-size:10px; line-height:1.3; color:#000; background:#fff; }
+  @page { margin:0; size:${ticketWidth} auto; }
+  body { width:${ticketWidth}; padding:2mm 3mm; font-family:'Courier New',monospace; font-size:10px; line-height:1.3; color:#222; background:#fff; }
   .c { text-align:center; }
   .b { font-weight:bold; }
-  .d { border-top:1px dashed #333; margin:4px 0; }
+  .d { border-top:1px dashed #999; margin:4px 0; }
   .r { display:flex; justify-content:space-between; }
 </style></head><body>
-  <div class="c b" style="font-size:14px">LA COMANDA</div>
+  ${logoUrl ? `<div class="c"><img src="${logoUrl}" style="max-width:60%;max-height:40px;margin-bottom:4px" /></div>` : ''}
+  <div class="c b" style="font-size:14px">${restaurantName}</div>
   <div class="c" style="font-size:9px;margin-bottom:4px">
     CIF: 78406450W<br>${date}<br>Mesa: ${selectedTable?.name || ''}
   </div>
@@ -667,13 +694,13 @@ export default function App() {
   ${items.map(row).join('')}
   <div class="d"></div>
   <div class="r" style="font-size:9px"><span>Subtotal</span><span>${euros(subtotal)}</span></div>
-  ${orderDiscount > 0 ? `<div class="r" style="font-size:9px;color:#666"><span>Dto. ${orderDiscount}%</span><span>-${euros(discountAmount)}</span></div>` : ''}
-  ${tipAmount > 0 ? `<div class="r" style="font-size:9px;color:#666"><span>Propina</span><span>+${euros(tipAmount)}</span></div>` : ''}
-  <div class="r b" style="font-size:12px;border-top:1px solid #000;padding-top:4px;margin-top:4px">
+  ${orderDiscount > 0 ? `<div class="r" style="font-size:9px;color:#777"><span>Dto. ${orderDiscount}%</span><span>-${euros(discountAmount)}</span></div>` : ''}
+  ${tipAmount > 0 ? `<div class="r" style="font-size:9px;color:#777"><span>Propina</span><span>+${euros(tipAmount)}</span></div>` : ''}
+  <div class="r b" style="font-size:12px;border-top:1px solid #333;padding-top:4px;margin-top:4px">
     <span>TOTAL</span><span>${euros(totalWithTip)}</span>
   </div>
   <div class="d"></div>
-  <div class="c" style="font-size:9px;margin-top:4px">Gracias por su visita</div>
+  <div class="c" style="font-size:9px;margin-top:4px">${footerText}</div>
 </body></html>`;
 
     const iframe = document.createElement('iframe');
@@ -765,6 +792,7 @@ export default function App() {
     { id: 'inventario', label: 'Inventario', icon: Package,       adminOnly: true  },
     { id: 'informes',   label: 'Informes',   icon: BarChart3,     adminOnly: true  },
     { id: 'empleados',  label: 'Equipo',     icon: Users,         adminOnly: true  },
+    { id: 'ofertas',    label: 'Ofertas',    icon: Percent,       adminOnly: true  },
   ].filter(item => !item.adminOnly || currentUser.role === 'admin');
 
   return (
@@ -803,6 +831,11 @@ export default function App() {
             <button onClick={handlePrint} title="Imprimir ticket" style={{ color: C.muted }} className="p-2 rounded-lg hover:opacity-80">
               <Printer className="w-4 h-4" />
             </button>
+            {currentUser?.role === 'admin' && (
+              <button onClick={() => setShowSettings(true)} title="Configurar ticket" style={{ color: C.muted }} className="p-2 rounded-lg hover:opacity-80">
+                <Settings className="w-4 h-4" />
+              </button>
+            )}
             <button onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} title="Tema" style={{ color: C.muted }} className="p-2 rounded-lg hover:opacity-80">
               {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
@@ -827,6 +860,13 @@ export default function App() {
             : <AlmacenMenuView catalog={catalog} onSelectUbicacion={setAlmacenUbicacion} colors={C} />
           )}
           {view === 'informes'   && <InformesView sales={sales} colors={C} />}
+          {view === 'ofertas'   && (
+            <OfertasPanel
+              offers={offers} catalog={catalog}
+              onSave={async (next) => { setOffers(next); await saveOffers(next).catch(() => showToast('No se pudieron guardar las ofertas')); }}
+              colors={C}
+            />
+          )}
           {view === 'empleados'  && <EmpleadosView employees={employees} colors={C} onAdd={addEmployee} onUpdateField={updateEmployeeField} onDelete={deleteEmployee} confirmDeleteId={confirmDeleteId} setConfirmDeleteId={setConfirmDeleteId} />}
         </div>
       </main>
@@ -887,6 +927,49 @@ export default function App() {
       {toast && (
         <div style={{ background: C.surfaceLight, border: `1px solid ${C.line}`, color: C.cream }} className="fixed bottom-5 left-1/2 -translate-x-1/2 px-4 py-2.5 rounded-full text-sm shadow-lg z-50 fade-up no-print">
           {toast}
+        </div>
+      )}
+
+      {showSettings && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 no-print" style={{ background: 'rgba(0,0,0,0.65)' }}>
+          <div style={{ background: C.surface, border: `1px solid ${C.line}` }} className="w-full max-w-sm rounded-xl p-5 fade-up">
+            <p className="font-display text-lg mb-4" style={{ color: C.cream }}>Configurar ticket</p>
+            <div className="flex flex-col gap-3">
+              {['restaurantName', 'logoUrl', 'footerText', 'ticketWidth'].map(field => (
+                <div key={field}>
+                  <label style={{ color: C.muted }} className="text-xs uppercase tracking-wide mb-1 block">
+                    {field === 'restaurantName' ? 'Nombre del restaurante' : field === 'logoUrl' ? 'URL del logo' : field === 'footerText' ? 'Texto del pie' : 'Ancho del ticket'}
+                  </label>
+                  <input
+                    value={ticketSettings[field]}
+                    onChange={e => setTicketSettings(s => ({ ...s, [field]: e.target.value }))}
+                    style={{ background: C.surfaceLight, color: C.cream }}
+                    className="w-full rounded-lg px-3 py-2.5 text-sm"
+                    placeholder={field === 'ticketWidth' ? '80mm' : ''}
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={() => {
+                  saveSettings(ticketSettings).catch(() => showToast('No se pudo guardar la configuración'));
+                  setShowSettings(false);
+                }}
+                style={{ background: C.sage, color: '#fff' }}
+                className="flex-1 rounded-lg py-2.5 text-sm font-medium"
+              >
+                Guardar
+              </button>
+              <button
+                onClick={() => setShowSettings(false)}
+                style={{ color: C.muted, background: C.surfaceLight }}
+                className="flex-1 rounded-lg py-2.5 text-sm"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

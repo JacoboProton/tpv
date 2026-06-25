@@ -129,6 +129,19 @@ function ExtractoTab({ sales, colors: C }) {
     return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 10);
   }, [sales, year]);
 
+  async function downloadXLSX() {
+    try {
+      const res = await fetch(`/api/export/sales?year=${year}`);
+      if (!res.ok) throw new Error('Error en exportación');
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `ventas-${year}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch {}
+  }
+
   function downloadCSV() {
     const rows = [
       ['Mes', 'Tickets', 'Total €', 'Efectivo', 'Tarjeta', 'Bizum', 'Fiado'],
@@ -175,6 +188,9 @@ function ExtractoTab({ sales, colors: C }) {
           )}
         </div>
         <div className="flex-1" />
+        <button onClick={downloadXLSX} style={{ background: C.sage, color: '#fff' }} className="text-sm font-medium px-3 py-2 rounded-lg flex items-center gap-1.5 hover:opacity-90">
+          <Download className="w-4 h-4" /> XLSX
+        </button>
         <button onClick={downloadCSV} style={{ background: C.surfaceLight, color: C.cream }} className="text-sm font-medium px-3 py-2 rounded-lg flex items-center gap-1.5">
           <Download className="w-4 h-4" /> CSV
         </button>
