@@ -2,194 +2,389 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import Script from 'next/script';
-import { ALLERGENS, ALLERGEN_COLORS, COURSES, euros } from '../../components/constants';
+import { 
+  ALLERGENS, 
+  ALLERGEN_COLORS, 
+  euros, 
+  THEMES,
+  getDailyMenu
+} from '../../components/constants';
+import { 
+  CalendarClock, 
+  Flame, 
+  Info, 
+  Plus, 
+  Utensils, 
+  Beer, 
+  Coffee,
+  ShoppingBag,
+  ArrowRight
+} from 'lucide-react';
+import ModifierSelector from '../../components/ModifierSelector';
+import { seedModifierGroups, DEFAULT_PRODUCT_MODIFIERS } from '../../lib/modifiers';
 
-const C = {
-  base: '#0f0d0a', surface: '#1a1714', surfaceLight: '#26221e',
-  cream: '#efeae0', muted: '#8a8075', line: '#2e2a26',
-  brass: '#c9a96e', brassLight: '#e0c898',
-  sage: '#7a8b6a', sageLight: '#9eb08a',
-  wine: '#6b3a3a', wineLight: '#a06050',
-};
-
+const C = THEMES.dark;
 
 export default function MenuPage() {
   const [catalog, setCatalog] = useState(null);
   const [tableId, setTableId] = useState(null);
   const [activeCategory, setActiveCategory] = useState(null);
-  const [activeCourse, setActiveCourse] = useState('all');
+  const [expandedProduct, setExpandedProduct] = useState(null);
+  const [showModifiers, setShowModifiers] = useState(null);
+  const [timeLeft, setTimeLeft] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const tid = params.get('mesa');
+    setTableId(tid);
+
     fetch('/api/catalog').then(r => r.json()).then(d => {
-      setTableId(tid);
       setCatalog(d);
-      if (d?.categories?.length) setActiveCategory(d.categories[0].id);
+      if (d?.categories?.length) setActiveCategory(null); // Show all by default
     }).catch(() => {});
   }, []);
 
+  // Countdown timer for Menu of the Day
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const daily = getDailyMenu();
+      if (daily) {
+        const now = new Date();
+        const end = new Date();
+        end.setHours(daily.endHour, 0, 0, 0);
+        const diff = end - now;
+        if (diff > 0) {
+          const h = Math.floor(diff / 3600000).toString().padStart(2, '0');
+          const m = Math.floor((diff % 3600000) / 60000).toString().padStart(2, '0');
+          const s = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
+          setTimeLeft(`${h}:${m}:${s}`);
+        } else {
+          setTimeLeft("");
+        }
+      } else {
+        setTimeLeft("");
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const activeOffer = useMemo(() => {
+    return getDailyMenu();
+  }, [catalog]);
+
+  const featuredProducts = useMemo(() => {
+    return catalog?.products?.filter(p => p.featured) || [];
+  }, [catalog]);
+
+  const productsByCategory = useMemo(() => {
+    if (!catalog) return {};
+    const grouped = {};
+    catalog.products.forEach(p => {
+      if (!grouped[p.category]) grouped[p.category] = [];
+      grouped[p.category].push(p);
+    });
+    return grouped;
+  }, [catalog]);
+
   const jsonLd = useMemo(() => {
-    const prods = catalog?.products || [];
-    const cats = catalog?.categories || [];
+    if (!catalog) return null;
     return {
       '@context': 'https://schema.org',
       '@type': 'Restaurant',
-      name: 'La Comanda',
-      description: 'Carta digital con productos frescos y de calidad.',
-      servesCuisine: 'Española',
+      name: 'Sonora',
+      description: 'Menú digital moderno y cinemático.',
+      servesCuisine: 'Española / Fusión',
       hasMenu: {
         '@type': 'Menu',
-        name: 'Carta La Comanda',
-        hasMenuSection: cats.map(cat => ({
+        name: 'Carta Sonora',
+        hasMenuSection: catalog.categories.map(cat => ({
           '@type': 'MenuSection',
           name: cat.name,
-          hasMenuItem: prods
-            .filter(p => p.category === cat.name)
-            .map(p => ({
-              '@type': 'MenuItem',
-              name: p.name,
-              description: p.description || '',
-              offers: {
-                '@type': 'Offer',
-                price: p.price,
-                priceCurrency: 'EUR',
-              },
-            })),
+          hasMenuItem: (productsByCategory[cat.name] || []).map(p => ({
+            '@type': 'MenuItem',
+            name: p.name,
+            description: p.description || '',
+            offers: { '@type': 'Offer', price: p.price, priceCurrency: 'EUR' },
+          })),
         })),
       },
     };
-  }, [catalog]);
+  }, [catalog, productsByCategory]);
 
   if (!catalog) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
-        <p style={{ color: C.muted }}>Cargando carta...</p>
+      <div className="flex items-center justify-center h-screen bg-[#1a1d23]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-0.5 bg-[#c4a04a] animate-pulse" />
+          <p className="text-[#9c958a] font-mono uppercase tracking-[0.3em] text-[10px]">Cargando Sonora</p>
+        </div>
       </div>
     );
   }
 
-  const products = catalog.products || [];
-  const categories = catalog.categories || [];
-
-  const byCategory = {};
-  for (const p of products) {
-    if (activeCourse !== 'all' && p.course !== activeCourse) continue;
-    if (!byCategory[p.category]) byCategory[p.category] = [];
-    byCategory[p.category].push(p);
-  }
-
-  function allergenChips(ids) {
-    return (ids || []).filter(id => ALLERGENS[id]).map(id => (
-      <span
-        key={id}
-        className="inline-flex items-center justify-center rounded-full text-[10px] font-bold leading-none px-1.5 py-0.5"
-        style={{ background: ALLERGEN_COLORS[id] || '#555', color: '#fff', minWidth: 20, height: 16 }}
-        title={ALLERGENS[id]}
-      >{id.toUpperCase()}</span>
-    ));
-  }
+  const modifierGroups = seedModifierGroups();
 
   return (
-    <div style={{ maxWidth: 480, margin: '0 auto', padding: '16px' }}>
-      <Script
-        id="schema-restaurant"
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
-      {/* Header */}
-      <div style={{ textAlign: 'center', padding: '24px 0 16px' }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: 1, color: C.brass }}>LA COMANDA</h1>
-        <p style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>
-          {tableId ? `Mesa ${tableId.toUpperCase()}` : 'Carta'}
-        </p>
-      </div>
+    <div className="relative min-h-screen bg-[#1a1d23] text-white font-sans pb-32 overflow-x-hidden">
+      {jsonLd && (
+        <Script
+          id="schema-restaurant"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      )}
 
-      {/* Course filter */}
-      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 12, marginBottom: 8, scrollbarWidth: 'none' }}>
-        {[{ id: 'all', label: 'Todo' }, ...Object.entries(COURSES).map(([id, label]) => ({ id, label }))].map(c => (
-          <button
-            key={c.id}
-            onClick={() => setActiveCourse(c.id)}
-            style={{
-              background: activeCourse === c.id ? C.brass : C.surface,
-              color: activeCourse === c.id ? C.base : C.muted,
-              border: 'none', borderRadius: 20, padding: '6px 16px',
-              fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', cursor: 'pointer',
-            }}
-          >{c.label}</button>
-        ))}
-      </div>
+      {/* Hero Section */}
+      <header className="relative h-80 w-full overflow-hidden">
+        <video 
+          src="https://videos.pexels.com/video-files/4765778/4765778-hd_1280_720_25fps.mp4" 
+          poster="https://images.pexels.com/videos/4765778/club-drink-drinks-night-4765778.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=630&w=1200"
+          autoPlay muted loop playsInline
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-[#1a1d23]" />
+        
+        <div className="relative z-10 flex flex-col items-center justify-center h-full px-6 text-center">
+          <h1 className="text-4xl font-display tracking-[0.4em] uppercase mb-1 text-white drop-shadow-2xl">Sonora</h1>
+          <div className="w-16 h-0.5 bg-[#c4a04a] mb-8" />
+          
+          {activeOffer?.type === 'menu_del_dia' && (
+            <div className="glass px-5 py-3.5 rounded-2xl flex items-center gap-5 animate-fade-up shadow-2xl border border-white/5">
+              <div className="flex flex-col items-start text-left">
+                <span className="text-[9px] uppercase tracking-[0.2em] text-white/50 mb-1 font-bold">Menú del Día</span>
+                <div className="flex items-center gap-2.5">
+                  <CalendarClock className="text-[#c4a04a] w-5 h-5" />
+                  <span className="font-mono text-xl font-bold tracking-tight">{timeLeft}</span>
+                </div>
+              </div>
+              <div className="w-px h-10 bg-white/10" />
+              <div className="flex flex-col items-center">
+                <span className="text-[9px] uppercase tracking-[0.2em] text-[#b05e5e] mb-1 font-bold">Quedan</span>
+                <div className="flex gap-1.5">
+                  <div className="w-2 h-2 rounded-full bg-[#b05e5e] animate-pulse" />
+                  <div className="w-2 h-2 rounded-full bg-[#b05e5e]/30" />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </header>
 
-      {/* Category tabs */}
-      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 16, scrollbarWidth: 'none' }}>
-        {categories.map(cat => (
-          <button
-            key={cat.id}
-            onClick={() => setActiveCategory(cat.id)}
-            style={{
-              background: activeCategory === cat.id ? C.sage : C.surface,
-              color: activeCategory === cat.id ? '#fff' : C.muted,
-              border: 'none', borderRadius: 20, padding: '6px 16px',
-              fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', cursor: 'pointer',
-            }}
-          >{cat.name}</button>
-        ))}
-      </div>
-
-      {/* Products */}
-      {categories.filter(cat => !activeCategory || cat.id === activeCategory).map(cat => {
-        const items = byCategory[cat.name] || [];
-        if (items.length === 0) return null;
-        return (
-          <div key={cat.id} style={{ marginBottom: 20 }}>
-            <h2 style={{ fontSize: 16, fontWeight: 600, color: C.brassLight, marginBottom: 8, padding: '0 4px' }}>
-              {cat.name}
-            </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {items.map(p => (
-                <div
-                  key={p.id}
-                  style={{
-                    background: C.surface, borderRadius: 12, padding: 12,
-                    display: 'flex', gap: 12, alignItems: 'center',
-                    border: `1px solid ${C.line}`,
-                  }}
-                >
-                  {p.image && (
-                    <img
-                      src={p.image}
-                      alt={p.name || 'Producto'}
-                      style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }}
-                    />
-                  )}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 15, fontWeight: 500, color: C.cream }}>{p.name}</span>
-                      {allergenChips(p.allergens)}
+      {/* Main Content */}
+      <main className="max-w-md mx-auto">
+        
+        {/* Happy Hour Banner */}
+        {activeOffer?.type === 'happy_hour' && (
+          <section className="mt-8 px-6">
+            <div className="bg-[#252830] border-l-4 border-[#b05e5e] p-6 rounded-r-2xl relative overflow-hidden group shadow-xl border border-white/5 border-l-[#b05e5e]">
+              <div className="absolute top-0 right-0 p-2 opacity-10 transition-transform duration-500 group-hover:scale-125 group-hover:-rotate-12">
+                <Flame className="w-20 h-20 text-[#b05e5e]" />
+              </div>
+              <div className="relative z-10">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Flame className="w-3 h-3 text-[#b05e5e]" />
+                  <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-[#b05e5e]">Happy Hour Live</h2>
+                </div>
+                <p className="text-[11px] text-white/40 mb-5 leading-relaxed">Disfruta de nuestra coctelería de autor con precios especiales por tiempo limitado.</p>
+                <div className="flex items-center gap-4">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] uppercase text-white/20 font-bold mb-0.5">Antes</span>
+                    <span className="font-mono text-white/30 line-through text-lg">12.00€</span>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-white/10" />
+                  <div className="flex flex-col">
+                    <span className="text-[10px] uppercase text-[#b05e5e] font-bold mb-0.5 tracking-wider">Ahora</span>
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-mono text-3xl font-bold text-[#b05e5e] price-glow leading-none">8.50€</span>
+                      <span className="bg-[#b05e5e]/20 text-[#b05e5e] text-[9px] px-2 py-0.5 rounded-full font-black">-{activeOffer.discount}%</span>
                     </div>
-                    {p.description && (
-                      <p style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{p.description}</p>
-                    )}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                      <span style={{ fontSize: 16, fontWeight: 600, color: C.brass }}>{euros(p.price)}</span>
-                      {p.discount > 0 && (
-                        <span style={{ fontSize: 11, color: C.wineLight, background: C.wine, padding: '1px 6px', borderRadius: 4 }}>
-                          -{p.discount}%
-                        </span>
-                      )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Featured Section (Horizontal Scroll) */}
+        {featuredProducts.length > 0 && (
+          <section className="mt-12">
+            <div className="px-6 flex items-center justify-between mb-6">
+              <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/30">Platos Destacados</h3>
+              <div className="h-px flex-1 bg-white/5 ml-6" />
+            </div>
+            <div className="flex gap-4 overflow-x-auto px-6 pb-8 scrollbar-hide">
+              {featuredProducts.map(p => (
+                <div 
+                  key={p.id} 
+                  className="relative min-w-[280px] h-56 rounded-3xl overflow-hidden group cursor-pointer shadow-2xl shrink-0"
+                  onClick={() => setExpandedProduct(expandedProduct === p.id ? null : p.id)}
+                >
+                  <img src={p.image} className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" alt={p.name} />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+                  <div className="absolute bottom-0 left-0 p-5 w-full">
+                    <h4 className="text-lg font-bold text-white mb-1 uppercase tracking-widest">{p.name}</h4>
+                    <div className="flex justify-between items-center">
+                      <p className="text-[10px] text-white/60 line-clamp-1 italic font-light tracking-wide">{p.description}</p>
+                      <span className="font-mono text-lg font-bold text-[#c4a04a] ml-4 shrink-0">{euros(p.price)}</span>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
-        );
-      })}
+          </section>
+        )}
 
-      <div style={{ textAlign: 'center', padding: '24px 0 40px', color: C.muted, fontSize: 12 }}>
-        La Comanda © {new Date().getFullYear()}
-      </div>
+        {/* Product List by Category */}
+        <section className="px-6 space-y-px">
+          {catalog.categories
+            .filter(cat => !activeCategory || cat.id === activeCategory)
+            .map(cat => (
+              <div key={cat.id} className="mb-10 last:mb-0">
+                <div className="sticky top-0 z-20 py-4 mb-2 bg-[#1a1d23]/80 backdrop-blur-md">
+                  <div className="flex items-center gap-4">
+                    <h3 className="text-[10px] font-bold uppercase tracking-[0.4em] text-[#c4a04a] whitespace-nowrap">{cat.name}</h3>
+                    <div className="h-px w-full bg-gradient-to-r from-[#c4a04a]/20 to-transparent" />
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  {(productsByCategory[cat.name] || []).map(p => (
+                    <div 
+                      key={p.id} 
+                      className={`group p-4 rounded-2xl transition-all duration-300 border border-transparent hover:border-white/5 ${expandedProduct === p.id ? 'bg-[#252830] shadow-2xl' : 'bg-transparent'}`}
+                      onClick={() => setExpandedProduct(expandedProduct === p.id ? null : p.id)}
+                    >
+                      <div className="flex justify-between items-start gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2.5 mb-1.5 flex-wrap">
+                            <h4 className="text-base font-bold group-hover:text-[#c4a04a] transition-colors tracking-tight">{p.name}</h4>
+                            <div className="flex gap-1.5">
+                              {p.allergens.map(aid => (
+                                <div 
+                                  key={aid}
+                                  className="w-4 h-4 rounded-full flex items-center justify-center border transition-opacity group-hover:opacity-100 opacity-60"
+                                  style={{ borderColor: ALLERGEN_COLORS[aid] + '30', background: ALLERGEN_COLORS[aid] + '10' }}
+                                  title={ALLERGENS.find(a => a.id === aid)?.label}
+                                >
+                                  <span className="text-[8px] font-black" style={{ color: ALLERGEN_COLORS[aid] }}>
+                                    {ALLERGENS.find(a => a.id === aid)?.abbr}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <p className={`text-xs text-white/40 leading-relaxed transition-all ${expandedProduct === p.id ? '' : 'line-clamp-2'}`}>{p.description || 'Consulta ingredientes con nuestro equipo.'}</p>
+                        </div>
+                        <div className="flex flex-col items-end shrink-0">
+                          <span className="font-mono text-base font-bold text-[#c4a04a] tracking-tight">{euros(p.price)}</span>
+                          <button 
+                            className={`mt-4 w-10 h-10 rounded-full border flex items-center justify-center transition-all duration-500 ${expandedProduct === p.id ? 'bg-[#c4a04a] text-black border-[#c4a04a] rotate-90' : 'border-white/10 text-white/40 hover:text-white hover:border-white/30'}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowModifiers(p);
+                            }}
+                          >
+                            <Plus className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {/* Expanded Image Section */}
+                      <div className={`overflow-hidden transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] ${expandedProduct === p.id ? 'max-h-[600px] opacity-100 mt-5' : 'max-h-0 opacity-0'}`}>
+                        {p.image && (
+                          <div className="relative w-full h-52 rounded-2xl overflow-hidden mb-5 group/img shadow-inner">
+                            <img 
+                              src={p.image} 
+                              alt={p.name} 
+                              className="w-full h-full object-cover transition-transform duration-1000 group-hover/img:scale-105"
+                            />
+                            <div className="absolute inset-0 bg-black/10 group-hover/img:bg-transparent transition-colors" />
+                          </div>
+                        )}
+                        <div className="flex flex-wrap gap-2.5">
+                          <div className="glass px-4 py-2.5 rounded-xl flex items-center gap-3 border border-white/5 hover:bg-white/10 transition-colors">
+                            <Info className="w-3.5 h-3.5 text-[#b05e5e]" />
+                            <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-white/60">Info Alérgenos</span>
+                          </div>
+                          {DEFAULT_PRODUCT_MODIFIERS[p.id] && (
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); setShowModifiers(p); }}
+                              className="glass px-4 py-2.5 rounded-xl flex items-center gap-3 border border-white/5 hover:bg-[#c4a04a]/10 hover:border-[#c4a04a]/30 transition-colors"
+                            >
+                              <Plus className="w-3.5 h-3.5 text-[#c4a04a]" />
+                              <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-[#c4a04a]">Personalizar</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+        </section>
+      </main>
+
+      {/* Footer */}
+      <footer className="text-center py-20 px-8 border-t border-white/5 mt-16 opacity-20">
+        <h2 className="font-display text-2xl tracking-[0.5em] mb-4 text-white">SONORA</h2>
+        <p className="text-[9px] uppercase tracking-[0.3em] leading-relaxed">
+          Artesanía Culinaria &bull; Experiencia Sonora<br/>
+          Calle Falsa 123, Madrid
+        </p>
+      </footer>
+
+      {/* Floating Bottom Nav */}
+      <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-50 animate-fade-up">
+        <div className="glass flex justify-between items-center px-2 py-2 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10">
+          <div className="flex items-center gap-1">
+            {catalog.categories.map(cat => (
+              <button 
+                key={cat.id}
+                onClick={() => setActiveCategory(cat.id === activeCategory ? null : cat.id)}
+                className={`p-3.5 rounded-full transition-all duration-500 relative group ${activeCategory === cat.id ? 'bg-[#c4a04a] text-black shadow-lg shadow-[#c4a04a]/30 scale-110' : 'text-white/30 hover:text-white hover:bg-white/5'}`}
+              >
+                {cat.name === 'Bebidas' && <Beer className="w-5.5 h-5.5" />}
+                {cat.name === 'Tapas' && <Flame className="w-5.5 h-5.5" />}
+                {cat.name === 'Principales' && <Utensils className="w-5.5 h-5.5" />}
+                {cat.name === 'Postres' && <Coffee className="w-5.5 h-5.5" />}
+                
+                {activeCategory === cat.id && (
+                   <span className="absolute -top-12 left-1/2 -translate-x-1/2 bg-[#c4a04a] text-black text-[9px] font-black px-2.5 py-1 rounded-md uppercase tracking-widest animate-fade-up">
+                     {cat.name}
+                   </span>
+                )}
+              </button>
+            ))}
+          </div>
+          
+          <div className="h-8 w-px bg-white/10 mx-2" />
+          
+          <button className="flex items-center gap-3 bg-white/5 hover:bg-white/10 transition-colors pl-2 pr-5 py-2 rounded-full border border-white/5 group">
+            <div className="w-10 h-10 rounded-full bg-[#b05e5e] flex items-center justify-center shadow-lg shadow-[#b05e5e]/20 group-hover:scale-105 transition-transform">
+              <ShoppingBag className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex flex-col items-start">
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#b05e5e]">Mi Pedido</span>
+              <span className="font-mono text-xs font-bold leading-none">0.00€</span>
+            </div>
+          </button>
+        </div>
+      </nav>
+
+      {/* Modifier Selector Modal */}
+      {showModifiers && (
+        <ModifierSelector 
+          product={showModifiers}
+          modifierGroups={modifierGroups.filter(g => (DEFAULT_PRODUCT_MODIFIERS[showModifiers.id] || []).includes(g.id))}
+          onConfirm={(selected) => {
+            console.log('Selected modifiers:', selected);
+            setShowModifiers(null);
+          }}
+          onCancel={() => setShowModifiers(null)}
+          colors={C}
+        />
+      )}
     </div>
   );
 }

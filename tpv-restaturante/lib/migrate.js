@@ -15,6 +15,8 @@ export async function runMigrations() {
   await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS course TEXT NOT NULL DEFAULT ''`;
   await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS image TEXT`;
   await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS allergens TEXT[] DEFAULT '{}'`;
+  await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS description TEXT`;
+  await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS featured BOOLEAN DEFAULT false`;
 
   await sql`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`;
   for (const [k, v] of Object.entries({

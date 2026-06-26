@@ -1,0 +1,27 @@
+// Kombai Tech Stack Configuration
+// Each value must be a string or an array of strings.
+// Example: "Framework": "Vite" or "Project Type": ["React", "Vue"]
+{
+  "Project Type": "React",
+  "Framework": "NextJS 16",
+  "Build Tool": "Webpack",
+  "CSS Implementation": "Vanilla CSS",
+  "Tailwind Version": "v4",
+  "TS/JS": "TS",
+  "Router": "App Router",
+  "API Client": "Fetch API",
+  "Testing Framework": "Vitest",
+  "Charting Library": "Recharts",
+  "Package Manager": "npm",
+  "Icon Set": "Lucide",
+  "context_graphs": [
+    {
+      "type": "local",
+      "path": ".",
+      "name": "tpv",
+      "excludedFolders": [
+        "nimbalyst-local"
+      ]
+    }
+  ]
+}

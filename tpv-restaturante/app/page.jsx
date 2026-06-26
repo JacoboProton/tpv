@@ -360,28 +360,6 @@ export default function App() {
   const canConfirm      = paymentSplits.length > 0 && Math.abs(remaining) < 0.005;
 
   // ---------- Acciones de comanda ----------
-  function addItem(product) {
-    const next = clone(floor);
-    const table = next.tables.find(t => t.id === selectedTableId);
-    let order;
-    if (!table.orderId) {
-      const orderId = 'o_' + Date.now();
-      order = { id: orderId, tableId: table.id, items: [], createdAt: Date.now(), employeeName: currentUser?.name || '-' };
-      next.orders[orderId] = order;
-      table.orderId = orderId;
-      table.status = 'ocupada';
-    } else {
-      order = next.orders[table.orderId];
-    }
-    const existing = order.items.find(i => i.productId === product.id && !i.sent);
-    if (existing) existing.qty += 1;
-    else {
-      const notes = window.prompt('Notas para ' + product.name + '?', '') || '';
-      order.items.push({ id: 'i_' + Date.now() + Math.random().toString(16).slice(2), productId: product.id, name: product.name, price: product.price, qty: 1, sent: false, ready: false, sentAt: null, notes });
-    }
-    persistFloor(next);
-  }
-
   function changeQty(itemId, delta) {
     const next = clone(floor);
     const table = next.tables.find(t => t.id === selectedTableId);
@@ -630,22 +608,14 @@ export default function App() {
   function addItemWithPrice(product, modifiers, extraPrice) {
     const next = clone(floor);
     const table = next.tables.find(t => t.id === selectedTableId);
-    let order;
-    if (!table.orderId) {
+    let order = table.orderId ? next.orders[table.orderId] : null;
+
+    if (!order) {
       const orderId = 'o_' + Date.now();
       order = { id: orderId, tableId: table.id, items: [], createdAt: Date.now(), employeeName: currentUser?.name || '-' };
       next.orders[orderId] = order;
       table.orderId = orderId;
       table.status = 'ocupada';
-    } else {
-      order = next.orders[table.orderId];
-      if (!order) {
-        const orderId = 'o_' + Date.now();
-        order = { id: orderId, tableId: table.id, items: [], createdAt: Date.now(), employeeName: currentUser?.name || '-' };
-        next.orders[orderId] = order;
-        table.orderId = orderId;
-        table.status = 'ocupada';
-      }
     }
     const effectivePrice = round2(product.price + extraPrice);
     const existing = order.items.find(i => i.productId === product.id && !i.sent && JSON.stringify(i.modifiers) === JSON.stringify(modifiers));

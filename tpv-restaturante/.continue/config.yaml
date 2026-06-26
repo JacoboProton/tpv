@@ -1,0 +1,32 @@
+version: 1.0.0
+name: tpv-copilot-real
+
+models:
+  - name: Qwen 7B Chat (LM Studio)
+    provider: openai
+    model: qwen2.5-coder-7b-instruct
+    apiBase: http://localhost:1234/v1
+    apiKey: lm-studio
+
+  - name: Qwen 0.5B Autocomplete (LM Studio)
+    provider: openai
+    model: qwen2.5-coder-0.5b-instruct
+    apiBase: http://localhost:1234/v1
+    apiKey: lm-studio
+
+tabAutocompleteModel:
+  provider: openai
+  model: qwen2.5-coder-0.5b-instruct
+  apiBase: http://localhost:1234/v1
+  apiKey: lm-studio
+
+contextProviders:
+  - provider: code
+  - provider: diff
+  - provider: terminal
+  - provider: docs
+
+requestOptions:
+  temperature: 0.2
+  maxTokens: 4096
+  topP: 0.9

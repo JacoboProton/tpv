@@ -13,6 +13,24 @@
   --font-mono: var(--font-jetbrains);
 }
 
+@utility glass {
+  background: rgba(37, 40, 48, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+@utility price-glow {
+  text-shadow: 0 0 10px rgba(176, 94, 94, 0.5);
+}
+
+@utility scrollbar-hide {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

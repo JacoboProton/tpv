@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../lib/db';
 
-// GET /api/catalog → { categories: string[], products: Product[] }
+// GET /api/catalog → { categories: {id, name}[], products: Product[] }
 export async function GET() {
   try {
     const [rows, catRows, stockRows] = await Promise.all([
-      sql`SELECT id, name, category, price::float AS price, ubicacion, course, image, allergens FROM products ORDER BY category, name`,
-      sql`SELECT name FROM categories ORDER BY name`,
+      sql`SELECT id, name, category, price::float AS price, ubicacion, course, image, allergens, description, featured FROM products ORDER BY category, name`,
+      sql`SELECT id, name FROM categories ORDER BY name`,
       sql`SELECT * FROM product_stock ORDER BY product_id, location`,
     ]);
     const stockByProduct = {};
@@ -19,7 +19,7 @@ export async function GET() {
       stockByLocation: stockByProduct[p.id] || {},
     }));
     return NextResponse.json({
-      categories: catRows.map(r => r.name),
+      categories: catRows,
       products,
     });
   } catch (err) {
@@ -34,14 +34,15 @@ export async function PUT(req) {
 
     const queries = [];
 
-    for (const name of categories) {
+    for (const cat of categories) {
+      const name = typeof cat === 'string' ? cat : cat.name;
       queries.push(sql`INSERT INTO categories (name) VALUES (${name}) ON CONFLICT (name) DO NOTHING`);
     }
 
     for (const p of products) {
       queries.push(sql`
-        INSERT INTO products (id, name, category, price, ubicacion, course, image, allergens)
-        VALUES (${p.id}, ${p.name}, ${p.category}, ${p.price}, ${p.ubicacion ?? 'Bar'}, ${p.course ?? ''}, ${p.image ?? null}, ${p.allergens ?? []})
+        INSERT INTO products (id, name, category, price, ubicacion, course, image, allergens, description, featured)
+        VALUES (${p.id}, ${p.name}, ${p.category}, ${p.price}, ${p.ubicacion ?? 'Bar'}, ${p.course ?? ''}, ${p.image ?? null}, ${p.allergens ?? []}, ${p.description ?? null}, ${p.featured ?? false})
         ON CONFLICT (id) DO UPDATE SET
           name      = EXCLUDED.name,
           category  = EXCLUDED.category,
@@ -49,13 +50,14 @@ export async function PUT(req) {
           ubicacion = EXCLUDED.ubicacion,
           course    = EXCLUDED.course,
           image     = EXCLUDED.image,
-          allergens = EXCLUDED.allergens
+          allergens = EXCLUDED.allergens,
+          description = EXCLUDED.description,
+          featured    = EXCLUDED.featured
       `);
       // Stock por ubicación
       const sbl = p.stockByLocation || {};
       const locs = Object.keys(sbl);
       if (locs.length > 0) {
-        // Si no hay registros en product_stock, usar la ubicacion del producto
         const locations = locs.length > 0 ? locs : [p.ubicacion || 'Bar'];
         for (const loc of locations) {
           const entry = sbl[loc] || { stock: 0, lowStock: 5 };
