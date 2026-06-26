@@ -2,8 +2,25 @@ import { useState } from 'react';
 import { Check } from 'lucide-react';
 import { euros } from './constants';
 
-export default function ModifierSelector({ product, modifierGroups, onConfirm, onCancel, colors: C }) {
+export default function ModifierSelector({ product, modifierGroups, onConfirm, onCancel, colors: C, initialModifiers }) {
   const [selected, setSelected] = useState(() => {
+    // If we have initial modifiers (edit mode), restore them
+    if (initialModifiers && initialModifiers.length > 0) {
+      const init = {};
+      for (const g of modifierGroups) {
+        const groupMods = initialModifiers.filter(m => m.groupId === g.id);
+        if (g.type === 'single') {
+          init[g.id] = groupMods[0]?.optionId || (g.options.find(o => o.isDefault)?.id) || (g.options[0]?.id || null);
+        } else {
+          init[g.id] = groupMods.map(m => m.optionId);
+          if (init[g.id].length === 0) {
+            const defs = g.options.filter(o => o.isDefault).map(o => o.id);
+            init[g.id] = g.required && defs.length === 0 ? [g.options[0]?.id].filter(Boolean) : defs;
+          }
+        }
+      }
+      return init;
+    }
     const init = {};
     for (const g of modifierGroups) {
       if (g.type === 'single') {

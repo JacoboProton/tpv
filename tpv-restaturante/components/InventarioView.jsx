@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from 'react';
-import { Plus, AlertTriangle, Trash2, Package, Filter, FolderTree, List, Camera } from 'lucide-react';
+import { Plus, AlertTriangle, Trash2, Package, Filter, FolderTree, List, Camera, Star } from 'lucide-react';
 import { euros, ALLERGENS, ALLERGEN_COLORS } from './constants';
 
 function totalStock(p) {
@@ -106,27 +106,37 @@ export default function InventarioView({
         style={{ background: C.surface, border: `1px solid ${sb.low ? C.wine : C.line}` }}
         className={`rounded-lg p-3 flex flex-wrap items-center gap-3 transition-all ${sb.low ? 'shadow-md shadow-red-500/10' : ''}`}
       >
-        <div className="flex items-start gap-3 flex-1 min-w-[8rem]">
-          <div className="relative shrink-0">
-            {p.image ? (
-              <img src={p.image} alt="" className="w-9 h-9 rounded-lg object-cover" />
-            ) : (
-              <div style={{ background: sb.low ? 'rgba(176,94,94,0.2)' : 'rgba(122,154,124,0.2)', width: 36, height: 36 }} className="rounded-lg flex items-center justify-center">
-                <Package className="w-4 h-4" style={{ color: sb.low ? C.wineLight : C.sageLight }} />
+          <div className="flex items-start gap-3 flex-1 min-w-[8rem]">
+            <div className="relative shrink-0">
+              {p.image ? (
+                <img src={p.image} alt="" className="w-9 h-9 rounded-lg object-cover" />
+              ) : (
+                <div style={{ background: sb.low ? 'rgba(176,94,94,0.2)' : 'rgba(122,154,124,0.2)', width: 36, height: 36 }} className="rounded-lg flex items-center justify-center">
+                  <Package className="w-4 h-4" style={{ color: sb.low ? C.wineLight : C.sageLight }} />
+                </div>
+              )}
+              <button
+                onClick={() => { setUploadingProduct(p.id); setTimeout(() => fileInputRef.current?.click(), 0); }}
+                style={{ background: C.surface, border: `1px solid ${C.line}` }}
+                className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full flex items-center justify-center hover:opacity-80"
+                title="Cambiar imagen"
+              >
+                <Camera className="w-2.5 h-2.5" style={{ color: C.muted }} />
+              </button>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium">{p.name}</p>
+                <button
+                  onClick={() => onUpdateField(p.id, 'featured', !p.featured)}
+                  style={{ color: p.featured ? C.brassLight : C.muted }}
+                  className="p-0.5 hover:opacity-80 transition-colors"
+                  title={p.featured ? 'Quitar destacado' : 'Marcar como destacado'}
+                >
+                  <Star className="w-3.5 h-3.5" fill={p.featured ? C.brassLight : 'transparent'} />
+                </button>
               </div>
-            )}
-            <button
-              onClick={() => { setUploadingProduct(p.id); setTimeout(() => fileInputRef.current?.click(), 0); }}
-              style={{ background: C.surface, border: `1px solid ${C.line}` }}
-              className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full flex items-center justify-center hover:opacity-80"
-              title="Cambiar imagen"
-            >
-              <Camera className="w-2.5 h-2.5" style={{ color: C.muted }} />
-            </button>
-          </div>
-          <div>
-            <p className="text-sm font-medium">{p.name}</p>
-            <p style={{ color: C.muted }} className="text-xs">{p.category} · {p.ubicacion}</p>
+              <p style={{ color: C.muted }} className="text-xs">{p.category} · {p.ubicacion}</p>
             <div className="flex gap-0.5 mt-0.5 flex-wrap">
               {ALLERGENS.map(a => {
                 const active = p.allergens?.includes(a.id);

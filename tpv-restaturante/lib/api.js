@@ -126,6 +126,14 @@ export async function saveModifiers(data) {
   return apiFetch('/api/modifiers', { method: 'PUT', body: JSON.stringify(data) });
 }
 
+export async function fetchCombos() {
+  return apiFetchWithCache('/api/combos', 'combos');
+}
+export async function saveCombos(combos) {
+  cacheSet('combos', combos);
+  return apiFetch('/api/combos', { method: 'PUT', body: JSON.stringify(combos) });
+}
+
 export async function fetchSettings() {
   return apiFetch('/api/settings');
 }
@@ -138,6 +146,22 @@ export async function fetchOffers() {
 }
 export async function saveOffers(offers) {
   return apiFetch('/api/offers', { method: 'PUT', body: JSON.stringify(offers) });
+}
+
+export async function fetchMealMenus() {
+  return apiFetchWithCache('/api/meal-menus', 'mealMenus');
+}
+export async function saveMealMenus(menus) {
+  cacheSet('mealMenus', menus);
+  return apiFetch('/api/meal-menus', { method: 'PUT', body: JSON.stringify(menus) });
+}
+
+export async function fetchPriceRules() {
+  return apiFetchWithCache('/api/price-rules', 'priceRules');
+}
+export async function savePriceRules(rules) {
+  cacheSet('priceRules', rules);
+  return apiFetch('/api/price-rules', { method: 'PUT', body: JSON.stringify(rules) });
 }
 
 export async function fetchExportSales(year) {

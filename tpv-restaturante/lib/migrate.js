@@ -17,6 +17,16 @@ export async function runMigrations() {
   await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS allergens TEXT[] DEFAULT '{}'`;
   await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS description TEXT`;
   await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS featured BOOLEAN DEFAULT false`;
+  await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true`;
+  await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS show_tpv BOOLEAN DEFAULT true`;
+  await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS show_qr BOOLEAN DEFAULT true`;
+  await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS agotado BOOLEAN DEFAULT false`;
+  await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS carousel_sort INTEGER`;
+
+  await sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0`;
+  await sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true`;
+  await sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS printer_zone TEXT DEFAULT ''`;
+  await sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS show_qr BOOLEAN DEFAULT true`;
 
   await sql`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`;
   for (const [k, v] of Object.entries({
@@ -219,6 +229,117 @@ export async function runMigrations() {
     )
   `;
 
+  // ===== COMBOS =====
+  await sql`
+    CREATE TABLE IF NOT EXISTS combos (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      price NUMERIC(10,2) NOT NULL,
+      image TEXT,
+      active BOOLEAN NOT NULL DEFAULT true,
+      created_at BIGINT NOT NULL
+    )
+  `;
+  await sql`ALTER TABLE combos ADD COLUMN IF NOT EXISTS discount_pct NUMERIC(5,2) DEFAULT 0`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS combo_slots (
+      id TEXT PRIMARY KEY,
+      combo_id TEXT NOT NULL REFERENCES combos(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      min_choices INTEGER NOT NULL DEFAULT 1,
+      max_choices INTEGER NOT NULL DEFAULT 1,
+      sort_order INTEGER NOT NULL DEFAULT 0
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS combo_slot_items (
+      id TEXT PRIMARY KEY,
+      slot_id TEXT NOT NULL REFERENCES combo_slots(id) ON DELETE CASCADE,
+      product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      surcharge NUMERIC(10,2) NOT NULL DEFAULT 0,
+      sort_order INTEGER NOT NULL DEFAULT 0
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS combo_items (
+      id SERIAL PRIMARY KEY,
+      combo_id TEXT NOT NULL REFERENCES combos(id) ON DELETE CASCADE,
+      product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      quantity INTEGER NOT NULL DEFAULT 1,
+      UNIQUE (combo_id, product_id)
+    )
+  `;
+
+  // Añadir fixed_price a offers para menú del día con precio fijo
+  await sql`ALTER TABLE offers ADD COLUMN IF NOT EXISTS fixed_price NUMERIC(10,2)`;
+
+  // ===== MENÚ DEL DÍA =====
+  await sql`
+    CREATE TABLE IF NOT EXISTS meal_menus (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      price NUMERIC(10,2) NOT NULL,
+      image TEXT,
+      includes_pan BOOLEAN NOT NULL DEFAULT false,
+      includes_bebida BOOLEAN NOT NULL DEFAULT false,
+      includes_cafe BOOLEAN NOT NULL DEFAULT false,
+      active BOOLEAN NOT NULL DEFAULT true,
+      created_at BIGINT NOT NULL
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS meal_menu_courses (
+      id TEXT PRIMARY KEY,
+      menu_id TEXT NOT NULL REFERENCES meal_menus(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS meal_menu_course_items (
+      id TEXT PRIMARY KEY,
+      course_id TEXT NOT NULL REFERENCES meal_menu_courses(id) ON DELETE CASCADE,
+      product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      surcharge NUMERIC(10,2) NOT NULL DEFAULT 0,
+      sort_order INTEGER NOT NULL DEFAULT 0
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS meal_menu_schedules (
+      id TEXT PRIMARY KEY,
+      menu_id TEXT NOT NULL REFERENCES meal_menus(id) ON DELETE CASCADE,
+      day_of_week INTEGER NOT NULL,
+      start_time TEXT NOT NULL,
+      end_time TEXT NOT NULL
+    )
+  `;
+
+  await sql`ALTER TABLE meal_menus ADD COLUMN IF NOT EXISTS extras JSONB DEFAULT '[]'`;
+
+  // ===== PRICE RULES =====
+  await sql`
+    CREATE TABLE IF NOT EXISTS product_price_rules (
+      id TEXT PRIMARY KEY,
+      product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      active BOOLEAN NOT NULL DEFAULT true,
+      days INTEGER[] NOT NULL DEFAULT '{0,1,2,3,4,5,6}',
+      start_time TEXT NOT NULL DEFAULT '00:00',
+      end_time TEXT NOT NULL DEFAULT '23:59',
+      type TEXT NOT NULL DEFAULT 'discount_pct',
+      value NUMERIC(10,2) NOT NULL DEFAULT 0,
+      created_at BIGINT NOT NULL
+    )
+  `;
+
   // ===== STOCK POR UBICACIÓN =====
   await sql`
     CREATE TABLE IF NOT EXISTS product_stock (
@@ -286,7 +407,7 @@ export async function fetchTurns(employeeId, turnDate) {
 }
 
 export async function backupAll() {
-  const [categories, products, tables, orders, sales, employees, accessLogs, stockLog, cancelledOrders, offers, settings, backups, deliveryRunners, deliveryOrders, deliveryTracking] = await Promise.all([
+  const [categories, products, tables, orders, sales, employees, accessLogs, stockLog, cancelledOrders, offers, settings, backups, deliveryRunners, deliveryOrders, deliveryTracking, mealMenus] = await Promise.all([
     sql`SELECT * FROM categories`,
     sql`SELECT * FROM products`,
     sql`SELECT * FROM tables`,
@@ -302,10 +423,11 @@ export async function backupAll() {
     sql`SELECT * FROM delivery_runners`,
     sql`SELECT * FROM delivery_orders`,
     sql`SELECT * FROM delivery_tracking ORDER BY id`,
+    sql`SELECT * FROM meal_menus`,
   ]);
   return {
     exportedAt: new Date().toISOString(),
     version: '2.0',
-    data: { categories, products, tables, orders, sales, employees, accessLogs, stockLog, cancelledOrders, offers, settings, backups, deliveryRunners, deliveryOrders, deliveryTracking },
+    data: { categories, products, tables, orders, sales, employees, accessLogs, stockLog, cancelledOrders, offers, settings, backups, deliveryRunners, deliveryOrders, deliveryTracking, mealMenus },
   };
 }

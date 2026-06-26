@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   LayoutGrid, ChefHat, Package, BarChart3, AlertTriangle,
-  LogOut, Users, ShieldCheck, Sun, Moon, ClipboardList, WifiOff, Printer, Settings, Percent, Truck,
+  LogOut, Users, ShieldCheck, Sun, Moon, ClipboardList, WifiOff, Printer, Settings, Percent, Truck, Euro, Star,
 } from 'lucide-react';
 
 import { THEMES, seedCatalog, seedFloor, seedEmployees, euros, round2, clone } from '../components/constants';
@@ -21,7 +21,7 @@ import {
 } from '../lib/api';
 import { onNetworkChange, clearMutations, getMutations } from '../lib/offline';
 import { escposOpenDrawer, printESCPOS, isPrinterConnected } from '../lib/thermal-printer';
-import { fetchSettings, saveSettings, fetchOffers, saveOffers } from '../lib/api';
+import { fetchSettings, saveSettings, fetchOffers, saveOffers, fetchCombos, saveCombos, saveMealMenus, savePriceRules } from '../lib/api';
 import { ALLERGENS } from '../components/constants';
 import { playKitchenAlert, showKitchenNotification, requestNotificationPermission, playBeep } from '../lib/sound';
 
@@ -39,6 +39,11 @@ import PaymentModal         from '../components/PaymentModal';
 import ComandasAbiertasView from '../components/ComandasAbiertasView';
 import ModifierSelector     from '../components/ModifierSelector';
 import OfertasPanel         from '../components/OfertasPanel';
+import CombosPanel          from '../components/CombosPanel';
+import MenusDelDiaPanel     from '../components/MenusDelDiaPanel';
+import PreciosPanel         from '../components/PreciosPanel';
+import CarruselPanel         from '../components/CarruselPanel';
+import CartasView           from '../components/CartasView';
 import DeliveryView         from '../components/DeliveryView';
 
 export default function App() {
@@ -85,6 +90,7 @@ export default function App() {
   // Modificadores
   const [modifierData, setModifierData] = useState({ groups: [], productModifiers: {} });
   const [showModifierSelector, setShowModifierSelector] = useState(null);
+  const [editingItemModifiers, setEditingItemModifiers] = useState(null); // { item, product, groups }
 
   // Configuración ticket
   const [ticketSettings, setTicketSettings] = useState({
@@ -94,6 +100,8 @@ export default function App() {
 
   // Ofertas
   const [offers, setOffers] = useState([]);
+  // Combos
+  const [combos, setCombos] = useState([]);
 
   // Impresora
 
@@ -166,6 +174,8 @@ export default function App() {
         if (stg) setTicketSettings(stg);
         const off = await fetchOffers().catch(() => []);
         setOffers(off);
+        const cmb = cat.combos || await fetchCombos().catch(() => []);
+        setCombos(cmb);
       } catch (err) {
         console.error('Error cargando datos:', err);
         setFatalError(true);
@@ -392,6 +402,22 @@ export default function App() {
     if (count) showToast(`${course} enviado a cocina (${count} ${count === 1 ? 'linea' : 'lineas'})`);
   }
 
+  function updateItemCourse(itemId, course) {
+    const next = clone(floor);
+    const table = next.tables.find(t => t.id === selectedTableId);
+    const order = next.orders[table.orderId];
+    const item = order.items.find(i => i.id === itemId);
+    if (item) item.course = course;
+    persistFloor(next);
+  }
+
+  function editItemModifiers(item, product) {
+    const groups = getModifierGroupsForProduct(product.id);
+    if (groups.length === 0) return;
+    setEditingItemModifiers({ item, product, groups });
+    setShowModifierSelector({ product, groups });
+  }
+
   function toggleCuenta() {
     const next = clone(floor);
     const table = next.tables.find(t => t.id === selectedTableId);
@@ -538,7 +564,7 @@ export default function App() {
 
     const sale = {
       id: 's_' + Date.now(), tableId: table.id, tableName: table.name,
-      items: order.items.filter(i => i.productId).map(i => ({ name: i.name, qty: i.qty, price: i.price })),
+      items: order.items.map(i => ({ name: i.name, qty: i.qty, price: i.price })),
       subtotal, discount: orderDiscount, discountAmount, total, tip: tipAmount, totalWithTip,
       payments: isFiado ? [{ method: 'fiado', amount: totalWithTip }] : payments,
       paymentMethod: methodLabel, isFiado, isDebtPayment: wasDebt,
@@ -602,6 +628,21 @@ export default function App() {
     const product = showModifierSelector.product;
     const extraPrice = modifiers.reduce((s, m) => s + m.priceDelta, 0);
     setShowModifierSelector(null);
+
+    // If editing an existing item, update it in place
+    if (editingItemModifiers) {
+      const next = clone(floor);
+      const table = next.tables.find(t => t.id === selectedTableId);
+      const order = next.orders[table.orderId];
+      const item = order.items.find(i => i.id === editingItemModifiers.item.id);
+      if (item) {
+        item.modifiers = modifiers;
+        item.price = round2(product.price + extraPrice);
+      }
+      persistFloor(next);
+      setEditingItemModifiers(null);
+      return;
+    }
     addItemWithPrice(product, modifiers, extraPrice);
   }
 
@@ -633,7 +674,107 @@ export default function App() {
   }
 
   // Quitamos la antigua addItem (window.prompt + sin modifiers)
-  function addItem(product) { handleAddItemWithModifiers(product); }
+  function addItem(product) {
+    if (product.isMenu && product.menuData) {
+      const menu = product.menuData;
+      const sel = product.menuSel;
+      const next = clone(floor);
+      const table = next.tables.find(t => t.id === selectedTableId);
+      let order = table.orderId ? next.orders[table.orderId] : null;
+      if (!order) {
+        const orderId = 'o_' + Date.now();
+        order = { id: orderId, tableId: table.id, items: [], createdAt: Date.now(), employeeName: currentUser?.name || '-' };
+        next.orders[orderId] = order;
+        table.orderId = orderId;
+        table.status = 'ocupada';
+      }
+      if (sel && sel.length > 0) {
+        for (const s of sel) {
+          const p = catalog.products.find(pr => pr.id === s.productId);
+          if (!p) continue;
+          const existing = order.items.find(i => i.productId === p.id && !i.sent && !i.isCombo && !i.isMenuItem);
+          if (existing) existing.qty += 1;
+          else {
+            order.items.push({
+              id: 'i_' + Date.now() + Math.random().toString(16).slice(2),
+              productId: p.id, name: p.name + ` (${menu.name})`, price: 0,
+              qty: 1, sent: false, ready: false, sentAt: null, notes: '', modifiers: [],
+              course: p.course || '', isMenuItem: true,
+            });
+          }
+        }
+      }
+      order.items.push({
+        id: 'i_' + Date.now() + Math.random().toString(16).slice(2),
+        productId: null, name: `→ Menú: ${menu.name}`, price: menu.price,
+        qty: 1, sent: true, ready: true, sentAt: Date.now(), notes: '', modifiers: [],
+        course: '', isMenuPrice: true,
+      });
+      persistFloor(next);
+      return;
+    }
+    if (product.isCombo && product.comboData) {
+      const combo = product.comboData;
+      const next = clone(floor);
+      const table = next.tables.find(t => t.id === selectedTableId);
+      let order = table.orderId ? next.orders[table.orderId] : null;
+      if (!order) {
+        const orderId = 'o_' + Date.now();
+        order = { id: orderId, tableId: table.id, items: [], createdAt: Date.now(), employeeName: currentUser?.name || '-' };
+        next.orders[orderId] = order;
+        table.orderId = orderId;
+        table.status = 'ocupada';
+      }
+
+      // New slot-based combo selections
+      const sel = product.comboSel;
+      if (sel && sel.length > 0) {
+        for (const s of sel) {
+          const p = catalog.products.find(pr => pr.id === s.productId);
+          if (!p) continue;
+          const existing = order.items.find(i => i.productId === p.id && !i.sent && !i.isCombo);
+          if (existing) existing.qty += 1;
+          else {
+            order.items.push({
+              id: 'i_' + Date.now() + Math.random().toString(16).slice(2),
+              productId: p.id, name: p.name + ` (${combo.name})`, price: 0,
+              qty: 1, sent: false, ready: false, sentAt: null, notes: '', modifiers: [],
+              course: p.course || '', isComboItem: true,
+            });
+          }
+        }
+      } else if (combo.slots && combo.slots.length > 0) {
+        // combo has slots but no selections were made - this shouldn't happen via UI, but handle gracefully
+        // fall through to add just the price line
+      } else {
+        // Legacy fixed-items combos
+        for (const item of combo.items || []) {
+          const p = catalog.products.find(pr => pr.id === item.product_id);
+          if (!p) continue;
+          const qty = item.quantity || 1;
+          const existing = order.items.find(i => i.productId === p.id && !i.sent && !i.isCombo);
+          if (existing) existing.qty += qty;
+          else {
+            order.items.push({
+              id: 'i_' + Date.now() + Math.random().toString(16).slice(2),
+              productId: p.id, name: p.name + (combo.name ? ` (${combo.name})` : ''), price: 0,
+              qty, sent: false, ready: false, sentAt: null, notes: '', modifiers: [],
+              course: p.course || '', isComboItem: true,
+            });
+          }
+        }
+      }
+      order.items.push({
+        id: 'i_' + Date.now() + Math.random().toString(16).slice(2),
+        productId: null, name: `→ Combo: ${combo.name}`, price: combo.price,
+        qty: 1, sent: true, ready: true, sentAt: Date.now(), notes: '', modifiers: [],
+        course: '', isComboPrice: true,
+      });
+      persistFloor(next);
+      return;
+    }
+    handleAddItemWithModifiers(product);
+  }
 
   // ---------- Impresora térmica ----------
   function handlePrint() {
@@ -788,9 +929,14 @@ export default function App() {
     { id: 'cocina',     label: 'Cocina',     icon: ChefHat,       adminOnly: false },
     { id: 'comandas',   label: 'Comandas',   icon: ClipboardList, adminOnly: false },
     { id: 'inventario', label: 'Inventario', icon: Package,       adminOnly: true  },
+    { id: 'carta',      label: 'Carta',      icon: ClipboardList, adminOnly: true  },
     { id: 'informes',   label: 'Informes',   icon: BarChart3,     adminOnly: true  },
     { id: 'empleados',  label: 'Equipo',     icon: Users,         adminOnly: true  },
     { id: 'ofertas',    label: 'Ofertas',    icon: Percent,       adminOnly: true  },
+    { id: 'combos',     label: 'Combos',     icon: Package,       adminOnly: true  },
+    { id: 'menus',      label: 'Menús',      icon: ChefHat,       adminOnly: true  },
+    { id: 'carrusel',   label: 'Carrusel',   icon: Star,          adminOnly: true  },
+    { id: 'precios',    label: 'Precios',    icon: Euro,          adminOnly: true  },
     { id: 'reparto',    label: 'Reparto',    icon: Truck,         adminOnly: true  },
   ].filter(item => !item.adminOnly || currentUser.role === 'admin');
 
@@ -854,6 +1000,18 @@ export default function App() {
           {view === 'cocina'     && <CocinaView floor={floor} onReady={markReady} colors={C} />}
           {view === 'comandas'   && <ComandasAbiertasView floor={floor} colors={C} />}
           {view === 'inventario' && <InventarioView catalog={catalog} colors={C} onUpdateField={updateProductField} newProductOpen={newProductOpen} setNewProductOpen={setNewProductOpen} onAddProduct={addProduct} confirmDeleteId={confirmDeleteId} setConfirmDeleteId={setConfirmDeleteId} onDelete={deleteProduct} />}
+          {view === 'carta' && (
+            <CartasView
+              catalog={catalog}
+              onSave={async (next) => {
+                const { categories, products, combos } = next;
+                await saveCatalog({ categories, products, combos: combos || catalog.combos || [] });
+                setCatalog(next);
+              }}
+              onUpdateField={updateProductField}
+              colors={C}
+            />
+          )}
           {view === 'almacen'    && (almacenUbicacion
             ? <AlmacenDetalleView catalog={catalog} ubicacion={almacenUbicacion} onBack={() => setAlmacenUbicacion(null)} colors={C} onUpdateField={updateProductField} confirmDeleteId={confirmDeleteId} setConfirmDeleteId={setConfirmDeleteId} onDelete={deleteProduct} />
             : <AlmacenMenuView catalog={catalog} onSelectUbicacion={setAlmacenUbicacion} colors={C} />
@@ -863,6 +1021,46 @@ export default function App() {
             <OfertasPanel
               offers={offers} catalog={catalog}
               onSave={async (next) => { setOffers(next); await saveOffers(next).catch(() => showToast('No se pudieron guardar las ofertas')); }}
+              colors={C}
+            />
+          )}
+          {view === 'combos' && (
+            <CombosPanel
+              combos={combos} catalog={catalog}
+              onSave={async (next) => { setCombos(next); await saveCombos(next).catch(() => showToast('No se pudieron guardar los combos')); }}
+              colors={C}
+            />
+          )}
+          {view === 'menus' && (
+            <MenusDelDiaPanel
+              mealMenus={catalog?.mealMenus || []} catalog={catalog}
+              onSave={async (next) => { await saveMealMenus(next).catch(() => showToast('No se pudieron guardar los menús')); setCatalog(prev => ({ ...prev, mealMenus: next })); }}
+              colors={C}
+            />
+          )}
+          {view === 'carrusel' && (
+            <CarruselPanel
+              catalog={catalog}
+              onSave={async (data) => {
+                await fetch('/api/catalog', {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ action: 'reorder-carousel', data }),
+                }).catch(() => showToast('No se pudo guardar el carrusel'));
+                const updated = await fetch('/api/catalog').then(r => r.json());
+                setCatalog(updated);
+              }}
+              colors={C}
+            />
+          )}
+          {view === 'precios' && (
+            <PreciosPanel
+              catalog={catalog}
+              priceRules={catalog?.priceRules || []}
+              onSaveRules={async (rules) => {
+                await savePriceRules(rules).catch(() => showToast('No se pudieron guardar las reglas'));
+                setCatalog(prev => ({ ...prev, priceRules: rules }));
+              }}
               colors={C}
             />
           )}
@@ -892,6 +1090,10 @@ export default function App() {
             setSelectedTableId(null);
           }}
           onUpdateNotes={updateItemNotes}
+          onUpdateItemCourse={updateItemCourse}
+          onEditItemModifiers={editItemModifiers}
+          combos={combos}
+          mealMenus={catalog?.mealMenus || []}
           colors={C}
         />
       )}
@@ -919,8 +1121,9 @@ export default function App() {
           product={showModifierSelector.product}
           modifierGroups={showModifierSelector.groups}
           onConfirm={confirmModifiersAndAdd}
-          onCancel={() => setShowModifierSelector(null)}
+          onCancel={() => { setShowModifierSelector(null); setEditingItemModifiers(null); }}
           colors={C}
+          initialModifiers={editingItemModifiers?.item?.modifiers}
         />
       )}
 
