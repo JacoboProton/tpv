@@ -149,9 +149,11 @@ export async function runMigrations() {
       id SERIAL PRIMARY KEY, product_id TEXT NOT NULL, product_name TEXT NOT NULL,
       old_stock INTEGER NOT NULL, new_stock INTEGER NOT NULL,
       change_amount INTEGER NOT NULL, reason TEXT NOT NULL,
+      reference TEXT DEFAULT '',
       employee_name TEXT, created_at BIGINT NOT NULL
     )
   `;
+  await sql`ALTER TABLE stock_log ADD COLUMN IF NOT EXISTS reference TEXT DEFAULT ''`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS cancelled_orders (
@@ -862,6 +864,54 @@ export async function runMigrations() {
   // Tipo de producto (raw_material, elaborado, semi_elaborado, consumible)
   await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS type TEXT DEFAULT ''`;
 
+  // ===== ESCANDALLO / RECETAS =====
+  await sql`
+    CREATE TABLE IF NOT EXISTS recipes (
+      id TEXT PRIMARY KEY,
+      product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      product_name TEXT NOT NULL,
+      cost_per_unit NUMERIC(10,4) NOT NULL DEFAULT 0,
+      updated_at BIGINT NOT NULL DEFAULT 0,
+      UNIQUE(product_id)
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS recipe_ingredients (
+      id SERIAL PRIMARY KEY,
+      recipe_id TEXT NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+      ingredient_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      ingredient_name TEXT NOT NULL,
+      quantity NUMERIC(10,4) NOT NULL,
+      unit TEXT NOT NULL DEFAULT 'kg',
+      cost_per_unit NUMERIC(10,4) NOT NULL DEFAULT 0,
+      total_cost NUMERIC(10,4) NOT NULL DEFAULT 0
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS modifier_recipes (
+      id TEXT PRIMARY KEY,
+      modifier_option_id TEXT NOT NULL,
+      modifier_name TEXT NOT NULL,
+      cost_per_unit NUMERIC(10,4) NOT NULL DEFAULT 0,
+      updated_at BIGINT NOT NULL DEFAULT 0
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS modifier_recipe_ingredients (
+      id SERIAL PRIMARY KEY,
+      modifier_recipe_id TEXT NOT NULL REFERENCES modifier_recipes(id) ON DELETE CASCADE,
+      ingredient_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      ingredient_name TEXT NOT NULL,
+      quantity NUMERIC(10,4) NOT NULL,
+      unit TEXT NOT NULL DEFAULT 'kg',
+      cost_per_unit NUMERIC(10,4) NOT NULL DEFAULT 0,
+      total_cost NUMERIC(10,4) NOT NULL DEFAULT 0
+    )
+  `;
+
   // ===== PEDIDOS DE COMPRA =====
   await sql`
     CREATE TABLE IF NOT EXISTS purchase_orders (
@@ -918,6 +968,79 @@ export async function runMigrations() {
   for (const [k, v] of Object.entries(clockinKeys)) {
     await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
   }
+
+  // ===== ALBARANES (NOTAS DE ENTREGA) =====
+  await sql`
+    CREATE TABLE IF NOT EXISTS albaranes (
+      id TEXT PRIMARY KEY,
+      supplier_id TEXT NOT NULL,
+      supplier_name TEXT NOT NULL,
+      albaran_number TEXT NOT NULL,
+      delivery_date TEXT NOT NULL,
+      invoice_number TEXT DEFAULT '',
+      notes TEXT DEFAULT '',
+      total_amount NUMERIC(10,2) DEFAULT 0,
+      total_net NUMERIC(10,2) DEFAULT 0,
+      total_iva NUMERIC(10,2) DEFAULT 0,
+      header_discount_pct NUMERIC(5,2) DEFAULT 0,
+      header_discount_amount NUMERIC(10,2) DEFAULT 0,
+      recargo_equivalencia_pct NUMERIC(5,2) DEFAULT 0,
+      recargo_amount NUMERIC(10,2) DEFAULT 0,
+      portes_amount NUMERIC(10,2) DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','confirmed','anulado')),
+      received_by TEXT DEFAULT '',
+      anulado_by TEXT DEFAULT '',
+      anulado_at BIGINT,
+      anulado_reason TEXT DEFAULT '',
+      linked_purchase_order_id TEXT DEFAULT '',
+      created_at BIGINT NOT NULL,
+      updated_at BIGINT
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS albaran_lines (
+      id SERIAL PRIMARY KEY,
+      albaran_id TEXT NOT NULL REFERENCES albaranes(id) ON DELETE CASCADE,
+      product_id TEXT NOT NULL,
+      product_name TEXT NOT NULL,
+      quantity NUMERIC(10,2) NOT NULL,
+      pack_size NUMERIC(10,2) DEFAULT 1,
+      price_per_pack NUMERIC(10,4) NOT NULL,
+      price_per_unit NUMERIC(10,4) NOT NULL,
+      supplier_sku TEXT DEFAULT '',
+      iva_pct NUMERIC(5,2) DEFAULT 0,
+      line_discount_pct NUMERIC(5,2) DEFAULT 0,
+      line_discount_amount NUMERIC(10,2) DEFAULT 0,
+      subtotal NUMERIC(10,2) NOT NULL,
+      iva_amount NUMERIC(10,2) DEFAULT 0,
+      total_line NUMERIC(10,2) NOT NULL,
+      batch_number TEXT DEFAULT '',
+      expiry_date TEXT DEFAULT ''
+    )
+  `;
+
+  // ===== LOTES/BATCHES CON CADUCIDAD =====
+  await sql`
+    CREATE TABLE IF NOT EXISTS product_batches (
+      id TEXT PRIMARY KEY,
+      product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      albaran_id TEXT REFERENCES albaranes(id) ON DELETE SET NULL,
+      batch_number TEXT NOT NULL,
+      quantity NUMERIC(10,2) NOT NULL,
+      remaining_quantity NUMERIC(10,2) NOT NULL,
+      location TEXT NOT NULL DEFAULT 'Almacén',
+      cost_per_unit NUMERIC(10,4) NOT NULL,
+      expiry_date TEXT,
+      received_at BIGINT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','depleted','expired')),
+      active BOOLEAN DEFAULT true
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_batches_product ON product_batches(product_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_batches_expiry ON product_batches(expiry_date)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_batches_location ON product_batches(location)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_batches_status ON product_batches(status)`;
 
   return { ok: true };
 }

@@ -10,6 +10,7 @@ import {
 import { euros, round2 } from './constants';
 import { fetchAccessLogs, fetchBackup, fetchStockLog, fetchTurns } from '../lib/api';
 import VerifactuPanel from './VerifactuPanel';
+import FoodCostView from './FoodCostView';
 
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 

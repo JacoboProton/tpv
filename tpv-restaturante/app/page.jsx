@@ -59,6 +59,7 @@ import TurnosView                  from '../components/TurnosView';
 import RegistroHorarioView         from '../components/RegistroHorarioView';
 import SolicitudesView             from '../components/SolicitudesView';
 import PedidosCompraView           from '../components/PedidosCompraView';
+import AlbaranesView               from '../components/AlbaranesView';
 
 export default function App() {
   // ---------- Tema claro/oscuro ----------
@@ -1815,8 +1816,9 @@ export default function App() {
           )}
           {view === 'almacen'    && (almacenUbicacion
             ? <AlmacenDetalleView catalog={catalog} ubicacion={almacenUbicacion} onBack={() => setAlmacenUbicacion(null)} colors={C} onUpdateField={updateProductField} confirmDeleteId={confirmDeleteId} setConfirmDeleteId={setConfirmDeleteId} onDelete={deleteProduct} />
-            : <AlmacenMenuView catalog={catalog} onSelectUbicacion={setAlmacenUbicacion} colors={C} />
+            : <AlmacenMenuView catalog={catalog} onSelectUbicacion={setAlmacenUbicacion} onSelectAlbaranes={() => setView('albaranes')} colors={C} />
           )}
+          {view === 'albaranes'  && <AlbaranesView colors={C} />}
           {view === 'informes'   && <InformesView sales={sales} colors={C} />}
           {view === 'ofertas'   && (
             <OfertasPanel

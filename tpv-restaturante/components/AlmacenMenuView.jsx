@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, FileText, Package } from 'lucide-react';
 import { euros } from './constants';
 
 function CategoryRow({ name, productos, C }) {
@@ -18,7 +18,7 @@ function CategoryRow({ name, productos, C }) {
   );
 }
 
-export default function AlmacenMenuView({ catalog, onSelectUbicacion, colors: C }) {
+export default function AlmacenMenuView({ catalog, onSelectUbicacion, onSelectAlbaranes, colors: C }) {
   const [expanded, setExpanded] = useState(null);
   const ubicaciones = ['Bar', 'Cocina', 'Almacén'];
 
@@ -43,6 +43,26 @@ export default function AlmacenMenuView({ catalog, onSelectUbicacion, colors: C 
       <p style={{ color: C.muted }} className="text-sm mb-6">
         Gestiona el inventario por ubicación y categoría
       </p>
+
+      {/* Albaranes quick access */}
+      {onSelectAlbaranes && (
+        <div
+          onClick={onSelectAlbaranes}
+          style={{ background: C.surface, border: `2px solid ${C.sage}` }}
+          className="rounded-2xl p-5 mb-4 cursor-pointer hover:opacity-90 transition-opacity"
+        >
+          <div className="flex items-center gap-3">
+            <div style={{ background: 'rgba(111,146,114,0.15)' }} className="w-12 h-12 rounded-xl flex items-center justify-center">
+              <FileText className="w-6 h-6" style={{ color: C.sageLight }} />
+            </div>
+            <div className="flex-1">
+              <p className="font-display text-lg" style={{ color: C.cream }}>Albaranes</p>
+              <p className="text-xs" style={{ color: C.muted }}>Digitaliza notas de entrega y gestiona lotes</p>
+            </div>
+            <ChevronRight className="w-5 h-5" style={{ color: C.muted }} />
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {stats.map(stat => {
