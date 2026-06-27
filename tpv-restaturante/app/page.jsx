@@ -60,6 +60,7 @@ import RegistroHorarioView         from '../components/RegistroHorarioView';
 import SolicitudesView             from '../components/SolicitudesView';
 import PedidosCompraView           from '../components/PedidosCompraView';
 import AlbaranesView               from '../components/AlbaranesView';
+import ProduccionView              from '../components/ProduccionView';
 
 export default function App() {
   // ---------- Tema claro/oscuro ----------
@@ -211,7 +212,7 @@ export default function App() {
         if (stg) setTicketSettings(stg);
         const off = await fetchOffers().catch(() => []);
         setOffers(off);
-        const cmb = cat.combos || await fetchCombos().catch(() => []);
+        const cmb = cat?.combos || await fetchCombos().catch(() => []);
         setCombos(cmb);
       } catch (err) {
         console.error('Error cargando datos:', err);
@@ -1672,13 +1673,46 @@ export default function App() {
   { id: 'registro-horario', label: 'Reg. Horario', icon: Clock, adminOnly: true  },
   { id: 'solicitudes',  label: 'Solicitudes', icon: ClipboardList,  adminOnly: true  },
   { id: 'pedidos-compra', label: 'Pedidos Compra', icon: FileText, adminOnly: true },
+  { id: 'produccion', label: 'Producción', icon: Package, adminOnly: true  },
   { id: 'reservas',   label: 'Reservas',   icon: Calendar,      adminOnly: true  },
   { id: 'waitlist',   label: 'Lista Espera', icon: Users,        adminOnly: true  },
   { id: 'onlineorders', label: 'Pedidos Online', icon: Truck,     adminOnly: true  },
 ].filter(item => !item.adminOnly || currentUser.role === 'admin');
 
   return (
-    <div style={{ background: C.base, color: C.cream, minHeight: '100vh' }}>
+    <div style={{ background: C.base, color: C.cream, minHeight: '100vh' }} className="flex">
+
+      {menuMode === 'app' && (
+        <aside style={{ background: C.surface, borderRight: `1px solid ${C.line}`, width: '160px' }} className="flex flex-col shrink-0 no-print sticky top-0 h-screen">
+          <div className="p-3 text-center" style={{ borderBottom: `1px solid ${C.line}` }}>
+            <h2 className="font-display text-lg" style={{ color: C.brassLight }}>LA COMANDA</h2>
+          </div>
+          <nav className="flex flex-col gap-1 p-2 overflow-y-auto flex-1">
+            {navItems.map(item => {
+              const Icon = item.icon;
+              const active = view === item.id;
+              return (
+                <button key={item.id} onClick={() => setView(item.id)}
+                  style={{
+                    background: active ? C.surfaceLight : 'transparent',
+                    color: active ? C.brassLight : C.muted,
+                    borderLeft: active ? `3px solid ${C.brassLight}` : '3px solid transparent',
+                  }}
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors hover:opacity-90 text-left shrink-0"
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  <span className="flex-1">{item.label}</span>
+                  {item.id === 'inventario' && lowStockProducts.length > 0 && (
+                    <span style={{ background: C.wine }} className="text-xs rounded-full w-5 h-5 flex items-center justify-center shrink-0">{lowStockProducts.length}</span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </aside>
+      )}
+
+      <div className="flex flex-col flex-1 min-w-0" style={{ maxHeight: '100vh', overflow: 'hidden' }}>
 
       {isOffline && (
         <div style={{ background: C.wine, color: C.cream }} className="flex items-center justify-center gap-2 px-4 py-1.5 text-xs font-medium no-print">
@@ -1709,26 +1743,9 @@ export default function App() {
 
       <header style={{ borderBottom: `1px solid ${C.line}`, background: C.base }} className="sticky top-0 z-20 px-4 sm:px-6 py-3 flex items-center justify-between gap-2 no-print">
         <div className="flex items-baseline gap-2">
-          <h1 className="font-display text-2xl sm:text-3xl" style={{ color: C.brassLight }}>LA COMANDA</h1>
-          <span style={{ color: C.muted }} className="text-xs hidden sm:inline">TPV de sala</span>
+          <span style={{ color: C.muted }} className="text-xs">TPV de sala</span>
         </div>
         <nav className="flex items-center gap-1 sm:gap-2 overflow-x-auto">
-          {navItems.map(item => {
-            const Icon = item.icon;
-            const active = view === item.id;
-            return (
-              <button key={item.id} onClick={() => setView(item.id)}
-                style={{ background: active ? C.surfaceLight : 'transparent', color: active ? C.brassLight : C.muted }}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:opacity-90 shrink-0"
-              >
-                <Icon className="w-4 h-4" />
-                <span className="hidden sm:inline">{item.label}</span>
-                {item.id === 'inventario' && lowStockProducts.length > 0 && (
-                  <span style={{ background: C.wine }} className="text-xs rounded-full w-5 h-5 flex items-center justify-center">{lowStockProducts.length}</span>
-                )}
-              </button>
-            );
-          })}
           <div style={{ borderLeft: `1px solid ${C.line}` }} className="flex items-center gap-2 pl-2 ml-1 shrink-0">
             {/* Cajón */}
             <button onClick={handleDrawerAction} title="Abrir cajón" style={{ color: C.muted }} className="p-2 rounded-lg hover:opacity-80">
@@ -1819,6 +1836,7 @@ export default function App() {
             : <AlmacenMenuView catalog={catalog} onSelectUbicacion={setAlmacenUbicacion} onSelectAlbaranes={() => setView('albaranes')} colors={C} />
           )}
           {view === 'albaranes'  && <AlbaranesView colors={C} />}
+          {view === 'produccion' && <ProduccionView catalog={catalog} colors={C} />}
           {view === 'informes'   && <InformesView sales={sales} colors={C} />}
           {view === 'ofertas'   && (
             <OfertasPanel
@@ -2295,6 +2313,7 @@ export default function App() {
         }}
         C={C}
       />
+      </div>
     </div>
   );
 }

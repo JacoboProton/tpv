@@ -161,7 +161,7 @@ export default function SalonView({ floor, onSelect, persistFloor, colors: C, on
       </div>
 
       {/* Table grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
         {filteredTables.map(t => {
           const order = t.orderId ? floor.orders[t.orderId] : null;
           const subtotal = order ? order.items.reduce((s, i) => s + i.price * i.qty, 0) : 0;

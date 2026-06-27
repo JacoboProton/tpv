@@ -802,8 +802,6 @@ export async function runMigrations() {
   `;
 
   // ===== PROVEEDORES =====
-  await sql`ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS payment_terms TEXT DEFAULT ''`;
-
   await sql`
     CREATE TABLE IF NOT EXISTS suppliers (
       id TEXT PRIMARY KEY,
@@ -821,9 +819,6 @@ export async function runMigrations() {
   `;
 
   // ===== CATÁLOGO DE PROVEEDORES (precios/ud por producto) =====
-  await sql`ALTER TABLE supplier_catalog ADD COLUMN IF NOT EXISTS delivery_days INTEGER DEFAULT 0`;
-  await sql`ALTER TABLE supplier_catalog ADD COLUMN IF NOT EXISTS is_preferred BOOLEAN DEFAULT false`;
-
   await sql`
     CREATE TABLE IF NOT EXISTS supplier_catalog (
       id SERIAL PRIMARY KEY,
@@ -863,6 +858,7 @@ export async function runMigrations() {
 
   // Tipo de producto (raw_material, elaborado, semi_elaborado, consumible)
   await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS type TEXT DEFAULT ''`;
+  await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS inventariable BOOLEAN DEFAULT false`;
 
   // ===== ESCANDALLO / RECETAS =====
   await sql`
@@ -909,6 +905,43 @@ export async function runMigrations() {
       unit TEXT NOT NULL DEFAULT 'kg',
       cost_per_unit NUMERIC(10,4) NOT NULL DEFAULT 0,
       total_cost NUMERIC(10,4) NOT NULL DEFAULT 0
+    )
+  `;
+
+  // Rendimiento de receta (cuantas unidades produce)
+  await sql`ALTER TABLE recipes ADD COLUMN IF NOT EXISTS yield_qty NUMERIC(10,2) NOT NULL DEFAULT 1`;
+
+  // ===== PRODUCCIÓN DE ELABORADOS =====
+  await sql`
+    CREATE TABLE IF NOT EXISTS productions (
+      id TEXT PRIMARY KEY,
+      product_id TEXT NOT NULL REFERENCES products(id),
+      product_name TEXT NOT NULL,
+      quantity NUMERIC(10,2) NOT NULL,
+      cost_per_unit NUMERIC(10,4) NOT NULL,
+      total_cost NUMERIC(10,2) NOT NULL,
+      location TEXT NOT NULL DEFAULT 'Cocina',
+      batch_number TEXT DEFAULT '',
+      expiry_date TEXT,
+      notes TEXT DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'anulado')),
+      produced_at BIGINT NOT NULL,
+      created_at BIGINT NOT NULL,
+      anulado_at BIGINT,
+      anulado_reason TEXT DEFAULT '',
+      anulado_by TEXT DEFAULT ''
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS production_ingredients (
+      id SERIAL PRIMARY KEY,
+      production_id TEXT NOT NULL REFERENCES productions(id) ON DELETE CASCADE,
+      ingredient_id TEXT NOT NULL REFERENCES products(id),
+      ingredient_name TEXT NOT NULL,
+      quantity NUMERIC(10,4) NOT NULL,
+      cost_per_unit NUMERIC(10,4) NOT NULL,
+      total_cost NUMERIC(10,4) NOT NULL
     )
   `;
 
@@ -1019,6 +1052,7 @@ export async function runMigrations() {
       expiry_date TEXT DEFAULT ''
     )
   `;
+  await sql`ALTER TABLE albaran_lines ADD COLUMN IF NOT EXISTS location TEXT NOT NULL DEFAULT 'Almacén'`;
 
   // ===== LOTES/BATCHES CON CADUCIDAD =====
   await sql`

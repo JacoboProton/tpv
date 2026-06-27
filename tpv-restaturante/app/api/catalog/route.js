@@ -4,7 +4,7 @@ import { sql } from '../../../lib/db';
 export async function GET() {
   try {
     const [rows, categories, stockRows, comboRows, slotRows, slotItemRows, priceRules] = await Promise.all([
-      sql`SELECT id, name, category, price::float AS price, ubicacion, course, image, allergens, description, featured, active, show_tpv, show_qr, agotado, carousel_sort FROM products ORDER BY category, name`,
+      sql`SELECT id, name, category, price::float AS price, ubicacion, course, image, allergens, description, featured, active, show_tpv, show_qr, agotado, carousel_sort, type, inventariable FROM products ORDER BY category, name`,
       sql`SELECT id, name, sort_order, active, printer_zone, show_qr FROM categories ORDER BY sort_order, name`,
       sql`SELECT * FROM product_stock ORDER BY product_id, location`,
       sql`SELECT id, name, description, price::float AS price, image, active, created_at, discount_pct::float AS "discountPct" FROM combos ORDER BY name`,
@@ -109,8 +109,8 @@ export async function PUT(req) {
     if (products) {
       for (const p of products) {
         queries.push(sql`
-          INSERT INTO products (id, name, category, price, ubicacion, course, image, allergens, description, featured, active, show_tpv, show_qr, agotado, carousel_sort)
-          VALUES (${p.id}, ${p.name}, ${p.category}, ${p.price}, ${p.ubicacion ?? 'Bar'}, ${p.course ?? ''}, ${p.image ?? null}, ${p.allergens ?? []}, ${p.description ?? null}, ${p.featured ?? false}, ${p.active ?? true}, ${p.show_tpv ?? true}, ${p.show_qr ?? true}, ${p.agotado ?? false}, ${p.carousel_sort ?? null})
+          INSERT INTO products (id, name, category, price, ubicacion, course, image, allergens, description, featured, active, show_tpv, show_qr, agotado, carousel_sort, type, inventariable)
+          VALUES (${p.id}, ${p.name}, ${p.category}, ${p.price}, ${p.ubicacion ?? 'Bar'}, ${p.course ?? ''}, ${p.image ?? null}, ${p.allergens ?? []}, ${p.description ?? null}, ${p.featured ?? false}, ${p.active ?? true}, ${p.show_tpv ?? true}, ${p.show_qr ?? true}, ${p.agotado ?? false}, ${p.carousel_sort ?? null}, ${p.type ?? ''}, ${p.inventariable ?? false})
           ON CONFLICT (id) DO UPDATE SET
             name      = EXCLUDED.name,
             category  = EXCLUDED.category,
@@ -125,7 +125,9 @@ export async function PUT(req) {
             show_tpv    = EXCLUDED.show_tpv,
             show_qr     = EXCLUDED.show_qr,
             agotado     = EXCLUDED.agotado,
-            carousel_sort = EXCLUDED.carousel_sort
+            carousel_sort = EXCLUDED.carousel_sort,
+            type        = EXCLUDED.type,
+            inventariable = EXCLUDED.inventariable
         `);
         const sbl = p.stockByLocation || {};
         const locs = Object.keys(sbl);

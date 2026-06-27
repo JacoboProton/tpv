@@ -64,6 +64,7 @@ export async function GET(req) {
           totalLine: parseFloat(l.total_line),
           batchNumber: l.batch_number,
           expiryDate: l.expiry_date,
+          location: l.location || 'Almacén',
         })),
       });
     }
@@ -131,8 +132,8 @@ export async function POST(req) {
       
       for (const line of processedLines) {
         await sql`
-          INSERT INTO albaran_lines (albaran_id, product_id, product_name, quantity, pack_size, price_per_pack, price_per_unit, supplier_sku, iva_pct, line_discount_pct, line_discount_amount, subtotal, iva_amount, total_line, batch_number, expiry_date)
-          VALUES (${id}, ${line.productId}, ${line.productName}, ${line.quantity}, ${line.packSize}, ${line.pricePerPack}, ${line.pricePerUnit}, ${line.supplierSku || ''}, ${line.ivaPct || 0}, ${line.lineDiscountPct || 0}, ${line.lineDiscountAmount}, ${line.subtotal}, ${line.ivaAmount}, ${line.totalLine}, ${line.batchNumber || ''}, ${line.expiryDate || ''})
+          INSERT INTO albaran_lines (albaran_id, product_id, product_name, quantity, pack_size, price_per_pack, price_per_unit, supplier_sku, iva_pct, line_discount_pct, line_discount_amount, subtotal, iva_amount, total_line, batch_number, expiry_date, location)
+          VALUES (${id}, ${line.productId}, ${line.productName}, ${line.quantity}, ${line.packSize}, ${line.pricePerPack}, ${line.pricePerUnit}, ${line.supplierSku || ''}, ${line.ivaPct || 0}, ${line.lineDiscountPct || 0}, ${line.lineDiscountAmount}, ${line.subtotal}, ${line.ivaAmount}, ${line.totalLine}, ${line.batchNumber || ''}, ${line.expiryDate || ''}, ${line.location || 'Almacén'})
         `;
       }
       
@@ -202,8 +203,8 @@ export async function POST(req) {
       await sql`DELETE FROM albaran_lines WHERE albaran_id = ${id}`;
       for (const line of processedLines) {
         await sql`
-          INSERT INTO albaran_lines (albaran_id, product_id, product_name, quantity, pack_size, price_per_pack, price_per_unit, supplier_sku, iva_pct, line_discount_pct, line_discount_amount, subtotal, iva_amount, total_line, batch_number, expiry_date)
-          VALUES (${id}, ${line.productId}, ${line.productName}, ${line.quantity}, ${line.packSize}, ${line.pricePerPack}, ${line.pricePerUnit}, ${line.supplierSku || ''}, ${line.ivaPct || 0}, ${line.lineDiscountPct || 0}, ${line.lineDiscountAmount}, ${line.subtotal}, ${line.ivaAmount}, ${line.totalLine}, ${line.batchNumber || ''}, ${line.expiryDate || ''})
+          INSERT INTO albaran_lines (albaran_id, product_id, product_name, quantity, pack_size, price_per_pack, price_per_unit, supplier_sku, iva_pct, line_discount_pct, line_discount_amount, subtotal, iva_amount, total_line, batch_number, expiry_date, location)
+          VALUES (${id}, ${line.productId}, ${line.productName}, ${line.quantity}, ${line.packSize}, ${line.pricePerPack}, ${line.pricePerUnit}, ${line.supplierSku || ''}, ${line.ivaPct || 0}, ${line.lineDiscountPct || 0}, ${line.lineDiscountAmount}, ${line.subtotal}, ${line.ivaAmount}, ${line.totalLine}, ${line.batchNumber || ''}, ${line.expiryDate || ''}, ${line.location || 'Almacén'})
         `;
       }
       
@@ -246,7 +247,7 @@ export async function POST(req) {
             
             await sql`
               INSERT INTO stock_log (product_id, product_name, old_stock, new_stock, change_amount, reason, reference, employee_name, created_at)
-              VALUES (${line.product_id}, ${line.product_name}, ${stock.stock}, ${newStock}, ${newStock - stock.stock}, 'devolución', 'Reverse:Albaran:' + ${albaran.albaran_number}, ${anuladoBy || 'sistema'}, ${Date.now()})
+              VALUES (${line.product_id}, ${line.product_name}, ${stock.stock}, ${newStock}, ${newStock - stock.stock}, 'devolución', 'Reverse:Albarán: ' || ${albaran.albaran_number}, ${anuladoBy || 'sistema'}, ${Date.now()})
             `;
           }
           
@@ -306,21 +307,6 @@ export async function POST(req) {
         const quantity = parseFloat(line.quantity) * parseFloat(line.pack_size || 1);
         const netCostPerUnit = parseFloat(line.price_per_unit);
         
-        if (netCostPerUnit <= 0) {
-          const existingStock = await sql`SELECT * FROM product_stock WHERE product_id = ${line.product_id} AND location = ${location}`;
-          if (existingStock.length > 0) {
-            const newStock = parseFloat(existingStock[0].stock) + quantity;
-            await sql`UPDATE product_stock SET stock = ${newStock} WHERE product_id = ${line.product_id} AND location = ${location}`;
-          } else {
-            await sql`INSERT INTO product_stock (product_id, location, stock, low_stock) VALUES (${line.product_id}, ${location}, ${quantity}, 5)`;
-          }
-          await sql`
-            INSERT INTO stock_log (product_id, product_name, old_stock, new_stock, change_amount, reason, reference, employee_name, created_at)
-            VALUES (${line.product_id}, ${line.product_name}, ${parseFloat(existingStock[0]?.stock || 0)}, ${parseFloat(existingStock[0]?.stock || 0) + quantity}, ${quantity}, 'compra', 'Albaran:' + ${albaran.albaran_number}, ${albaran.received_by || 'sistema'}, ${Date.now()})
-          `;
-          continue;
-        }
-        
         const batchId = 'batch_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
         await sql`
           INSERT INTO product_batches (id, product_id, albaran_id, batch_number, quantity, remaining_quantity, location, cost_per_unit, expiry_date, received_at, status, active)
@@ -337,7 +323,7 @@ export async function POST(req) {
         
         await sql`
           INSERT INTO stock_log (product_id, product_name, old_stock, new_stock, change_amount, reason, reference, employee_name, created_at)
-          VALUES (${line.product_id}, ${line.product_name}, ${parseFloat(existingStock[0]?.stock || 0)}, ${parseFloat(existingStock[0]?.stock || 0) + quantity}, ${quantity}, 'compra', 'Albaran:' + ${albaran.albaran_number}, ${albaran.received_by || 'sistema'}, ${Date.now()})
+          VALUES (${line.product_id}, ${line.product_name}, ${parseFloat(existingStock[0]?.stock || 0)}, ${parseFloat(existingStock[0]?.stock || 0) + quantity}, ${quantity}, 'compra', 'Albarán: ' || ${albaran.albaran_number}, ${albaran.received_by || 'sistema'}, ${Date.now()})
         `;
         
         const catalog = await sql`SELECT sc.id FROM supplier_catalog sc WHERE sc.supplier_id = ${albaran.supplier_id} AND sc.product_id = ${line.product_id} LIMIT 1`;

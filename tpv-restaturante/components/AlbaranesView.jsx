@@ -123,7 +123,7 @@ export default function AlbaranesView({ colors: C }) {
       const batches = lines.map(line => ({
         productId: line.productId,
         productName: line.productName,
-        location: 'Almacén',
+        location: line.location || 'Almacén',
         expiryDate: line.expiryDate || '',
         batchNumber: line.batchNumber || `${albaran.albaranNumber}-${line.id}`
       }));
@@ -322,7 +322,7 @@ function AlbaranForm({ suppliers, purchaseOrders, nonElaborados, editAlbaran, C,
   const [portesAmount, setPortesAmount] = useState(editAlbaran?.portesAmount || 0);
   const [linkedPurchaseOrderId, setLinkedPurchaseOrderId] = useState(editAlbaran?.linkedPurchaseOrderId || '');
   const [lines, setLines] = useState(editAlbaran?.lines.map(l => ({
-    ...l, productName: l.productName || '', pricePerPack: l.pricePerPack || l.pricePerUnit || 0, packSize: l.packSize || 1, ivaPct: l.ivaPct || 0, lineDiscountPct: l.lineDiscountPct || 0, supplierSku: l.supplierSku || '', batchNumber: l.batchNumber || '', expiryDate: l.expiryDate || ''
+    ...l, productName: l.productName || '', pricePerPack: l.pricePerPack || l.pricePerUnit || 0, packSize: l.packSize || 1, ivaPct: l.ivaPct || 0, lineDiscountPct: l.lineDiscountPct || 0, supplierSku: l.supplierSku || '', batchNumber: l.batchNumber || '', expiryDate: l.expiryDate || '', location: l.location || 'Almacén'
   })) || []);
   const [saving, setSaving] = useState(false);
   const [catalogOffers, setCatalogOffers] = useState({});
@@ -344,7 +344,7 @@ function AlbaranForm({ suppliers, purchaseOrders, nonElaborados, editAlbaran, C,
   }
 
   function addLine() {
-    setLines(l => [...l, { productId: '', productName: '', quantity: 1, packSize: 1, pricePerPack: 0, ivaPct: 21, lineDiscountPct: 0, supplierSku: '', batchNumber: '', expiryDate: '' }]);
+    setLines(l => [...l, { productId: '', productName: '', quantity: 1, packSize: 1, pricePerPack: 0, ivaPct: 21, lineDiscountPct: 0, supplierSku: '', batchNumber: '', expiryDate: '', location: 'Almacén' }]);
   }
 
   function updateLine(i, field, value) {
@@ -396,7 +396,7 @@ function AlbaranForm({ suppliers, purchaseOrders, nonElaborados, editAlbaran, C,
           quantity: parseFloat(l.quantity) || 1, packSize: parseFloat(l.packSize) || 1,
           pricePerPack: parseFloat(l.pricePerPack) || 0, pricePerUnit: parseFloat(l.pricePerUnit) || 0,
           ivaPct: parseFloat(l.ivaPct) || 0, lineDiscountPct: parseFloat(l.lineDiscountPct) || 0,
-          supplierSku: l.supplierSku || '', batchNumber: l.batchNumber || '', expiryDate: l.expiryDate || '',
+          supplierSku: l.supplierSku || '', batchNumber: l.batchNumber || '', expiryDate: l.expiryDate || '', location: l.location || 'Almacén',
         })),
       };
       if (editAlbaran) body.id = editAlbaran.id;
@@ -596,7 +596,17 @@ function AlbaranForm({ suppliers, purchaseOrders, nonElaborados, editAlbaran, C,
                 <span className="font-mono text-[10px]" style={{ color: C.brassLight }}>{calculateLineTotal(l).toFixed(2)}€</span>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="text-[9px] block mb-0.5" style={{ color: C.muted }}>Ubicación</label>
+                <select value={l.location} onChange={e => updateLine(i, 'location', e.target.value)}
+                  className="w-full rounded-lg px-2 py-1 text-[10px]"
+                  style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}` }}>
+                  <option value="Almacén">Almacén</option>
+                  <option value="Bar">Bar</option>
+                  <option value="Cocina">Cocina</option>
+                </select>
+              </div>
               <div>
                 <label className="text-[9px] block mb-0.5" style={{ color: C.muted }}>Nº Lote</label>
                 <input type="text" value={l.batchNumber}

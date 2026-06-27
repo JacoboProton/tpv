@@ -73,6 +73,7 @@ export default function CartasView({ catalog, onSave, colors: C }) {
       price: parseFloat(quickPrice), ubicacion: 'Cocina', course: '',
       image: null, allergens: [], description: '', featured: false,
       active: true, show_tpv: true, show_qr: true, agotado: false,
+      type: '', inventariable: false,
     });
     setLocal(next);
     setQuickName(''); setQuickPrice(''); setQuickCat('');
@@ -599,6 +600,26 @@ export default function CartasView({ catalog, onSave, colors: C }) {
                           onChange={e => updateProduct(p.id, 'featured', e.target.checked)}
                           className="w-4 h-4" />
                         <span className="text-sm" style={{ color: C.cream }}>Plato destacado</span>
+                      </label>
+                    </div>
+                    <div>
+                      <label className="text-xs uppercase tracking-wide mb-1 block" style={{ color: C.muted }}>Tipo</label>
+                      <select value={p.type || ''} onChange={e => updateProduct(p.id, 'type', e.target.value)}
+                        style={{ background: C.surfaceLight, color: C.cream }}
+                        className="w-full rounded-lg px-3 py-2 text-sm">
+                        <option value="">— Ninguno —</option>
+                        <option value="raw_material">Materia prima</option>
+                        <option value="elaborado">Elaborado</option>
+                        <option value="semi_elaborado">Semi elaborado</option>
+                        <option value="consumible">Consumible</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="flex items-center gap-2 h-full" style={{ paddingTop: '1.2rem' }}>
+                        <input type="checkbox" checked={p.inventariable || false}
+                          onChange={e => updateProduct(p.id, 'inventariable', e.target.checked)}
+                          className="w-4 h-4" />
+                        <span className="text-sm" style={{ color: C.cream }}>Inventariable</span>
                       </label>
                     </div>
                   </div>

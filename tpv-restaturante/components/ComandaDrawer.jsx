@@ -149,7 +149,7 @@ export default function ComandaDrawer({
 
       <div
         style={{ background: C.surface, borderLeft: `1px solid ${C.line}` }}
-        className="relative w-full sm:w-[26rem] h-full flex flex-col fade-up"
+        className="relative w-full sm:w-[36rem] h-full flex flex-col fade-up"
       >
         {/* ── Cabecera ── */}
         <div style={{ borderBottom: `1px solid ${C.line}` }} className="flex items-center justify-between px-4 py-3">
