@@ -332,8 +332,122 @@ function ReservationForm({ reservation, onSave, onClose, floor, C }) {
   const [notes, setNotes] = useState(reservation?.notes || '');
   const [tableId, setTableId] = useState(reservation?.tableId || '');
   const [source, setSource] = useState(reservation?.source || 'manual');
+  const [slots, setSlots] = useState(null);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [settings, setSettings] = useState(null);
 
   const tables = floor?.tables || [];
+
+  useEffect(() => {
+    if (!reservation) loadSettings();
+  }, []);
+
+  async function loadSettings() {
+    try {
+      const { fetchSettings } = await import('../lib/api');
+      const s = await fetchSettings();
+      setSettings(s);
+    } catch {}
+  }
+
+  async function checkAvailability() {
+    setSlotsLoading(true);
+    try {
+      const { fetchReservations } = await import('../lib/api');
+      const existing = await fetchReservations({ date });
+
+      const dur = Number(settings?.reservationDuration || 90);
+      const interval = Number(settings?.reservationInterval || 30);
+      const maxPax = Number(settings?.reservationMaxPax || 8);
+
+      // Determine open/close times
+      let openTime = '00:00', closeTime = '23:59';
+      const scheduleType = settings?.reservationScheduleType;
+      const closedDays = parseJSON2(settings?.reservationClosedDays, []);
+      const dayOfWeek = new Date(date + 'T12:00').getDay();
+      const isClosed = closedDays.includes(dayOfWeek);
+
+      if (!isClosed && scheduleType === 'advanced') {
+        const shifts = parseJSON2(settings?.reservationShifts, []);
+        const dayShifts = shifts.filter(s => s.days?.includes(dayOfWeek));
+        if (dayShifts.length > 0) {
+          const opens = dayShifts.map(s => s.open).sort();
+          const closes = dayShifts.map(s => s.close).sort().reverse();
+          openTime = opens[0];
+          closeTime = closes[0];
+        }
+      } else if (!isClosed) {
+        openTime = settings?.reservationOpenTime || '13:00';
+        closeTime = settings?.reservationCloseTime || '23:00';
+      }
+
+      // Total capacity from tables
+      const totalSeats = tables.reduce((s, t) => s + (t.seats || 4), 0);
+      const existingPax = existing.filter(r => r.status !== 'cancelada' && r.status !== 'noshow')
+        .reduce((s, r) => s + (r.pax || 0), 0);
+      const availableSeats = Math.max(0, totalSeats - existingPax);
+
+      // Generate slots
+      const generated = [];
+      const [openH, openM] = openTime.split(':').map(Number);
+      const [closeH, closeM] = closeTime.split(':').map(Number);
+      let current = openH * 60 + openM;
+      const close = closeH * 60 + closeM;
+      const now = new Date();
+
+      while (current + dur <= close) {
+        const h = Math.floor(current / 60);
+        const m = current % 60;
+        const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        const slotEnd = current + dur;
+
+        // Check if past (for today)
+        const slotDate = new Date(date + 'T' + timeStr);
+        const isPast = slotDate < now && date === new Date().toISOString().slice(0, 10);
+
+        // Check existing reservations overlapping this slot
+        const overlapping = existing.filter(r =>
+          r.status !== 'cancelada' && r.status !== 'noshow' &&
+          r.time < `${String(Math.floor(slotEnd / 60)).padStart(2, '0')}:${String(slotEnd % 60).padStart(2, '0')}` &&
+          `${String(Math.floor(current / 60)).padStart(2, '0')}:${String(current % 60).padStart(2, '0')}` < addMinutes(r.time, dur)
+        );
+        const slotOccupied = overlapping.reduce((s, r) => s + (r.pax || 0), 0);
+        const slotAvailable = availableSeats - slotOccupied;
+
+        generated.push({
+          time: timeStr,
+          available: slotAvailable >= (pax || 1) && !isPast,
+          paxRemaining: slotAvailable,
+          overlapping: overlapping.length,
+        });
+
+        current += interval;
+      }
+
+      // Check if date is blocked
+      const blocked = parseJSON2(settings?.reservationBlockedDates, []);
+      const isBlocked = blocked.some(b => b.date === date);
+
+      setSlots({ slots: generated, isClosed, isBlocked, availableSeats, totalSeats, existingPax });
+    } catch {}
+    setSlotsLoading(false);
+  }
+
+  function addMinutes(timeStr, mins) {
+    const [h, m] = timeStr.split(':').map(Number);
+    const total = h * 60 + m + mins;
+    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+  }
+
+  function parseJSON2(val, fallback) {
+    if (!val) return fallback;
+    try { return JSON.parse(val); } catch { return fallback; }
+  }
+
+  function handleDateChange(newDate) {
+    setDate(newDate);
+    setSlots(null);
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -354,7 +468,7 @@ function ReservationForm({ reservation, onSave, onClose, floor, C }) {
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="text-[10px] uppercase tracking-wider" style={{ color: C.muted }}>Fecha</label>
-              <input type="date" value={date} onChange={e => setDate(e.target.value)} required
+              <input type="date" value={date} onChange={e => handleDateChange(e.target.value)} required
                 style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}` }}
                 className="w-full rounded-lg px-3 py-2 text-sm mt-1" />
             </div>
@@ -365,6 +479,50 @@ function ReservationForm({ reservation, onSave, onClose, floor, C }) {
                 className="w-full rounded-lg px-3 py-2 text-sm mt-1" />
             </div>
           </div>
+          {!reservation && (
+            <button type="button" onClick={checkAvailability} disabled={slotsLoading}
+              className="w-full py-2 rounded-lg text-xs font-medium hover:opacity-80 disabled:opacity-40"
+              style={{ background: C.surfaceLight, color: C.brassLight, border: `1px solid ${C.line}` }}>
+              {slotsLoading ? 'Verificando disponibilidad…' : '🔍 Ver disponibilidad'}
+            </button>
+          )}
+          {slots && (
+            <div className="p-3 rounded-lg space-y-2" style={{ background: C.surfaceLight }}>
+              {slots.isClosed ? (
+                <p className="text-xs" style={{ color: C.wineLight }}>Cerrado este día</p>
+              ) : slots.isBlocked ? (
+                <p className="text-xs" style={{ color: C.wineLight }}>Fecha bloqueada</p>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between text-[10px]">
+                    <span style={{ color: C.muted }}>Capacidad total: {slots.totalSeats} asientos</span>
+                    <span style={{ color: C.muted }}>Ocupados: {slots.existingPax}</span>
+                    <span style={{ color: C.sageLight }}>Libres: {slots.availableSeats}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
+                    {slots.slots.length === 0 ? (
+                      <p className="text-xs" style={{ color: C.muted }}>Sin horarios disponibles</p>
+                    ) : (
+                      slots.slots.map(s => (
+                        <button key={s.time} type="button" onClick={() => setTime(s.time)}
+                          disabled={!s.available}
+                          style={{
+                            background: time === s.time ? C.brass : s.available ? C.surface : C.wine + '20',
+                            color: time === s.time ? C.base : s.available ? C.sageLight : C.wineLight,
+                            border: time === s.time ? `1px solid ${C.brass}` : s.available ? `1px solid ${C.sage}` : 'none',
+                            opacity: s.available ? 1 : 0.5,
+                          }}
+                          className="px-2.5 py-1 rounded text-[10px] font-medium disabled:cursor-not-allowed">
+                          {s.time}
+                          {!s.available && ' ✕'}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           <div>
             <label className="text-[10px] uppercase tracking-wider" style={{ color: C.muted }}>Comensales</label>
             <input type="number" min={1} value={pax} onChange={e => setPax(Number(e.target.value))} required

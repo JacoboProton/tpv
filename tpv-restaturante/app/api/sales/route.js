@@ -34,7 +34,7 @@ export async function GET(req) {
       items: r.items, subtotal: Number(r.subtotal),
       discount: Number(r.discount), discountAmount: Number(r.discount_amount),
       total: Number(r.total), tip: Number(r.tip), totalWithTip: Number(r.total_with_tip),
-      payments: r.payments, paymentMethod: r.payment_method,
+      payments: r.payments, paymentMethod: r.payment_method, tipMethod: r.tip_method,
       isFiado: r.is_fiado, isDebtPayment: r.is_debt_payment,
       employeeId: r.employee_id, employeeName: r.employee_name,
       closedAt: Number(r.closed_at),
@@ -56,7 +56,7 @@ export async function POST(req) {
     await sql`
       INSERT INTO sales (
         id, table_id, table_name, items, subtotal, discount, discount_amount,
-        total, tip, total_with_tip, payments, payment_method,
+        total, tip, total_with_tip, payments, payment_method, tip_method,
         is_fiado, is_debt_payment, employee_id, employee_name, closed_at,
         invoice_nif, invoice_name, invoice_address, invoice_email,
         invoice_number, invoice_created, invoice_created_at
@@ -64,7 +64,7 @@ export async function POST(req) {
         ${s.id}, ${s.tableId}, ${s.tableName}, ${JSON.stringify(s.items)},
         ${s.subtotal}, ${s.discount ?? 0}, ${s.discountAmount ?? 0},
         ${s.total}, ${s.tip ?? 0}, ${s.totalWithTip},
-        ${JSON.stringify(s.payments)}, ${s.paymentMethod},
+        ${JSON.stringify(s.payments)}, ${s.paymentMethod}, ${s.tipMethod ?? ''},
         ${s.isFiado ?? false}, ${s.isDebtPayment ?? false},
         ${s.employeeId ?? null}, ${s.employeeName ?? null}, ${s.closedAt},
         ${s.invoiceNif ?? ''}, ${s.invoiceName ?? ''}, ${s.invoiceAddress ?? ''}, ${s.invoiceEmail ?? ''},

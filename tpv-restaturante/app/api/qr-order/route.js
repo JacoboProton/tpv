@@ -135,7 +135,44 @@ export async function GET(req) {
         createdAt: r.created_at,
       })));
     }
-    return NextResponse.json({ error: 'id, tableId, or modality required' }, { status: 400 });
+    // List all recent orders
+    const allRows = await sql`
+      SELECT * FROM qr_orders ORDER BY created_at DESC LIMIT 100
+    `;
+    return NextResponse.json(allRows.map(r => ({
+      id: r.id, tableId: r.table_id, modality: r.modality, orderStatus: r.order_status,
+      customerName: r.customer_name, customerPhone: r.customer_phone,
+      customerEmail: r.customer_email, address: r.address, zoneId: r.zone_id,
+      deliveryCost: Number(r.delivery_cost || 0), amount: Number(r.amount),
+      items: r.items, notes: r.notes, accepted: r.accepted,
+      scheduledAt: r.scheduled_at, createdAt: r.created_at, updatedAt: r.updated_at,
+    })));
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
+export async function PUT(req) {
+  try {
+    const body = await req.json();
+    const { action, id } = body;
+
+    if (action === 'status') {
+      await sql`UPDATE qr_orders SET order_status = ${body.status}, updated_at = ${Date.now()} WHERE id = ${id}`;
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === 'accept') {
+      await sql`UPDATE qr_orders SET accepted = true, order_status = 'confirmed', updated_at = ${Date.now()} WHERE id = ${id}`;
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === 'update_items') {
+      await sql`UPDATE qr_orders SET items = ${JSON.stringify(body.items)}, updated_at = ${Date.now()} WHERE id = ${id}`;
+      return NextResponse.json({ ok: true });
+    }
+
+    return NextResponse.json({ error: 'unknown action' }, { status: 400 });
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

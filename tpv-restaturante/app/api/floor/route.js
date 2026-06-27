@@ -5,7 +5,7 @@ import { sql } from '../../../lib/db';
 export async function GET() {
   try {
     const [tableRows, orderRows, floorPlanRows] = await Promise.all([
-      sql`SELECT id, name, status, order_id AS "orderId", order_ids AS "orderIds", reserved, is_fiado AS "isFiado", type,
+      sql`SELECT id, name, status, order_id AS "orderId", order_ids AS "orderIds", reserved, reserved_for, is_fiado AS "isFiado", type,
                  pos_x AS "x", pos_y AS "y", table_width AS "width", table_height AS "height",
                  table_radius AS "radius", table_shape AS "shape", rotation,
                  seats, zone, layer, table_color AS "color"
@@ -41,12 +41,12 @@ export async function PUT(req) {
 
     for (const t of tables) {
       queries.push(sql`
-        INSERT INTO tables (id, name, status, order_id, order_ids, reserved, is_fiado, type,
+        INSERT INTO tables (id, name, status, order_id, order_ids, reserved, reserved_for, is_fiado, type,
                             pos_x, pos_y, table_width, table_height, table_radius,
                             table_shape, rotation, seats, zone, layer, table_color)
         VALUES (${t.id}, ${t.name}, ${t.status}, ${t.orderId ?? null},
                 ${JSON.stringify(t.orderIds || (t.orderId ? [t.orderId] : []))},
-                ${JSON.stringify(t.reserved ?? null)}, ${t.isFiado ?? false}, ${t.type ?? 'mesa'},
+                ${JSON.stringify(t.reserved ?? null)}, ${t.reserved_for ?? ''}, ${t.isFiado ?? false}, ${t.type ?? 'mesa'},
                 ${t.x ?? 100}, ${t.y ?? 100}, ${t.width ?? 80}, ${t.height ?? 80}, ${t.radius ?? 40},
                 ${t.shape ?? 'rect'}, ${t.rotation ?? 0}, ${t.seats ?? 4},
                 ${t.zone ?? ''}, ${t.layer ?? 0}, ${t.color ?? ''})
@@ -55,6 +55,7 @@ export async function PUT(req) {
           order_id     = EXCLUDED.order_id,
           order_ids    = EXCLUDED.order_ids,
           reserved     = EXCLUDED.reserved,
+          reserved_for = EXCLUDED.reserved_for,
           is_fiado     = EXCLUDED.is_fiado,
           type         = EXCLUDED.type,
           pos_x        = EXCLUDED.pos_x,

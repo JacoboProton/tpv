@@ -679,6 +679,40 @@ export async function runMigrations() {
   await sql`ALTER TABLE qr_orders ADD COLUMN IF NOT EXISTS scheduled_at BIGINT`;
   await sql`ALTER TABLE qr_orders ADD COLUMN IF NOT EXISTS accepted BOOLEAN DEFAULT false`;
 
+  await sql`ALTER TABLE qr_orders DROP CONSTRAINT IF EXISTS qr_orders_order_status_check`;
+  await sql`ALTER TABLE qr_orders DROP CONSTRAINT IF EXISTS qr_orders_order_status_new_check`;
+  await sql`ALTER TABLE qr_orders ADD CONSTRAINT qr_orders_order_status_new_check
+    CHECK (order_status IN ('pending','paid','confirmed','preparing','ready','en_camino','delivered','cancelled'))`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS employee_shifts (
+      id TEXT PRIMARY KEY,
+      employee_id TEXT NOT NULL,
+      employee_name TEXT NOT NULL,
+      date TEXT NOT NULL,
+      start_time TEXT NOT NULL,
+      end_time TEXT NOT NULL,
+      position TEXT DEFAULT '',
+      notes TEXT DEFAULT '',
+      color TEXT DEFAULT '',
+      created_at BIGINT NOT NULL
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_shifts_employee ON employee_shifts(employee_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_shifts_date ON employee_shifts(date)`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS shift_objectives (
+      id SERIAL PRIMARY KEY,
+      day_of_week INTEGER NOT NULL,
+      start_time TEXT NOT NULL,
+      end_time TEXT NOT NULL,
+      position TEXT DEFAULT '',
+      min_people INTEGER DEFAULT 1,
+      max_people INTEGER DEFAULT 3
+    )
+  `;
+
   const onlineKeys = {
     onlineOrderingEnabled: 'true',
     onlineOrderingModes: JSON.stringify(['delivery']),
@@ -700,6 +734,39 @@ export async function runMigrations() {
     googleMapsApiKey: '',
   };
   for (const [k, v] of Object.entries(onlineKeys)) {
+    await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
+  }
+
+  await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS position TEXT DEFAULT ''`;
+  await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS work_type TEXT DEFAULT ''`;
+  await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS work_pct NUMERIC(5,2) DEFAULT 100`;
+  await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS dni TEXT DEFAULT ''`;
+  await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT ''`;
+  await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS whatsapp_code TEXT DEFAULT ''`;
+  await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS whatsapp_linked BOOLEAN DEFAULT false`;
+  await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS created_at BIGINT`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS clockin_logs (
+      id SERIAL PRIMARY KEY,
+      employee_id TEXT NOT NULL,
+      employee_name TEXT NOT NULL,
+      action TEXT NOT NULL CHECK (action IN ('entrada','salida','pause','resume')),
+      method TEXT DEFAULT 'pin' CHECK (method IN ('pin','qr','whatsapp','web')),
+      clockin_date TEXT NOT NULL,
+      created_at BIGINT NOT NULL
+    )
+  `;
+
+  const clockinKeys = {
+    clockinEnabled: 'true',
+    clockinPinRequired: 'true',
+    clockinGeolocation: 'false',
+    clockinLat: '',
+    clockinLng: '',
+    clockinRadius: '100',
+  };
+  for (const [k, v] of Object.entries(clockinKeys)) {
     await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
   }
 
@@ -753,7 +820,7 @@ export async function fetchTurns(employeeId, turnDate) {
 }
 
 export async function backupAll() {
-  const [categories, products, tables, orders, sales, employees, accessLogs, stockLog, cancelledOrders, offers, settings, backups, deliveryRunners, deliveryOrders, deliveryTracking, mealMenus, waitlist] = await Promise.all([
+  const [categories, products, tables, orders, sales, employees, accessLogs, stockLog, cancelledOrders, offers, settings, backups, deliveryRunners, deliveryOrders, deliveryTracking, mealMenus, waitlist, clockinLogs] = await Promise.all([
     sql`SELECT * FROM categories`,
     sql`SELECT * FROM products`,
     sql`SELECT * FROM tables`,
@@ -771,10 +838,13 @@ export async function backupAll() {
     sql`SELECT * FROM delivery_tracking ORDER BY id`,
     sql`SELECT * FROM meal_menus`,
     sql`SELECT * FROM waitlist ORDER BY position`,
+    sql`SELECT * FROM clockin_logs ORDER BY id`,
+    sql`SELECT * FROM employee_shifts ORDER BY date`,
+    sql`SELECT * FROM shift_objectives ORDER BY id`,
   ]);
   return {
     exportedAt: new Date().toISOString(),
-    version: '2.0',
-    data: { categories, products, tables, orders, sales, employees, accessLogs, stockLog, cancelledOrders, offers, settings, backups, deliveryRunners, deliveryOrders, deliveryTracking, mealMenus, waitlist },
+    version: '2.1',
+    data: { categories, products, tables, orders, sales, employees, accessLogs, stockLog, cancelledOrders, offers, settings, backups, deliveryRunners, deliveryOrders, deliveryTracking, mealMenus, waitlist, clockinLogs, employeeShifts: employee_shifts, shiftObjectives: shift_objectives },
   };
 }

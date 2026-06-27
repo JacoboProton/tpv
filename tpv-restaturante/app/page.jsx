@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   LayoutGrid, ChefHat, Package, BarChart3, AlertTriangle,
-  LogOut, Users, ShieldCheck, Sun, Moon, ClipboardList, WifiOff, Printer, Settings, Percent, Truck, Euro, Star, Undo2, FileText, Monitor, Calendar, Bell,
+  LogOut, Users, ShieldCheck, Sun, Moon, ClipboardList, WifiOff, Printer, Settings, Percent, Truck, Euro, Star, Undo2, FileText, Monitor, Calendar, Bell, Clock, Loader2,
 } from 'lucide-react';
 
 import { THEMES, seedCatalog, seedFloor, seedEmployees, euros, round2, clone } from '../components/constants';
@@ -54,6 +54,8 @@ import PairingPanel           from '../components/PairingPanel';
 import AuditView              from '../components/AuditView';
 import ReservasView            from '../components/ReservasView';
 import WaitlistView              from '../components/WaitlistView';
+import OnlineOrdersView            from '../components/OnlineOrdersView';
+import TurnosView                  from '../components/TurnosView';
 
 export default function App() {
   // ---------- Tema claro/oscuro ----------
@@ -74,6 +76,11 @@ export default function App() {
   const [pinInput, setPinInput]           = useState('');
   const [menuMode, setMenuMode]           = useState('menu');
   const [entryPoint, setEntryPoint]       = useState('entrada');
+
+  // Clock-in TPV
+  const [showClockinModal, setShowClockinModal] = useState(false);
+  const [clockinSummary, setClockinSummary] = useState(null);
+  const [clockinLoading, setClockinLoading] = useState(false);
 
   // Navegacion
   const [view, setView]                         = useState('salon');
@@ -1476,6 +1483,50 @@ export default function App() {
     }
   }
 
+  async function loadClockinSummary() {
+    if (!currentUser) return;
+    setClockinLoading(true);
+    try {
+      const r = await fetch(`/api/clockin?employeeId=${currentUser.id}&date=${new Date().toISOString().slice(0, 10)}`);
+      if (r.ok) {
+        const data = await r.json();
+        setClockinSummary(data.summary || null);
+      }
+    } catch {}
+    setClockinLoading(false);
+  }
+
+  async function handleClockinAction(action) {
+    if (!currentUser) return;
+    try {
+      const r = await fetch('/api/clockin', {
+        method: 'POST',
+        body: JSON.stringify({
+          employeeId: currentUser.id,
+          employeeName: currentUser.name,
+          method: 'tpc',
+          action,
+        }),
+      });
+      const data = await r.json();
+      if (data.ok) {
+        showToast(`✅ ${action} registrada`);
+        loadClockinSummary();
+      } else {
+        showToast('❌ ' + (data.error || 'Error'));
+      }
+    } catch {
+      showToast('❌ Error de conexión');
+    }
+  }
+
+  function formatMinutes(mins) {
+    if (!mins && mins !== 0) return '—';
+    const h = Math.floor(mins / 60);
+    const m = Math.round(mins % 60);
+    return `${h}h ${m}m`;
+  }
+
   function openDrawer() {
     if (!isPrinterConnected()) { showToast('No hay impresora conectada'); return; }
     printESCPOS(escposOpenDrawer())
@@ -1613,8 +1664,10 @@ export default function App() {
   { id: 'gestoria',   label: 'Gestoria',   icon: FileText,      adminOnly: true  },
   { id: 'pairing',    label: 'Emparejar',  icon: Monitor,       adminOnly: true  },
   { id: 'audit',      label: 'Auditoria',  icon: ClipboardList, adminOnly: true  },
+  { id: 'turnos',     label: 'Turnos',     icon: Calendar,      adminOnly: true  },
   { id: 'reservas',   label: 'Reservas',   icon: Calendar,      adminOnly: true  },
   { id: 'waitlist',   label: 'Lista Espera', icon: Users,        adminOnly: true  },
+  { id: 'onlineorders', label: 'Pedidos Online', icon: Truck,     adminOnly: true  },
 ].filter(item => !item.adminOnly || currentUser.role === 'admin');
 
   return (
@@ -1673,6 +1726,13 @@ export default function App() {
             {/* Cajón */}
             <button onClick={handleDrawerAction} title="Abrir cajón" style={{ color: C.muted }} className="p-2 rounded-lg hover:opacity-80">
               <span className="text-base">🪙</span>
+            </button>
+            {/* Fichaje TPV */}
+            <button onClick={() => { loadClockinSummary(); setShowClockinModal(true); }}
+              title="Fichar entrada/salida"
+              style={{ color: clockinSummary?.isActive ? C.sageLight : C.muted }}
+              className="p-2 rounded-lg hover:opacity-80">
+              <Clock className="w-4 h-4" />
             </button>
             <button onClick={handlePrint} title="Imprimir ticket" style={{ color: C.muted }} className="p-2 rounded-lg hover:opacity-80">
               <Printer className="w-4 h-4" />
@@ -1805,8 +1865,10 @@ export default function App() {
           {view === 'gestoria'   && <GestoriaView sales={sales} colors={C} />}
           {view === 'pairing'    && <PairingPanel colors={C} />}
           {view === 'audit'      && <AuditView colors={C} />}
+          {view === 'turnos'    && <TurnosView employees={employees} colors={C} />}
           {view === 'reservas'   && <ReservasView floor={floor} catalog={catalog} colors={C} />}
           {view === 'waitlist'   && <WaitlistView colors={C} />}
+          {view === 'onlineorders' && <OnlineOrdersView colors={C} />}
         </div>
       </main>
 
@@ -2032,6 +2094,35 @@ export default function App() {
                   style={{ background: C.surfaceLight, color: C.cream }}
                   className="w-full rounded-lg px-3 py-2 text-sm" />
               </div>
+              <div style={{ borderTop: `1px solid ${C.line}` }} className="my-2" />
+              <p className="font-display text-sm" style={{ color: C.cream }}>Fichaje (clock-in)</p>
+              <div className="flex items-center justify-between">
+                <span className="text-xs" style={{ color: C.cream }}>Activar fichaje de empleados</span>
+                <button onClick={() => setTicketSettings(s => ({ ...s, clockinEnabled: s.clockinEnabled === 'false' ? 'true' : 'false' }))}
+                  className="relative w-10 h-5 rounded-full transition-colors"
+                  style={{ background: (ticketSettings.clockinEnabled || 'true') === 'true' ? C.brass : C.line }}>
+                  <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform"
+                    style={{ transform: (ticketSettings.clockinEnabled || 'true') === 'true' ? 'translateX(22px)' : 'translateX(0)', left: '0.5px' }} />
+                </button>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs" style={{ color: C.cream }}>Requerir PIN para fichar</span>
+                <button onClick={() => setTicketSettings(s => ({ ...s, clockinPinRequired: s.clockinPinRequired === 'false' ? 'true' : 'false' }))}
+                  className="relative w-10 h-5 rounded-full transition-colors"
+                  style={{ background: (ticketSettings.clockinPinRequired || 'true') === 'true' ? C.brass : C.line }}>
+                  <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform"
+                    style={{ transform: (ticketSettings.clockinPinRequired || 'true') === 'true' ? 'translateX(22px)' : 'translateX(0)', left: '0.5px' }} />
+                </button>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs" style={{ color: C.cream }}>Geolocalización requerida</span>
+                <button onClick={() => setTicketSettings(s => ({ ...s, clockinGeolocation: s.clockinGeolocation === 'true' ? 'false' : 'true' }))}
+                  className="relative w-10 h-5 rounded-full transition-colors"
+                  style={{ background: (ticketSettings.clockinGeolocation || 'false') === 'true' ? C.brass : C.line }}>
+                  <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform"
+                    style={{ transform: (ticketSettings.clockinGeolocation || 'false') === 'true' ? 'translateX(22px)' : 'translateX(0)', left: '0.5px' }} />
+                </button>
+              </div>
             </div>
             <div className="flex gap-2 mt-4">
               <button
@@ -2052,6 +2143,60 @@ export default function App() {
                 Cancelar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Fichaje TPV ── */}
+      {showClockinModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.65)' }}
+          onClick={() => setShowClockinModal(false)}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: C.surface, border: `1px solid ${C.line}` }}
+            className="w-full max-w-xs rounded-xl p-5 fade-up">
+            <p className="font-display text-lg mb-1" style={{ color: C.cream }}>⏰ Fichaje</p>
+            <p className="text-xs mb-4" style={{ color: C.muted }}>{currentUser?.name}</p>
+            {clockinLoading ? (
+              <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin" style={{ color: C.brassLight }} /></div>
+            ) : (
+              <div className="space-y-3">
+                {clockinSummary?.isActive && (
+                  <div className="rounded-lg p-3 space-y-1" style={{ background: C.surfaceLight }}>
+                    <div className="flex justify-between text-xs"><span style={{ color: C.muted }}>Entrada</span><span className="font-mono" style={{ color: C.sageLight }}>{new Date(clockinSummary.entrada).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span></div>
+                    {clockinSummary.pausas?.filter(p => !p.end).length > 0 && <div className="flex justify-between text-xs"><span style={{ color: C.muted }}>En pausa</span><span className="font-mono" style={{ color: C.brassLight }}>desde {new Date(clockinSummary.pausas.find(p => !p.end).start).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span></div>}
+                    {clockinSummary.salida && <div className="flex justify-between text-xs"><span style={{ color: C.muted }}>Salida</span><span className="font-mono" style={{ color: C.wineLight }}>{new Date(clockinSummary.salida).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span></div>}
+                    <div style={{ borderTop: `1px solid ${C.line}` }} className="pt-1 mt-1 flex justify-between text-xs"><span style={{ color: C.muted }}>Total</span><span className="font-mono" style={{ color: C.cream }}>{formatMinutes(clockinSummary.effectiveMinutes)}</span></div>
+                  </div>
+                )}
+                <div className="flex flex-col gap-2">
+                  {(!clockinSummary?.isActive || clockinSummary?.isOnPause) && (
+                    <button onClick={() => { handleClockinAction(clockinSummary?.isOnPause ? 'vuelta' : 'entrada'); }}
+                      className="w-full py-2.5 rounded-lg text-sm font-medium"
+                      style={{ background: C.sage, color: '#fff' }}>
+                      {clockinSummary?.isOnPause ? '↩ Volver de pausa' : '▶ Fichar entrada'}
+                    </button>
+                  )}
+                  {clockinSummary?.isActive && !clockinSummary?.isOnPause && (
+                    <button onClick={() => handleClockinAction('pausa')}
+                      className="w-full py-2.5 rounded-lg text-sm font-medium"
+                      style={{ background: C.brass, color: '#000' }}>
+                      ⏸ Pausa
+                    </button>
+                  )}
+                  {clockinSummary?.isActive && (
+                    <button onClick={() => handleClockinAction('salida')}
+                      className="w-full py-2.5 rounded-lg text-sm font-medium"
+                      style={{ background: C.wine + '30', color: C.wineLight, border: `1px solid ${C.wine}` }}>
+                      ⏹ Fichar salida
+                    </button>
+                  )}
+                </div>
+                <button onClick={() => setShowClockinModal(false)}
+                  className="w-full py-2 rounded-lg text-sm" style={{ background: C.surfaceLight, color: C.muted }}>
+                  Cerrar
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

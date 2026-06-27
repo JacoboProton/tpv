@@ -194,6 +194,11 @@ export default function ComandaDrawer({
                   {selectedOrder._mergedLabel}
                 </p>
               )}
+              {selectedTable.reserved_for && !selectedTable.orderId && (
+                <p className="text-[10px] mt-0.5 flex items-center gap-1" style={{ color: C.wineLight }}>
+                  📋 Reservada — {selectedTable.reserved_for}
+                </p>
+              )}
             </div>
           </div>
 
@@ -1457,9 +1462,9 @@ export default function ComandaDrawer({
               Trasladar el pedido de <strong style={{ color: C.cream }}>{selectedTable.name}</strong> a otra mesa.
             </p>
             <div className="flex flex-col gap-1.5 max-h-60 overflow-y-auto mb-4">
-              {floor.tables
-                .filter(t => t.id !== currentTableId && t.status === 'libre')
-                .map(t => (
+        {floor.tables
+          .filter(t => t.id !== currentTableId && t.status === 'libre' && !t.reserved_for)
+          .map(t => (
                   <button key={t.id} onClick={() => setMoveDestId(t.id)}
                     style={{
                       background: moveDestId === t.id ? C.brass + '30' : C.surfaceLight,
@@ -1472,7 +1477,7 @@ export default function ComandaDrawer({
                     <span style={{ color: C.muted }} className="text-xs">{t.type === 'barra' ? 'Barra' : 'Mesa'}</span>
                   </button>
                 ))}
-              {floor.tables.filter(t => t.id !== currentTableId && t.status === 'libre').length === 0 && (
+              {floor.tables.filter(t => t.id !== currentTableId && t.status === 'libre' && !t.reserved_for).length === 0 && (
                 <p style={{ color: C.muted }} className="text-sm text-center py-4">No hay mesas libres disponibles.</p>
               )}
             </div>
@@ -1504,7 +1509,7 @@ export default function ComandaDrawer({
             </p>
             <div className="flex flex-col gap-1.5 max-h-60 overflow-y-auto mb-4">
               {floor.tables
-                .filter(t => t.id !== currentTableId && (t.status === 'ocupada' || t.status === 'cuenta' || t.status === 'unidas'))
+                .filter(t => t.id !== currentTableId && !t.reserved_for && (t.status === 'ocupada' || t.status === 'cuenta' || t.status === 'unidas'))
                 .map(t => {
                   const sel = mergeSelected.includes(t.id);
                   return (
@@ -1528,7 +1533,7 @@ export default function ComandaDrawer({
                     </button>
                   );
                 })}
-              {floor.tables.filter(t => t.id !== currentTableId && (t.status === 'ocupada' || t.status === 'cuenta' || t.status === 'unidas')).length === 0 && (
+              {floor.tables.filter(t => t.id !== currentTableId && !t.reserved_for && (t.status === 'ocupada' || t.status === 'cuenta' || t.status === 'unidas')).length === 0 && (
                 <p style={{ color: C.muted }} className="text-sm text-center py-4">No hay otras mesas con pedidos para unir.</p>
               )}
             </div>

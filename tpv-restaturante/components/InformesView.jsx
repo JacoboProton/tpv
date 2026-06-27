@@ -29,6 +29,7 @@ export default function InformesView({ sales, colors: C }) {
     { id: 'extracto',  label: 'Extracto' },
     { id: 'cierre',    label: 'Cierre de caja' },
     { id: 'empleados', label: 'Por empleado' },
+    { id: 'propinas', label: 'Propinas' },
     { id: 'control',   label: 'Control de caja' },
     { id: 'accesos',   label: 'Accesos' },
     { id: 'verifactu', label: 'Verifactu' },
@@ -80,6 +81,7 @@ export default function InformesView({ sales, colors: C }) {
       {tab === 'resumen'   && <ResumenTab   sales={sales} colors={C} />}
       {tab === 'cierre'    && <CierreCajaTab sales={sales} colors={C} />}
       {tab === 'empleados' && <EmpleadosTabInformes sales={sales} colors={C} />}
+      {tab === 'propinas'  && <PropinasTab sales={sales} colors={C} />}
       {tab === 'control'   && <ControlCajaTab sales={sales} colors={C} />}
       {tab === 'accesos'   && <AccesosTab colors={C} />}
       {tab === 'verifactu' && <VerifactuPanel colors={C} sales={sales} />}
@@ -568,6 +570,142 @@ function EmpleadosTabInformes({ sales, colors: C }) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------- Tab: Propinas ----------
+function PropinasTab({ sales, colors: C }) {
+  const [period, setPeriod] = useState('dia');
+  const [dateValue, setDateValue] = useState(() => new Date().toISOString().slice(0, 10));
+  const [monthValue, setMonthValue] = useState(() => new Date().toISOString().slice(0, 7));
+
+  const periodSales = useMemo(() => {
+    if (period === 'dia') return sales.filter(s => new Date(s.closedAt).toISOString().slice(0, 10) === dateValue);
+    return sales.filter(s => new Date(s.closedAt).toISOString().slice(0, 7) === monthValue);
+  }, [sales, period, dateValue, monthValue]);
+
+  const totalTip = periodSales.reduce((s, x) => s + (x.tip || 0), 0);
+  const ticketCount = periodSales.length;
+  const avgTip = ticketCount ? totalTip / ticketCount : 0;
+  const withTip = periodSales.filter(s => (s.tip || 0) > 0).length;
+
+  const byEmployee = useMemo(() => {
+    const map = {};
+    periodSales.forEach(s => {
+      const emp = s.employeeName || 'Sin asignar';
+      if (!map[emp]) map[emp] = { tip: 0, count: 0, tickets: 0 };
+      map[emp].tip += s.tip || 0;
+      if ((s.tip || 0) > 0) map[emp].count += 1;
+      map[emp].tickets += 1;
+    });
+    return Object.entries(map).sort((a, b) => b[1].tip - a[1].tip);
+  }, [periodSales]);
+
+  const byMethod = useMemo(() => {
+    const map = {};
+    periodSales.forEach(s => {
+      if ((s.tip || 0) <= 0) return;
+      const method = s.tipMethod || s.paymentMethod || 'efectivo';
+      map[method] = (map[method] || 0) + (s.tip || 0);
+    });
+    return map;
+  }, [periodSales]);
+
+  function downloadCSV() {
+    const rows = [
+      ['Fecha', 'Hora', 'Mesa', 'Empleado', 'Total', 'Propina', 'Método propina'],
+      ...periodSales.filter(s => (s.tip || 0) > 0).map(s => {
+        const d = new Date(s.closedAt);
+        return [
+          d.toLocaleDateString('es-ES'),
+          d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+          s.tableName, s.employeeName || 'Sin asignar',
+          s.total.toFixed(2), (s.tip || 0).toFixed(2),
+          s.tipMethod || s.paymentMethod || 'efectivo',
+        ];
+      }),
+      [],
+      ['TOTAL', '', '', '', totalTip.toFixed(2), ''],
+    ];
+    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `propinas-${period === 'dia' ? dateValue : monthValue}.csv`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  }
+
+  const periodLabel = period === 'dia'
+    ? new Date(dateValue + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })
+    : new Date(monthValue + '-01T00:00:00').toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-2 mb-4 no-print">
+        <button onClick={() => setPeriod('dia')} style={{ background: period === 'dia' ? C.brass : C.surfaceLight, color: period === 'dia' ? C.base : C.muted }} className="text-sm font-medium px-3 py-2 rounded-lg">Día</button>
+        <button onClick={() => setPeriod('mes')} style={{ background: period === 'mes' ? C.brass : C.surfaceLight, color: period === 'mes' ? C.base : C.muted }} className="text-sm font-medium px-3 py-2 rounded-lg">Mes</button>
+        {period === 'dia'
+          ? <input type="date" value={dateValue} onChange={e => setDateValue(e.target.value)} style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}` }} className="rounded-lg px-3 py-2 text-sm" />
+          : <input type="month" value={monthValue} onChange={e => setMonthValue(e.target.value)} style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}` }} className="rounded-lg px-3 py-2 text-sm" />
+        }
+        <div className="flex-1" />
+        <button onClick={downloadCSV} disabled={totalTip === 0} style={{ background: C.surfaceLight, color: C.cream }} className="text-sm font-medium px-3 py-2 rounded-lg flex items-center gap-1.5 disabled:opacity-40">
+          <Download className="w-4 h-4" /> CSV
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+        <div style={{ background: C.surface, border: `1px solid ${C.line}` }} className="rounded-xl p-4">
+          <p style={{ color: C.muted }} className="text-xs uppercase mb-1">Propinas</p>
+          <p className="font-display text-2xl" style={{ color: C.brassLight }}>{euros(totalTip)}</p>
+        </div>
+        <div style={{ background: C.surface, border: `1px solid ${C.line}` }} className="rounded-xl p-4">
+          <p style={{ color: C.muted }} className="text-xs uppercase mb-1">Tickets con propina</p>
+          <p className="font-display text-2xl" style={{ color: C.cream }}>{withTip} / {ticketCount}</p>
+        </div>
+        <div style={{ background: C.surface, border: `1px solid ${C.line}` }} className="rounded-xl p-4">
+          <p style={{ color: C.muted }} className="text-xs uppercase mb-1">Propina media</p>
+          <p className="font-display text-2xl" style={{ color: C.cream }}>{euros(avgTip)}</p>
+        </div>
+        <div style={{ background: C.surface, border: `1px solid ${C.line}` }} className="rounded-xl p-4">
+          <p style={{ color: C.muted }} className="text-xs uppercase mb-1">% tickets</p>
+          <p className="font-display text-2xl" style={{ color: C.cream }}>
+            {ticketCount ? ((withTip / ticketCount) * 100).toFixed(0) : 0}%
+          </p>
+        </div>
+      </div>
+
+      <div style={{ background: C.surface, border: `1px solid ${C.line}` }} className="rounded-xl p-4 mb-5">
+        <p style={{ color: C.muted }} className="text-xs uppercase mb-3">Por empleado — {periodLabel}</p>
+        <div className="flex flex-col gap-1.5">
+          {byEmployee.map(([name, data]) => (
+            <div key={name} className="flex items-center justify-between text-sm">
+              <span style={{ color: C.cream }}>{name} <span style={{ color: C.muted }} className="text-xs">({data.count} propinas en {data.tickets} tickets)</span></span>
+              <span className="font-mono" style={{ color: C.brassLight }}>{euros(data.tip)}</span>
+            </div>
+          ))}
+          {byEmployee.length === 0 && (
+            <p style={{ color: C.muted }} className="text-xs py-2">Sin datos para este período</p>
+          )}
+        </div>
+      </div>
+
+      {Object.keys(byMethod).length > 0 && (
+        <div style={{ background: C.surface, border: `1px solid ${C.line}` }} className="rounded-xl p-4">
+          <p style={{ color: C.muted }} className="text-xs uppercase mb-3">Por método de pago de propina</p>
+          <div className="flex flex-col gap-1.5">
+            {Object.entries(byMethod).map(([method, amount]) => (
+              <div key={method} className="flex items-center justify-between text-sm">
+                <span style={{ color: C.cream }}>{method}</span>
+                <span className="font-mono" style={{ color: C.brassLight }}>{euros(amount)}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
