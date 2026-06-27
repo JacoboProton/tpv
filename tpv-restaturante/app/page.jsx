@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   LayoutGrid, ChefHat, Package, BarChart3, AlertTriangle,
-  LogOut, Users, ShieldCheck, Sun, Moon, ClipboardList, WifiOff, Printer, Settings, Percent, Truck, Euro, Star,
+  LogOut, Users, ShieldCheck, Sun, Moon, ClipboardList, WifiOff, Printer, Settings, Percent, Truck, Euro, Star, Undo2, FileText, Monitor, Calendar, Bell,
 } from 'lucide-react';
 
 import { THEMES, seedCatalog, seedFloor, seedEmployees, euros, round2, clone } from '../components/constants';
@@ -28,6 +28,7 @@ import { playKitchenAlert, showKitchenNotification, requestNotificationPermissio
 import MenuPrincipal        from '../components/MenuPrincipal';
 import LoginScreen          from '../components/LoginScreen';
 import SalonView            from '../components/SalonView';
+import FloorEditor          from '../components/FloorEditor';
 import CocinaView           from '../components/CocinaView';
 import InventarioView       from '../components/InventarioView';
 import AlmacenMenuView      from '../components/AlmacenMenuView';
@@ -45,6 +46,14 @@ import PreciosPanel         from '../components/PreciosPanel';
 import CarruselPanel         from '../components/CarruselPanel';
 import CartasView           from '../components/CartasView';
 import DeliveryView         from '../components/DeliveryView';
+import CommandPalette       from '../components/CommandPalette';
+import PedidosView          from '../components/PedidosView';
+import GestoriaView          from '../components/GestoriaView';
+import KDSView               from '../components/KDSView';
+import PairingPanel           from '../components/PairingPanel';
+import AuditView              from '../components/AuditView';
+import ReservasView            from '../components/ReservasView';
+import WaitlistView              from '../components/WaitlistView';
 
 export default function App() {
   // ---------- Tema claro/oscuro ----------
@@ -72,11 +81,20 @@ export default function App() {
 
   // Comanda / pago
   const [selectedTableId, setSelectedTableId] = useState(null);
+  const [activeTicketId, setActiveTicketId] = useState(null);
   const [activeCategory, setActiveCategory]   = useState('Todos');
   const [paying, setPaying]                   = useState(false);
   const [paymentSplits, setPaymentSplits]     = useState([]);
   const [orderDiscount, setOrderDiscount]     = useState(0);
   const [tipAmount, setTipAmount]             = useState(0);
+  const [tipMethod, setTipMethod]             = useState('efectivo');
+  const [invoiceNif, setInvoiceNif]           = useState('');
+  const [invoiceName, setInvoiceName]         = useState('');
+  const [invoiceAddress, setInvoiceAddress]   = useState('');
+  const [invoiceEmail, setInvoiceEmail]       = useState('');
+
+  // Editor de plano
+  const [showFloorEditor, setShowFloorEditor] = useState(false);
 
   // UI auxiliar
   const [toast, setToast]                     = useState(null);
@@ -86,6 +104,9 @@ export default function App() {
   // Offline
   const [isOffline, setIsOffline] = useState(typeof navigator !== 'undefined' && !navigator.onLine);
   const [pendingMutations, setPendingMutations] = useState(0);
+
+  // QR calls
+  const [qrCalls, setQrCalls] = useState([]);
 
   // Modificadores
   const [modifierData, setModifierData] = useState({ groups: [], productModifiers: {} });
@@ -144,7 +165,7 @@ export default function App() {
           fetchEmployees(),
         ]);
 
-        if (!cat.products || cat.products.length === 0) {
+        if (!cat?.products || cat.products.length === 0) {
           const seed = seedCatalog();
           await saveCatalog(seed);
           setCatalog(seed);
@@ -152,15 +173,20 @@ export default function App() {
           setCatalog(cat);
         }
 
-        if (!flr.tables || flr.tables.length === 0) {
+        if (!flr?.tables || flr.tables.length === 0) {
           const seed = seedFloor();
           await saveFloor(seed);
           setFloor(seed);
         } else {
+          // Normalize orderIds for backward compatibility
+          flr.tables.forEach(t => {
+            if (!t.orderIds && t.orderId) t.orderIds = [t.orderId];
+            if (!t.orderIds) t.orderIds = [];
+          });
           setFloor(flr);
         }
 
-        if (!emps || emps.length === 0) {
+        if (!emps?.length) {
           const seed = seedEmployees();
           await saveEmployees(seed);
           setEmployees(seed);
@@ -168,7 +194,7 @@ export default function App() {
           setEmployees(emps);
         }
 
-        setSales(sls);
+        setSales(Array.isArray(sls) ? sls : []);
 
         const stg = await fetchSettings().catch(() => null);
         if (stg) setTicketSettings(stg);
@@ -217,6 +243,19 @@ export default function App() {
     return () => { unsub(); clearInterval(interval); };
   }, [processMutations]);
 
+  // Poll QR calls
+  useEffect(() => {
+    async function pollCalls() {
+      try {
+        const r = await fetch('/api/qr-calls');
+        if (r.ok) setQrCalls(await r.json());
+      } catch {}
+    }
+    pollCalls();
+    const interval = setInterval(pollCalls, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
   // ---------- Persistencia → Neon ----------
   async function persistCatalog(next) {
     setCatalog(next);
@@ -225,6 +264,7 @@ export default function App() {
   }
   async function persistFloor(next) {
     setFloor(next);
+    if (trainingMode) return;
     try { await saveFloor(next); }
     catch { showToast('No se ha podido guardar la sala'); }
   }
@@ -326,7 +366,8 @@ export default function App() {
 
   // ---------- Mesa seleccionada ----------
   const selectedTable = floor ? floor.tables.find(t => t.id === selectedTableId) : null;
-  const selectedOrder = selectedTable?.orderId ? floor.orders[selectedTable.orderId] : null;
+  const activeOrderId = activeTicketId || selectedTable?.orderIds?.[0] || selectedTable?.orderId;
+  const selectedOrder = activeOrderId ? floor?.orders?.[activeOrderId] : null;
 
   // Crear orden de deuda si la mesa esta en fiado sin orden activa
   const debtFloorRef = useRef(null);
@@ -359,9 +400,13 @@ export default function App() {
   }, []);
 
   const orderTotal = selectedOrder ? selectedOrder.items.reduce((s, i) => {
+    if (i.voided) return s;
     const p = catalog?.products?.find(pr => pr.id === i.productId);
     const disc = p?.discount || 0;
-    return s + i.price * (1 - disc / 100) * i.qty;
+    const effectivePrice = i.overridePrice != null ? i.overridePrice : i.price;
+    const lineDisc = i.lineDiscount || 0;
+    const lineTotal = effectivePrice * (1 - (lineDisc > 0 ? lineDisc : disc) / 100) * i.qty;
+    return s + (i.isCourtesy ? 0 : lineTotal);
   }, 0) : 0;
   const discountedTotal = round2(orderTotal * (1 - orderDiscount / 100));
   const finalTotal      = round2(discountedTotal + tipAmount);
@@ -431,18 +476,274 @@ export default function App() {
     persistFloor(next);
   }
 
+  // ----- KDS (Kitchen Display System) -----
+  function updateItemState(nextFloor, action) {
+    setFloor(nextFloor);
+    persistFloor(nextFloor);
+    if (action?.previousState === 'ready') {
+      const order = floor.orders?.[action.orderId];
+      const item = order?.items?.find(i => i.id === action.itemId);
+      const table = floor.tables?.find(t => t.id === order?.tableId);
+      logKDSAuditFn('undo_ready', { tableName: table?.name, itemName: item?.name, orderId: action.orderId, itemId: action.itemId });
+    }
+  }
+
+  function advanceOrder(nextFloor, action) {
+    setFloor(nextFloor);
+    persistFloor(nextFloor);
+    if (!action) return;
+    const order = floor.orders?.[action.orderId];
+    const table = floor.tables?.find(t => t.id === order?.tableId);
+    const isUndo = action.previousState === 'ready' || action.previousState === 'preparing';
+    logKDSAuditFn(isUndo ? 'order_undo' : 'order_bump', { tableName: table?.name, orderId: action.orderId, previousState: action.previousState, itemCount: order?.items?.filter(i => i.sent && !i.served).length });
+  }
+
+  async function agotarProducto(productId, agotado) {
+    const next = clone(catalog);
+    const p = next.products.find(x => x.id === productId);
+    if (p) p.agotado = agotado;
+    setCatalog(next);
+    try { await saveCatalog(next); } catch { showToast('No se pudo actualizar el stock'); }
+    logKDSAuditFn('item_86', { productName: p?.name, productId, agotado });
+  }
+
+  async function logKDSAuditFn(action, details) {
+    try {
+      const { logKDSAudit } = await import('../lib/api');
+      await logKDSAudit(action, details);
+    } catch {}
+  }
+
+  async function reprintKitchenTicket(orderId) {
+    const order = floor.orders?.[orderId];
+    if (!order?.items?.length) { showToast('No hay items para reimprimir'); return; }
+    const table = floor.tables?.find(t => t.id === order.tableId);
+    try {
+      const { printESCPOS } = await import('../lib/thermal-printer');
+      const lines = [];
+      lines.push('--- REIMPRESIÓN ---');
+      lines.push(`Mesa: ${table?.name || order.tableId}`);
+      const courses = [...new Set(order.items.filter(i => i.sent).map(i => i.course).filter(Boolean))];
+      for (const course of courses) {
+        lines.push(`--- ${course} ---`);
+        order.items.filter(i => i.sent && i.course === course).forEach(i => lines.push(`${i.qty}x ${i.name}${i.notes ? ` (${i.notes})` : ''}`));
+      }
+      const noCourse = order.items.filter(i => i.sent && !i.course);
+      if (noCourse.length) noCourse.forEach(i => lines.push(`${i.qty}x ${i.name}${i.notes ? ` (${i.notes})` : ''}`));
+      lines.push('────────────────');
+      lines.push(new Date().toLocaleString('es-ES'));
+      await printESCPOS(lines.join('\n'));
+      showToast('Comanda reimpresa');
+    } catch (e) { showToast('Error al reimprimir: ' + e.message); }
+  }
+
   // Elimina una línea del ticket (incluidas las ya enviadas a cocina)
   function removeItem(itemId) {
     const next = clone(floor);
     const table = next.tables.find(t => t.id === selectedTableId);
-    const order = next.orders[table.orderId];
+    const activeOid = activeTicketId || table.orderIds?.[0] || table.orderId;
+    const order = activeOid ? next.orders[activeOid] : null;
+    if (!order) return;
     order.items = order.items.filter(i => i.id !== itemId);
-    if (order.items.length === 0) {
-      delete next.orders[table.orderId];
-      table.orderId = null;
-      table.status  = 'libre';
+    if (order.items.length === 0 && (table.orderIds?.length || 0) <= 1) {
+      delete next.orders[activeOid];
+      table.orderIds = (table.orderIds || []).filter(id => id !== activeOid);
+      table.orderId = table.orderIds?.[0] || null;
+      if (!table.orderId) table.status = 'libre';
     }
     persistFloor(next);
+  }
+
+  // Descuento por línea y cortesía
+  function setItemDiscount(itemId, pct) {
+    const next = clone(floor);
+    const table = next.tables.find(t => t.id === selectedTableId);
+    const activeOid = activeTicketId || table.orderIds?.[0] || table.orderId;
+    const order = activeOid ? next.orders[activeOid] : null;
+    const item = order?.items.find(i => i.id === itemId);
+    if (item) { item.lineDiscount = pct; item.isCourtesy = false; }
+    persistFloor(next);
+  }
+
+  function removeItemDiscount(itemId) {
+    const next = clone(floor);
+    const table = next.tables.find(t => t.id === selectedTableId);
+    const activeOid = activeTicketId || table.orderIds?.[0] || table.orderId;
+    const order = activeOid ? next.orders[activeOid] : null;
+    const item = order?.items.find(i => i.id === itemId);
+    if (item) item.lineDiscount = 0;
+    persistFloor(next);
+  }
+
+  function setItemCourtesy(itemId) {
+    const next = clone(floor);
+    const table = next.tables.find(t => t.id === selectedTableId);
+    const activeOid = activeTicketId || table.orderIds?.[0] || table.orderId;
+    const order = activeOid ? next.orders[activeOid] : null;
+    const item = order?.items.find(i => i.id === itemId);
+    if (item) { item.isCourtesy = true; item.lineDiscount = 0; }
+    persistFloor(next);
+  }
+
+  function removeItemCourtesy(itemId) {
+    const next = clone(floor);
+    const table = next.tables.find(t => t.id === selectedTableId);
+    const activeOid = activeTicketId || table.orderIds?.[0] || table.orderId;
+    const order = activeOid ? next.orders[activeOid] : null;
+    const item = order?.items.find(i => i.id === itemId);
+    if (item) item.isCourtesy = false;
+    persistFloor(next);
+  }
+
+  function setItemPrice(itemId, newPrice) {
+    const next = clone(floor);
+    const table = next.tables.find(t => t.id === selectedTableId);
+    const activeOid = activeTicketId || table.orderIds?.[0] || table.orderId;
+    const order = activeOid ? next.orders[activeOid] : null;
+    const item = order?.items.find(i => i.id === itemId);
+    if (item) { item.overridePrice = Math.max(0, newPrice); }
+    persistFloor(next);
+  }
+
+  // Anular artículo enviado con motivo
+  function voidSentItem(itemId, reason) {
+    const next = clone(floor);
+    const table = next.tables.find(t => t.id === selectedTableId);
+    const activeOid = activeTicketId || table.orderIds?.[0] || table.orderId;
+    const order = activeOid ? next.orders[activeOid] : null;
+    const item = order?.items.find(i => i.id === itemId);
+    if (item) {
+      item.voided = true;
+      item.voidReason = reason;
+      item.voidedBy = currentUser?.name;
+      item.voidedAt = Date.now();
+    }
+    persistFloor(next);
+  }
+
+  // ---------- Descuento personal ----------
+  // Calcula el descuento total que recibiría un pedido según las tasas por categoría
+  function calcPersonalDiscountAmount(order, rates) {
+    let totalDiscount = 0;
+    for (const item of order.items) {
+      if (item.voided) continue;
+      const p = catalog?.products?.find(pr => pr.id === item.productId);
+      if (!p) continue;
+      const rate = rates[p.category] || 0;
+      if (rate <= 0) continue;
+      const effectivePrice = item.overridePrice != null ? item.overridePrice : item.price;
+      const full = effectivePrice * item.qty;
+      totalDiscount += full * rate / 100;
+    }
+    return round2(totalDiscount);
+  }
+
+  function applyPersonalDiscount(orderId, employeePin) {
+    const emp = employees.find(e => e.pin === employeePin);
+    if (!emp) { showToast('PIN incorrecto'); return false; }
+    if (!emp.personalDiscountEnabled) { showToast(`${emp.name} no tiene activado el descuento de personal`); return false; }
+
+    const next = clone(floor);
+    const order = next.orders[orderId];
+    if (!order) return false;
+
+    const ratesRaw = ticketSettings.personalDiscountRates;
+    let rates = {};
+    try { rates = typeof ratesRaw === 'string' ? JSON.parse(ratesRaw) : ratesRaw || {}; }
+    catch { rates = {}; }
+
+    // Calcular descuento total
+    const discountAmount = calcPersonalDiscountAmount(order, rates);
+    if (discountAmount <= 0) { showToast('Ningún artículo recibe descuento según las tasas configuradas'); return false; }
+
+    // Verificar límite mensual del empleado
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const used = emp.monthlyUsedMonth === currentMonth ? (emp.monthlyUsed || 0) : 0;
+    const remaining = emp.monthlyLimit - used;
+    if (discountAmount > remaining) {
+      showToast(`${emp.name} no tiene suficiente saldo: necesita ${euros(discountAmount)} pero le queda ${euros(remaining)}`);
+      return false;
+    }
+
+    // Aplicar descuento a cada línea según su categoría
+    for (const item of order.items) {
+      if (item.voided) continue;
+      const p = catalog?.products?.find(pr => pr.id === item.productId);
+      if (!p) continue;
+      const rate = rates[p.category] || 0;
+      if (rate <= 0) { item.lineDiscount = 0; continue; }
+      item.lineDiscount = rate;
+      item.isCourtesy = false;
+    }
+
+    // Marcar la orden con descuento personal
+    order.personalDiscountEmployeeId = emp.id;
+    order.personalDiscountEmployeeName = emp.name;
+    order.personalDiscountApplied = true;
+
+    // Actualizar el contador del empleado
+    const empNext = employees.map(e => {
+      if (e.id === emp.id) {
+        return {
+          ...e,
+          monthlyUsedMonth: currentMonth,
+          monthlyUsed: (used + discountAmount),
+        };
+      }
+      return e;
+    });
+    persistFloor(next);
+    persistEmployees(empNext);
+    showToast(`Descuento personal aplicado — ${emp.name} (${euros(discountAmount)})`);
+    return true;
+  }
+
+  function removePersonalDiscount(orderId) {
+    const next = clone(floor);
+    const order = next.orders[orderId];
+    if (!order || !order.personalDiscountApplied) return;
+
+    const empId = order.personalDiscountEmployeeId;
+    const ratesRaw = ticketSettings.personalDiscountRates;
+    let rates = {};
+    try { rates = typeof ratesRaw === 'string' ? JSON.parse(ratesRaw) : ratesRaw || {}; }
+    catch { rates = {}; }
+
+    // Devolver el descuento al empleado
+    const discountAmount = calcPersonalDiscountAmount(order, rates);
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    const empNext = employees.map(e => {
+      if (e.id === empId) {
+        const used = e.monthlyUsedMonth === currentMonth ? (e.monthlyUsed || 0) : 0;
+        return {
+          ...e,
+          monthlyUsedMonth: currentMonth,
+          monthlyUsed: Math.max(0, used - discountAmount),
+        };
+      }
+      return e;
+    });
+
+    // Quitar descuento de línea de cada artículo que lo tenga por categoría
+    for (const item of order.items) {
+      const p = catalog?.products?.find(pr => pr.id === item.productId);
+      if (!p) continue;
+      const rate = rates[p.category] || 0;
+      if (rate > 0 && item.lineDiscount === rate) {
+        item.lineDiscount = 0;
+      }
+    }
+
+    delete order.personalDiscountApplied;
+    delete order.personalDiscountEmployeeId;
+    delete order.personalDiscountEmployeeName;
+
+    persistFloor(next);
+    persistEmployees(empNext);
+    showToast('Descuento personal retirado');
   }
 
   // Cancela toda la mesa: elimina la orden y la deja libre
@@ -467,6 +768,194 @@ export default function App() {
     persistFloor(next);
     setSelectedTableId(null);
     showToast(`${table.name} cancelada y liberada`);
+  }
+
+  // Mover pedido a otra mesa
+  function moveTable(tableId, destTableId) {
+    if (tableId === destTableId) { showToast('No puedes mover una mesa sobre sí misma'); return; }
+    const next = clone(floor);
+    const src = next.tables.find(t => t.id === tableId);
+    const dst = next.tables.find(t => t.id === destTableId);
+    if (!src || !dst || !src.orderId) { showToast('La mesa origen no tiene pedido'); return; }
+    if (!next.orders[src.orderId]) { showToast('Pedido no encontrado'); return; }
+    if (dst.orderId) {
+      // Merge: move all items from src to dst
+      const srcOrder = next.orders[src.orderId];
+      const dstOrder = next.orders[dst.orderId];
+      dstOrder.items = [...dstOrder.items, ...srcOrder.items];
+      delete next.orders[src.orderId];
+    } else {
+      next.orders[src.orderId].tableId = destTableId;
+      dst.orderId = src.orderId;
+    }
+    src.orderId = null;
+    src.status = 'libre';
+    src.mergedTableIds = null;
+    dst.status = dst.orderId ? 'unidas' : 'ocupada';
+    persistFloor(next);
+    setSelectedTableId(destTableId);
+    showToast(`Pedido movido a ${dst.name}`);
+  }
+
+  // Unir (fusionar) pedidos de varias mesas en el ticket actual
+  function mergeTables(tableId, sourceTableIds) {
+    const next = clone(floor);
+    const dst = next.tables.find(t => t.id === tableId);
+    if (!dst) return;
+    let dstOrder = dst.orderId ? next.orders[dst.orderId] : null;
+    if (!dstOrder) {
+      const newOrderId = 'ord_' + Date.now();
+      dstOrder = { id: newOrderId, tableId, items: [], createdAt: Date.now(), employeeName: currentUser?.name || '' };
+      next.orders[newOrderId] = dstOrder;
+      dst.orderId = newOrderId;
+    }
+    dst.status = 'unidas';
+    dst.mergedTableIds = sourceTableIds.filter(id => id !== tableId);
+
+    for (const srcId of sourceTableIds) {
+      if (srcId === tableId) continue;
+      const src = next.tables.find(t => t.id === srcId);
+      if (!src || !src.orderId) continue;
+      const srcOrder = next.orders[src.orderId];
+      if (!srcOrder) continue;
+      dstOrder.items = [...dstOrder.items, ...srcOrder.items];
+      delete next.orders[src.orderId];
+      src.orderId = null;
+      src.status = 'libre';
+    }
+
+    // Mark as merged if multiple tables
+    const mergedNames = sourceTableIds
+      .filter(id => id !== tableId)
+      .map(id => next.tables.find(t => t.id === id)?.name || id)
+      .filter(Boolean);
+    if (mergedNames.length > 0) {
+      dstOrder._mergedFrom = [tableId, ...sourceTableIds.filter(id => id !== tableId)];
+      dstOrder._mergedLabel = `Unidas: ${dst.name} + ${mergedNames.join(' + ')}`;
+    }
+
+    persistFloor(next);
+    showToast(`Pedidos fusionados en ${dst.name}`);
+  }
+
+  // ---------- Multi-ticket ----------
+  function createNewTicket(tableId) {
+    const next = clone(floor);
+    const table = next.tables.find(t => t.id === tableId);
+    if (!table) return;
+    const orderId = 'o_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    const ticketNum = (table.orderIds?.length || 0) + 1;
+    next.orders[orderId] = {
+      id: orderId, tableId, items: [], createdAt: Date.now(),
+      employeeName: currentUser?.name || '', label: `#${ticketNum}`,
+    };
+    if (!table.orderIds) table.orderIds = [];
+    table.orderIds.push(orderId);
+    table.orderId = orderId;
+    if (table.status === 'libre') table.status = 'ocupada';
+    persistFloor(next);
+    setActiveTicketId(orderId);
+    showToast(`Nuevo ticket #${ticketNum} creado`);
+  }
+
+  function switchTicket(tableId, orderId) {
+    setActiveTicketId(orderId);
+  }
+
+  function deleteEmptyTicket(tableId, orderId) {
+    const next = clone(floor);
+    const table = next.tables.find(t => t.id === tableId);
+    const order = next.orders[orderId];
+    if (!table || !order || order.items.length > 0) return;
+    delete next.orders[orderId];
+    table.orderIds = (table.orderIds || []).filter(id => id !== orderId);
+    if (table.orderIds.length === 0) {
+      table.orderId = null;
+      if (!table.reserved) table.status = 'libre';
+    } else {
+      table.orderId = table.orderIds[0];
+    }
+    persistFloor(next);
+    setActiveTicketId(table.orderId || null);
+    showToast('Ticket vacío eliminado');
+  }
+
+  function renameTicket(tableId, orderId, label) {
+    const next = clone(floor);
+    const order = next.orders[orderId];
+    if (order) order.label = label;
+    persistFloor(next);
+  }
+
+  function linkCustomer(orderId, customer) {
+    const next = clone(floor);
+    const order = next.orders[orderId];
+    if (order) order.customer = customer;
+    persistFloor(next);
+  }
+
+  function unlinkCustomer(orderId) {
+    const next = clone(floor);
+    const order = next.orders[orderId];
+    if (order) order.customer = null;
+    persistFloor(next);
+  }
+
+  // ---------- Historial de mesa ----------
+  function reopenOrder(tableId, historyEntry) {
+    const next = clone(floor);
+    const table = next.tables.find(t => t.id === tableId);
+    if (!table) return;
+    const reopenedId = historyEntry.id + '_reopened';
+    next.orders[reopenedId] = {
+      ...historyEntry,
+      id: reopenedId,
+      tableId,
+      reopenedAt: Date.now(),
+      items: historyEntry.items.map(i => ({ ...i, sent: false, ready: false })),
+    };
+    if (!table.orderIds) table.orderIds = [];
+    table.orderIds.push(reopenedId);
+    table.orderId = reopenedId;
+    table.status = 'ocupada';
+    // Remove from history
+    if (next.history?.[tableId]) {
+      next.history[tableId] = next.history[tableId].filter(h => h.id !== historyEntry.id);
+    }
+    persistFloor(next);
+    setActiveTicketId(reopenedId);
+    showToast('Pedido reabierto');
+  }
+
+  // ---------- Vaciar / liberar mesa ----------
+  function voidTable(reason = '') {
+    const next = clone(floor);
+    const table = next.tables.find(t => t.id === selectedTableId);
+    if (!table) return;
+    const orderIds = [...(table.orderIds || [])];
+    for (const oid of orderIds) {
+      const order = next.orders[oid];
+      if (order) {
+        // Track cancelled items that were sent to kitchen
+        const sentItems = order.items.filter(i => i.sent);
+        if (sentItems.length > 0) {
+          saveCancelledOrder({
+            tableId: table.id, tableName: table.name, orderId: oid,
+            items: sentItems, total: sentItems.reduce((s, i) => s + i.price * i.qty, 0),
+            employeeName: currentUser?.name, reason: reason || 'vaciar mesa', cancelledAt: Date.now(),
+          }).catch(() => {});
+        }
+        delete next.orders[oid];
+      }
+    }
+    table.orderIds = [];
+    table.orderId = null;
+    table.status = 'libre';
+    table.isFiado = false;
+    persistFloor(next);
+    setSelectedTableId(null);
+    setActiveTicketId(null);
+    showToast(`${table.name} liberada`);
   }
 
   // ---------- Acciones de pago ----------
@@ -562,10 +1051,19 @@ export default function App() {
     const isFiado        = payments.some(p => p.method === 'fiado');
     const methodLabel    = payments.map(p => ({ efectivo:'Efectivo', tarjeta:'Tarjeta', bizum:'Bizum', fiado:'Fiado' }[p.method] || p.method)).join(' + ');
 
+    const wantInvoice = invoiceNif.trim() && invoiceName.trim();
+    const invNum = wantInvoice ? 'INV-' + new Date().getFullYear() + '-' + String(Date.now()).slice(-5) : '';
     const sale = {
       id: 's_' + Date.now(), tableId: table.id, tableName: table.name,
-      items: order.items.map(i => ({ name: i.name, qty: i.qty, price: i.price })),
-      subtotal, discount: orderDiscount, discountAmount, total, tip: tipAmount, totalWithTip,
+      items: order.items.map(i => ({ id: i.id, productId: i.productId, name: i.name, qty: i.qty, price: i.price, voided: !!i.voided })),
+      subtotal, discount: orderDiscount, discountAmount, total, tip: tipAmount, tipMethod, totalWithTip,
+      invoiceNif: wantInvoice ? invoiceNif : '',
+      invoiceName: wantInvoice ? invoiceName : '',
+      invoiceAddress: wantInvoice ? invoiceAddress : '',
+      invoiceEmail: wantInvoice ? invoiceEmail : '',
+      invoiceNumber: invNum,
+      invoiceCreated: wantInvoice,
+      invoiceCreatedAt: wantInvoice ? Date.now() : null,
       payments: isFiado ? [{ method: 'fiado', amount: totalWithTip }] : payments,
       paymentMethod: methodLabel, isFiado, isDebtPayment: wasDebt,
       offerDiscount: offerDiscountAmount,
@@ -573,8 +1071,33 @@ export default function App() {
       closedAt: Date.now(),
     };
 
-    delete nextFloor.orders[table.orderId];
-    table.orderId = null; table.status = 'libre'; table.isFiado = false;
+    // Save to history before removing
+    const closedOrder = { ...order, closedAt: Date.now() };
+    if (!nextFloor.history) nextFloor.history = {};
+    if (!nextFloor.history[table.id]) nextFloor.history[table.id] = [];
+    nextFloor.history[table.id].push(closedOrder);
+    const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+    nextFloor.history[table.id] = nextFloor.history[table.id].filter(h => (h.closedAt || h.createdAt) >= todayStart.getTime());
+
+    const closedOid = table.orderId;
+    delete nextFloor.orders[closedOid];
+    table.orderId = null;
+    table.orderIds = (table.orderIds || []).filter(id => id !== closedOid);
+    if (table.orderIds.length === 0) {
+      table.status = 'libre'; table.isFiado = false;
+    } else {
+      table.orderId = table.orderIds[0];
+      table.status = table.orderIds.length > 1 ? 'unidas' : 'ocupada';
+    }
+
+    if (trainingMode) {
+    setPaying(false); setPaymentSplits([]); setOrderDiscount(0); setTipAmount(0); setTipMethod('efectivo');
+    setInvoiceNif(''); setInvoiceName(''); setInvoiceAddress(''); setInvoiceEmail('');
+    setSelectedTableId(null);
+      showToast(`🎓 Formación — Cobrado: ${euros(totalWithTip)}${tipStr}${discStr}${offerStr}`);
+      playBeep(880, 0.15); setTimeout(() => playBeep(1100, 0.15), 150);
+      return;
+    }
 
     persistFloor(nextFloor);
     persistCatalog(nextCatalog);
@@ -583,7 +1106,9 @@ export default function App() {
     // Auto-registrar en Verifactu (fire-and-forget)
     registerVerifactu(sale.id, sale).catch(err => console.warn('Verifactu:', err));
 
-    setPaying(false); setPaymentSplits([]); setOrderDiscount(0); setTipAmount(0); setSelectedTableId(null);
+    setPaying(false); setPaymentSplits([]); setOrderDiscount(0); setTipAmount(0); setTipMethod('efectivo');
+    setInvoiceNif(''); setInvoiceName(''); setInvoiceAddress(''); setInvoiceEmail('');
+    setSelectedTableId(null);
 
     const tipStr  = tipAmount > 0 ? ` (+${euros(tipAmount)} propina)` : '';
     const discStr = orderDiscount > 0 ? ` (${orderDiscount}% desc)` : '';
@@ -609,6 +1134,43 @@ export default function App() {
       if (data) setModifierData(data);
     }).catch(() => {});
   }, [catalog]);
+
+  // ── Atajos de teclado globales (usando refs para evitar TDZ) ──
+  useEffect(() => {
+    function handleGlobalKey(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowCommands(p => !p);
+        return;
+      }
+      if (e.key === 'Escape') {
+        setShowCommands(false); setShowDrawerPIN(false); setShowDrawerConfirm(false);
+        setShowSettings(false); setSelectedTableId(null); setActiveTicketId(null);
+        return;
+      }
+      if (e.key === '/') {
+        const input = document.querySelector('[data-search-products]');
+        if (input) { e.preventDefault(); input.focus(); return; }
+      }
+      if (e.altKey && e.key === 'p') {
+        e.preventDefault();
+        setPaymentSplits([]); setTipAmount(0); setTipMethod('efectivo'); setPaying(true);
+        return;
+      }
+      if (e.altKey && e.key === 'e') {
+        e.preventDefault();
+        setPaymentSplits([{ method: 'efectivo', amount: 0 }]); setTipAmount(0); setTipMethod('efectivo'); setPaying(true);
+        return;
+      }
+      if (e.altKey && e.key === 't') {
+        e.preventDefault();
+        setPaymentSplits([{ method: 'tarjeta', amount: 0 }]); setTipAmount(0); setTipMethod('efectivo'); setPaying(true);
+        return;
+      }
+    }
+    window.addEventListener('keydown', handleGlobalKey);
+    return () => window.removeEventListener('keydown', handleGlobalKey);
+  }, []);
 
   function getModifierGroupsForProduct(productId) {
     const groupIds = modifierData.productModifiers[productId] || [];
@@ -649,14 +1211,18 @@ export default function App() {
   function addItemWithPrice(product, modifiers, extraPrice) {
     const next = clone(floor);
     const table = next.tables.find(t => t.id === selectedTableId);
-    let order = table.orderId ? next.orders[table.orderId] : null;
+    const activeOid = activeTicketId || table.orderIds?.[0] || table.orderId;
+    let order = activeOid ? next.orders[activeOid] : null;
 
     if (!order) {
-      const orderId = 'o_' + Date.now();
+      const orderId = 'o_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
       order = { id: orderId, tableId: table.id, items: [], createdAt: Date.now(), employeeName: currentUser?.name || '-' };
       next.orders[orderId] = order;
+      if (!table.orderIds) table.orderIds = [];
+      table.orderIds.push(orderId);
       table.orderId = orderId;
       table.status = 'ocupada';
+      setActiveTicketId(orderId);
     }
     const effectivePrice = round2(product.price + extraPrice);
     const existing = order.items.find(i => i.productId === product.id && !i.sent && JSON.stringify(i.modifiers) === JSON.stringify(modifiers));
@@ -825,7 +1391,7 @@ export default function App() {
   <div class="d"></div>
   <div class="r" style="font-size:9px"><span>Subtotal</span><span>${euros(subtotal)}</span></div>
   ${orderDiscount > 0 ? `<div class="r" style="font-size:9px;color:#777"><span>Dto. ${orderDiscount}%</span><span>-${euros(discountAmount)}</span></div>` : ''}
-  ${tipAmount > 0 ? `<div class="r" style="font-size:9px;color:#777"><span>Propina</span><span>+${euros(tipAmount)}</span></div>` : ''}
+  ${tipAmount > 0 ? `<div class="r" style="font-size:9px;color:#777"><span>Propina · NO fiscal${tipMethod === 'efectivo' ? ' (efectivo)' : ' (tarjeta)'}</span><span>+${euros(tipAmount)}</span></div>` : ''}
   <div class="r b" style="font-size:12px;border-top:1px solid #333;padding-top:4px;margin-top:4px">
     <span>TOTAL</span><span>${euros(totalWithTip)}</span>
   </div>
@@ -882,6 +1448,110 @@ export default function App() {
     persistEmployees(employees.filter(e => e.id !== id));
   }
 
+  // ---------- Cajón y formación ----------
+  const [trainingMode, setTrainingMode] = useState(false);
+  const [savedFloor, setSavedFloor] = useState(null);
+  const [showDrawerConfirm, setShowDrawerConfirm] = useState(false);
+  const [showDrawerPIN, setShowDrawerPIN] = useState(false);
+  const [drawerPinInput, setDrawerPinInput] = useState('');
+  const [showCommands, setShowCommands] = useState(false);
+
+  function toggleTraining() {
+    if (trainingMode) {
+      if (savedFloor) {
+        setFloor(savedFloor);
+        setSavedFloor(null);
+      }
+      setTrainingMode(false);
+      showToast('Modo formación desactivado');
+    } else {
+      setSavedFloor(clone(floor));
+      const tables = (floor?.tables || []).map(t => ({
+        ...t, orderId: null, orderIds: [], status: 'libre', reserved: null, isFiado: false,
+      }));
+      const training = { ...clone(floor), tables, orders: {}, history: {} };
+      setFloor(training);
+      setTrainingMode(true);
+      showToast('🎓 Modo formación activado — los tickets no afectan a facturación real');
+    }
+  }
+
+  function openDrawer() {
+    if (!isPrinterConnected()) { showToast('No hay impresora conectada'); return; }
+    printESCPOS(escposOpenDrawer())
+      .then(() => showToast('Cajón abierto'))
+      .catch(() => showToast('No se pudo abrir el cajón'));
+  }
+
+  function handleDrawerAction() {
+    const policy = ticketSettings.drawerOpenPolicy || 'confirm';
+    if (policy === 'quick') { openDrawer(); }
+    else if (policy === 'confirm') { setShowDrawerConfirm(true); }
+    else if (policy === 'pin') { setDrawerPinInput(''); setShowDrawerPIN(true); }
+  }
+
+  // ---------- Factura ----------
+  function printInvoice(sale) {
+    if (!sale) return;
+    const { restaurantName, footerText } = ticketSettings;
+    const itemsHtml = (sale.items || []).filter(i => !i.voided).map(i =>
+      `<tr><td style="padding:2px 0">${i.name}</td><td style="text-align:center">${i.qty}</td><td style="text-align:right">${euros(i.price)}</td><td style="text-align:right">${euros((i.price || 0) * (i.qty || 0))}</td></tr>`
+    ).join('');
+    const html = `<html><head><meta charset="utf-8"><style>
+      @page { margin:10mm; size: A4; }
+      body { font-family:'Segoe UI',Arial,sans-serif; font-size:12px; color:#222; padding:0; margin:0; }
+      .h { text-align:center; margin-bottom:20px; }
+      .h h1 { margin:0; font-size:22px; }
+      .h p { margin:2px 0; font-size:11px; color:#555; }
+      table { width:100%; border-collapse:collapse; margin:15px 0; }
+      th { border-bottom:2px solid #222; padding:6px 4px; text-align:left; font-size:11px; }
+      td { padding:4px; border-bottom:1px solid #ddd; font-size:11px; }
+      .r { text-align:right; }
+      .total td { border-top:2px solid #222; font-weight:bold; font-size:13px; }
+      .f { margin-top:25px; font-size:10px; color:#888; text-align:center; }
+      .meta { font-size:10px; color:#555; margin:10px 0; }
+    </style></head><body>
+      <div class="h">
+        <h1>${restaurantName || 'FACTURA'}</h1>
+        <p><strong>${sale.invoiceNumber || sale.id}</strong></p>
+        <p>${new Date(sale.closedAt).toLocaleDateString('es-ES', { day:'2-digit', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' })}</p>
+      </div>
+      <div class="meta">
+        <p><strong>Cliente:</strong> ${sale.invoiceName || '—'}</p>
+        <p><strong>NIF:</strong> ${sale.invoiceNif || '—'}</p>
+        ${sale.invoiceAddress ? `<p><strong>Dirección:</strong> ${sale.invoiceAddress}</p>` : ''}
+        <p><strong>Mesa:</strong> ${sale.tableName}</p>
+      </div>
+      <table>
+        <tr><th>Artículo</th><th style="text-align:center">Ud.</th><th style="text-align:right">Precio</th><th style="text-align:right">Importe</th></tr>
+        ${itemsHtml}
+        <tr class="total"><td colspan="3">TOTAL</td><td class="r">${euros(sale.totalWithTip || sale.total || 0)}</td></tr>
+      </table>
+      ${sale.tip > 0 ? `<p style="font-size:10px;color:#888;text-align:right">Propina (NO fiscal): +${euros(sale.tip)}</p>` : ''}
+      <div class="f">${footerText || 'Gracias por su visita'}</div>
+    </body></html>`;
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(html); w.document.close(); w.print(); }
+    else showToast('Permite ventanas emergentes para imprimir la factura');
+  }
+
+  // ---------- Devoluciones ----------
+  function handleRefund(saleId, refund) {
+    const next = clone(sales);
+    const sale = next.find(s => s.id === saleId);
+    if (!sale) return;
+    if (!sale.refunds) sale.refunds = [];
+    sale.refunds.push(refund);
+    setSales(next);
+    // Fire-and-forget persist
+    fetch('/api/sales/refund', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ saleId, refund }),
+    }).catch(() => showToast('No se pudo guardar la devolución'));
+    showToast(`Devolución de ${euros(refund.amount)} registrada`);
+  }
+
   // ---------- Pantallas de carga / error ----------
   if (loading) return (
     <div style={{ background: C.base, color: C.cream, minHeight: '100vh' }} className="p-6">
@@ -928,6 +1598,8 @@ export default function App() {
     { id: 'salon',      label: 'Salon',      icon: LayoutGrid,    adminOnly: false },
     { id: 'cocina',     label: 'Cocina',     icon: ChefHat,       adminOnly: false },
     { id: 'comandas',   label: 'Comandas',   icon: ClipboardList, adminOnly: false },
+    { id: 'kds',        label: 'Cocina KDS',  icon: ChefHat,       adminOnly: false },
+    { id: 'pedidos',    label: 'Pedidos',    icon: Undo2,         adminOnly: false },
     { id: 'inventario', label: 'Inventario', icon: Package,       adminOnly: true  },
     { id: 'carta',      label: 'Carta',      icon: ClipboardList, adminOnly: true  },
     { id: 'informes',   label: 'Informes',   icon: BarChart3,     adminOnly: true  },
@@ -937,8 +1609,13 @@ export default function App() {
     { id: 'menus',      label: 'Menús',      icon: ChefHat,       adminOnly: true  },
     { id: 'carrusel',   label: 'Carrusel',   icon: Star,          adminOnly: true  },
     { id: 'precios',    label: 'Precios',    icon: Euro,          adminOnly: true  },
-    { id: 'reparto',    label: 'Reparto',    icon: Truck,         adminOnly: true  },
-  ].filter(item => !item.adminOnly || currentUser.role === 'admin');
+  { id: 'reparto',    label: 'Reparto',    icon: Truck,         adminOnly: true  },
+  { id: 'gestoria',   label: 'Gestoria',   icon: FileText,      adminOnly: true  },
+  { id: 'pairing',    label: 'Emparejar',  icon: Monitor,       adminOnly: true  },
+  { id: 'audit',      label: 'Auditoria',  icon: ClipboardList, adminOnly: true  },
+  { id: 'reservas',   label: 'Reservas',   icon: Calendar,      adminOnly: true  },
+  { id: 'waitlist',   label: 'Lista Espera', icon: Users,        adminOnly: true  },
+].filter(item => !item.adminOnly || currentUser.role === 'admin');
 
   return (
     <div style={{ background: C.base, color: C.cream, minHeight: '100vh' }}>
@@ -947,6 +1624,26 @@ export default function App() {
         <div style={{ background: C.wine, color: C.cream }} className="flex items-center justify-center gap-2 px-4 py-1.5 text-xs font-medium no-print">
           <WifiOff className="w-3.5 h-3.5" /> Sin conexión — los cambios se guardarán cuando vuelva la red
           {pendingMutations > 0 && <span className="ml-1">({pendingMutations} pendientes)</span>}
+        </div>
+      )}
+
+      {qrCalls.length > 0 && (
+        <div style={{ background: C.brass, color: '#000' }} className="flex items-center justify-between px-4 py-2 text-xs font-medium no-print">
+          <span className="flex items-center gap-2">
+            <Bell className="w-3.5 h-3.5" />
+            {qrCalls.length === 1
+              ? `Mesa ${qrCalls[0].tableName || qrCalls[0].tableId} necesita atención`
+              : `${qrCalls.length} mesas llaman al camarero`}
+          </span>
+          <button onClick={async () => {
+            for (const call of qrCalls) {
+              await fetch('/api/qr-calls', { method: 'PUT', body: JSON.stringify({ id: call.id }) });
+            }
+            setQrCalls([]);
+          }}
+            className="px-2 py-0.5 rounded text-[10px] font-bold hover:opacity-80" style={{ background: 'rgba(0,0,0,0.2)' }}>
+            Atender
+          </button>
         </div>
       )}
 
@@ -973,6 +1670,10 @@ export default function App() {
             );
           })}
           <div style={{ borderLeft: `1px solid ${C.line}` }} className="flex items-center gap-2 pl-2 ml-1 shrink-0">
+            {/* Cajón */}
+            <button onClick={handleDrawerAction} title="Abrir cajón" style={{ color: C.muted }} className="p-2 rounded-lg hover:opacity-80">
+              <span className="text-base">🪙</span>
+            </button>
             <button onClick={handlePrint} title="Imprimir ticket" style={{ color: C.muted }} className="p-2 rounded-lg hover:opacity-80">
               <Printer className="w-4 h-4" />
             </button>
@@ -981,6 +1682,13 @@ export default function App() {
                 <Settings className="w-4 h-4" />
               </button>
             )}
+            {/* Modo formación */}
+            <button onClick={toggleTraining}
+              title={trainingMode ? 'Salir de formación' : 'Activar modo formación'}
+              style={{ color: trainingMode ? C.brassLight : C.muted, background: trainingMode ? C.brass + '20' : 'transparent' }}
+              className="p-2 rounded-lg hover:opacity-80 relative">
+              <span className="text-base">🎓</span>
+            </button>
             <button onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} title="Tema" style={{ color: C.muted }} className="p-2 rounded-lg hover:opacity-80">
               {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
@@ -994,10 +1702,37 @@ export default function App() {
         </nav>
       </header>
 
+      {trainingMode && (
+        <div style={{ background: C.brass + '25', color: C.brassLight, borderBottom: `1px solid ${C.brass}` }}
+          className="px-4 py-2 text-center text-sm font-semibold no-print flex items-center justify-center gap-2 sticky top-0 z-20">
+          🎓 MODO FORMACIÓN — los tickets NO afectan a la facturación real
+        </div>
+      )}
       <main className="px-4 sm:px-6 py-6 max-w-6xl mx-auto">
         <div className="fade-up" key={view}>
-          {view === 'salon'      && <SalonView floor={floor} onSelect={id => { setSelectedTableId(id); setActiveCategory('Todos'); }} persistFloor={persistFloor} colors={C} />}
+          {view === 'salon' && !showFloorEditor && (
+            <SalonView
+              floor={floor}
+              onSelect={id => { setSelectedTableId(id); setActiveCategory('Todos'); }}
+              persistFloor={persistFloor}
+              colors={C}
+              onEditFloor={() => setShowFloorEditor(true)}
+            />
+          )}
+          {view === 'salon' && showFloorEditor && (
+            <div>
+              <button
+                onClick={() => setShowFloorEditor(false)}
+                style={{ color: C.muted, background: C.surfaceLight, border: `1px solid ${C.line}` }}
+                className="mb-4 px-4 py-2 rounded-lg text-sm flex items-center gap-2 hover:opacity-80"
+              >
+                ← Volver a vista sala
+              </button>
+              <FloorEditor floor={floor} persistFloor={persistFloor} colors={C} />
+            </div>
+          )}
           {view === 'cocina'     && <CocinaView floor={floor} onReady={markReady} colors={C} />}
+          {view === 'kds'        && <KDSView floor={floor} catalog={catalog} onReady={markReady} onUpdateItemState={updateItemState} onAdvanceOrder={advanceOrder} onAgotar={agotarProducto} onReprint={reprintKitchenTicket} colors={C} />}
           {view === 'comandas'   && <ComandasAbiertasView floor={floor} colors={C} />}
           {view === 'inventario' && <InventarioView catalog={catalog} colors={C} onUpdateField={updateProductField} newProductOpen={newProductOpen} setNewProductOpen={setNewProductOpen} onAddProduct={addProduct} confirmDeleteId={confirmDeleteId} setConfirmDeleteId={setConfirmDeleteId} onDelete={deleteProduct} />}
           {view === 'carta' && (
@@ -1065,7 +1800,13 @@ export default function App() {
             />
           )}
           {view === 'reparto'    && <DeliveryView catalog={catalog} colors={C} />}
+          {view === 'pedidos'    && <PedidosView sales={sales} onRefund={handleRefund} onPrintInvoice={(sale) => { printInvoice(sale); }} colors={C} />}
           {view === 'empleados'  && <EmpleadosView employees={employees} colors={C} onAdd={addEmployee} onUpdateField={updateEmployeeField} onDelete={deleteEmployee} confirmDeleteId={confirmDeleteId} setConfirmDeleteId={setConfirmDeleteId} />}
+          {view === 'gestoria'   && <GestoriaView sales={sales} colors={C} />}
+          {view === 'pairing'    && <PairingPanel colors={C} />}
+          {view === 'audit'      && <AuditView colors={C} />}
+          {view === 'reservas'   && <ReservasView floor={floor} catalog={catalog} colors={C} />}
+          {view === 'waitlist'   && <WaitlistView colors={C} />}
         </div>
       </main>
 
@@ -1075,23 +1816,49 @@ export default function App() {
           catalog={catalog} activeCategory={activeCategory} setActiveCategory={setActiveCategory}
           orderTotal={orderTotal} orderDiscount={orderDiscount} setOrderDiscount={setOrderDiscount}
           tipAmount={tipAmount} finalTotal={finalTotal}
-          onClose={() => setSelectedTableId(null)}
+          onClose={() => { setSelectedTableId(null); setActiveTicketId(null); }}
           onAddItem={addItem} onChangeQty={changeQty}
           onRemoveItem={removeItem}
           onCancelTable={cancelTable}
           onSendToKitchenCourse={sendToKitchenCourse} onToggleCuenta={toggleCuenta}
-          onOpenPayment={() => { setPaymentSplits([]); setTipAmount(0); setPaying(true); }}
+          onOpenPayment={() => { setPaymentSplits([]); setTipAmount(0); setTipMethod('efectivo'); setInvoiceNif(''); setInvoiceName(''); setInvoiceAddress(''); setInvoiceEmail(''); setPaying(true); }}
           onResetTable={() => {
             const next = clone(floor);
             const table = next.tables.find(t => t.id === selectedTableId);
             table.status = 'libre';
             table.orderId = null;
+            table.orderIds = [];
             persistFloor(next);
             setSelectedTableId(null);
+            setActiveTicketId(null);
           }}
           onUpdateNotes={updateItemNotes}
           onUpdateItemCourse={updateItemCourse}
           onEditItemModifiers={editItemModifiers}
+          onSetItemDiscount={setItemDiscount}
+          onRemoveItemDiscount={removeItemDiscount}
+          onSetItemCourtesy={setItemCourtesy}
+          onRemoveItemCourtesy={removeItemCourtesy}
+          onSetItemPrice={setItemPrice}
+          onVoidSentItem={voidSentItem}
+          onApplyPersonalDiscount={applyPersonalDiscount}
+          onRemovePersonalDiscount={removePersonalDiscount}
+          employees={employees}
+          ticketSettings={ticketSettings}
+          floor={floor}
+          onMoveTable={moveTable}
+          onMergeTables={mergeTables}
+          currentTableId={selectedTableId}
+          activeTicketId={activeTicketId}
+          onSwitchTicket={(tid, oid) => setActiveTicketId(oid)}
+          onCreateTicket={createNewTicket}
+          onDeleteEmptyTicket={deleteEmptyTicket}
+          onRenameTicket={(oid, label) => renameTicket(selectedTableId, oid, label)}
+          onLinkCustomer={(oid, customer) => linkCustomer(oid, customer)}
+          onUnlinkCustomer={(oid) => unlinkCustomer(oid)}
+          onReopenOrder={reopenOrder}
+          onVoidTable={() => voidTable()}
+          todayHistory={floor?.history?.[selectedTableId] || []}
           combos={combos}
           mealMenus={catalog?.mealMenus || []}
           colors={C}
@@ -1104,14 +1871,19 @@ export default function App() {
           currentUser={currentUser}
           finalTotal={finalTotal}
           orderDiscount={orderDiscount} tipAmount={tipAmount} setTipAmount={setTipAmount}
+          tipMethod={tipMethod} setTipMethod={setTipMethod}
           paymentSplits={paymentSplits} remaining={remaining} canConfirm={canConfirm}
           onAddSplit={addSplit} onUpdateSplitAmount={updateSplitAmount} onRemoveSplit={removeSplit}
           onToggleSplitItem={toggleSplitItem}
           onConfirm={closeBill}
-          onCancel={() => { setPaying(false); setPaymentSplits([]); setTipAmount(0); }}
+          onCancel={() => { setPaying(false); setPaymentSplits([]); setTipAmount(0); setTipMethod('efectivo'); setInvoiceNif(''); setInvoiceName(''); setInvoiceAddress(''); setInvoiceEmail(''); }}
           onPrint={handlePrint}
           showToast={showToast}
           orderItems={selectedOrder?.items || []}
+          invoiceNif={invoiceNif} setInvoiceNif={setInvoiceNif}
+          invoiceName={invoiceName} setInvoiceName={setInvoiceName}
+          invoiceAddress={invoiceAddress} setInvoiceAddress={setInvoiceAddress}
+          invoiceEmail={invoiceEmail} setInvoiceEmail={setInvoiceEmail}
           colors={C}
         />
       )}
@@ -1136,7 +1908,7 @@ export default function App() {
       {showSettings && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 no-print" style={{ background: 'rgba(0,0,0,0.65)' }}>
           <div style={{ background: C.surface, border: `1px solid ${C.line}` }} className="w-full max-w-sm rounded-xl p-5 fade-up">
-            <p className="font-display text-lg mb-4" style={{ color: C.cream }}>Configurar ticket</p>
+            <p className="font-display text-lg mb-4" style={{ color: C.cream }}>Configuración</p>
             <div className="flex flex-col gap-3">
               {['restaurantName', 'logoUrl', 'footerText', 'ticketWidth'].map(field => (
                 <div key={field}>
@@ -1152,6 +1924,114 @@ export default function App() {
                   />
                 </div>
               ))}
+              <div style={{ borderTop: `1px solid ${C.line}` }} className="my-2" />
+              <p className="font-display text-sm" style={{ color: C.cream }}>Política de apertura de cajón</p>
+              <select
+                value={ticketSettings.drawerOpenPolicy || 'confirm'}
+                onChange={e => setTicketSettings(s => ({ ...s, drawerOpenPolicy: e.target.value }))}
+                style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}` }}
+                className="w-full rounded-lg px-3 py-2 text-sm"
+              >
+                <option value="quick">Apertura rápida (sin confirmación)</option>
+                <option value="confirm">Con confirmación</option>
+                <option value="pin">Requiere PIN de administrador</option>
+              </select>
+              <div style={{ borderTop: `1px solid ${C.line}` }} className="my-2" />
+              <p className="font-display text-sm" style={{ color: C.cream }}>Descuento de personal</p>
+              <p style={{ color: C.muted }} className="text-[10px] -mt-2">Porcentaje por categoría (0 = sin descuento)</p>
+              {(() => {
+                const raw = ticketSettings.personalDiscountRates;
+                let rates = {};
+                try { rates = typeof raw === 'string' ? JSON.parse(raw) : raw || {}; }
+                catch { rates = {}; }
+                const cats = catalog?.categories?.map(c => typeof c === 'string' ? c : c.name) || [];
+                const allKeys = [...new Set([...cats, ...Object.keys(rates)])];
+                return allKeys.map(catName => (
+                  <div key={catName} className="flex items-center gap-2">
+                    <span style={{ color: C.cream }} className="text-xs flex-1">{catName}</span>
+                    <input
+                      value={rates[catName] ?? 0}
+                      onChange={e => {
+                        const v = parseFloat(e.target.value) || 0;
+                        const updated = { ...rates, [catName]: v };
+                        setTicketSettings(s => ({ ...s, personalDiscountRates: JSON.stringify(updated) }));
+                      }}
+                      type="number" min="0" max="100" step="1"
+                      style={{ background: C.surfaceLight, color: C.cream, width: 64 }}
+                      className="rounded-md px-2 py-1.5 text-sm text-right"
+                    />
+                    <span style={{ color: C.muted }} className="text-xs">%</span>
+                  </div>
+                ));
+              })()}
+              <div style={{ borderTop: `1px solid ${C.line}` }} className="my-2" />
+              <p className="font-display text-sm" style={{ color: C.cream }}>Pedido por QR</p>
+              <div className="flex items-center justify-between">
+                <span className="text-xs" style={{ color: C.cream }}>Activar pedido QR en mesa</span>
+                <button onClick={() => setTicketSettings(s => ({ ...s, qrOrderingEnabled: s.qrOrderingEnabled === 'false' ? 'true' : 'false' }))}
+                  className="relative w-10 h-5 rounded-full transition-colors"
+                  style={{ background: (ticketSettings.qrOrderingEnabled || 'true') === 'true' ? C.brass : C.line }}>
+                  <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform"
+                    style={{ transform: (ticketSettings.qrOrderingEnabled || 'true') === 'true' ? 'translateX(22px)' : 'translateX(0)', left: '0.5px' }} />
+                </button>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs" style={{ color: C.cream }}>Requerir pago al pedir</span>
+                <button onClick={() => setTicketSettings(s => ({ ...s, qrRequirePayment: s.qrRequirePayment === 'false' ? 'true' : 'false' }))}
+                  className="relative w-10 h-5 rounded-full transition-colors"
+                  style={{ background: (ticketSettings.qrRequirePayment || 'false') === 'true' ? C.brass : C.line }}>
+                  <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform"
+                    style={{ transform: (ticketSettings.qrRequirePayment || 'false') === 'true' ? 'translateX(22px)' : 'translateX(0)', left: '0.5px' }} />
+                </button>
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wide mb-1 block" style={{ color: C.muted }}>Color primario QR</label>
+                <input value={ticketSettings.qrThemePrimary || '#c4a04a'} onChange={e => setTicketSettings(s => ({ ...s, qrThemePrimary: e.target.value }))}
+                  style={{ background: C.surfaceLight, color: C.cream }}
+                  className="w-full rounded-lg px-3 py-2 text-sm" placeholder="#c4a04a" />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wide mb-1 block" style={{ color: C.muted }}>Color secundario QR</label>
+                <input value={ticketSettings.qrThemeSecondary || '#1a1a1a'} onChange={e => setTicketSettings(s => ({ ...s, qrThemeSecondary: e.target.value }))}
+                  style={{ background: C.surfaceLight, color: C.cream }}
+                  className="w-full rounded-lg px-3 py-2 text-sm" placeholder="#1a1a1a" />
+              </div>
+              <div style={{ borderTop: `1px solid ${C.line}` }} className="my-2" />
+              <p className="font-display text-sm" style={{ color: C.cream }}>Pedido Online (recogida/domicilio)</p>
+              <div className="flex items-center justify-between">
+                <span className="text-xs" style={{ color: C.cream }}>Activar pedidos online</span>
+                <button onClick={() => setTicketSettings(s => ({ ...s, onlineOrderingEnabled: s.onlineOrderingEnabled === 'false' ? 'true' : 'false' }))}
+                  className="relative w-10 h-5 rounded-full transition-colors"
+                  style={{ background: (ticketSettings.onlineOrderingEnabled || 'true') === 'true' ? C.brass : C.line }}>
+                  <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform"
+                    style={{ transform: (ticketSettings.onlineOrderingEnabled || 'true') === 'true' ? 'translateX(22px)' : 'translateX(0)', left: '0.5px' }} />
+                </button>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs" style={{ color: C.cream }}>Requerir pago online</span>
+                <button onClick={() => setTicketSettings(s => ({ ...s, onlinePaymentRequired: s.onlinePaymentRequired === 'false' ? 'true' : 'false' }))}
+                  className="relative w-10 h-5 rounded-full transition-colors"
+                  style={{ background: (ticketSettings.onlinePaymentRequired || 'true') === 'true' ? C.brass : C.line }}>
+                  <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform"
+                    style={{ transform: (ticketSettings.onlinePaymentRequired || 'true') === 'true' ? 'translateX(22px)' : 'translateX(0)', left: '0.5px' }} />
+                </button>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs" style={{ color: C.cream }}>Aceptar automáticamente</span>
+                <button onClick={() => setTicketSettings(s => ({ ...s, onlineAutoAccept: s.onlineAutoAccept === 'false' ? 'true' : 'false' }))}
+                  className="relative w-10 h-5 rounded-full transition-colors"
+                  style={{ background: (ticketSettings.onlineAutoAccept || 'true') === 'true' ? C.brass : C.line }}>
+                  <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform"
+                    style={{ transform: (ticketSettings.onlineAutoAccept || 'true') === 'true' ? 'translateX(22px)' : 'translateX(0)', left: '0.5px' }} />
+                </button>
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wide mb-1 block" style={{ color: C.muted }}>Tiempo preparación (min)</label>
+                <input value={ticketSettings.onlinePrepTime || '20'} onChange={e => setTicketSettings(s => ({ ...s, onlinePrepTime: e.target.value }))}
+                  type="number" min={5} max={120}
+                  style={{ background: C.surfaceLight, color: C.cream }}
+                  className="w-full rounded-lg px-3 py-2 text-sm" />
+              </div>
             </div>
             <div className="flex gap-2 mt-4">
               <button
@@ -1175,6 +2055,90 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* ── Modal confirmación abrir cajón ── */}
+      {showDrawerConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.65)' }}
+          onClick={() => setShowDrawerConfirm(false)}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: C.surface, border: `1px solid ${C.line}` }}
+            className="w-full max-w-xs rounded-xl p-5 fade-up">
+            <p className="font-display text-lg mb-3" style={{ color: C.cream }}>🪙 Abrir cajón</p>
+            <p style={{ color: C.muted }} className="text-sm mb-4">¿Abrir el cajón portamonedas?</p>
+            <div className="flex gap-2">
+              <button onClick={() => { openDrawer(); setShowDrawerConfirm(false); }}
+                style={{ background: C.brass, color: C.base }}
+                className="flex-1 rounded-lg py-2.5 text-sm font-semibold">Abrir</button>
+              <button onClick={() => setShowDrawerConfirm(false)}
+                style={{ color: C.muted, background: C.surfaceLight }}
+                className="flex-1 rounded-lg py-2.5 text-sm">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal PIN abrir cajón ── */}
+      {showDrawerPIN && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.65)' }}
+          onClick={() => setShowDrawerPIN(false)}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: C.surface, border: `1px solid ${C.line}` }}
+            className="w-full max-w-xs rounded-xl p-5 fade-up">
+            <p className="font-display text-lg mb-1" style={{ color: C.cream }}>🪙 Abrir cajón</p>
+            <p style={{ color: C.muted }} className="text-xs mb-3">Introduce el PIN de administrador</p>
+            <div className="text-center mb-4">
+              <div style={{ background: C.surfaceLight, color: C.brassLight }}
+                className="text-3xl font-mono font-bold px-6 py-3 rounded-xl inline-block tracking-[0.3em]">
+                {drawerPinInput.padEnd(4, '·')}
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              {[1,2,3,4,5,6,7,8,9].map(n => (
+                <button key={n} onClick={() => { if (drawerPinInput.length < 4) setDrawerPinInput(p => p + n); }}
+                  style={{ background: C.surfaceLight, border: `1px solid ${C.line}`, color: C.cream }}
+                  className="rounded-lg py-3 text-lg font-mono font-bold hover:opacity-80">{n}</button>
+              ))}
+              <button onClick={() => setDrawerPinInput(p => p.slice(0, -1))}
+                style={{ background: C.wine + '30', border: `1px solid ${C.wine}`, color: C.wineLight }}
+                className="rounded-lg py-3 text-lg font-mono font-bold hover:opacity-80">⌫</button>
+              <button onClick={() => setDrawerPinInput('')}
+                style={{ background: C.surfaceLight, border: `1px solid ${C.line}`, color: C.muted }}
+                className="rounded-lg py-3 text-lg font-mono hover:opacity-80">C</button>
+              <button onClick={() => {
+                const admin = employees.find(e => e.role === 'admin' && e.pin === drawerPinInput);
+                if (!admin) { showToast('PIN de administrador incorrecto'); setDrawerPinInput(''); return; }
+                openDrawer(); setShowDrawerPIN(false);
+              }}
+                disabled={drawerPinInput.length < 4}
+                style={{
+                  background: drawerPinInput.length === 4 ? C.brass : C.surfaceLight,
+                  color: drawerPinInput.length === 4 ? C.base : C.muted,
+                }}
+                className="rounded-lg py-3 text-lg font-mono font-bold hover:opacity-80 disabled:cursor-not-allowed">
+                OK
+              </button>
+            </div>
+            <button onClick={() => setShowDrawerPIN(false)}
+              style={{ color: C.muted, background: C.surfaceLight }}
+              className="w-full rounded-lg py-2.5 text-sm">Cancelar</button>
+          </div>
+        </div>
+      )}
+
+      <CommandPalette
+        isOpen={showCommands}
+        onClose={() => setShowCommands(false)}
+        navItems={navItems}
+        floor={floor}
+        onSelectTable={(id) => { setSelectedTableId(id); setActiveCategory('Todos'); }}
+        onNavigate={(id) => { setView(id); }}
+        onAction={(action) => {
+          if (action === 'openDrawer') handleDrawerAction();
+          else if (action === 'toggleTraining') toggleTraining();
+          else if (action === 'print') handlePrint();
+        }}
+        C={C}
+      />
     </div>
   );
 }

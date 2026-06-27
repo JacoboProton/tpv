@@ -39,7 +39,8 @@ export async function POST(req) {
     const seq = parseInt(countRows[0].cnt, 10) + 1;
     const numSerie = `VERI-${year}-${String(seq).padStart(6, '0')}`;
 
-    const importeTotal = Number((sale.totalWithTip ?? sale.total ?? 0).toFixed(2));
+    // La propina no es fiscal, se excluye de la base imponible
+    const importeTotal = Number((sale.total ?? sale.totalWithTip ?? 0).toFixed(2));
     const baseImponible = Number((importeTotal / 1.07).toFixed(2));
     const cuotaIva = Number((importeTotal - baseImponible).toFixed(2));
     const fechaExpedicion = new Date(sale.closedAt ?? Date.now()).toISOString().slice(0, 10);

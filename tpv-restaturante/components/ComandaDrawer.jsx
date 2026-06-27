@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import {
   ArrowLeft, Receipt, ChefHat, CreditCard,
-  Plus, Minus, Percent, X, Trash2, AlertTriangle, Check, Package, Tag, Search, Edit3,
+  Plus, Minus, Percent, X, Trash2, AlertTriangle, Check, Package, Tag, Search, Edit3, MoreVertical, ArrowRight,
+  GitMerge, BadgePercent,
 } from 'lucide-react';
 import { TICKET_EDGE, euros, ALLERGENS, ALLERGEN_COLORS } from './constants';
 import ComboSlotSelector from './ComboSlotSelector';
@@ -15,7 +16,15 @@ export default function ComandaDrawer({
   onSendToKitchenCourse, onToggleCuenta,
   onOpenPayment, onResetTable,
   onUpdateNotes, onUpdateItemCourse, onEditItemModifiers,
+  onSetItemDiscount, onRemoveItemDiscount, onSetItemCourtesy, onRemoveItemCourtesy,
+  onSetItemPrice, onVoidSentItem,
+  onApplyPersonalDiscount, onRemovePersonalDiscount,
+  employees, ticketSettings,
   combos, mealMenus,
+  floor, onMoveTable, onMergeTables, currentTableId,
+  activeTicketId, onSwitchTicket, onCreateTicket, onDeleteEmptyTicket,
+  onRenameTicket, onLinkCustomer, onUnlinkCustomer,
+  onReopenOrder, onVoidTable, todayHistory,
   colors: C,
 }) {
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -34,6 +43,25 @@ export default function ComandaDrawer({
   const [showQtyModal, setShowQtyModal] = useState(null); // { item, value }
   const [qtyNumpad, setQtyNumpad] = useState('1');
   const [actionItemId, setActionItemId] = useState(null); // for inline action menu
+  const [showTicketMenu, setShowTicketMenu] = useState(false);
+  const [showMoveModal, setShowMoveModal] = useState(false);
+  const [showMergeModal, setShowMergeModal] = useState(false);
+  const [moveDestId, setMoveDestId] = useState(null);
+  const [mergeSelected, setMergeSelected] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [showVoidConfirm, setShowVoidConfirm] = useState(false);
+  const [editLabel, setEditLabel] = useState(false);
+  const [labelInput, setLabelInput] = useState('');
+  const [showCustomerSearch, setShowCustomerSearch] = useState(false);
+  const [customerQuery, setCustomerQuery] = useState('');
+  const [customerResults, setCustomerResults] = useState([]);
+  const [showLineDiscount, setShowLineDiscount] = useState(null); // item
+  const [showPriceEdit, setShowPriceEdit] = useState(null); // item
+  const [priceNumpad, setPriceNumpad] = useState('');
+  const [showVoidItem, setShowVoidItem] = useState(null);
+  const [voidReason, setVoidReason] = useState('');
+  const [showPersonalPIN, setShowPersonalPIN] = useState(false);
+  const [personalPinInput, setPersonalPinInput] = useState('');
 
   const allCourses = useMemo(() => {
     const s = new Set();
@@ -129,7 +157,44 @@ export default function ComandaDrawer({
             <button onClick={onClose} style={{ color: C.muted }} className="p-1 -ml-1">
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <h2 className="font-display text-xl" style={{ color: C.cream }}>{selectedTable.name}</h2>
+            <div>
+              <h2 className="font-display text-xl" style={{ color: C.cream }}>
+                {selectedTable.name}
+                {selectedOrder?.label && !editLabel && (
+                  <span className="text-sm font-normal ml-2" style={{ color: C.brassLight }}>
+                    {selectedOrder.label}
+                  </span>
+                )}
+              </h2>
+              {editLabel ? (
+                <div className="flex gap-1 mt-1">
+                  <input type="text" value={labelInput}
+                    onChange={e => setLabelInput(e.target.value)}
+                    style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}` }}
+                    className="text-xs px-2 py-1 rounded w-40" autoFocus
+                    onKeyDown={e => { if (e.key === 'Enter') { onRenameTicket(selectedOrder?.id, labelInput); setEditLabel(false); } if (e.key === 'Escape') setEditLabel(false); }}
+                  />
+                  <button onClick={() => { onRenameTicket(selectedOrder?.id, labelInput); setEditLabel(false); }}
+                    style={{ color: C.sage }} className="text-xs">OK</button>
+                </div>
+              ) : selectedOrder?.customer && (
+                <p className="text-[10px] mt-0.5 flex items-center gap-1" style={{ color: C.sageLight }}>
+                  👤 {selectedOrder.customer.name}
+                </p>
+              )}
+              {selectedOrder?.personalDiscountApplied && (
+                <p className="text-[10px] mt-0.5 flex items-center gap-1" style={{ color: C.sageLight }}>
+                  <BadgePercent className="w-3 h-3 inline" />
+                  Desc. personal ({selectedOrder.personalDiscountEmployeeName})
+                </p>
+              )}
+              {selectedOrder?._mergedLabel && (
+                <p className="text-[10px] font-medium mt-0.5" style={{ color: C.brassLight }}>
+                  <GitMerge className="w-3 h-3 inline mr-1" />
+                  {selectedOrder._mergedLabel}
+                </p>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -163,8 +228,136 @@ export default function ComandaDrawer({
                 </button>
               )
             )}
+
+            {/* Tres puntos — menú de ticket */}
+            <div className="relative">
+              <button
+                onClick={() => setShowTicketMenu(!showTicketMenu)}
+                style={{ color: C.muted }}
+                className="p-1.5 rounded-lg hover:opacity-80"
+              >
+                <MoreVertical className="w-4 h-4" />
+              </button>
+              {showTicketMenu && (
+                <div
+                  style={{ background: C.surface, border: `1px solid ${C.line}`, zIndex: 60 }}
+                  className="absolute right-0 top-full mt-1 rounded-xl py-1 min-w-[180px] shadow-xl"
+                >
+                  {selectedOrder && selectedOrder.items.length > 0 && (
+                    <button onClick={() => { setShowTicketMenu(false); setMoveDestId(null); setShowMoveModal(true); }}
+                      style={{ color: C.cream }}
+                      className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 hover:opacity-80"
+                    >
+                      <ArrowRight className="w-4 h-4" /> Mover mesa
+                    </button>
+                  )}
+                  <button onClick={() => { setShowTicketMenu(false); setMergeSelected([]); setShowMergeModal(true); }}
+                    style={{ color: C.cream }}
+                    className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 hover:opacity-80"
+                  >
+                    <GitMerge className="w-4 h-4" /> Unir mesas
+                  </button>
+                  <div style={{ borderTop: `1px solid ${C.line}` }} className="my-1" />
+                  {selectedOrder && (
+                    <button onClick={() => { setShowTicketMenu(false); setLabelInput(selectedOrder.label || ''); setEditLabel(true); }}
+                      style={{ color: C.cream }}
+                      className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 hover:opacity-80"
+                    >
+                      🏷️ {selectedOrder.label ? 'Editar etiqueta' : 'Añadir etiqueta'}
+                    </button>
+                  )}
+                  {selectedOrder && (
+                    <button onClick={() => { setShowTicketMenu(false); setCustomerQuery(''); setCustomerResults([]); setShowCustomerSearch(true); }}
+                      style={{ color: C.cream }}
+                      className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 hover:opacity-80"
+                    >
+                      👤 {selectedOrder.customer ? 'Cambiar cliente' : 'Vincular cliente'}
+                    </button>
+                  )}
+                  {selectedOrder?.customer && (
+                    <button onClick={() => { setShowTicketMenu(false); onUnlinkCustomer(selectedOrder.id); }}
+                      style={{ color: C.wineLight }}
+                      className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 hover:opacity-80"
+                    >
+                      ✕ Desvincular cliente
+                    </button>
+                  )}
+                  <div style={{ borderTop: `1px solid ${C.line}` }} className="my-1" />
+                  <button onClick={() => { setShowTicketMenu(false); onCreateTicket(currentTableId); }}
+                    style={{ color: C.cream }}
+                    className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 hover:opacity-80"
+                  >
+                    ➕ Nuevo ticket
+                  </button>
+                  {todayHistory && todayHistory.length > 0 && (
+                    <button onClick={() => { setShowTicketMenu(false); setShowHistory(true); }}
+                      style={{ color: C.cream }}
+                      className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 hover:opacity-80"
+                    >
+                      📋 Historial ({todayHistory.length})
+                    </button>
+                  )}
+                  {selectedOrder && selectedOrder.items.length > 0 && !selectedOrder.personalDiscountApplied && (
+                    <button onClick={() => { setShowTicketMenu(false); setPersonalPinInput(''); setShowPersonalPIN(true); }}
+                      style={{ color: C.sageLight }}
+                      className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 hover:opacity-80"
+                    >
+                      <BadgePercent className="w-4 h-4" /> Descuento personal
+                    </button>
+                  )}
+                  {selectedOrder?.personalDiscountApplied && (
+                    <button onClick={() => { setShowTicketMenu(false); onRemovePersonalDiscount(selectedOrder.id); }}
+                      style={{ color: C.wineLight }}
+                      className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 hover:opacity-80"
+                    >
+                      <BadgePercent className="w-4 h-4" /> Quitar descuento personal
+                    </button>
+                  )}
+                  {selectedOrder && selectedOrder.items.length === 0 && (
+                    <button onClick={() => { setShowTicketMenu(false); onDeleteEmptyTicket(currentTableId, selectedOrder.id); }}
+                      style={{ color: C.wineLight }}
+                      className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 hover:opacity-80"
+                    >
+                      🗑️ Eliminar ticket vacío
+                    </button>
+                  )}
+                  <div style={{ borderTop: `1px solid ${C.line}` }} className="my-1" />
+                  <button onClick={() => { setShowTicketMenu(false); setShowVoidConfirm(true); }}
+                    style={{ color: C.wineLight }}
+                    className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 hover:opacity-80"
+                  >
+                    🚫 Vaciar / liberar mesa
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
+
+        {/* ── Ticket tabs ── */}
+        {selectedTable?.orderIds?.length > 0 && (
+          <div style={{ borderBottom: `1px solid ${C.line}`, background: C.surfaceLight }} className="px-4 py-1.5 flex gap-1 overflow-x-auto">
+            {selectedTable.orderIds.map((oid, idx) => {
+              const order = floor?.orders?.[oid];
+              const isActive = oid === activeTicketId;
+              const label = order?.label || `#${idx + 1}`;
+              const itemCount = order?.items?.length || 0;
+              return (
+                <button key={oid} onClick={() => onSwitchTicket(currentTableId, oid)}
+                  style={{
+                    background: isActive ? C.brass : 'transparent',
+                    color: isActive ? C.base : C.muted,
+                    border: `1px solid ${isActive ? C.brass : C.line}`,
+                  }}
+                  className="text-xs px-2.5 py-1 rounded-lg whitespace-nowrap flex items-center gap-1 hover:opacity-80"
+                >
+                  {label}
+                  {itemCount > 0 && <span style={{ opacity: 0.7 }}>({itemCount})</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* ── Banner: cuenta pedida ── */}
         {isCuenta && !isDebtOnly && (
@@ -283,8 +476,9 @@ export default function ComandaDrawer({
           <div style={{ borderBottom: `1px solid ${C.line}` }} className="px-4 py-2 flex gap-2">
             <div className="flex-1 relative">
               <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: C.muted }} />
-              <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Buscar productos..."
+                  <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                    placeholder="Buscar productos (/)"
+                    data-search-products
                 style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}`, paddingLeft: 28 }}
                 className="w-full rounded-lg py-1.5 text-xs outline-none" />
               {searchQuery && (
@@ -304,19 +498,21 @@ export default function ComandaDrawer({
         {/* ── Categorías ── */}
         {!isDebtOnly && !searchQuery && (
           <div className="flex gap-2 px-4 py-3 overflow-x-auto" style={{ borderBottom: `1px solid ${C.line}` }}>
-            {['Todos', ...catalog.categories].map(cat => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                style={{
-                  background: activeCategory === cat ? C.brass : C.surfaceLight,
-                  color:      activeCategory === cat ? C.base  : C.muted,
-                }}
-                className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap shrink-0"
-              >
-                {cat}
-              </button>
-            ))}
+            {['Todos', ...catalog.categories].map(cat => {
+              const label = typeof cat === 'string' ? cat : cat.name;
+              const key = typeof cat === 'string' ? cat : cat.id;
+              return (
+                <button key={key} onClick={() => setActiveCategory(label)}
+                  style={{
+                    background: activeCategory === label ? C.brass : C.surfaceLight,
+                    color:      activeCategory === label ? C.base  : C.muted,
+                  }}
+                  className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap shrink-0"
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
         )}
 
@@ -510,8 +706,22 @@ export default function ComandaDrawer({
                             Curso: {item.course}
                           </span>
                         )}
-                        {disc > 0 && (
+                        {disc > 0 && !item.lineDiscount && (
                           <span className="text-[10px] ml-1" style={{ color: C.wineLight }}>-{disc}%</span>
+                        )}
+                        {item.lineDiscount > 0 && (
+                          <span className="text-[10px] ml-1" style={{ color: C.wineLight }}>-{item.lineDiscount}%</span>
+                        )}
+                        {item.isCourtesy && (
+                          <span className="text-[10px] ml-1 font-bold" style={{ color: C.sage }}>INVITACIÓN</span>
+                        )}
+                        {item.overridePrice != null && (
+                          <span className="text-[10px] ml-1" style={{ color: C.brassLight }}>Precio editado</span>
+                        )}
+                        {item.voided && (
+                          <span className="text-[10px] ml-1 font-bold" style={{ color: C.wineLight }}>
+                            ANULADO{item.voidReason ? `: ${item.voidReason}` : ''}
+                          </span>
                         )}
                         {item.modifiers?.length > 0 && (
                           <p className="text-[10px]" style={{ color: '#9a8e80' }}>
@@ -544,10 +754,12 @@ export default function ComandaDrawer({
                         ) : (
                           <>
                             <span className="w-5 text-center text-xs">{item.qty}</span>
-                            <button onClick={() => onRemoveItem(item.id)}
-                              style={{ color: C.wineLight }} className="p-0.5 hover:opacity-80">
-                              <X className="w-3.5 h-3.5" />
-                            </button>
+                            {!item.voided && (
+                              <button onClick={() => { setVoidReason(''); setShowVoidItem(item.id); }}
+                                style={{ color: C.wineLight }} className="p-0.5 hover:opacity-80">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </>
                         )}
                       </div>
@@ -582,16 +794,50 @@ export default function ComandaDrawer({
                             ))}
                           </div>
                         )}
+                        {/* Line discount */}
+                        {!item.sent && (
+                          <button onClick={() => { setShowLineDiscount(item); setActionItemId(null); }}
+                            style={{ background: C.surfaceLight, border: `1px solid ${C.line}`, color: C.cream }}
+                            className="text-[10px] px-2 py-1 rounded-lg">
+                            {item.lineDiscount > 0 ? `-${item.lineDiscount}%` : 'Descuento línea'}
+                          </button>
+                        )}
+                        {/* Courtesy */}
+                        {!item.sent && (
+                          <button onClick={() => {
+                            if (item.isCourtesy) { onRemoveItemCourtesy(item.id); }
+                            else { onSetItemCourtesy(item.id); }
+                            setActionItemId(null);
+                          }}
+                            style={{
+                              background: item.isCourtesy ? C.sage + '30' : C.surfaceLight,
+                              border: `1px solid ${item.isCourtesy ? C.sage : C.line}`,
+                              color: item.isCourtesy ? C.sageLight : C.cream,
+                            }}
+                            className="text-[10px] px-2 py-1 rounded-lg">
+                            {item.isCourtesy ? 'Quitar cortesía' : 'Cortesía'}
+                          </button>
+                        )}
+                        {/* Edit price */}
+                        {!item.sent && (
+                          <button onClick={() => { setPriceNumpad(String(item.overridePrice ?? item.price)); setShowPriceEdit(item); setActionItemId(null); }}
+                            style={{ background: C.surfaceLight, border: `1px solid ${C.line}`, color: C.cream }}
+                            className="text-[10px] px-2 py-1 rounded-lg">
+                            {item.overridePrice != null ? `${item.overridePrice.toFixed(2)}€` : 'Editar precio'}
+                          </button>
+                        )}
                         {/* Notes */}
                         <button onClick={() => { handleOpenNotes(item); setActionItemId(null); }}
                           style={{ background: C.surfaceLight, border: `1px solid ${C.line}`, color: C.cream }}
                           className="text-[10px] px-2 py-1 rounded-lg">
                           {item.notes ? '📝 ' : ''}Nota
                         </button>
-                        {/* Delete */}
-                        <button onClick={() => { onRemoveItem(item.id); setActionItemId(null); }}
-                          style={{ background: C.wine + '30', border: `1px solid ${C.wine}`, color: C.wineLight }}
-                          className="text-[10px] px-2 py-1 rounded-lg">Eliminar</button>
+                        {/* Delete (unsent only) */}
+                        {!item.sent && (
+                          <button onClick={() => { onRemoveItem(item.id); setActionItemId(null); }}
+                            style={{ background: C.wine + '30', border: `1px solid ${C.wine}`, color: C.wineLight }}
+                            className="text-[10px] px-2 py-1 rounded-lg">Eliminar</button>
+                        )}
                       </div>
                     )}
 
@@ -866,6 +1112,316 @@ export default function ComandaDrawer({
         />
       )}
 
+      {/* ── Modal Historial ── */}
+      {showHistory && todayHistory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.65)' }}
+          onClick={() => setShowHistory(false)}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: C.surface, border: `1px solid ${C.line}` }}
+            className="w-full max-w-sm rounded-xl p-5 fade-up max-h-[80vh] flex flex-col">
+            <p className="font-display text-lg mb-3" style={{ color: C.cream }}>Historial de hoy</p>
+            <div className="flex-1 overflow-y-auto space-y-2">
+              {todayHistory.map(h => (
+                <div key={h.id} style={{ background: C.surfaceLight, border: `1px solid ${C.line}` }}
+                  className="rounded-xl p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium" style={{ color: C.cream }}>
+                      {h.label || h.id.slice(0, 8)}
+                    </span>
+                    <span className="text-xs" style={{ color: C.muted }}>
+                      {new Date(h.closedAt || h.createdAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <p className="text-xs" style={{ color: C.muted }}>
+                    {h.items?.length || 0} artículos · {h.items?.reduce((s, i) => s + i.price * i.qty, 0).toFixed(2)}€
+                  </p>
+                  <div className="flex gap-1 mt-2">
+                    <button onClick={() => { setShowHistory(false); onReopenOrder(currentTableId, h); }}
+                      style={{ background: C.brass, color: C.base }}
+                      className="flex-1 rounded-lg py-1.5 text-xs font-medium hover:opacity-80">
+                      Reabrir
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {todayHistory.length === 0 && (
+                <p style={{ color: C.muted }} className="text-sm text-center py-6">No hay tickets cerrados hoy.</p>
+              )}
+            </div>
+            <button onClick={() => setShowHistory(false)}
+              style={{ color: C.muted, background: C.surfaceLight, marginTop: 12 }}
+              className="w-full rounded-lg py-2.5 text-sm">Cerrar</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Vaciar / liberar mesa ── */}
+      {showVoidConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.65)' }}
+          onClick={() => setShowVoidConfirm(false)}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: C.surface, border: `1px solid ${C.line}` }}
+            className="w-full max-w-xs rounded-xl p-5 fade-up">
+            <p className="font-display text-lg mb-1" style={{ color: C.cream }}>Vaciar / liberar mesa</p>
+            <p style={{ color: C.muted }} className="text-sm mb-4">
+              Se descartarán todos los pedidos de <strong style={{ color: C.cream }}>{selectedTable.name}</strong> sin cobrar.
+              Los artículos ya enviados a cocina quedarán registrados como anulados.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setShowVoidConfirm(false)}
+                style={{ background: C.surfaceLight, color: C.muted }}
+                className="flex-1 rounded-lg py-2.5 text-sm">Cancelar</button>
+              <button onClick={() => { setShowVoidConfirm(false); onVoidTable(); }}
+                style={{ background: C.wine, color: C.cream }}
+                className="flex-1 rounded-lg py-2.5 text-sm font-semibold hover:opacity-90">
+                Vaciar mesa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Vincular cliente ── */}
+      {showCustomerSearch && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.65)' }}
+          onClick={() => setShowCustomerSearch(false)}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: C.surface, border: `1px solid ${C.line}` }}
+            className="w-full max-w-sm rounded-xl p-5 fade-up">
+            <p className="font-display text-lg mb-3" style={{ color: C.cream }}>Vincular cliente</p>
+            <input type="text" value={customerQuery} onChange={e => {
+              const q = e.target.value;
+              setCustomerQuery(q);
+              if (q.length >= 2 && floor?.customers) {
+                setCustomerResults(floor.customers.filter(c =>
+                  c.name.toLowerCase().includes(q.toLowerCase()) || c.phone.includes(q)
+                ));
+              } else {
+                setCustomerResults([]);
+              }
+            }}
+              placeholder="Buscar por teléfono o nombre (mín. 2 caracteres)"
+              style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}` }}
+              className="w-full rounded-lg px-3 py-2.5 text-sm mb-3" autoFocus
+            />
+            {customerResults.length > 0 && (
+              <div className="flex flex-col gap-1 max-h-40 overflow-y-auto mb-3">
+                {customerResults.map(c => (
+                  <button key={c.id} onClick={() => { onLinkCustomer(selectedOrder?.id, c); setShowCustomerSearch(false); }}
+                    style={{ background: C.surfaceLight, border: `1px solid ${C.line}`, color: C.cream }}
+                    className="rounded-lg px-3 py-2 text-sm text-left hover:opacity-80"
+                  >
+                    {c.name} <span style={{ color: C.muted }}>{c.phone}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {customerQuery.length >= 2 && customerResults.length === 0 && (
+              <button onClick={() => {
+                onLinkCustomer(selectedOrder?.id, { id: 'c_' + Date.now(), name: customerQuery, phone: '' });
+                setShowCustomerSearch(false);
+                // Save to floor customers list
+                const next = clone(floor);
+                if (!next.customers) next.customers = [];
+                if (!next.customers.find(c => c.name === customerQuery)) {
+                  next.customers.push({ id: 'c_' + Date.now(), name: customerQuery, phone: '' });
+                }
+                // can't persistFloor here since floor is owned by parent
+                setShowCustomerSearch(false);
+              }}
+                style={{ background: C.sage, color: '#fff' }}
+                className="w-full rounded-lg py-2.5 text-sm font-medium hover:opacity-80"
+              >
+                + Crear "{customerQuery}"
+              </button>
+            )}
+            <button onClick={() => setShowCustomerSearch(false)}
+              style={{ color: C.muted, background: C.surfaceLight, marginTop: 8 }}
+              className="w-full rounded-lg py-2.5 text-sm">Cancelar</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Descuento por línea ── */}
+      {showLineDiscount && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.65)' }}
+          onClick={() => setShowLineDiscount(null)}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: C.surface, border: `1px solid ${C.line}` }}
+            className="w-full max-w-xs rounded-xl p-5 fade-up">
+            <p className="font-display text-lg mb-1" style={{ color: C.cream }}>Descuento por línea</p>
+            <p className="text-xs mb-4" style={{ color: C.muted }}>{showLineDiscount.name}</p>
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              {[5, 10, 15, 20, 25, 50].map(pct => (
+                <button key={pct} onClick={() => {
+                  onSetItemDiscount(showLineDiscount.id, pct);
+                  setShowLineDiscount(null);
+                }}
+                  style={{ background: C.surfaceLight, border: `1px solid ${C.line}`, color: C.cream }}
+                  className="rounded-lg py-3 text-sm font-medium hover:opacity-80">
+                  {pct}%
+                </button>
+              ))}
+            </div>
+            {showLineDiscount.lineDiscount > 0 && (
+              <button onClick={() => { onRemoveItemDiscount(showLineDiscount.id); setShowLineDiscount(null); }}
+                style={{ background: C.wine + '30', color: C.wineLight, border: `1px solid ${C.wine}` }}
+                className="w-full rounded-lg py-2.5 text-sm font-medium hover:opacity-80">
+                Quitar descuento
+              </button>
+            )}
+            <button onClick={() => setShowLineDiscount(null)}
+              style={{ color: C.muted, background: C.surfaceLight, marginTop: 8 }}
+              className="w-full rounded-lg py-2.5 text-sm">Cerrar</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Editar precio ── */}
+      {showPriceEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.65)' }}
+          onClick={() => setShowPriceEdit(null)}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: C.surface, border: `1px solid ${C.line}` }}
+            className="w-full max-w-xs rounded-xl p-5 fade-up">
+            <p className="font-display text-lg mb-1" style={{ color: C.cream }}>Editar precio</p>
+            <p className="text-xs mb-3" style={{ color: C.muted }}>{showPriceEdit.name}</p>
+            <div className="text-center mb-4">
+              <span style={{ background: C.surfaceLight, color: C.brassLight }}
+                className="text-3xl font-mono font-bold px-6 py-3 rounded-xl inline-block">
+                {priceNumpad || '0'}€
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => (
+                <button key={n} onClick={() => setPriceNumpad(prev => prev + n)}
+                  style={{ background: C.surfaceLight, border: `1px solid ${C.line}`, color: C.cream }}
+                  className="rounded-lg py-3 text-lg font-mono font-bold hover:opacity-80">{n}</button>
+              ))}
+              <button onClick={() => setPriceNumpad(prev => prev + '.')}
+                style={{ background: C.surfaceLight, border: `1px solid ${C.line}`, color: C.cream }}
+                className="rounded-lg py-3 text-lg font-mono font-bold hover:opacity-80">.</button>
+              <button onClick={() => setPriceNumpad(prev => prev.slice(0, -1))}
+                style={{ background: C.wine + '30', border: `1px solid ${C.wine}`, color: C.wineLight }}
+                className="rounded-lg py-3 text-lg font-mono font-bold hover:opacity-80">⌫</button>
+              <button onClick={() => setPriceNumpad('0')}
+                style={{ background: C.surfaceLight, border: `1px solid ${C.line}`, color: C.muted }}
+                className="rounded-lg py-3 text-lg font-mono hover:opacity-80">C</button>
+            </div>
+            {showPriceEdit.overridePrice != null && (
+              <button onClick={() => { onSetItemPrice(showPriceEdit.id, null); setShowPriceEdit(null); }}
+                style={{ background: C.wine + '30', color: C.wineLight, border: `1px solid ${C.wine}` }}
+                className="w-full rounded-lg py-2 text-sm mb-2 hover:opacity-80">
+                Restaurar precio original
+              </button>
+            )}
+            <div className="flex gap-2">
+              <button onClick={() => setShowPriceEdit(null)}
+                style={{ background: C.surfaceLight, color: C.muted }}
+                className="flex-1 rounded-lg py-2.5 text-sm">Cancelar</button>
+              <button onClick={() => { onSetItemPrice(showPriceEdit.id, parseFloat(priceNumpad) || 0); setShowPriceEdit(null); }}
+                style={{ background: C.brass, color: C.base }}
+                className="flex-1 rounded-lg py-2.5 text-sm font-semibold">OK</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal PIN Descuento personal ── */}
+      {showPersonalPIN && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.65)' }}
+          onClick={() => setShowPersonalPIN(false)}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: C.surface, border: `1px solid ${C.line}` }}
+            className="w-full max-w-xs rounded-xl p-5 fade-up">
+            <p className="font-display text-lg mb-1" style={{ color: C.cream }}>Descuento personal</p>
+            <p style={{ color: C.muted }} className="text-xs mb-4">
+              El empleado debe teclear su PIN para aplicar el descuento.
+            </p>
+            <div className="text-center mb-4">
+              <div style={{ background: C.surfaceLight, color: C.brassLight }}
+                className="text-3xl font-mono font-bold px-6 py-3 rounded-xl inline-block tracking-[0.3em]">
+                {personalPinInput.padEnd(4, '·')}
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              {[1,2,3,4,5,6,7,8,9].map(n => (
+                <button key={n} onClick={() => { if (personalPinInput.length < 4) setPersonalPinInput(p => p + n); }}
+                  style={{ background: C.surfaceLight, border: `1px solid ${C.line}`, color: C.cream }}
+                  className="rounded-lg py-3 text-lg font-mono font-bold hover:opacity-80">{n}</button>
+              ))}
+              <button onClick={() => setPersonalPinInput(p => p.slice(0, -1))}
+                style={{ background: C.wine + '30', border: `1px solid ${C.wine}`, color: C.wineLight }}
+                className="rounded-lg py-3 text-lg font-mono font-bold hover:opacity-80">⌫</button>
+              <button onClick={() => setPersonalPinInput('')}
+                style={{ background: C.surfaceLight, border: `1px solid ${C.line}`, color: C.muted }}
+                className="rounded-lg py-3 text-lg font-mono hover:opacity-80">C</button>
+              <button onClick={() => {
+                if (personalPinInput.length < 4) return;
+                const ok = onApplyPersonalDiscount(selectedOrder?.id, personalPinInput);
+                if (ok) setShowPersonalPIN(false);
+              }}
+                disabled={personalPinInput.length < 4}
+                style={{
+                  background: personalPinInput.length === 4 ? C.sage : C.surfaceLight,
+                  color: personalPinInput.length === 4 ? '#fff' : C.muted,
+                }}
+                className="rounded-lg py-3 text-lg font-mono font-bold hover:opacity-80 disabled:cursor-not-allowed">
+                OK
+              </button>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setShowPersonalPIN(false)}
+                style={{ background: C.surfaceLight, color: C.muted }}
+                className="flex-1 rounded-lg py-2.5 text-sm">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Anular artículo (enviado) ── */}
+      {showVoidItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.65)' }}
+          onClick={() => setShowVoidItem(null)}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: C.surface, border: `1px solid ${C.line}` }}
+            className="w-full max-w-xs rounded-xl p-5 fade-up">
+            <p className="font-display text-lg mb-1" style={{ color: C.cream }}>Anular artículo</p>
+            <p style={{ color: C.muted }} className="text-xs mb-4">
+              El artículo ya fue enviado a cocina. Indica el motivo de la anulación.
+            </p>
+            {['Error de pedido', 'Cliente canceló', 'Producto dañado', 'Otro'].map(r => (
+              <button key={r} onClick={() => setVoidReason(r)}
+                style={{
+                  background: voidReason === r ? C.brass + '30' : C.surfaceLight,
+                  border: `1px solid ${voidReason === r ? C.brass : C.line}`,
+                  color: C.cream,
+                }}
+                className="w-full text-left rounded-lg px-3 py-2.5 text-sm mb-1.5 hover:opacity-80"
+              >
+                {r}
+              </button>
+            ))}
+            <input type="text" value={voidReason} onChange={e => setVoidReason(e.target.value)}
+              placeholder="O escribe un motivo personalizado..."
+              style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}` }}
+              className="w-full rounded-lg px-3 py-2 text-sm mb-4"
+            />
+            <div className="flex gap-2">
+              <button onClick={() => setShowVoidItem(null)}
+                style={{ background: C.surfaceLight, color: C.muted }}
+                className="flex-1 rounded-lg py-2.5 text-sm">Cancelar</button>
+              <button onClick={() => { onVoidSentItem(showVoidItem, voidReason || 'Sin motivo'); setShowVoidItem(null); }}
+                disabled={!voidReason}
+                style={{ background: voidReason ? C.wine : C.surfaceLight, color: voidReason ? C.cream : C.muted }}
+                className="flex-1 rounded-lg py-2.5 text-sm font-semibold disabled:cursor-not-allowed">
+                Anular
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {configuringMenu && (
         <MenuDelDiaSelector
           menu={configuringMenu}
@@ -887,6 +1443,108 @@ export default function ComandaDrawer({
           }}
           onClose={() => setConfiguringMenu(null)}
         />
+      )}
+
+      {/* ── Modal Mover mesa ── */}
+      {showMoveModal && floor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.65)' }}
+          onClick={() => setShowMoveModal(false)}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: C.surface, border: `1px solid ${C.line}` }}
+            className="w-full max-w-sm rounded-xl p-5 fade-up">
+            <p className="font-display text-lg mb-1" style={{ color: C.cream }}>Mover mesa</p>
+            <p style={{ color: C.muted }} className="text-xs mb-4">
+              Trasladar el pedido de <strong style={{ color: C.cream }}>{selectedTable.name}</strong> a otra mesa.
+            </p>
+            <div className="flex flex-col gap-1.5 max-h-60 overflow-y-auto mb-4">
+              {floor.tables
+                .filter(t => t.id !== currentTableId && t.status === 'libre')
+                .map(t => (
+                  <button key={t.id} onClick={() => setMoveDestId(t.id)}
+                    style={{
+                      background: moveDestId === t.id ? C.brass + '30' : C.surfaceLight,
+                      border: `1px solid ${moveDestId === t.id ? C.brass : C.line}`,
+                      color: C.cream,
+                    }}
+                    className="rounded-lg px-4 py-3 text-sm text-left font-medium flex items-center justify-between hover:opacity-80"
+                  >
+                    <span>{t.name}</span>
+                    <span style={{ color: C.muted }} className="text-xs">{t.type === 'barra' ? 'Barra' : 'Mesa'}</span>
+                  </button>
+                ))}
+              {floor.tables.filter(t => t.id !== currentTableId && t.status === 'libre').length === 0 && (
+                <p style={{ color: C.muted }} className="text-sm text-center py-4">No hay mesas libres disponibles.</p>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setShowMoveModal(false)}
+                style={{ background: C.surfaceLight, color: C.muted }}
+                className="flex-1 rounded-lg py-2.5 text-sm">Cancelar</button>
+              <button onClick={() => { setShowMoveModal(false); onMoveTable(currentTableId, moveDestId); }}
+                disabled={!moveDestId}
+                style={{ background: moveDestId ? C.brass : C.surfaceLight, color: moveDestId ? C.base : C.muted }}
+                className="flex-1 rounded-lg py-2.5 text-sm font-semibold disabled:cursor-not-allowed">
+                Mover aquí
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Unir mesas ── */}
+      {showMergeModal && floor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.65)' }}
+          onClick={() => setShowMergeModal(false)}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: C.surface, border: `1px solid ${C.line}` }}
+            className="w-full max-w-sm rounded-xl p-5 fade-up">
+            <p className="font-display text-lg mb-1" style={{ color: C.cream }}>Unir mesas</p>
+            <p style={{ color: C.muted }} className="text-xs mb-4">
+              Fusionar pedidos de otras mesas en <strong style={{ color: C.cream }}>{selectedTable.name}</strong>.
+            </p>
+            <div className="flex flex-col gap-1.5 max-h-60 overflow-y-auto mb-4">
+              {floor.tables
+                .filter(t => t.id !== currentTableId && (t.status === 'ocupada' || t.status === 'cuenta' || t.status === 'unidas'))
+                .map(t => {
+                  const sel = mergeSelected.includes(t.id);
+                  return (
+                    <button key={t.id} onClick={() => setMergeSelected(prev =>
+                      prev.includes(t.id) ? prev.filter(id => id !== t.id) : [...prev, t.id]
+                    )}
+                      style={{
+                        background: sel ? C.brass + '30' : C.surfaceLight,
+                        border: `1px solid ${sel ? C.brass : C.line}`,
+                        color: C.cream,
+                      }}
+                      className="rounded-lg px-4 py-3 text-sm text-left font-medium flex items-center justify-between hover:opacity-80"
+                    >
+                      <div className="flex items-center gap-2">
+                        {sel && <Check className="w-4 h-4" style={{ color: C.brassLight }} />}
+                        <span>{t.name}</span>
+                      </div>
+                      <span style={{ color: C.muted }} className="text-xs">
+                        {t.orderId ? `${(floor.orders[t.orderId]?.items || []).length} artículos` : 'Sin pedido'}
+                      </span>
+                    </button>
+                  );
+                })}
+              {floor.tables.filter(t => t.id !== currentTableId && (t.status === 'ocupada' || t.status === 'cuenta' || t.status === 'unidas')).length === 0 && (
+                <p style={{ color: C.muted }} className="text-sm text-center py-4">No hay otras mesas con pedidos para unir.</p>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setShowMergeModal(false)}
+                style={{ background: C.surfaceLight, color: C.muted }}
+                className="flex-1 rounded-lg py-2.5 text-sm">Cancelar</button>
+              <button onClick={() => { setShowMergeModal(false); onMergeTables(currentTableId, mergeSelected); }}
+                disabled={mergeSelected.length === 0}
+                style={{ background: mergeSelected.length > 0 ? C.brass : C.surfaceLight, color: mergeSelected.length > 0 ? C.base : C.muted }}
+                className="flex-1 rounded-lg py-2.5 text-sm font-semibold disabled:cursor-not-allowed">
+                Unir ({mergeSelected.length})
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

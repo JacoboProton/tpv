@@ -193,3 +193,100 @@ export async function fetchDeliveryTracking(deliveryId) {
 export async function addDeliveryTracking(data) {
   return apiFetch('/api/delivery/tracking', { method: 'POST', body: JSON.stringify(data) });
 }
+
+// ----- Gestoría -----
+export async function fetchGestoriaSettings() {
+  return apiFetch('/api/gestoria?action=settings');
+}
+export async function saveGestoriaSettings(settings) {
+  return apiFetch('/api/gestoria', { method: 'PUT', body: JSON.stringify({ action: 'settings', settings }) });
+}
+
+export async function fetchGestoriaDocuments(type) {
+  return apiFetch(`/api/gestoria?action=documents&type=${type}`);
+}
+export async function saveGestoriaDocument(doc) {
+  return apiFetch('/api/gestoria', { method: 'POST', body: JSON.stringify({ action: 'document', document: doc }) });
+}
+export async function deleteGestoriaDocument(id) {
+  return apiFetch('/api/gestoria', { method: 'DELETE', body: JSON.stringify({ action: 'document', id }) });
+}
+export async function confirmGestoriaDocument(id) {
+  return apiFetch('/api/gestoria', { method: 'PUT', body: JSON.stringify({ action: 'confirm', id }) });
+}
+
+export async function fetchGestoriaPayrolls() {
+  return apiFetch('/api/gestoria?action=payrolls');
+}
+export async function saveGestoriaPayroll(payroll) {
+  return apiFetch('/api/gestoria', { method: 'POST', body: JSON.stringify({ action: 'payroll', payroll }) });
+}
+export async function deleteGestoriaPayroll(id) {
+  return apiFetch('/api/gestoria', { method: 'DELETE', body: JSON.stringify({ action: 'payroll', id }) });
+}
+
+export async function fetchGestoriaTaxModels() {
+  return apiFetch('/api/gestoria?action=taxmodels');
+}
+export async function calculateGestoriaTaxModel(modelCode, year, quarter) {
+  return apiFetch('/api/gestoria', { method: 'POST', body: JSON.stringify({ action: 'calculate', modelCode, year, quarter }) });
+}
+export async function updateTaxModelStatus(id, status) {
+  return apiFetch('/api/gestoria', { method: 'PUT', body: JSON.stringify({ action: 'status', id, status }) });
+}
+
+export async function fetchGestoriaAuthorization() {
+  return apiFetch('/api/gestoria?action=authorization');
+}
+export async function saveGestoriaAuthorization(data) {
+  return apiFetch('/api/gestoria', { method: 'PUT', body: JSON.stringify({ action: 'authorization', ...data }) });
+}
+
+// ----- KDS Pairing -----
+export async function generateKDSPairCode(label = '') {
+  return apiFetch('/api/kds', { method: 'POST', body: JSON.stringify({ action: 'generate', label }) });
+}
+export async function verifyKDSPairCode(code, label, deviceId) {
+  return apiFetch('/api/kds', { method: 'POST', body: JSON.stringify({ action: 'verify', code, label, deviceId }) });
+}
+export async function fetchKDSPairings() {
+  return apiFetch('/api/kds');
+}
+export async function checkKDSPairing(deviceId) {
+  return apiFetch(`/api/kds?deviceId=${encodeURIComponent(deviceId)}`);
+}
+export async function revokeKDSPairing(id) {
+  return apiFetch('/api/kds', { method: 'DELETE', body: JSON.stringify({ id }) });
+}
+
+// ----- KDS Audit -----
+export async function logKDSAudit(action, details = {}) {
+  return apiFetch('/api/kds/audit', { method: 'POST', body: JSON.stringify({ action, details }) });
+}
+export async function fetchKDSAudit(limit = 200, offset = 0, action = '') {
+  const params = new URLSearchParams({ limit, offset });
+  if (action) params.set('action', action);
+  return apiFetch(`/api/kds/audit?${params}`);
+}
+
+// ----- Reservations -----
+export async function fetchReservations(params = {}) {
+  const q = new URLSearchParams();
+  if (params.date) q.set('date', params.date);
+  if (params.from) q.set('from', params.from);
+  if (params.to) q.set('to', params.to);
+  if (params.status) q.set('status', params.status);
+  return apiFetch(`/api/reservations?${q}`);
+}
+export async function saveReservation(reservation) {
+  return apiFetch('/api/reservations', { method: 'POST', body: JSON.stringify(reservation) });
+}
+export async function deleteReservation(id) {
+  return apiFetch('/api/reservations', { method: 'DELETE', body: JSON.stringify({ id }) });
+}
+export async function fetchWaitlist() {
+  return apiFetch('/api/waitlist');
+}
+export async function waitlistAction(action, extra = {}) {
+  return apiFetch('/api/waitlist', { method: 'POST', body: JSON.stringify({ action, ...extra }) });
+}

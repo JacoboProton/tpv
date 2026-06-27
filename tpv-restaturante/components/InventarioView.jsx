@@ -273,9 +273,11 @@ export default function InventarioView({
           className="rounded-lg px-3 py-2 text-sm"
         >
           <option value="Todos">Todas categorías</option>
-          {catalog.categories.map(cat => (
-            <option key={cat} value={cat}>{cat}</option>
-          ))}
+          {catalog.categories.map(cat => {
+            const label = typeof cat === 'string' ? cat : cat.name;
+            const key = typeof cat === 'string' ? cat : cat.id;
+            return <option key={key} value={label}>{label}</option>;
+          })}
         </select>
         <button
           onClick={() => setFilterLowOnly(!filterLowOnly)}
@@ -322,7 +324,11 @@ export default function InventarioView({
             className="rounded-lg px-3 py-2.5 text-sm"
           />
           <datalist id="categories">
-            {catalog.categories.map(cat => <option key={cat} value={cat} />)}
+            {catalog.categories.map(cat => {
+              const label = typeof cat === 'string' ? cat : cat.name;
+              const key = typeof cat === 'string' ? cat : cat.id;
+              return <option key={key} value={label} />;
+            })}
           </datalist>
           <input
             value={form.price} onChange={e => setForm({ ...form, price: e.target.value })}

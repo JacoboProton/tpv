@@ -150,20 +150,31 @@ export function seedFloor() {
   const tables = [
     ...Array.from({ length: 8 }, (_, i) => ({
       id: `t${i + 1}`, name: `Mesa ${i + 1}`, status: 'libre', orderId: null, reserved: null, isFiado: false, type: 'mesa',
+      x: 60 + (i % 4) * 140, y: 60 + Math.floor(i / 4) * 140, width: 80, height: 80, radius: 40,
+      shape: 'rect', rotation: 0, seats: 4, zone: 'z1', layer: 0, color: '',
     })),
-    { id: 't9',  name: 'Barra 1', status: 'libre', orderId: null, reserved: null, isFiado: false, type: 'barra' },
-    { id: 't10', name: 'Barra 2', status: 'libre', orderId: null, reserved: null, isFiado: false, type: 'barra' },
-    { id: 't11', name: 'Para llevar', status: 'libre', orderId: null, reserved: null, isFiado: false, type: 'llevar' },
-    { id: 't12', name: 'Domicilio', status: 'libre', orderId: null, reserved: null, isFiado: false, type: 'domicilio' },
+    { id: 't9',  name: 'Barra 1', status: 'libre', orderId: null, reserved: null, isFiado: false, type: 'barra', x: 620, y: 60, width: 160, height: 50, radius: 25, shape: 'rect', rotation: 0, seats: 4, zone: 'z3', layer: 0, color: '' },
+    { id: 't10', name: 'Barra 2', status: 'libre', orderId: null, reserved: null, isFiado: false, type: 'barra', x: 620, y: 140, width: 160, height: 50, radius: 25, shape: 'rect', rotation: 0, seats: 4, zone: 'z3', layer: 0, color: '' },
+    { id: 't11', name: 'Para llevar', status: 'libre', orderId: null, reserved: null, isFiado: false, type: 'llevar', x: 620, y: 300, width: 80, height: 50, radius: 25, shape: 'rect', rotation: 0, seats: 0, zone: '', layer: 0, color: '' },
+    { id: 't12', name: 'Domicilio', status: 'libre', orderId: null, reserved: null, isFiado: false, type: 'domicilio', x: 620, y: 380, width: 80, height: 50, radius: 25, shape: 'rect', rotation: 0, seats: 0, zone: '', layer: 0, color: '' },
   ];
-  return { tables, orders: {} };
+  return {
+    tables,
+    orders: {},
+    zones: [
+      { id: 'z1', name: 'Interior', color: '#c4a04a' },
+      { id: 'z2', name: 'Terraza', color: '#7a9a7c' },
+      { id: 'z3', name: 'Barra', color: '#b05e5e' },
+    ],
+    background: null,
+  };
 }
 
 export function seedEmployees() {
   return [
-    { id: 'e_admin', name: 'Administrador', pin: '1234', role: 'admin' },
-    { id: 'e_1',     name: 'Ana',           pin: '1111', role: 'camarero' },
-    { id: 'e_2',     name: 'Luis',          pin: '2222', role: 'camarero' },
+    { id: 'e_admin', name: 'Administrador', pin: '1234', role: 'admin', personalDiscountEnabled: true, monthlyLimit: 80, monthlyUsed: 0, monthlyUsedMonth: '' },
+    { id: 'e_1',     name: 'Ana',           pin: '1111', role: 'camarero', personalDiscountEnabled: true, monthlyLimit: 80, monthlyUsed: 0, monthlyUsedMonth: '' },
+    { id: 'e_2',     name: 'Luis',          pin: '2222', role: 'camarero', personalDiscountEnabled: true, monthlyLimit: 80, monthlyUsed: 0, monthlyUsedMonth: '' },
   ];
 }
 

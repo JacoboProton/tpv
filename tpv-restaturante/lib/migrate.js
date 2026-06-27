@@ -31,6 +31,8 @@ export async function runMigrations() {
   await sql`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`;
   for (const [k, v] of Object.entries({
     restaurantName: 'LA COMANDA', logoUrl: '', footerText: 'Gracias por su visita', ticketWidth: '80mm',
+    personalDiscountRates: JSON.stringify({ 'Tapas': 50, 'Principales': 50, 'Postres': 50, 'Bebidas': 20 }),
+    drawerOpenPolicy: 'confirm',
   })) {
     await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
   }
@@ -60,6 +62,28 @@ export async function runMigrations() {
   await sql`ALTER TABLE tables ADD COLUMN IF NOT EXISTS reserved JSONB`;
   await sql`ALTER TABLE tables ADD COLUMN IF NOT EXISTS is_fiado BOOLEAN NOT NULL DEFAULT false`;
   await sql`ALTER TABLE tables ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'mesa'`;
+  await sql`ALTER TABLE tables ADD COLUMN IF NOT EXISTS pos_x INTEGER DEFAULT 100`;
+  await sql`ALTER TABLE tables ADD COLUMN IF NOT EXISTS pos_y INTEGER DEFAULT 100`;
+  await sql`ALTER TABLE tables ADD COLUMN IF NOT EXISTS table_width INTEGER DEFAULT 80`;
+  await sql`ALTER TABLE tables ADD COLUMN IF NOT EXISTS table_height INTEGER DEFAULT 80`;
+  await sql`ALTER TABLE tables ADD COLUMN IF NOT EXISTS table_radius INTEGER DEFAULT 40`;
+  await sql`ALTER TABLE tables ADD COLUMN IF NOT EXISTS table_shape TEXT DEFAULT 'rect'`;
+  await sql`ALTER TABLE tables ADD COLUMN IF NOT EXISTS rotation INTEGER DEFAULT 0`;
+  await sql`ALTER TABLE tables ADD COLUMN IF NOT EXISTS seats INTEGER DEFAULT 4`;
+  await sql`ALTER TABLE tables ADD COLUMN IF NOT EXISTS zone TEXT DEFAULT ''`;
+  await sql`ALTER TABLE tables ADD COLUMN IF NOT EXISTS layer INTEGER DEFAULT 0`;
+  await sql`ALTER TABLE tables ADD COLUMN IF NOT EXISTS table_color TEXT DEFAULT ''`;
+  await sql`ALTER TABLE tables ADD COLUMN IF NOT EXISTS order_ids JSONB DEFAULT '[]'`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS floor_plan (
+      id INTEGER PRIMARY KEY DEFAULT 1,
+      zones JSONB DEFAULT '[]',
+      background JSONB DEFAULT null,
+      CHECK (id = 1)
+    )
+  `;
+  await sql`INSERT INTO floor_plan (id, zones, background) VALUES (1, '[]', null) ON CONFLICT (id) DO NOTHING`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS orders (
@@ -89,6 +113,10 @@ export async function runMigrations() {
       id TEXT PRIMARY KEY, name TEXT NOT NULL, pin TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'camarero'
     )
   `;
+  await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS personal_discount_enabled BOOLEAN DEFAULT false`;
+  await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS monthly_limit NUMERIC(10,2) DEFAULT 0`;
+  await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS monthly_used NUMERIC(10,2) DEFAULT 0`;
+  await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS monthly_used_month TEXT DEFAULT ''`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS access_logs (
@@ -276,6 +304,15 @@ export async function runMigrations() {
 
   // Añadir fixed_price a offers para menú del día con precio fijo
   await sql`ALTER TABLE offers ADD COLUMN IF NOT EXISTS fixed_price NUMERIC(10,2)`;
+  await sql`ALTER TABLE sales ADD COLUMN IF NOT EXISTS refunds JSONB DEFAULT '[]'`;
+  await sql`ALTER TABLE sales ADD COLUMN IF NOT EXISTS tip_method TEXT DEFAULT ''`;
+  await sql`ALTER TABLE sales ADD COLUMN IF NOT EXISTS invoice_nif TEXT DEFAULT ''`;
+  await sql`ALTER TABLE sales ADD COLUMN IF NOT EXISTS invoice_name TEXT DEFAULT ''`;
+  await sql`ALTER TABLE sales ADD COLUMN IF NOT EXISTS invoice_address TEXT DEFAULT ''`;
+  await sql`ALTER TABLE sales ADD COLUMN IF NOT EXISTS invoice_email TEXT DEFAULT ''`;
+  await sql`ALTER TABLE sales ADD COLUMN IF NOT EXISTS invoice_number TEXT DEFAULT ''`;
+  await sql`ALTER TABLE sales ADD COLUMN IF NOT EXISTS invoice_created BOOLEAN DEFAULT false`;
+  await sql`ALTER TABLE sales ADD COLUMN IF NOT EXISTS invoice_created_at BIGINT`;
 
   // ===== MENÚ DEL DÍA =====
   await sql`
@@ -357,6 +394,315 @@ export async function runMigrations() {
     ON CONFLICT (product_id, location) DO NOTHING
   `;
 
+  // ===== GESTORÍA =====
+  await sql`
+    CREATE TABLE IF NOT EXISTS gestoria_settings (
+      key TEXT PRIMARY KEY, value TEXT NOT NULL
+    )
+  `;
+  for (const [k, v] of Object.entries({
+    taxRegime: 'autonomo', criterionOfCash: 'false', socialSecurityRed: '',
+  })) {
+    await sql`INSERT INTO gestoria_settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
+  }
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS gestoria_documents (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL CHECK (type IN ('expense','income')),
+      file_name TEXT DEFAULT '',
+      provider_name TEXT DEFAULT '',
+      provider_nif TEXT DEFAULT '',
+      document_date TEXT DEFAULT '',
+      confirmed BOOLEAN DEFAULT false,
+      is_periodic BOOLEAN DEFAULT false,
+      notes TEXT DEFAULT '',
+      created_at BIGINT NOT NULL
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS gestoria_document_lines (
+      id TEXT PRIMARY KEY,
+      document_id TEXT NOT NULL REFERENCES gestoria_documents(id) ON DELETE CASCADE,
+      description TEXT NOT NULL,
+      category TEXT DEFAULT '',
+      base_amount NUMERIC(10,2) NOT NULL,
+      vat_rate NUMERIC(5,2) NOT NULL,
+      vat_amount NUMERIC(10,2) NOT NULL,
+      withholding NUMERIC(10,2) DEFAULT 0,
+      zone TEXT DEFAULT 'spain' CHECK (zone IN ('spain','eu','outside_eu')),
+      type TEXT DEFAULT 'good' CHECK (type IN ('good','service')),
+      sort_order INTEGER DEFAULT 0
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS gestoria_payrolls (
+      id TEXT PRIMARY KEY,
+      employee_name TEXT NOT NULL,
+      employee_nif TEXT NOT NULL,
+      month INTEGER NOT NULL,
+      year INTEGER NOT NULL,
+      gross_amount NUMERIC(10,2) NOT NULL,
+      irpf_withholding NUMERIC(10,2) NOT NULL,
+      social_security_worker NUMERIC(10,2) NOT NULL,
+      social_security_company NUMERIC(10,2) NOT NULL,
+      net_amount NUMERIC(10,2) NOT NULL,
+      notes TEXT DEFAULT '',
+      created_at BIGINT NOT NULL
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS gestoria_tax_models (
+      id TEXT PRIMARY KEY,
+      model_code TEXT NOT NULL,
+      year INTEGER NOT NULL,
+      quarter INTEGER NOT NULL,
+      status TEXT DEFAULT 'draft' CHECK (status IN ('draft','reviewed','presented')),
+      data JSONB DEFAULT '{}',
+      due_date TEXT DEFAULT '',
+      created_at BIGINT NOT NULL,
+      updated_at BIGINT NOT NULL,
+      UNIQUE (model_code, year, quarter)
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS gestoria_authorization (
+      id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+      accountant_name TEXT DEFAULT '',
+      accountant_nif TEXT DEFAULT '',
+      signed_at BIGINT,
+      social_security_red BOOLEAN DEFAULT false,
+      revoked BOOLEAN DEFAULT false,
+      revoked_at BIGINT,
+      document_pdf TEXT DEFAULT ''
+    )
+  `;
+  await sql`INSERT INTO gestoria_authorization (id) VALUES (1) ON CONFLICT (id) DO NOTHING`;
+
+  // ===== KDS PAIRING =====
+  await sql`
+    CREATE TABLE IF NOT EXISTS kds_pairings (
+      id TEXT PRIMARY KEY,
+      code TEXT NOT NULL,
+      label TEXT DEFAULT '',
+      device_id TEXT DEFAULT '',
+      expires_at BIGINT NOT NULL,
+      created_at BIGINT NOT NULL,
+      revoked BOOLEAN DEFAULT false
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS kds_audit_log (
+      id SERIAL PRIMARY KEY,
+      action TEXT NOT NULL,
+      details JSONB DEFAULT '{}',
+      created_at BIGINT NOT NULL
+    )
+  `;
+  await sql`ALTER TABLE kds_audit_log ADD COLUMN IF NOT EXISTS details JSONB DEFAULT '{}'`;
+
+  await sql`ALTER TABLE tables ADD COLUMN IF NOT EXISTS reserved_for TEXT DEFAULT ''`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS reservations (
+      id TEXT PRIMARY KEY,
+      date TEXT NOT NULL,
+      time TEXT NOT NULL,
+      pax INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      phone TEXT DEFAULT '',
+      email TEXT DEFAULT '',
+      status TEXT DEFAULT 'pendiente' CHECK (status IN ('pendiente','confirmada','sentada','noshow','cancelada')),
+      zone TEXT DEFAULT '',
+      notes TEXT DEFAULT '',
+      table_id TEXT DEFAULT '',
+      customer_id TEXT DEFAULT '',
+      deposit_amount NUMERIC(10,2) DEFAULT 0,
+      deposit_paid BOOLEAN DEFAULT false,
+      source TEXT DEFAULT 'manual' CHECK (source IN ('manual','online','qr')),
+      created_at BIGINT NOT NULL,
+      updated_at BIGINT NOT NULL
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS reservation_recurring (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      weekday INTEGER NOT NULL CHECK (weekday BETWEEN 0 AND 6),
+      time TEXT NOT NULL,
+      pax INTEGER NOT NULL DEFAULT 2,
+      phone TEXT DEFAULT '',
+      notes TEXT DEFAULT '',
+      zone TEXT DEFAULT '',
+      table_id TEXT DEFAULT '',
+      active BOOLEAN DEFAULT true,
+      created_at BIGINT NOT NULL
+    )
+  `;
+
+  const reservationKeys = {
+    reservationOnline: 'true',
+    reservationTimezone: 'Europe/Madrid',
+    reservationScheduleType: 'simple',
+    reservationOpenTime: '09:00',
+    reservationCloseTime: '23:00',
+    reservationShifts: JSON.stringify([
+      { days: [1,2,3,4,5,6], label: 'Comida',  open: '13:00', close: '16:00' },
+      { days: [1,2,3,4,5,6], label: 'Cena',    open: '20:00', close: '23:30' },
+      { days: [0],           label: 'Comida',   open: '13:00', close: '16:00' },
+    ]),
+    reservationClosedDays: JSON.stringify([]),
+    reservationInterval: '30',
+    reservationDuration: '90',
+    reservationMaxPax: '8',
+    reservationMinAdvance: '60',
+    reservationMaxAdvance: '30',
+    reservationAutoConfirm: 'true',
+    reservationConfirmMessage: '¡Reserva confirmada! Te esperamos el {date} a las {time}. Si necesitas cancelar, llámanos.',
+    reservationDepositAmount: '0',
+    reservationCancellationHours: '24',
+    reservationCancellationRefundPct: '50',
+    reservationBlockedDates: JSON.stringify([]),
+    reservationWhatsAppConfirm: 'true',
+    reservationWhatsAppReminder: 'false',
+    reservationReviewRequest: 'false',
+    reservationGoogleReviewUrl: '',
+    reservationGoogleReserve: 'false',
+  };
+  for (const [k, v] of Object.entries(reservationKeys)) {
+    await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
+  }
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS waitlist (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      phone TEXT DEFAULT '',
+      pax INTEGER NOT NULL DEFAULT 2,
+      status TEXT DEFAULT 'waiting' CHECK (status IN ('waiting','called','seated','cancelled','noshow')),
+      called_count INTEGER DEFAULT 0,
+      called_at BIGINT,
+      seated_at BIGINT,
+      table_id TEXT DEFAULT '',
+      position INTEGER NOT NULL DEFAULT 0,
+      notes TEXT DEFAULT '',
+      source TEXT DEFAULT 'manual' CHECK (source IN ('manual','online','qr')),
+      created_at BIGINT NOT NULL,
+      updated_at BIGINT NOT NULL
+    )
+  `;
+
+  const waitlistKeys = {
+    waitlistEnabled: 'false',
+    waitlistMaxPax: '20',
+    waitlistCallTimeout: '5',
+    waitlistMaxAttempts: '2',
+    waitlistWelcomeMessage: 'Bienvenido. Te avisaremos cuando tu mesa esté lista.',
+    waitlistSmsEnabled: 'false',
+    waitlistWhatsAppEnabled: 'false',
+    waitlistTwilioSid: '',
+    waitlistTwilioToken: '',
+    waitlistTwilioPhone: '',
+    waitlistTwilioWhatsApp: '',
+  };
+  for (const [k, v] of Object.entries(waitlistKeys)) {
+    await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
+  }
+
+  await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'tpv'`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS qr_orders (
+      id TEXT PRIMARY KEY,
+      table_id TEXT NOT NULL,
+      items JSONB NOT NULL DEFAULT '[]',
+      order_status TEXT DEFAULT 'pending' CHECK (order_status IN ('pending','paid','confirmed','preparing','ready','served','cancelled')),
+      payment_intent_id TEXT DEFAULT '',
+      amount NUMERIC(10,2) DEFAULT 0,
+      customer_name TEXT DEFAULT '',
+      customer_phone TEXT DEFAULT '',
+      notes TEXT DEFAULT '',
+      created_at BIGINT NOT NULL,
+      updated_at BIGINT NOT NULL
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS qr_calls (
+      id TEXT PRIMARY KEY,
+      table_id TEXT NOT NULL,
+      table_name TEXT DEFAULT '',
+      zone TEXT DEFAULT '',
+      acknowledged BOOLEAN DEFAULT false,
+      created_at BIGINT NOT NULL
+    )
+  `;
+
+  const qrKeys = {
+    qrOrderingEnabled: 'true',
+    qrRequirePayment: 'false',
+    qrThemeLogo: '',
+    qrThemePrimary: '#c4a04a',
+    qrThemeSecondary: '#1a1a1a',
+    qrWelcomeMessage: '¡Bienvenido! Escanea los platos y añádelos a tu carrito.',
+  };
+  for (const [k, v] of Object.entries(qrKeys)) {
+    await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
+  }
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS delivery_zones (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      radius_km NUMERIC(10,2) DEFAULT 0,
+      cost NUMERIC(10,2) DEFAULT 0,
+      min_order NUMERIC(10,2) DEFAULT 0,
+      estimated_minutes INTEGER DEFAULT 30,
+      active BOOLEAN DEFAULT true,
+      created_at BIGINT NOT NULL
+    )
+  `;
+
+  await sql`ALTER TABLE qr_orders ADD COLUMN IF NOT EXISTS modality TEXT DEFAULT 'dinein'`;
+  await sql`ALTER TABLE qr_orders ADD COLUMN IF NOT EXISTS address TEXT DEFAULT ''`;
+  await sql`ALTER TABLE qr_orders ADD COLUMN IF NOT EXISTS address_lat NUMERIC(10,7)`;
+  await sql`ALTER TABLE qr_orders ADD COLUMN IF NOT EXISTS address_lng NUMERIC(10,7)`;
+  await sql`ALTER TABLE qr_orders ADD COLUMN IF NOT EXISTS zone_id TEXT DEFAULT ''`;
+  await sql`ALTER TABLE qr_orders ADD COLUMN IF NOT EXISTS delivery_cost NUMERIC(10,2) DEFAULT 0`;
+  await sql`ALTER TABLE qr_orders ADD COLUMN IF NOT EXISTS customer_email TEXT DEFAULT ''`;
+  await sql`ALTER TABLE qr_orders ADD COLUMN IF NOT EXISTS scheduled_at BIGINT`;
+  await sql`ALTER TABLE qr_orders ADD COLUMN IF NOT EXISTS accepted BOOLEAN DEFAULT false`;
+
+  const onlineKeys = {
+    onlineOrderingEnabled: 'true',
+    onlineOrderingModes: JSON.stringify(['delivery']),
+    onlinePrepTime: '20',
+    onlineMinAdvance: '15',
+    onlineMaxAdvance: '2880',
+    onlinePaymentRequired: 'true',
+    onlineAutoAccept: 'true',
+    onlineConfirmEmail: 'false',
+    onlineSchedules: JSON.stringify([
+      { day: 0, open: '13:00', close: '16:00' },
+      { day: 1, open: '13:00', close: '23:00' },
+      { day: 2, open: '13:00', close: '23:00' },
+      { day: 3, open: '13:00', close: '23:00' },
+      { day: 4, open: '13:00', close: '23:00' },
+      { day: 5, open: '13:00', close: '23:30' },
+      { day: 6, open: '13:00', close: '23:30' },
+    ]),
+    googleMapsApiKey: '',
+  };
+  for (const [k, v] of Object.entries(onlineKeys)) {
+    await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
+  }
+
   return { ok: true };
 }
 
@@ -407,7 +753,7 @@ export async function fetchTurns(employeeId, turnDate) {
 }
 
 export async function backupAll() {
-  const [categories, products, tables, orders, sales, employees, accessLogs, stockLog, cancelledOrders, offers, settings, backups, deliveryRunners, deliveryOrders, deliveryTracking, mealMenus] = await Promise.all([
+  const [categories, products, tables, orders, sales, employees, accessLogs, stockLog, cancelledOrders, offers, settings, backups, deliveryRunners, deliveryOrders, deliveryTracking, mealMenus, waitlist] = await Promise.all([
     sql`SELECT * FROM categories`,
     sql`SELECT * FROM products`,
     sql`SELECT * FROM tables`,
@@ -424,10 +770,11 @@ export async function backupAll() {
     sql`SELECT * FROM delivery_orders`,
     sql`SELECT * FROM delivery_tracking ORDER BY id`,
     sql`SELECT * FROM meal_menus`,
+    sql`SELECT * FROM waitlist ORDER BY position`,
   ]);
   return {
     exportedAt: new Date().toISOString(),
     version: '2.0',
-    data: { categories, products, tables, orders, sales, employees, accessLogs, stockLog, cancelledOrders, offers, settings, backups, deliveryRunners, deliveryOrders, deliveryTracking, mealMenus },
+    data: { categories, products, tables, orders, sales, employees, accessLogs, stockLog, cancelledOrders, offers, settings, backups, deliveryRunners, deliveryOrders, deliveryTracking, mealMenus, waitlist },
   };
 }

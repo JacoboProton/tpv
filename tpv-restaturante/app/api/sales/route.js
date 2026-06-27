@@ -38,6 +38,10 @@ export async function GET(req) {
       isFiado: r.is_fiado, isDebtPayment: r.is_debt_payment,
       employeeId: r.employee_id, employeeName: r.employee_name,
       closedAt: Number(r.closed_at),
+      invoiceNif: r.invoice_nif, invoiceName: r.invoice_name,
+      invoiceAddress: r.invoice_address, invoiceEmail: r.invoice_email,
+      invoiceNumber: r.invoice_number, invoiceCreated: r.invoice_created,
+      invoiceCreatedAt: r.invoice_created_at ? Number(r.invoice_created_at) : null,
     }));
     return NextResponse.json(mapped);
   } catch (err) {
@@ -53,14 +57,18 @@ export async function POST(req) {
       INSERT INTO sales (
         id, table_id, table_name, items, subtotal, discount, discount_amount,
         total, tip, total_with_tip, payments, payment_method,
-        is_fiado, is_debt_payment, employee_id, employee_name, closed_at
+        is_fiado, is_debt_payment, employee_id, employee_name, closed_at,
+        invoice_nif, invoice_name, invoice_address, invoice_email,
+        invoice_number, invoice_created, invoice_created_at
       ) VALUES (
         ${s.id}, ${s.tableId}, ${s.tableName}, ${JSON.stringify(s.items)},
         ${s.subtotal}, ${s.discount ?? 0}, ${s.discountAmount ?? 0},
         ${s.total}, ${s.tip ?? 0}, ${s.totalWithTip},
         ${JSON.stringify(s.payments)}, ${s.paymentMethod},
         ${s.isFiado ?? false}, ${s.isDebtPayment ?? false},
-        ${s.employeeId ?? null}, ${s.employeeName ?? null}, ${s.closedAt}
+        ${s.employeeId ?? null}, ${s.employeeName ?? null}, ${s.closedAt},
+        ${s.invoiceNif ?? ''}, ${s.invoiceName ?? ''}, ${s.invoiceAddress ?? ''}, ${s.invoiceEmail ?? ''},
+        ${s.invoiceNumber ?? ''}, ${s.invoiceCreated ?? false}, ${s.invoiceCreatedAt ?? null}
       )
       ON CONFLICT (id) DO NOTHING
     `;
