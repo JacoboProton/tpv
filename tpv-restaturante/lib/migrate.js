@@ -1076,6 +1076,91 @@ export async function runMigrations() {
   await sql`CREATE INDEX IF NOT EXISTS idx_batches_location ON product_batches(location)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_batches_status ON product_batches(status)`;
 
+  // ===== BUFFET =====
+  await sql`
+    CREATE TABLE IF NOT EXISTS buffet_config (
+      id TEXT PRIMARY KEY DEFAULT 'default',
+      enabled BOOLEAN DEFAULT false,
+      time_limit INTEGER DEFAULT 90,
+      cooldown INTEGER DEFAULT 5,
+      round_cap INTEGER DEFAULT 3,
+      cover_price NUMERIC(10,2) DEFAULT 25.00,
+      child_price NUMERIC(10,2) DEFAULT 12.50,
+      senior_price NUMERIC(10,2) DEFAULT 18.00,
+      child_max_age INTEGER DEFAULT 12,
+      senior_min_age INTEGER DEFAULT 65,
+      paused_until BIGINT DEFAULT 0,
+      staff_opens_table BOOLEAN DEFAULT true,
+      updated_at BIGINT NOT NULL
+    )
+  `;
+  await sql`
+    INSERT INTO buffet_config (id, updated_at)
+    SELECT 'default', 0
+    WHERE NOT EXISTS (SELECT 1 FROM buffet_config WHERE id = 'default')
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS buffet_sessions (
+      id TEXT PRIMARY KEY,
+      table_id TEXT NOT NULL REFERENCES tables(id),
+      table_name TEXT NOT NULL,
+      adult_count INTEGER NOT NULL DEFAULT 1,
+      child_count INTEGER NOT NULL DEFAULT 0,
+      senior_count INTEGER NOT NULL DEFAULT 0,
+      round INTEGER NOT NULL DEFAULT 0,
+      cooldown_until BIGINT DEFAULT 0,
+      started_at BIGINT NOT NULL,
+      closed_at BIGINT,
+      status TEXT NOT NULL DEFAULT 'active',
+      void_reason TEXT DEFAULT '',
+      voided_by TEXT DEFAULT '',
+      closed_by TEXT DEFAULT '',
+      notes TEXT DEFAULT '',
+      cover_price_snapshot NUMERIC(10,2) NOT NULL,
+      child_price_snapshot NUMERIC(10,2) NOT NULL DEFAULT 0,
+      senior_price_snapshot NUMERIC(10,2) NOT NULL DEFAULT 0,
+      override_time_limit INTEGER DEFAULT 0,
+      override_cooldown INTEGER DEFAULT 0,
+      override_round_cap INTEGER DEFAULT 0,
+      override_cover_price NUMERIC(10,2) DEFAULT 0,
+      order_id TEXT,
+      estimated_total NUMERIC(10,2) DEFAULT 0,
+      waste_amount NUMERIC(10,2) DEFAULT 0,
+      premium_consumed INTEGER DEFAULT 0
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_buffet_sessions_table ON buffet_sessions(table_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_buffet_sessions_status ON buffet_sessions(status)`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS buffet_rounds (
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL REFERENCES buffet_sessions(id) ON DELETE CASCADE,
+      round_number INTEGER NOT NULL,
+      items JSONB DEFAULT '[]',
+      item_count INTEGER NOT NULL DEFAULT 0,
+      requested_at BIGINT NOT NULL,
+      delivered_at BIGINT,
+      status TEXT NOT NULL DEFAULT 'pending'
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_buffet_rounds_session ON buffet_rounds(session_id)`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS buffet_waste (
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL REFERENCES buffet_sessions(id) ON DELETE CASCADE,
+      table_id TEXT NOT NULL,
+      product_id TEXT NOT NULL,
+      product_name TEXT NOT NULL,
+      charge NUMERIC(10,2) NOT NULL,
+      created_at BIGINT NOT NULL,
+      employee_id TEXT
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_buffet_waste_session ON buffet_waste(session_id)`;
+
   return { ok: true };
 }
 
@@ -1126,7 +1211,7 @@ export async function fetchTurns(employeeId, turnDate) {
 }
 
 export async function backupAll() {
-  const [categories, products, tables, orders, sales, employees, accessLogs, stockLog, cancelledOrders, offers, settings, backups, deliveryRunners, deliveryOrders, deliveryTracking, mealMenus, waitlist, clockinLogs] = await Promise.all([
+  const [categories, products, tables, orders, sales, employees, accessLogs, stockLog, cancelledOrders, offers, settings, backups, deliveryRunners, deliveryOrders, deliveryTracking, mealMenus, waitlist, clockinLogs, buffetConfig, buffetSessions, buffetRounds, buffetWaste] = await Promise.all([
     sql`SELECT * FROM categories`,
     sql`SELECT * FROM products`,
     sql`SELECT * FROM tables`,
@@ -1155,11 +1240,15 @@ export async function backupAll() {
     sql`SELECT * FROM purchase_order_lines ORDER BY id`,
     sql`SELECT * FROM auto_order_settings`,
     sql`SELECT * FROM supplier_price_history ORDER BY created_at DESC`,
+    sql`SELECT * FROM buffet_config`,
+    sql`SELECT * FROM buffet_sessions ORDER BY started_at DESC`,
+    sql`SELECT * FROM buffet_rounds ORDER BY round_number`,
+    sql`SELECT * FROM buffet_waste ORDER BY created_at`,
   ]);
   return {
     exportedAt: new Date().toISOString(),
     version: '2.2',
-    data: { categories, products, tables, orders, sales, employees, accessLogs, stockLog, cancelledOrders, offers, settings, backups, deliveryRunners, deliveryOrders, deliveryTracking, mealMenus, waitlist, clockinLogs, timeOffRequests: time_off_requests, employeeShifts: employee_shifts, shiftObjectives: shift_objectives, suppliers, supplierCatalog: supplier_catalog, purchaseOrders: purchase_orders, purchaseOrderLines: purchase_order_lines, autoOrderSettings: auto_order_settings, supplierPriceHistory: supplier_price_history },
+    data: { categories, products, tables, orders, sales, employees, accessLogs, stockLog, cancelledOrders, offers, settings, backups, deliveryRunners, deliveryOrders, deliveryTracking, mealMenus, waitlist, clockinLogs, timeOffRequests: time_off_requests, employeeShifts: employee_shifts, shiftObjectives: shift_objectives, suppliers, supplierCatalog: supplier_catalog, purchaseOrders: purchase_orders, purchaseOrderLines: purchase_order_lines, autoOrderSettings: auto_order_settings, supplierPriceHistory: supplier_price_history, buffetConfig, buffetSessions, buffetRounds, buffetWaste },
 
   };
 }

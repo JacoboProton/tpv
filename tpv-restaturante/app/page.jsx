@@ -54,6 +54,7 @@ import PairingPanel           from '../components/PairingPanel';
 import AuditView              from '../components/AuditView';
 import ReservasView            from '../components/ReservasView';
 import WaitlistView              from '../components/WaitlistView';
+import BuffetKioskView           from '../components/BuffetKioskView';
 import OnlineOrdersView            from '../components/OnlineOrdersView';
 import TurnosView                  from '../components/TurnosView';
 import RegistroHorarioView         from '../components/RegistroHorarioView';
@@ -1677,6 +1678,7 @@ export default function App() {
   { id: 'reservas',   label: 'Reservas',   icon: Calendar,      adminOnly: true  },
   { id: 'waitlist',   label: 'Lista Espera', icon: Users,        adminOnly: true  },
   { id: 'onlineorders', label: 'Pedidos Online', icon: Truck,     adminOnly: true  },
+  { id: 'buffet',      label: 'Buffet Kiosk', icon: ClipboardList, adminOnly: true  },
 ].filter(item => !item.adminOnly || currentUser.role === 'admin');
 
   return (
@@ -1898,6 +1900,9 @@ export default function App() {
           {view === 'reservas'   && <ReservasView floor={floor} catalog={catalog} colors={C} />}
           {view === 'waitlist'   && <WaitlistView colors={C} />}
           {view === 'onlineorders' && <OnlineOrdersView colors={C} />}
+          {view === 'buffet'    && (
+            <BuffetKioskView floor={floor} currentUser={currentUser} onToast={showToast} />
+          )}
         </div>
       </main>
 

@@ -290,3 +290,20 @@ export async function fetchWaitlist() {
 export async function waitlistAction(action, extra = {}) {
   return apiFetch('/api/waitlist', { method: 'POST', body: JSON.stringify({ action, ...extra }) });
 }
+
+// ----- Buffet -----
+export async function fetchBuffetSessions() {
+  return apiFetch('/api/buffet?scope=sessions');
+}
+export async function fetchBuffetConfig() {
+  return apiFetch('/api/buffet?scope=config');
+}
+export async function buffetAction(action, payload = {}) {
+  return apiFetch('/api/buffet', { method: 'POST', body: JSON.stringify({ action, ...payload }) });
+}
+export async function fetchBuffetTableSession(tableId) {
+  return apiFetch(`/api/buffet?scope=table_session&tableId=${tableId}`);
+}
+export async function fetchBuffetRounds(sessionId) {
+  return apiFetch(`/api/buffet?scope=rounds&sessionId=${sessionId}`);
+}
