@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import { Clock, Check, Loader2, User, Coffee, LogIn, LogOut } from 'lucide-react';
+import { Clock, Check, Loader2, User, Coffee, LogIn, LogOut, Calendar } from 'lucide-react';
 
 const ACTIONS = {
   entrada: { label: 'Entrada', icon: LogIn, color: '#7a9a7c', bg: '#7a9a7c30' },
@@ -21,6 +21,11 @@ export default function FicharPage() {
   const [pinRequired, setPinRequired] = useState(true);
   const [summary, setSummary] = useState(null);
   const [clockinEnabled, setClockinEnabled] = useState(true);
+  const [myRequests, setMyRequests] = useState([]);
+  const [showRequestForm, setShowRequestForm] = useState(false);
+  const [reqForm, setReqForm] = useState({ reason: 'vacaciones', fromDate: '', toDate: '', notes: '' });
+  const [reqMsg, setReqMsg] = useState('');
+  const [reqSubmitting, setReqSubmitting] = useState(false);
 
   const loadState = useCallback(async () => {
     try {
@@ -38,6 +43,8 @@ export default function FicharPage() {
           const data = await stateRes.json();
           setSummary(data.summary || null);
         }
+        const reqRes = await fetch(`/api/time-off-requests?employeeId=${employeeId}`);
+        if (reqRes.ok) setMyRequests(await reqRes.json());
       }
     } catch {}
     setLoading(false);
@@ -72,6 +79,28 @@ export default function FicharPage() {
       setMessage('❌ Error de conexión');
     }
     setFichando(false);
+  }
+
+  async function handleSubmitRequest(e) {
+    e.preventDefault();
+    if (!reqForm.fromDate || !reqForm.toDate) return;
+    setReqSubmitting(true);
+    setReqMsg('');
+    try {
+      const r = await fetch('/api/time-off-requests', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'create', employeeId, employeeName: employee?.name, ...reqForm }),
+      });
+      const d = await r.json();
+      if (d.ok) {
+        setReqMsg('✅ Solicitud enviada');
+        setReqForm({ reason: 'vacaciones', fromDate: '', toDate: '', notes: '' });
+        setShowRequestForm(false);
+        const reqRes = await fetch(`/api/time-off-requests?employeeId=${employeeId}`);
+        if (reqRes.ok) setMyRequests(await reqRes.json());
+      } else setReqMsg('❌ ' + (d.error || 'Error'));
+    } catch { setReqMsg('❌ Error de conexión'); }
+    setReqSubmitting(false);
   }
 
   function nextAction() {
@@ -201,6 +230,73 @@ export default function FicharPage() {
               <p className="text-sm" style={{ color: message.startsWith('✅') ? '#7a9a7c' : '#b05e5e' }}>
                 {message}
               </p>
+            )}
+
+            {/* Solicitar ausencia */}
+            <div style={{ borderTop: '1px solid #333' }} className="pt-4 mt-4">
+              <button onClick={() => setShowRequestForm(!showRequestForm)}
+                className="w-full py-2 rounded-lg text-xs font-medium flex items-center justify-center gap-2 hover:opacity-80"
+                style={{ background: '#c4a04a20', color: '#c4a04a' }}>
+                <Calendar className="w-3.5 h-3.5" />
+                {showRequestForm ? 'Cerrar' : 'Solicitar ausencia'}
+              </button>
+
+              {showRequestForm && (
+                <form onSubmit={handleSubmitRequest} className="mt-3 space-y-3" style={{ background: '#222', borderRadius: '12px', padding: '12px', border: '1px solid #333' }}>
+                  <select value={reqForm.reason} onChange={e => setReqForm(f => ({ ...f, reason: e.target.value }))}
+                    className="w-full rounded-lg px-3 py-2 text-xs"
+                    style={{ background: '#1a1a1a', color: '#e8e0d4', border: '1px solid #333' }}>
+                    <option value="vacaciones">Vacaciones</option>
+                    <option value="asunto personal">Asunto personal</option>
+                    <option value="baja médica">Baja médica</option>
+                    <option value="permiso">Permiso</option>
+                    <option value="otro">Otro</option>
+                  </select>
+                  <div className="flex gap-2">
+                    <input type="date" value={reqForm.fromDate} onChange={e => setReqForm(f => ({ ...f, fromDate: e.target.value }))}
+                      className="flex-1 rounded-lg px-3 py-2 text-xs" required
+                      style={{ background: '#1a1a1a', color: '#e8e0d4', border: '1px solid #333' }} />
+                    <span className="flex items-center text-xs" style={{ color: '#8a8275' }}>→</span>
+                    <input type="date" value={reqForm.toDate} onChange={e => setReqForm(f => ({ ...f, toDate: e.target.value }))}
+                      className="flex-1 rounded-lg px-3 py-2 text-xs" required
+                      style={{ background: '#1a1a1a', color: '#e8e0d4', border: '1px solid #333' }} />
+                  </div>
+                  <textarea value={reqForm.notes} onChange={e => setReqForm(f => ({ ...f, notes: e.target.value }))}
+                    placeholder="Nota opcional…" rows={2}
+                    className="w-full rounded-lg px-3 py-2 text-xs resize-none"
+                    style={{ background: '#1a1a1a', color: '#e8e0d4', border: '1px solid #333' }} />
+                  <button type="submit" disabled={reqSubmitting || !reqForm.fromDate || !reqForm.toDate}
+                    className="w-full py-2 rounded-lg text-xs font-bold hover:opacity-80 disabled:opacity-40 flex items-center justify-center gap-2"
+                    style={{ background: '#7a9a7c', color: '#000' }}>
+                    {reqSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                    Enviar solicitud
+                  </button>
+                  {reqMsg && <p className="text-xs text-center" style={{ color: reqMsg.startsWith('✅') ? '#7a9a7c' : '#b05e5e' }}>{reqMsg}</p>}
+                </form>
+              )}
+            </div>
+
+            {/* Mis solicitudes */}
+            {myRequests.length > 0 && (
+              <div style={{ borderTop: '1px solid #333' }} className="pt-4 mt-4 space-y-2">
+                <p className="text-[10px] font-medium text-left" style={{ color: '#8a8275' }}>Mis solicitudes</p>
+                {myRequests.slice(0, 5).map(r => (
+                  <div key={r.id} className="rounded-lg px-3 py-2 text-[10px] flex items-center justify-between"
+                    style={{ background: '#222', border: '1px solid #333' }}>
+                    <div>
+                      <span className="font-medium" style={{ color: '#e8e0d4' }}>{r.reason}</span>
+                      <span className="ml-2" style={{ color: '#8a8275' }}>{r.fromDate} → {r.toDate}</span>
+                    </div>
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-medium"
+                      style={{
+                        background: r.status === 'approved' ? '#7a9a7c30' : r.status === 'rejected' ? '#b05e5e30' : '#c4a04a30',
+                        color: r.status === 'approved' ? '#7a9a7c' : r.status === 'rejected' ? '#b05e5e' : '#c4a04a'
+                      }}>
+                      {r.status === 'approved' ? 'Aprobada' : r.status === 'rejected' ? 'Rechazada' : 'Pendiente'}
+                    </span>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}

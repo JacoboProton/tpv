@@ -56,6 +56,9 @@ import ReservasView            from '../components/ReservasView';
 import WaitlistView              from '../components/WaitlistView';
 import OnlineOrdersView            from '../components/OnlineOrdersView';
 import TurnosView                  from '../components/TurnosView';
+import RegistroHorarioView         from '../components/RegistroHorarioView';
+import SolicitudesView             from '../components/SolicitudesView';
+import PedidosCompraView           from '../components/PedidosCompraView';
 
 export default function App() {
   // ---------- Tema claro/oscuro ----------
@@ -1665,6 +1668,9 @@ export default function App() {
   { id: 'pairing',    label: 'Emparejar',  icon: Monitor,       adminOnly: true  },
   { id: 'audit',      label: 'Auditoria',  icon: ClipboardList, adminOnly: true  },
   { id: 'turnos',     label: 'Turnos',     icon: Calendar,      adminOnly: true  },
+  { id: 'registro-horario', label: 'Reg. Horario', icon: Clock, adminOnly: true  },
+  { id: 'solicitudes',  label: 'Solicitudes', icon: ClipboardList,  adminOnly: true  },
+  { id: 'pedidos-compra', label: 'Pedidos Compra', icon: FileText, adminOnly: true },
   { id: 'reservas',   label: 'Reservas',   icon: Calendar,      adminOnly: true  },
   { id: 'waitlist',   label: 'Lista Espera', icon: Users,        adminOnly: true  },
   { id: 'onlineorders', label: 'Pedidos Online', icon: Truck,     adminOnly: true  },
@@ -1866,6 +1872,9 @@ export default function App() {
           {view === 'pairing'    && <PairingPanel colors={C} />}
           {view === 'audit'      && <AuditView colors={C} />}
           {view === 'turnos'    && <TurnosView employees={employees} colors={C} />}
+          {view === 'registro-horario' && <RegistroHorarioView employees={employees} colors={C} />}
+          {view === 'solicitudes'   && <SolicitudesView colors={C} />}
+          {view === 'pedidos-compra' && <PedidosCompraView colors={C} />}
           {view === 'reservas'   && <ReservasView floor={floor} catalog={catalog} colors={C} />}
           {view === 'waitlist'   && <WaitlistView colors={C} />}
           {view === 'onlineorders' && <OnlineOrdersView colors={C} />}

@@ -751,12 +751,161 @@ export async function runMigrations() {
       id SERIAL PRIMARY KEY,
       employee_id TEXT NOT NULL,
       employee_name TEXT NOT NULL,
-      action TEXT NOT NULL CHECK (action IN ('entrada','salida','pause','resume')),
-      method TEXT DEFAULT 'pin' CHECK (method IN ('pin','qr','whatsapp','web')),
+      action TEXT NOT NULL,
+      method TEXT DEFAULT 'pin',
       clockin_date TEXT NOT NULL,
+      created_at BIGINT NOT NULL,
+      edited BOOLEAN DEFAULT false,
+      edited_by TEXT DEFAULT '',
+      edit_reason TEXT DEFAULT '',
+      signature TEXT DEFAULT ''
+    )
+  `;
+  await sql`ALTER TABLE clockin_logs DROP CONSTRAINT IF EXISTS clockin_logs_action_check`;
+  await sql`ALTER TABLE clockin_logs DROP CONSTRAINT IF EXISTS clockin_logs_method_check`;
+  await sql`ALTER TABLE clockin_logs ADD COLUMN IF NOT EXISTS edited BOOLEAN DEFAULT false`;
+  await sql`ALTER TABLE clockin_logs ADD COLUMN IF NOT EXISTS edited_by TEXT DEFAULT ''`;
+  await sql`ALTER TABLE clockin_logs ADD COLUMN IF NOT EXISTS edit_reason TEXT DEFAULT ''`;
+  await sql`ALTER TABLE clockin_logs ADD COLUMN IF NOT EXISTS signature TEXT DEFAULT ''`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS clockin_corrections (
+      id SERIAL PRIMARY KEY,
+      clockin_id INTEGER DEFAULT 0,
+      employee_id TEXT NOT NULL,
+      employee_name TEXT DEFAULT '',
+      requested_action TEXT DEFAULT '',
+      reason TEXT DEFAULT '',
+      status TEXT DEFAULT 'pending',
+      resolved_by TEXT DEFAULT '',
       created_at BIGINT NOT NULL
     )
   `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS time_off_requests (
+      id TEXT PRIMARY KEY,
+      employee_id TEXT NOT NULL,
+      employee_name TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      from_date TEXT NOT NULL,
+      to_date TEXT NOT NULL,
+      notes TEXT DEFAULT '',
+      status TEXT DEFAULT 'pending',
+      resolved_by TEXT DEFAULT '',
+      resolved_note TEXT DEFAULT '',
+      created_at BIGINT NOT NULL,
+      resolved_at BIGINT
+    )
+  `;
+
+  // ===== PROVEEDORES =====
+  await sql`ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS payment_terms TEXT DEFAULT ''`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS suppliers (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      contact TEXT DEFAULT '',
+      phone TEXT DEFAULT '',
+      email TEXT DEFAULT '',
+      nif TEXT DEFAULT '',
+      address TEXT DEFAULT '',
+      payment_terms TEXT DEFAULT '',
+      notes TEXT DEFAULT '',
+      active BOOLEAN DEFAULT true,
+      created_at BIGINT NOT NULL
+    )
+  `;
+
+  // ===== CATÁLOGO DE PROVEEDORES (precios/ud por producto) =====
+  await sql`ALTER TABLE supplier_catalog ADD COLUMN IF NOT EXISTS delivery_days INTEGER DEFAULT 0`;
+  await sql`ALTER TABLE supplier_catalog ADD COLUMN IF NOT EXISTS is_preferred BOOLEAN DEFAULT false`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS supplier_catalog (
+      id SERIAL PRIMARY KEY,
+      supplier_id TEXT NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
+      product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      sku TEXT DEFAULT '',
+      price NUMERIC(10,4) NOT NULL,
+      pack_size NUMERIC(10,2) DEFAULT 1,
+      min_order NUMERIC(10,2) DEFAULT 0,
+      delivery_days INTEGER DEFAULT 0,
+      is_preferred BOOLEAN DEFAULT false,
+      active BOOLEAN DEFAULT true,
+      UNIQUE (supplier_id, product_id)
+    )
+  `;
+  // Only one preferred per product (partial unique index)
+  await sql`DROP INDEX IF EXISTS idx_supplier_catalog_preferred`;
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_supplier_catalog_preferred ON supplier_catalog (product_id) WHERE is_preferred = true`;
+
+  // ===== HISTÓRICO DE PRECIOS DE PROVEEDOR =====
+  await sql`
+    CREATE TABLE IF NOT EXISTS supplier_price_history (
+      id SERIAL PRIMARY KEY,
+      catalog_id INTEGER NOT NULL REFERENCES supplier_catalog(id) ON DELETE CASCADE,
+      supplier_id TEXT NOT NULL,
+      product_id TEXT NOT NULL,
+      pack_price NUMERIC(10,4) NOT NULL,
+      pack_size NUMERIC(10,2) NOT NULL DEFAULT 1,
+      price_per_unit NUMERIC(10,6) NOT NULL,
+      source TEXT DEFAULT 'manual' CHECK (source IN ('manual', 'receipt')),
+      created_at BIGINT NOT NULL
+    )
+  `;
+
+  // Remove legacy preferred_supplier from products
+  await sql`ALTER TABLE products DROP COLUMN IF EXISTS preferred_supplier`;
+
+  // Tipo de producto (raw_material, elaborado, semi_elaborado, consumible)
+  await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS type TEXT DEFAULT ''`;
+
+  // ===== PEDIDOS DE COMPRA =====
+  await sql`
+    CREATE TABLE IF NOT EXISTS purchase_orders (
+      id TEXT PRIMARY KEY,
+      supplier_id TEXT NOT NULL,
+      supplier_name TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','sent','partial','received')),
+      expected_date TEXT DEFAULT '',
+      notes TEXT DEFAULT '',
+      created_by TEXT DEFAULT '',
+      created_at BIGINT NOT NULL,
+      updated_at BIGINT
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS purchase_order_lines (
+      id SERIAL PRIMARY KEY,
+      order_id TEXT NOT NULL REFERENCES purchase_orders(id) ON DELETE CASCADE,
+      product_id TEXT NOT NULL,
+      product_name TEXT NOT NULL,
+      quantity NUMERIC(10,2) NOT NULL,
+      price_per_unit NUMERIC(10,4) NOT NULL,
+      supplier_sku TEXT DEFAULT '',
+      received_qty NUMERIC(10,2) DEFAULT 0
+    )
+  `;
+
+  // Ajustes pedidos automáticos
+  await sql`
+    CREATE TABLE IF NOT EXISTS auto_order_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL DEFAULT ''
+    )
+  `;
+  const autoDefaults = {
+    leadTimeDays: '2',
+    safetyStockDays: '3',
+    minOrderValue: '50',
+    consolidateBySupplier: 'true',
+  };
+  for (const [k, v] of Object.entries(autoDefaults)) {
+    await sql`INSERT INTO auto_order_settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`;
+  }
 
   const clockinKeys = {
     clockinEnabled: 'true',
@@ -839,12 +988,21 @@ export async function backupAll() {
     sql`SELECT * FROM meal_menus`,
     sql`SELECT * FROM waitlist ORDER BY position`,
     sql`SELECT * FROM clockin_logs ORDER BY id`,
+    sql`SELECT * FROM clockin_corrections ORDER BY id`,
+    sql`SELECT * FROM time_off_requests ORDER BY created_at`,
     sql`SELECT * FROM employee_shifts ORDER BY date`,
     sql`SELECT * FROM shift_objectives ORDER BY id`,
+    sql`SELECT * FROM suppliers ORDER BY name`,
+    sql`SELECT * FROM supplier_catalog ORDER BY supplier_id, product_id`,
+    sql`SELECT * FROM purchase_orders ORDER BY created_at DESC`,
+    sql`SELECT * FROM purchase_order_lines ORDER BY id`,
+    sql`SELECT * FROM auto_order_settings`,
+    sql`SELECT * FROM supplier_price_history ORDER BY created_at DESC`,
   ]);
   return {
     exportedAt: new Date().toISOString(),
-    version: '2.1',
-    data: { categories, products, tables, orders, sales, employees, accessLogs, stockLog, cancelledOrders, offers, settings, backups, deliveryRunners, deliveryOrders, deliveryTracking, mealMenus, waitlist, clockinLogs, employeeShifts: employee_shifts, shiftObjectives: shift_objectives },
+    version: '2.2',
+    data: { categories, products, tables, orders, sales, employees, accessLogs, stockLog, cancelledOrders, offers, settings, backups, deliveryRunners, deliveryOrders, deliveryTracking, mealMenus, waitlist, clockinLogs, timeOffRequests: time_off_requests, employeeShifts: employee_shifts, shiftObjectives: shift_objectives, suppliers, supplierCatalog: supplier_catalog, purchaseOrders: purchase_orders, purchaseOrderLines: purchase_order_lines, autoOrderSettings: auto_order_settings, supplierPriceHistory: supplier_price_history },
+
   };
 }

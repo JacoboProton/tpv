@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef } from 'react';
-import { Plus, AlertTriangle, Trash2, Package, Filter, FolderTree, List, Camera, Star } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Plus, AlertTriangle, Trash2, Package, Filter, FolderTree, List, Camera, Star, Truck, ChevronDown, ChevronUp, Euro, Check, X } from 'lucide-react';
 import { euros, ALLERGENS, ALLERGEN_COLORS } from './constants';
 
 function totalStock(p) {
@@ -20,9 +20,11 @@ export default function InventarioView({
   catalog, colors: C, onUpdateField,
   newProductOpen, setNewProductOpen, onAddProduct,
   confirmDeleteId, setConfirmDeleteId, onDelete,
+  suppliers, onSupplierRefresh,
 }) {
   const fileInputRef = useRef(null);
   const [uploadingProduct, setUploadingProduct] = useState(null);
+  const [showProductSuppliers, setShowProductSuppliers] = useState(null);
 
   async function handleUploadImage(productId, file) {
     if (!file) return;
@@ -233,6 +235,17 @@ export default function InventarioView({
             </button>
           </div>
         </div>
+        {showProductSuppliers === p.id && (
+          <ProductSuppliers product={p} suppliers={suppliers} C={C} onSupplierRefresh={onSupplierRefresh} />
+        )}
+        <button
+          onClick={() => setShowProductSuppliers(showProductSuppliers === p.id ? null : p.id)}
+          className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-lg hover:opacity-80"
+          style={{ background: C.surfaceLight, color: C.brassLight }}>
+          <Truck className="w-3 h-3" />
+          Proveedores
+          {showProductSuppliers === p.id ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+        </button>
       </div>
     );
   }
@@ -419,6 +432,202 @@ export default function InventarioView({
           e.target.value = '';
         }}
       />
+    </div>
+  );
+}
+
+// ===== Product Supplier Offers (inline edit per product) =====
+function ProductSuppliers({ product, suppliers: externalSuppliers, C, onSupplierRefresh }) {
+  const [offers, setOffers] = useState([]);
+  const [suppliers, setSuppliers] = useState(externalSuppliers || []);
+  const [loading, setLoading] = useState(true);
+  const [newOffer, setNewOffer] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+
+  useEffect(() => { loadOffers(); if (!externalSuppliers || externalSuppliers.length === 0) loadSuppliers(); }, [product.id]);
+
+  async function loadSuppliers() {
+    try { const r = await fetch('/api/suppliers'); if (r.ok) setSuppliers(await r.json()); } catch {}
+  }
+
+  async function loadOffers() {
+    try {
+      const r = await fetch(`/api/supplier-catalog?productId=${product.id}`);
+      if (r.ok) setOffers(await r.json());
+    } catch {}
+    setLoading(false);
+  }
+
+  async function saveOffer(data) {
+    try {
+      await fetch('/api/supplier-catalog', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'save', ...data, productId: product.id }),
+      });
+      loadOffers();
+    } catch {}
+  }
+
+  async function deleteOffer(id) {
+    try {
+      await fetch('/api/supplier-catalog', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'delete', id }),
+      });
+      loadOffers();
+    } catch {}
+  }
+
+  function startNew() {
+    setNewOffer({ supplierId: '', sku: '', price: '', packSize: 1, minOrder: 0, deliveryDays: 0, isPreferred: false });
+  }
+
+  const bestOffer = offers.filter(o => o.active).sort((a, b) => a.pricePerUnit - b.pricePerUnit)[0];
+
+  return (
+    <div className="w-full pt-2 mt-2" style={{ borderTop: `1px solid ${C.line}` }}>
+      <p className="text-[10px] font-medium mb-2 flex items-center gap-2" style={{ color: C.cream }}>
+        <Truck className="w-3 h-3" /> Ofertas de proveedores
+        {bestOffer && <span className="text-[9px] font-normal" style={{ color: C.sage }}>Mejor: {bestOffer.supplierName} · {bestOffer.pricePerUnit.toFixed(4)}€/ud</span>}
+      </p>
+
+      {loading ? (
+        <p className="text-[10px]" style={{ color: C.muted }}>Cargando…</p>
+      ) : (
+        <div className="space-y-1">
+          {offers.map(o => (
+            <OfferItem key={o.id} offer={o} C={C}
+              editing={editingId === o.id}
+              onEdit={() => setEditingId(editingId === o.id ? null : o.id)}
+              onSave={(data) => { saveOffer(data); setEditingId(null); }}
+              onDelete={() => deleteOffer(o.id)}
+              suppliers={suppliers} />
+          ))}
+
+          {newOffer && (
+            <NewOfferForm suppliers={suppliers} C={C}
+              onSave={(data) => { saveOffer(data); setNewOffer(null); }}
+              onCancel={() => setNewOffer(null)} />
+          )}
+
+          {offers.length === 0 && !newOffer && (
+            <p className="text-[10px]" style={{ color: C.muted }}>Sin ofertas registradas.</p>
+          )}
+
+          {!newOffer && (
+            <button onClick={startNew}
+              className="flex items-center gap-1 text-[10px] mt-1 hover:opacity-80"
+              style={{ color: C.brassLight }}>
+              <Plus className="w-3 h-3" /> Añadir proveedor
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OfferItem({ offer, editing, C, onEdit, onSave, onDelete, suppliers }) {
+  const [form, setForm] = useState({
+    id: offer.id, supplierId: offer.supplierId, sku: offer.sku,
+    price: offer.price, packSize: offer.packSize, minOrder: offer.minOrder,
+    deliveryDays: offer.deliveryDays, isPreferred: offer.isPreferred,
+  });
+
+  if (editing) {
+    return (
+      <div className="flex flex-wrap items-center gap-1.5 text-[10px] p-2 rounded-lg" style={{ background: C.surface }}>
+        <select value={form.supplierId} onChange={e => setForm(f => ({ ...f, supplierId: e.target.value }))}
+          style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}` }}
+          className="rounded px-2 py-1 text-[10px] w-28">
+          <option value="">Proveedor</option>
+          {suppliers.filter(s => s.active).map(s => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
+        <input type="text" value={form.sku} onChange={e => setForm(f => ({ ...f, sku: e.target.value }))}
+          placeholder="SKU" className="w-16 rounded px-2 py-1 text-[10px] text-center"
+          style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}` }} />
+        <input type="number" step="0.001" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
+          placeholder="Precio pack" className="w-20 rounded px-2 py-1 text-[10px] text-center"
+          style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}` }} />
+        <span className="text-[9px]" style={{ color: C.muted }}>Pack:</span>
+        <input type="number" step="0.01" value={form.packSize} onChange={e => setForm(f => ({ ...f, packSize: e.target.value }))}
+          className="w-12 rounded px-2 py-1 text-[10px] text-center"
+          style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}` }} />
+        <label className="flex items-center gap-1 text-[9px]" style={{ color: C.muted }}>
+          <input type="checkbox" checked={form.isPreferred}
+            onChange={e => setForm(f => ({ ...f, isPreferred: e.target.checked }))} />
+          Preferido
+        </label>
+        {offer.isPreferred && !form.isPreferred && (
+          <span className="text-[9px]" style={{ color: C.wineLight }}>No puedes desactivar el preferido sin marcar otro</span>
+        )}
+        <button onClick={() => onSave(form)} style={{ color: C.sage }}><Check className="w-3 h-3" /></button>
+        <button onClick={onEdit} style={{ color: C.muted }}><X className="w-3 h-3" /></button>
+        <button onClick={onDelete} style={{ color: C.wineLight }}><Trash2 className="w-3 h-3" /></button>
+      </div>
+    );
+  }
+
+  const ppu = offer.pricePerUnit || (offer.price / (offer.packSize || 1));
+
+  return (
+    <div className="flex items-center justify-between text-[10px] py-1 px-2 rounded" style={{ background: C.surface + '80' }}>
+      <div className="flex items-center gap-2">
+        <span className="font-medium" style={{ color: C.cream }}>{offer.supplierName}</span>
+        {offer.isPreferred && (
+          <span className="text-[8px] px-1 py-px rounded font-bold" style={{ background: C.sage + '30', color: C.sage }}>★ Preferido</span>
+        )}
+        <span className="text-[9px]" style={{ color: C.muted }}>SKU: {offer.sku || '—'}</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <span style={{ color: C.brassLight }}>{ppu.toFixed(4)}€/ud</span>
+        <span className="text-[9px]" style={{ color: C.muted }}>({offer.price.toFixed(2)}€ × pack {offer.packSize})</span>
+        {offer.trend !== null && (
+          <span className="text-[9px] font-medium" style={{ color: offer.trend >= 0 ? C.wineLight : C.sage }}>
+            {offer.trend >= 0 ? '▲' : '▼'} {Math.abs(offer.trend).toFixed(1)}%
+          </span>
+        )}
+        <button onClick={onEdit} style={{ color: C.muted }} className="hover:opacity-80">✎</button>
+      </div>
+    </div>
+  );
+}
+
+function NewOfferForm({ suppliers, C, onSave, onCancel }) {
+  const [form, setForm] = useState({ supplierId: '', sku: '', price: '', packSize: 1, minOrder: 0, deliveryDays: 0, isPreferred: false });
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 text-[10px] p-2 rounded-lg" style={{ background: C.surface }}>
+      <select value={form.supplierId} onChange={e => setForm(f => ({ ...f, supplierId: e.target.value }))}
+        style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}` }}
+        className="rounded px-2 py-1 text-[10px] w-28">
+        <option value="">Proveedor</option>
+        {suppliers.filter(s => s.active).map(s => (
+          <option key={s.id} value={s.id}>{s.name}</option>
+        ))}
+      </select>
+      <input type="text" value={form.sku} onChange={e => setForm(f => ({ ...f, sku: e.target.value }))}
+        placeholder="SKU" className="w-16 rounded px-2 py-1 text-[10px] text-center"
+        style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}` }} />
+      <input type="number" step="0.001" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
+        placeholder="Precio pack" className="w-20 rounded px-2 py-1 text-[10px] text-center"
+        style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}` }} />
+      <span style={{ color: C.muted }}>Pack:</span>
+      <input type="number" step="0.01" value={form.packSize} onChange={e => setForm(f => ({ ...f, packSize: e.target.value }))}
+        className="w-12 rounded px-2 py-1 text-[10px] text-center"
+        style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}` }} />
+      <label className="flex items-center gap-1 text-[9px]" style={{ color: C.muted }}>
+        <input type="checkbox" checked={form.isPreferred}
+          onChange={e => setForm(f => ({ ...f, isPreferred: e.target.checked }))} />
+        Preferido
+      </label>
+      <button onClick={() => onSave(form)} disabled={!form.supplierId || !form.price}
+        style={{ color: C.sage, opacity: (!form.supplierId || !form.price) ? 0.4 : 1 }}>
+        <Check className="w-3 h-3" />
+      </button>
+      <button onClick={onCancel} style={{ color: C.wineLight }}><X className="w-3 h-3" /></button>
     </div>
   );
 }
