@@ -160,118 +160,136 @@ export default function SalonView({ floor, onSelect, persistFloor, colors: C, on
         ))}
       </div>
 
-      {/* Table grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-        {filteredTables.map(t => {
-          const order = t.orderId ? floor.orders[t.orderId] : null;
-          const subtotal = order ? order.items.reduce((s, i) => s + i.price * i.qty, 0) : 0;
-          const itemCount = order ? order.items.length : 0;
-          let actualStatus = t.status;
-        if (t.reserved && !t.orderId) actualStatus = 'reservada';
-        if (t.reserved_for && !t.orderId) actualStatus = 'reservada';
-          const s = statusStyle[actualStatus];
-          const urgent = order && order.items.some(i => i.sent && !i.ready && (Date.now() - (i.sentAt || 0)) / 60000 >= 10);
+      {/* Table grid — grouped by type, each group in 3×3 grid */}
+      <div className="space-y-8">
+        {[
+          { key: 'mesa', label: 'Mesas', icon: '🪑', tables: filteredTables.filter(t => t.type === 'mesa') },
+          { key: 'barra', label: 'Barra', icon: '🍺', tables: filteredTables.filter(t => t.type === 'barra') },
+          { key: 'delivery', label: 'Para llevar / Domicilio', icon: '🛵', tables: filteredTables.filter(t => t.type === 'llevar' || t.type === 'domicilio') },
+        ].map(g => (
+          <div key={g.key}>
+            <h3 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-2 mb-3" style={{ color: C.muted }}>
+              <span>{g.icon}</span> {g.label}
+              <span className="text-[10px] font-normal" style={{ color: C.muted }}>({g.tables.length})</span>
+            </h3>
+            {g.tables.length === 0 ? (
+              <p className="text-xs py-4" style={{ color: C.muted }}>Sin elementos</p>
+            ) : (
+              <div className="grid grid-cols-3 gap-3">
+                {g.tables.map(t => {
+                  const order = t.orderId ? floor.orders[t.orderId] : null;
+                  const subtotal = order ? order.items.reduce((s, i) => s + i.price * i.qty, 0) : 0;
+                  const itemCount = order ? order.items.length : 0;
+                  let actualStatus = t.status;
+                  if (t.reserved && !t.orderId) actualStatus = 'reservada';
+                  if (t.reserved_for && !t.orderId) actualStatus = 'reservada';
+                  const s = statusStyle[actualStatus];
+                  const urgent = order && order.items.some(i => i.sent && !i.ready && (Date.now() - (i.sentAt || 0)) / 60000 >= 10);
 
-          return (
-            <div
-              key={t.id}
-              style={{ background: s.bg, border: `2px solid ${urgent ? C.wine : s.border}` }}
-              className={`rounded-xl p-4 text-left transition-all duration-200 hover:scale-[1.02] ${t.status === 'cuenta' ? 'pulse-cuenta' : ''} ${urgent ? 'shadow-lg shadow-red-500/20' : ''}`}
-            >
-              <div className="flex items-start justify-between mb-2">
-                <p className="font-display text-xl" style={{ color: C.cream }}>{t.name}</p>
-                <div className="flex items-center gap-1">
-                  {t.isFiado && (
-                    <span style={{ background: C.wine, color: C.cream }} className="text-xs font-medium px-2 py-1 rounded-full flex items-center gap-1">
-                      <ClipboardList className="w-3 h-3" />
-                      Fiado
-                    </span>
-                  )}
-                  {!t.isFiado && (
-                    <span style={{
-                      background: t.status === 'ocupada' ? C.brassLight : 'transparent',
-                      color: t.status === 'ocupada' ? C.base : 'transparent',
-                      minWidth: '24px', minHeight: '24px', borderRadius: 999,
-                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '11px', fontWeight: 600,
-                    }}>
-                      {itemCount > 0 ? itemCount : ''}
-                    </span>
-                  )}
-                </div>
+                  return (
+                    <div
+                      key={t.id}
+                      style={{ background: s.bg, border: `2px solid ${urgent ? C.wine : s.border}` }}
+                      className={`rounded-xl p-3 text-left transition-all duration-200 hover:scale-[1.02] ${t.status === 'cuenta' ? 'pulse-cuenta' : ''} ${urgent ? 'shadow-lg shadow-red-500/20' : ''}`}
+                    >
+                      <div className="flex items-start justify-between mb-1">
+                        <p className="font-display text-base" style={{ color: C.cream }}>{t.name}</p>
+                        <div className="flex items-center gap-1">
+                          {t.isFiado && (
+                            <span style={{ background: C.wine, color: C.cream }} className="text-[10px] font-medium px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                              <ClipboardList className="w-2.5 h-2.5" />
+                              Fiado
+                            </span>
+                          )}
+                          {!t.isFiado && (
+                            <span style={{
+                              background: t.status === 'ocupada' ? C.brassLight : 'transparent',
+                              color: t.status === 'ocupada' ? C.base : 'transparent',
+                              minWidth: '20px', minHeight: '20px', borderRadius: 999,
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: '10px', fontWeight: 600,
+                            }}>
+                              {itemCount > 0 ? itemCount : ''}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <p style={{ color: s.dot }} className="text-[10px] font-medium mb-1">{s.label}</p>
+
+                      {t.reserved && !t.orderId && (
+                        <div style={{ background: 'rgba(174,159,140,0.15)' }} className="rounded-md p-1.5 mb-1">
+                          <p style={{ color: C.muted }} className="text-[10px] font-medium truncate">{t.reserved.name}</p>
+                          <div className="flex items-center justify-between mt-0.5">
+                            <span className="text-[10px]" style={{ color: C.muted }}>{t.reserved.time}</span>
+                            <span className="text-[10px] flex items-center gap-1" style={{ color: C.muted }}>
+                              <Users className="w-2.5 h-2.5" /> {t.reserved.guests}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {t.reserved_for && !t.reserved && !t.orderId && (
+                        <div style={{ background: 'rgba(174,159,140,0.15)' }} className="rounded-md p-1.5 mb-1">
+                          <p style={{ color: C.muted }} className="text-[10px] font-medium truncate">📋 {t.reserved_for}</p>
+                        </div>
+                      )}
+                      {order && !t.reserved && (
+                        <p className="font-mono text-xs mt-1" style={{ color: C.muted }}>{subtotal.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</p>
+                      )}
+
+                      <div className="flex gap-1 mt-2">
+                        <button
+                          onClick={() => setQrTableId(t.id)}
+                          style={{ background: C.surfaceLight, color: C.muted }}
+                          className="text-[10px] py-1 rounded-lg hover:opacity-80 flex items-center justify-center gap-0.5 px-1"
+                          title="QR Carta digital"
+                        >
+                          <QrCode className="w-3 h-3" />
+                        </button>
+                        {t.reserved && !t.orderId && (
+                          <button
+                            onClick={() => cancelReservation(t.id)}
+                            style={{ background: C.surfaceLight, color: C.muted }}
+                            className="flex-1 text-[10px] py-1 rounded-lg hover:opacity-80 flex items-center justify-center gap-1"
+                          >
+                            ✕ Reservar
+                          </button>
+                        )}
+                        {!t.reserved && t.status === 'libre' && (
+                          <button
+                            onClick={() => setShowReservationModal(t.id)}
+                            style={{ background: C.surfaceLight, color: C.muted }}
+                            className="flex-1 text-[10px] py-1 rounded-lg hover:opacity-80 flex items-center justify-center gap-1"
+                          >
+                            <Calendar className="w-3 h-3" />
+                            Reservar
+                          </button>
+                        )}
+                        {(t.status !== 'libre' || t.reserved) && (
+                          <button
+                            onClick={() => onSelect(t.id)}
+                            style={{ background: C.brass, color: C.base }}
+                            className="flex-1 text-[10px] py-1 rounded-lg font-medium hover:opacity-90"
+                          >
+                            Abrir
+                          </button>
+                        )}
+                        {t.status === 'libre' && !t.reserved && (
+                          <button
+                            onClick={() => onSelect(t.id)}
+                            style={{ background: C.brass, color: C.base }}
+                            className="flex-1 text-[10px] py-1 rounded-lg font-medium hover:opacity-90"
+                          >
+                            Usar
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <p style={{ color: s.dot }} className="text-xs font-medium mb-2">{s.label}</p>
-
-              {t.reserved && !t.orderId && (
-                <div style={{ background: 'rgba(174,159,140,0.15)' }} className="rounded-md p-2 mb-2">
-                  <p style={{ color: C.muted }} className="text-xs font-medium truncate">{t.reserved.name}</p>
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-xs" style={{ color: C.muted }}>{t.reserved.time}</span>
-                    <span className="text-xs flex items-center gap-1" style={{ color: C.muted }}>
-                      <Users className="w-3 h-3" /> {t.reserved.guests}
-                    </span>
-                  </div>
-                </div>
-              )}
-              {t.reserved_for && !t.reserved && !t.orderId && (
-                <div style={{ background: 'rgba(174,159,140,0.15)' }} className="rounded-md p-2 mb-2">
-                  <p style={{ color: C.muted }} className="text-xs font-medium truncate">📋 {t.reserved_for}</p>
-                </div>
-              )}
-              {order && !t.reserved && (
-                <p className="font-mono text-sm mt-2" style={{ color: C.muted }}>{subtotal.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</p>
-              )}
-
-              <div className="flex gap-1 mt-3">
-                <button
-                  onClick={() => setQrTableId(t.id)}
-                  style={{ background: C.surfaceLight, color: C.muted }}
-                  className="text-xs py-1.5 rounded-lg hover:opacity-80 flex items-center justify-center gap-0.5 px-1.5"
-                  title="QR Carta digital"
-                >
-                  <QrCode className="w-3.5 h-3.5" />
-                </button>
-                {t.reserved && !t.orderId && (
-                  <button
-                    onClick={() => cancelReservation(t.id)}
-                    style={{ background: C.surfaceLight, color: C.muted }}
-                    className="flex-1 text-xs py-1.5 rounded-lg hover:opacity-80 flex items-center justify-center gap-1"
-                  >
-                    ✕ Reservar
-                  </button>
-                )}
-                {!t.reserved && t.status === 'libre' && (
-                  <button
-                    onClick={() => setShowReservationModal(t.id)}
-                    style={{ background: C.surfaceLight, color: C.muted }}
-                    className="flex-1 text-xs py-1.5 rounded-lg hover:opacity-80 flex items-center justify-center gap-1"
-                  >
-                    <Calendar className="w-3.5 h-3.5" />
-                    Reservar
-                  </button>
-                )}
-                {(t.status !== 'libre' || t.reserved) && (
-                  <button
-                    onClick={() => onSelect(t.id)}
-                    style={{ background: C.brass, color: C.base }}
-                    className="flex-1 text-xs py-1.5 rounded-lg font-medium hover:opacity-90"
-                  >
-                    Abrir
-                  </button>
-                )}
-                {t.status === 'libre' && !t.reserved && (
-                  <button
-                    onClick={() => onSelect(t.id)}
-                    style={{ background: C.brass, color: C.base }}
-                    className="flex-1 text-xs py-1.5 rounded-lg font-medium hover:opacity-90"
-                  >
-                    Usar
-                  </button>
-                )}
-              </div>
-            </div>
-          );
-        })}
+            )}
+          </div>
+        ))}
       </div>
 
       {filteredTables.length === 0 && (

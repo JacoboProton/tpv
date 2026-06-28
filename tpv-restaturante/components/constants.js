@@ -148,15 +148,20 @@ export function getDailyMenu(date) {
 
 export function seedFloor() {
   const tables = [
-    ...Array.from({ length: 8 }, (_, i) => ({
+    ...Array.from({ length: 9 }, (_, i) => ({
       id: `t${i + 1}`, name: `Mesa ${i + 1}`, status: 'libre', orderId: null, reserved: null, isFiado: false, type: 'mesa',
       x: 60 + (i % 4) * 140, y: 60 + Math.floor(i / 4) * 140, width: 80, height: 80, radius: 40,
       shape: 'rect', rotation: 0, seats: 4, zone: 'z1', layer: 0, color: '',
     })),
-    { id: 't9',  name: 'Barra 1', status: 'libre', orderId: null, reserved: null, isFiado: false, type: 'barra', x: 620, y: 60, width: 160, height: 50, radius: 25, shape: 'rect', rotation: 0, seats: 4, zone: 'z3', layer: 0, color: '' },
-    { id: 't10', name: 'Barra 2', status: 'libre', orderId: null, reserved: null, isFiado: false, type: 'barra', x: 620, y: 140, width: 160, height: 50, radius: 25, shape: 'rect', rotation: 0, seats: 4, zone: 'z3', layer: 0, color: '' },
-    { id: 't11', name: 'Para llevar', status: 'libre', orderId: null, reserved: null, isFiado: false, type: 'llevar', x: 620, y: 300, width: 80, height: 50, radius: 25, shape: 'rect', rotation: 0, seats: 0, zone: '', layer: 0, color: '' },
-    { id: 't12', name: 'Domicilio', status: 'libre', orderId: null, reserved: null, isFiado: false, type: 'domicilio', x: 620, y: 380, width: 80, height: 50, radius: 25, shape: 'rect', rotation: 0, seats: 0, zone: '', layer: 0, color: '' },
+    ...Array.from({ length: 6 }, (_, i) => ({
+      id: `t${10 + i}`, name: `Barra ${i + 1}`, status: 'libre', orderId: null, reserved: null, isFiado: false, type: 'barra',
+      x: 600, y: 60 + i * 80, width: 140, height: 50, radius: 25,
+      shape: 'rect', rotation: 0, seats: 4, zone: 'z3', layer: 0, color: '',
+    })),
+    { id: 't16', name: 'Para llevar', status: 'libre', orderId: null, reserved: null, isFiado: false, type: 'llevar', x: 810, y: 60, width: 90, height: 50, radius: 25, shape: 'rect', rotation: 0, seats: 0, zone: '', layer: 0, color: '' },
+    { id: 't17', name: 'Domicilio', status: 'libre', orderId: null, reserved: null, isFiado: false, type: 'domicilio', x: 810, y: 140, width: 90, height: 50, radius: 25, shape: 'rect', rotation: 0, seats: 0, zone: '', layer: 0, color: '' },
+    { id: 't18', name: 'Domicilio 2', status: 'libre', orderId: null, reserved: null, isFiado: false, type: 'domicilio', x: 810, y: 220, width: 90, height: 50, radius: 25, shape: 'rect', rotation: 0, seats: 0, zone: '', layer: 0, color: '' },
+    { id: 't19', name: 'Domicilio 3', status: 'libre', orderId: null, reserved: null, isFiado: false, type: 'domicilio', x: 810, y: 300, width: 90, height: 50, radius: 25, shape: 'rect', rotation: 0, seats: 0, zone: '', layer: 0, color: '' },
   ];
   return {
     tables,

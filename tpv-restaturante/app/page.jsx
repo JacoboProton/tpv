@@ -197,6 +197,59 @@ export default function App() {
             if (!t.orderIds && t.orderId) t.orderIds = [t.orderId];
             if (!t.orderIds) t.orderIds = [];
           });
+
+          // Migrate to 3-column layout (mesas izq, barras centro, domicilio der)
+          if (flr.tables.filter(t => t.type === 'barra').length < 6) {
+            const mesas = flr.tables.filter(t => t.type === 'mesa');
+            const barras = flr.tables.filter(t => t.type === 'barra');
+            const others = flr.tables.filter(t => t.type !== 'mesa' && t.type !== 'barra' && t.type !== 'llevar' && t.type !== 'domicilio');
+
+            // Reposition existing mesas
+            mesas.forEach((t, i) => {
+              t.x = 60 + (i % 4) * 140;
+              t.y = 60 + Math.floor(i / 4) * 140;
+            });
+            // Add missing mesas up to 9
+            for (let i = mesas.length; i < 9; i++) {
+              mesas.push({
+                id: `t${i + 1}`, name: `Mesa ${i + 1}`, status: 'libre', orderId: null, orderIds: [],
+                reserved: null, isFiado: false, type: 'mesa',
+                x: 60 + (i % 4) * 140, y: 60 + Math.floor(i / 4) * 140,
+                width: 80, height: 80, radius: 40, shape: 'rect', rotation: 0,
+                seats: 4, zone: 'z1', layer: 0, color: '',
+              });
+            }
+
+            // Reposition existing barras
+            barras.forEach((t, i) => {
+              t.x = 600; t.y = 60 + i * 80; t.width = 140; t.height = 50; t.radius = 25;
+            });
+            // Add missing barras up to 6
+            for (let i = barras.length; i < 6; i++) {
+              barras.push({
+                id: `t${10 + i}`, name: `Barra ${i + 1}`, status: 'libre', orderId: null, orderIds: [],
+                reserved: null, isFiado: false, type: 'barra',
+                x: 600, y: 60 + i * 80, width: 140, height: 50, radius: 25,
+                shape: 'rect', rotation: 0, seats: 4, zone: 'z3', layer: 0, color: '',
+              });
+            }
+
+            // Replace delivery items with new layout
+            const newDelivery = [
+              { id: 't16', name: 'Para llevar', type: 'llevar', x: 810, y: 60 },
+              { id: 't17', name: 'Domicilio', type: 'domicilio', x: 810, y: 140 },
+              { id: 't18', name: 'Domicilio 2', type: 'domicilio', x: 810, y: 220 },
+              { id: 't19', name: 'Domicilio 3', type: 'domicilio', x: 810, y: 300 },
+            ].map(d => ({
+              ...d, status: 'libre', orderId: null, orderIds: [], reserved: null, isFiado: false,
+              width: 90, height: 50, radius: 25, shape: 'rect', rotation: 0, seats: 0,
+              zone: '', layer: 0, color: '',
+            }));
+
+            flr.tables = [...mesas, ...barras, ...newDelivery, ...others];
+            await saveFloor(flr);
+          }
+
           setFloor(flr);
         }
 
@@ -1771,7 +1824,7 @@ export default function App() {
         </aside>
       )}
 
-      <div className="flex flex-col flex-1 min-w-0" style={{ maxHeight: '100vh', overflow: 'hidden' }}>
+      <div className="flex flex-col flex-1 min-w-0" style={{ maxHeight: '100vh', overflowY: 'auto' }}>
 
       {isOffline && (
         <div style={{ background: C.wine, color: C.cream }} className="flex items-center justify-center gap-2 px-4 py-1.5 text-xs font-medium no-print">
@@ -2061,7 +2114,7 @@ export default function App() {
 
       {showSettings && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 no-print" style={{ background: 'rgba(0,0,0,0.65)' }}>
-          <div style={{ background: C.surface, border: `1px solid ${C.line}` }} className="w-full max-w-sm rounded-xl p-5 fade-up">
+          <div style={{ background: C.surface, border: `1px solid ${C.line}` }} className="w-full max-w-sm rounded-xl p-5 fade-up max-h-[85vh] overflow-y-auto">
             <p className="font-display text-lg mb-4" style={{ color: C.cream }}>Configuración</p>
             <div className="flex flex-col gap-3">
               {['restaurantName', 'logoUrl', 'footerText', 'ticketWidth'].map(field => (
