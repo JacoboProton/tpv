@@ -216,6 +216,22 @@ export async function registerSaleInFiskaly(sale, numSerie) {
     const pad = (n) => String(n).padStart(2, '0');
     return `${pad(dt.getDate())}-${pad(dt.getMonth() + 1)}-${dt.getFullYear()}`;
   };
+
+  // Si no hay items, crear un item genérico con el total
+  if (items.length === 0) {
+    const base = totalAmount / 1.07;
+    items = [{
+      description: descripcion,
+      quantity: 1,
+      unit_amount: Number(totalAmount.toFixed(2)),
+      full_amount: Number(totalAmount.toFixed(2)),
+      vat_category: {
+        rate: 7.0,
+        amount: Number((totalAmount - base).toFixed(2)),
+      },
+    }];
+  }
+
   const invoiceContent = {
     number: numStr,
     text: descripcion,
