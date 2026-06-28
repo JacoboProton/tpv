@@ -59,7 +59,8 @@ export async function POST(req) {
         total, tip, total_with_tip, payments, payment_method, tip_method,
         is_fiado, is_debt_payment, employee_id, employee_name, closed_at,
         invoice_nif, invoice_name, invoice_address, invoice_email,
-        invoice_number, invoice_created, invoice_created_at
+        invoice_number, invoice_created, invoice_created_at,
+        payment_intent_id
       ) VALUES (
         ${s.id}, ${s.tableId}, ${s.tableName}, ${JSON.stringify(s.items)},
         ${s.subtotal}, ${s.discount ?? 0}, ${s.discountAmount ?? 0},
@@ -68,7 +69,8 @@ export async function POST(req) {
         ${s.isFiado ?? false}, ${s.isDebtPayment ?? false},
         ${s.employeeId ?? null}, ${s.employeeName ?? null}, ${s.closedAt},
         ${s.invoiceNif ?? ''}, ${s.invoiceName ?? ''}, ${s.invoiceAddress ?? ''}, ${s.invoiceEmail ?? ''},
-        ${s.invoiceNumber ?? ''}, ${s.invoiceCreated ?? false}, ${s.invoiceCreatedAt ?? null}
+        ${s.invoiceNumber ?? ''}, ${s.invoiceCreated ?? false}, ${s.invoiceCreatedAt ?? null},
+        ${s.paymentIntentId ?? ''}
       )
       ON CONFLICT (id) DO NOTHING
     `;

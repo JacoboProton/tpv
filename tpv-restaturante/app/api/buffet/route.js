@@ -72,18 +72,34 @@ export async function POST(req) {
 
       const id = 'bf_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
       const startedAt = Date.now();
+      const orderId = 'bo_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
 
-      // Actualizar la mesa a ocupada
-      await sql`UPDATE tables SET status = 'ocupada' WHERE id = ${tableId}`;
+      // Create TPV order with cover items for billing
+      const orderItems = [
+        { id: 'cvr_' + Date.now(), productId: 'buffet_cover', name: `Buffet cubierto (${adults || 1} adultos)`, price: Number(cfg.cover_price), qty: adults || 1, sent: true, ready: true, sentAt: startedAt, notes: '', modifiers: [], course: 'buffet' },
+      ];
+      if (children > 0) {
+        orderItems.push({ id: 'cvr_' + Date.now() + '_1', productId: 'buffet_child', name: `Buffet niños (${children})`, price: Number(cfg.child_price), qty: children, sent: true, ready: true, sentAt: startedAt, notes: '', modifiers: [], course: 'buffet' });
+      }
+      if (seniors > 0) {
+        orderItems.push({ id: 'cvr_' + Date.now() + '_2', productId: 'buffet_senior', name: `Buffet mayores (${seniors})`, price: Number(cfg.senior_price), qty: seniors, sent: true, ready: true, sentAt: startedAt, notes: '', modifiers: [], course: 'buffet' });
+      }
+
+      await sql`
+        INSERT INTO orders (id, table_id, items, created_at, employee_name, source)
+        VALUES (${orderId}, ${tableId}, ${JSON.stringify(orderItems)}, ${startedAt}, ${employeeName || 'Buffet'}, 'buffet')
+      `;
+
+      await sql`UPDATE tables SET status = 'ocupada', order_id = ${orderId}, order_ids = ${JSON.stringify([orderId])} WHERE id = ${tableId}`;
 
       await sql`
         INSERT INTO buffet_sessions (id, table_id, table_name, adult_count, child_count, senior_count,
-          started_at, cover_price_snapshot, child_price_snapshot, senior_price_snapshot, round, status)
+          started_at, cover_price_snapshot, child_price_snapshot, senior_price_snapshot, round, status, order_id)
         VALUES (${id}, ${tableId}, ${tableName}, ${adults || 1}, ${children || 0}, ${seniors || 0},
-          ${startedAt}, ${cfg.cover_price}, ${cfg.child_price}, ${cfg.senior_price}, 0, 'active')
+          ${startedAt}, ${cfg.cover_price}, ${cfg.child_price}, ${cfg.senior_price}, 0, 'active', ${orderId})
       `;
 
-      return Response.json({ id, startedAt });
+      return Response.json({ id, startedAt, orderId });
     }
 
     // ===== PAUSE =====
@@ -116,6 +132,22 @@ export async function POST(req) {
       const coverEffective = session.override_cover_price > 0 ? session.override_cover_price : session.cover_price_snapshot;
       const estimated = a * Number(coverEffective) + c * Number(session.child_price_snapshot) + s * Number(session.senior_price_snapshot) + Number(session.waste_amount);
 
+      // Update the TPV order with actual guest counts for billing
+      if (session.order_id) {
+        const [existingOrder] = await sql`SELECT * FROM orders WHERE id = ${session.order_id}`;
+        if (existingOrder) {
+          let items = existingOrder.items || [];
+          items = items.filter(i => i.productId !== 'buffet_cover' && i.productId !== 'buffet_child' && i.productId !== 'buffet_senior');
+          items.push({ id: 'cvr_' + Date.now(), productId: 'buffet_cover', name: `Buffet cubierto ${a} adulto${a !== 1 ? 's' : ''}`, price: Number(coverEffective), qty: a, sent: true, ready: true, sentAt: existingOrder.created_at, notes: '', modifiers: [], course: 'buffet' });
+          if (c > 0) items.push({ id: 'cvr_' + Date.now() + '_1', productId: 'buffet_child', name: `Buffet ${c} niño${c !== 1 ? 's' : ''}`, price: Number(session.child_price_snapshot), qty: c, sent: true, ready: true, sentAt: existingOrder.created_at, notes: '', modifiers: [], course: 'buffet' });
+          if (s > 0) items.push({ id: 'cvr_' + Date.now() + '_2', productId: 'buffet_senior', name: `Buffet ${s} mayor${s !== 1 ? 'es' : ''}`, price: Number(session.senior_price_snapshot), qty: s, sent: true, ready: true, sentAt: existingOrder.created_at, notes: '', modifiers: [], course: 'buffet' });
+          if (Number(session.waste_amount) > 0) {
+            items.push({ id: 'wst_' + Date.now(), productId: 'buffet_waste', name: 'Desperdicio buffet', price: Number(session.waste_amount), qty: 1, sent: true, ready: true, sentAt: Date.now(), notes: '', modifiers: [], course: 'buffet' });
+          }
+          await sql`UPDATE orders SET items = ${JSON.stringify(items)} WHERE id = ${session.order_id}`;
+        }
+      }
+
       await sql`
         UPDATE buffet_sessions
         SET status = 'closed', closed_at = ${Date.now()}, closed_by = ${employeeName || null},
@@ -143,7 +175,10 @@ export async function POST(req) {
         WHERE id = ${sessionId}
       `;
 
-      await sql`UPDATE tables SET status = 'libre' WHERE id = ${session.table_id}`;
+      if (session.order_id) {
+        await sql`DELETE FROM orders WHERE id = ${session.order_id}`;
+      }
+      await sql`UPDATE tables SET status = 'libre', order_id = NULL, order_ids = '[]' WHERE id = ${session.table_id}`;
 
       return Response.json({ ok: true });
     }
@@ -203,6 +238,17 @@ export async function POST(req) {
           if (!s) continue;
           const coverEff = s.override_cover_price > 0 ? s.override_cover_price : s.cover_price_snapshot;
           const est = s.adult_count * Number(coverEff) + s.child_count * Number(s.child_price_snapshot) + s.senior_count * Number(s.senior_price_snapshot) + Number(s.waste_amount);
+          if (s.order_id) {
+            const [o] = await sql`SELECT * FROM orders WHERE id = ${s.order_id}`;
+            if (o) {
+              let items = o.items.filter(i => i.productId !== 'buffet_cover' && i.productId !== 'buffet_child' && i.productId !== 'buffet_senior');
+              items.push({ id: 'cvr_' + Date.now(), productId: 'buffet_cover', name: `Buffet cubierto ${s.adult_count} adultos`, price: Number(coverEff), qty: s.adult_count, sent: true, ready: true, sentAt: o.created_at, notes: '', modifiers: [], course: 'buffet' });
+              if (s.child_count > 0) items.push({ id: 'cvr_' + Date.now() + '_1', productId: 'buffet_child', name: `Buffet ${s.child_count} niños`, price: Number(s.child_price_snapshot), qty: s.child_count, sent: true, ready: true, sentAt: o.created_at, notes: '', modifiers: [], course: 'buffet' });
+              if (s.senior_count > 0) items.push({ id: 'cvr_' + Date.now() + '_2', productId: 'buffet_senior', name: `Buffet ${s.senior_count} mayores`, price: Number(s.senior_price_snapshot), qty: s.senior_count, sent: true, ready: true, sentAt: o.created_at, notes: '', modifiers: [], course: 'buffet' });
+              if (Number(s.waste_amount) > 0) items.push({ id: 'wst_' + Date.now(), productId: 'buffet_waste', name: 'Desperdicio buffet', price: Number(s.waste_amount), qty: 1, sent: true, ready: true, sentAt: Date.now(), notes: '', modifiers: [], course: 'buffet' });
+              await sql`UPDATE orders SET items = ${JSON.stringify(items)} WHERE id = ${s.order_id}`;
+            }
+          }
           await sql`
             UPDATE buffet_sessions SET status = 'closed', closed_at = ${Date.now()},
               closed_by = ${employeeName || null}, estimated_total = ${est}

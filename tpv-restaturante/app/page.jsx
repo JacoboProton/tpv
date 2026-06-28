@@ -101,6 +101,7 @@ export default function App() {
   const [orderDiscount, setOrderDiscount]     = useState(0);
   const [tipAmount, setTipAmount]             = useState(0);
   const [tipMethod, setTipMethod]             = useState('efectivo');
+  const [paymentIntentId, setPaymentIntentId]   = useState('');
   const [invoiceNif, setInvoiceNif]           = useState('');
   const [invoiceName, setInvoiceName]         = useState('');
   const [invoiceAddress, setInvoiceAddress]   = useState('');
@@ -1020,6 +1021,32 @@ export default function App() {
       }
     });
 
+    // Deduct modifier ingredients
+    const modOptMap = {};
+    for (const g of modifierData.groups) {
+      for (const o of g.options || []) {
+        modOptMap[o.id] = o;
+      }
+    }
+    order.items.forEach(item => {
+      if (item.modifiers) {
+        for (const m of item.modifiers) {
+          const opt = modOptMap[m.optionId];
+          if (opt?.stockDeduct && opt.stockArticleId) {
+            const p = nextCatalog.products.find(pr => pr.id === opt.stockArticleId);
+            if (p) {
+              const locs = Object.keys(p.stockByLocation || {});
+              const location = locs.length > 0 ? locs[0] : (p.ubicacion || 'Bar');
+              const entry = (p.stockByLocation || {})[location] || { stock: p.stock || 0 };
+              entry.stock = Math.max(0, (entry.stock || 0) - (opt.stockQuantity || 0) * item.qty);
+              if (!p.stockByLocation) p.stockByLocation = {};
+              p.stockByLocation[location] = entry;
+            }
+          }
+        }
+      }
+    });
+
     // Stock log (fire-and-forget)
     order.items.forEach(item => {
       if (item.productId) {
@@ -1037,6 +1064,33 @@ export default function App() {
             employeeName: currentUser?.name,
             createdAt: Date.now(),
           }).catch(() => {});
+        }
+      }
+    });
+
+    // Stock log for modifier ingredients
+    order.items.forEach(item => {
+      if (item.modifiers) {
+        for (const m of item.modifiers) {
+          const opt = modOptMap[m.optionId];
+          if (opt?.stockDeduct && opt.stockArticleId) {
+            const p = nextCatalog.products.find(pr => pr.id === opt.stockArticleId);
+            if (p) {
+              const locs = Object.keys(p.stockByLocation || {});
+              const location = locs.length > 0 ? locs[0] : (p.ubicacion || 'Bar');
+              const entry = p.stockByLocation?.[location] || { stock: 0 };
+              const qty = (opt.stockQuantity || 0) * item.qty;
+              saveStockLog({
+                productId: opt.stockArticleId,
+                productName: p.name,
+                oldStock: (entry.stock || 0) + qty,
+                newStock: entry.stock || 0,
+                reason: 'venta (modificador)',
+                employeeName: currentUser?.name,
+                createdAt: Date.now(),
+              }).catch(() => {});
+            }
+          }
         }
       }
     });
@@ -1077,6 +1131,7 @@ export default function App() {
       invoiceNumber: invNum,
       invoiceCreated: wantInvoice,
       invoiceCreatedAt: wantInvoice ? Date.now() : null,
+      paymentIntentId: paymentIntentId,
       payments: isFiado ? [{ method: 'fiado', amount: totalWithTip }] : payments,
       paymentMethod: methodLabel, isFiado, isDebtPayment: wasDebt,
       offerDiscount: offerDiscountAmount,
@@ -1105,6 +1160,7 @@ export default function App() {
 
     if (trainingMode) {
     setPaying(false); setPaymentSplits([]); setOrderDiscount(0); setTipAmount(0); setTipMethod('efectivo');
+    setPaymentIntentId('');
     setInvoiceNif(''); setInvoiceName(''); setInvoiceAddress(''); setInvoiceEmail('');
     setSelectedTableId(null);
       showToast(`🎓 Formación — Cobrado: ${euros(totalWithTip)}${tipStr}${discStr}${offerStr}`);
@@ -1120,6 +1176,7 @@ export default function App() {
     registerVerifactu(sale.id, sale).catch(err => console.warn('Verifactu:', err));
 
     setPaying(false); setPaymentSplits([]); setOrderDiscount(0); setTipAmount(0); setTipMethod('efectivo');
+    setPaymentIntentId('');
     setInvoiceNif(''); setInvoiceName(''); setInvoiceAddress(''); setInvoiceEmail('');
     setSelectedTableId(null);
 
@@ -1972,6 +2029,7 @@ export default function App() {
           onAddSplit={addSplit} onUpdateSplitAmount={updateSplitAmount} onRemoveSplit={removeSplit}
           onToggleSplitItem={toggleSplitItem}
           onConfirm={closeBill}
+          onStripeSuccess={(pi) => { setPaymentIntentId(pi.id); closeBill(); }}
           onCancel={() => { setPaying(false); setPaymentSplits([]); setTipAmount(0); setTipMethod('efectivo'); setInvoiceNif(''); setInvoiceName(''); setInvoiceAddress(''); setInvoiceEmail(''); }}
           onPrint={handlePrint}
           showToast={showToast}

@@ -185,6 +185,9 @@ export async function runMigrations() {
       is_default BOOLEAN NOT NULL DEFAULT false, sort_order INTEGER NOT NULL DEFAULT 0
     )
   `;
+  await sql`ALTER TABLE modifier_options ADD COLUMN IF NOT EXISTS stock_deduct BOOLEAN DEFAULT false`;
+  await sql`ALTER TABLE modifier_options ADD COLUMN IF NOT EXISTS stock_article_id TEXT DEFAULT ''`;
+  await sql`ALTER TABLE modifier_options ADD COLUMN IF NOT EXISTS stock_quantity NUMERIC(10,4) DEFAULT 0`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS product_modifiers (
@@ -315,6 +318,7 @@ export async function runMigrations() {
   await sql`ALTER TABLE sales ADD COLUMN IF NOT EXISTS invoice_number TEXT DEFAULT ''`;
   await sql`ALTER TABLE sales ADD COLUMN IF NOT EXISTS invoice_created BOOLEAN DEFAULT false`;
   await sql`ALTER TABLE sales ADD COLUMN IF NOT EXISTS invoice_created_at BIGINT`;
+  await sql`ALTER TABLE sales ADD COLUMN IF NOT EXISTS payment_intent_id TEXT DEFAULT ''`;
 
   // ===== MENÚ DEL DÍA =====
   await sql`

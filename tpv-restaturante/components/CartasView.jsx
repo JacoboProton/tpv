@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Plus, Trash2, Save, Printer, Camera,
   Check, X, Upload, Download, GripVertical,
-  Search, Copy, Star,
+  Search, Copy, Star, Loader2,
 } from 'lucide-react';
 import { euros, ALLERGENS, ALLERGEN_COLORS, COURSES } from './constants';
 
@@ -654,18 +654,265 @@ export default function CartasView({ catalog, onSave, colors: C }) {
 }
 
 function ModificadoresTab({ colors: C }) {
+  const [groups, setGroups] = useState([]);
+  const [productMods, setProductMods] = useState({});
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [editingGroup, setEditingGroup] = useState(null);
+  const [editingOption, setEditingOption] = useState(null);
+  const [showProductMap, setShowProductMap] = useState(false);
+  const [error, setError] = useState('');
+
+  const load = async () => {
+    try {
+      const [modData, catData] = await Promise.all([
+        fetch('/api/modifiers').then(r => r.json()),
+        fetch('/api/catalog').then(r => r.json()),
+      ]);
+      if (modData) { setGroups(modData.groups || []); setProductMods(modData.productModifiers || {}); }
+      if (catData) setProducts(catData.products || []);
+    } catch {}
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
+
+  const save = async () => {
+    setSaving(true); setError('');
+    try {
+      const r = await fetch('/api/modifiers', {
+        method: 'PUT',
+        body: JSON.stringify({ groups, productModifiers: productMods }),
+      });
+      const data = await r.json();
+      if (data.warnings) {
+        setError(data.warnings.join('\n'));
+      } else if (data.ok) {
+        await load();
+      } else {
+        setError(data.error || 'Error al guardar');
+      }
+    } catch { setError('Error de conexión'); }
+    setSaving(false);
+  };
+
+  const addGroup = () => {
+    const id = 'mg_' + Date.now();
+    setGroups(prev => [...prev, { id, name: 'Nuevo grupo', type: 'single', required: false, options: [] }]);
+    setEditingGroup(id);
+  };
+
+  const updateGroup = (id, key, val) => {
+    setGroups(prev => prev.map(g => g.id === id ? { ...g, [key]: val } : g));
+  };
+
+  const deleteGroup = (id) => {
+    setGroups(prev => prev.filter(g => g.id !== id));
+    const next = { ...productMods };
+    for (const pid of Object.keys(next)) {
+      next[pid] = next[pid].filter(gid => gid !== id);
+    }
+    setProductMods(next);
+  };
+
+  const addOption = (groupId) => {
+    const id = 'mo_' + Date.now() + '_' + Math.random().toString(36).slice(2, 4);
+    setGroups(prev => prev.map(g => {
+      if (g.id !== groupId) return g;
+      return { ...g, options: [...(g.options || []), { id, name: 'Nueva opción', priceDelta: 0, isDefault: false, stockDeduct: false, stockArticleId: '', stockQuantity: 0, sortOrder: (g.options?.length || 0) }] };
+    }));
+  };
+
+  const updateOption = (groupId, optId, key, val) => {
+    setGroups(prev => prev.map(g => {
+      if (g.id !== groupId) return g;
+      return { ...g, options: g.options.map(o => o.id === optId ? { ...o, [key]: val } : o) };
+    }));
+  };
+
+  const deleteOption = (groupId, optId) => {
+    setGroups(prev => prev.map(g => {
+      if (g.id !== groupId) return g;
+      return { ...g, options: g.options.filter(o => o.id !== optId) };
+    }));
+  };
+
+  const toggleProductMod = (productId, groupId) => {
+    setProductMods(prev => {
+      const next = { ...prev };
+      const list = [...(next[productId] || [])];
+      const idx = list.indexOf(groupId);
+      if (idx >= 0) list.splice(idx, 1); else list.push(groupId);
+      next[productId] = list;
+      return next;
+    });
+  };
+
+  if (loading) {
+    return <div className="text-center py-8"><Loader2 className="w-5 h-5 animate-spin mx-auto" style={{ color: C.brassLight }} /></div>;
+  }
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm" style={{ color: C.muted }}>Los modificadores se gestionan desde el panel de modificadores.</p>
-        <button
-          onClick={() => window.location.href = '/?view=modifiers'}
-          style={{ background: C.brass, color: C.base }}
-          className="rounded-lg px-3 py-1.5 text-xs font-medium"
-        >
-          Ir a modificadores
+        <p className="text-xs" style={{ color: C.muted }}>{groups.length} grupo{groups.length !== 1 ? 's' : ''} de modificadores</p>
+        <div className="flex gap-2">
+          <button onClick={() => setShowProductMap(!showProductMap)}
+            style={{ background: C.surfaceLight, color: C.muted }}
+            className="px-3 py-1.5 rounded-lg text-xs hover:opacity-80">
+            {showProductMap ? 'Ocultar asignaciones' : 'Asignar a platos'}
+          </button>
+          <button onClick={addGroup}
+            style={{ background: C.brass, color: C.base }}
+            className="px-3 py-1.5 rounded-lg text-xs font-bold hover:opacity-80">
+            <Plus className="w-3.5 h-3.5 inline mr-1" />Nuevo grupo
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div style={{ background: C.wine + '30', border: `1px solid ${C.wineLight}` }} className="rounded-lg p-3 whitespace-pre-wrap text-xs">
+          {error}
+        </div>
+      )}
+
+      {/* Grupo list */}
+      <div className="space-y-3">
+        {groups.map(g => (
+          <div key={g.id} style={{ border: `1px solid ${C.line}`, background: C.surface }} className="rounded-xl overflow-hidden">
+            {/* Group header */}
+            <div className="flex items-center gap-2 px-3 py-2" style={{ background: C.surfaceLight }}>
+              <input value={g.name} onChange={e => updateGroup(g.id, 'name', e.target.value)}
+                style={{ background: 'transparent', color: C.cream, fontWeight: 600 }}
+                className="text-sm flex-1 border-0 outline-none" />
+              <select value={g.type} onChange={e => updateGroup(g.id, 'type', e.target.value)}
+                style={{ background: C.surface, color: C.cream, border: `1px solid ${C.line}` }}
+                className="rounded-lg px-2 py-1 text-xs">
+                <option value="single">Única</option>
+                <option value="multiple">Múltiple</option>
+              </select>
+              <Toggle value={g.required} onChange={v => updateGroup(g.id, 'required', v)} label="Obligatorio" color={C.brassLight} />
+              <button onClick={() => deleteGroup(g.id)} style={{ color: C.wineLight }} className="p-1 hover:opacity-80">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Options */}
+            <div className="p-3 space-y-2">
+              {(g.options || []).map(o => (
+                <div key={o.id} style={{ background: C.surfaceLight }} className="rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <input value={o.name} onChange={e => updateOption(g.id, o.id, 'name', e.target.value)}
+                      style={{ background: C.surface, color: C.cream, border: `1px solid ${C.line}`, flex: 1 }}
+                      className="rounded-lg px-2 py-1 text-xs" />
+                    <input type="number" step="0.5" value={o.priceDelta || 0}
+                      onChange={e => updateOption(g.id, o.id, 'priceDelta', Number(e.target.value))}
+                      style={{ background: C.surface, color: C.cream, border: `1px solid ${C.line}`, width: 70 }}
+                      className="rounded-lg px-2 py-1 text-xs font-mono text-right" />
+                    <Toggle value={o.isDefault} onChange={v => updateOption(g.id, o.id, 'isDefault', v)} label="Por defecto" color={C.sageLight} />
+                    <button onClick={() => deleteOption(g.id, o.id)} style={{ color: C.wineLight }} className="p-1 hover:opacity-80">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+
+                  {/* Stock deduction */}
+                  <div className="flex items-center gap-2">
+                    <Toggle value={!!o.stockDeduct} onChange={v => {
+                      updateOption(g.id, o.id, 'stockDeduct', v);
+                    }} label="Descuenta inventario" color={C.sageLight} />
+                    {o.stockDeduct && (
+                      <>
+                        <select value={o.stockArticleId || ''}
+                          onChange={e => updateOption(g.id, o.id, 'stockArticleId', e.target.value)}
+                          style={{ background: C.surface, color: C.cream, border: `1px solid ${C.line}`, flex: 1 }}
+                          className="rounded-lg px-2 py-1 text-xs">
+                          <option value="">Seleccionar artículo...</option>
+                          {products.filter(p => p.inventariable || p.type === 'raw_material').map(p => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                        <input type="number" step="0.1" value={o.stockQuantity || 0}
+                          onChange={e => updateOption(g.id, o.id, 'stockQuantity', Number(e.target.value))}
+                          placeholder="Cant."
+                          style={{ background: C.surface, color: C.cream, border: `1px solid ${C.line}`, width: 60 }}
+                          className="rounded-lg px-2 py-1 text-xs font-mono text-right" />
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <button onClick={() => addOption(g.id)}
+                style={{ color: C.sageLight }}
+                className="text-xs flex items-center gap-1 hover:opacity-80">
+                <Plus className="w-3 h-3" /> Añadir opción
+              </button>
+            </div>
+
+            {/* Product assignments (inline) */}
+            <details className="px-3 pb-2">
+              <summary className="text-[10px] cursor-pointer" style={{ color: C.muted }}>Platos asignados ({Object.entries(productMods).filter(([, v]) => v.includes(g.id)).length})</summary>
+              <div className="flex flex-wrap gap-1 mt-1 max-h-32 overflow-y-auto">
+                {products.filter(p => (productMods[p.id] || []).includes(g.id)).map(p => (
+                  <span key={p.id} style={{ background: C.surfaceLight }} className="text-[10px] px-2 py-0.5 rounded-full">{p.name}</span>
+                ))}
+                {products.filter(p => !(productMods[p.id] || []).includes(g.id)).length > 0 && (
+                  <button onClick={() => setShowProductMap(true)} className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: C.sageLight }}>+ Asignar</button>
+                )}
+              </div>
+            </details>
+          </div>
+        ))}
+      </div>
+
+      {/* Save + Discard */}
+      <div className="flex gap-2">
+        <button onClick={save} disabled={saving}
+          style={{ background: C.brass, color: C.base, opacity: saving ? 0.5 : 1 }}
+          className="flex-1 rounded-lg py-2.5 text-sm font-bold hover:opacity-80">
+          {saving ? 'Guardando...' : 'Guardar modificadores'}
+        </button>
+        <button onClick={load}
+          style={{ background: C.surfaceLight, color: C.muted }}
+          className="rounded-lg px-4 py-2.5 text-sm hover:opacity-80">
+          Descartar cambios
         </button>
       </div>
+
+      {/* Product assignment modal */}
+      {showProductMap && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center no-print">
+          <div onClick={() => setShowProductMap(false)} className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.6)' }} />
+          <div style={{ background: C.surface, border: `1px solid ${C.line}`, maxWidth: 500, width: '90%', maxHeight: '80vh' }} className="relative rounded-xl p-5 fade-up overflow-y-auto">
+            <h3 className="font-display text-base mb-3" style={{ color: C.brassLight }}>Asignar grupos a platos</h3>
+            <div className="space-y-1">
+              {groups.map(g => (
+                <div key={g.id} className="mb-3">
+                  <p className="text-xs font-bold mb-1" style={{ color: C.cream }}>{g.name}</p>
+                  <div className="flex flex-wrap gap-1">
+                    {products.filter(p => p.active !== false).map(p => {
+                      const assigned = (productMods[p.id] || []).includes(g.id);
+                      return (
+                        <button key={p.id} onClick={() => toggleProductMod(p.id, g.id)}
+                          style={{
+                            background: assigned ? C.brass + '30' : C.surfaceLight,
+                            color: assigned ? C.brassLight : C.muted,
+                            border: assigned ? `1px solid ${C.brassLight}` : `1px solid ${C.line}`,
+                          }}
+                          className="text-[10px] px-2 py-1 rounded-lg hover:opacity-80">
+                          {p.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => setShowProductMap(false)}
+              style={{ background: C.brass, color: C.base }}
+              className="w-full rounded-lg py-2.5 text-sm font-bold mt-3 hover:opacity-80">Cerrar</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

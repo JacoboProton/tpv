@@ -18,7 +18,7 @@ export default function PaymentModal({
   finalTotal, orderDiscount, tipAmount, setTipAmount, tipMethod, setTipMethod,
   paymentSplits, remaining, canConfirm,
   onAddSplit, onUpdateSplitAmount, onRemoveSplit, onToggleSplitItem,
-  onConfirm, onCancel,
+  onConfirm, onStripeSuccess, onCancel,
   onPrint,
   showToast,
   orderItems,
@@ -37,7 +37,11 @@ export default function PaymentModal({
   function handleStripeSuccess(paymentIntent) {
     setStripeOpen(false);
     showToast(`Pago confirmado · ${paymentIntent.id.slice(-6).toUpperCase()}`);
-    onConfirm();
+    if (onStripeSuccess) {
+      onStripeSuccess(paymentIntent);
+    } else {
+      onConfirm();
+    }
   }
 
   function toggleItem(splitId, itemId) {

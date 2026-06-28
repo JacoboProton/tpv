@@ -7,7 +7,8 @@ export async function GET() {
       SELECT id, name, type, required FROM modifier_groups ORDER BY name
     `;
     const options = await sql`
-      SELECT id, group_id, name, price_delta::float, is_default, sort_order
+      SELECT id, group_id, name, price_delta::float, is_default, sort_order,
+        stock_deduct, stock_article_id, stock_quantity::float
       FROM modifier_options ORDER BY sort_order, name
     `;
     const associations = await sql`
@@ -15,7 +16,11 @@ export async function GET() {
     `;
     const data = groups.map(g => ({
       ...g,
-      options: options.filter(o => o.group_id === g.id).map(o => ({ ...o, is_default: !!o.is_default })),
+      options: options.filter(o => o.group_id === g.id).map(o => ({
+        ...o,
+        is_default: !!o.is_default,
+        stock_deduct: !!o.stock_deduct,
+      })),
     }));
     const byProduct = {};
     for (const a of associations) {
@@ -32,6 +37,21 @@ export async function PUT(req) {
   try {
     const { groups, productModifiers } = await req.json();
 
+    // Validate: check incomplete stock_deduct configs
+    const warnings = [];
+    for (const g of groups) {
+      if (g.options) {
+        for (const o of g.options) {
+          if (o.stockDeduct && (!o.stockArticleId || !o.stockQuantity)) {
+            warnings.push(`"${g.name} → ${o.name}": activaste "Descuenta inventario" pero falta el artículo o la cantidad`);
+          }
+        }
+      }
+    }
+    if (warnings.length > 0) {
+      return NextResponse.json({ ok: false, warnings }, { status: 400 });
+    }
+
     await sql`DELETE FROM modifier_options`;
     await sql`DELETE FROM product_modifiers`;
     await sql`DELETE FROM modifier_groups`;
@@ -45,8 +65,9 @@ export async function PUT(req) {
         for (let i = 0; i < g.options.length; i++) {
           const o = g.options[i];
           await sql`
-            INSERT INTO modifier_options (id, group_id, name, price_delta, is_default, sort_order)
-            VALUES (${o.id}, ${g.id}, ${o.name}, ${o.priceDelta || 0}, ${o.isDefault || false}, ${i})
+            INSERT INTO modifier_options (id, group_id, name, price_delta, is_default, sort_order, stock_deduct, stock_article_id, stock_quantity)
+            VALUES (${o.id}, ${g.id}, ${o.name}, ${o.priceDelta || 0}, ${o.isDefault || false}, ${i},
+              ${!!o.stockDeduct}, ${o.stockArticleId || ''}, ${o.stockQuantity || 0})
           `;
         }
       }
