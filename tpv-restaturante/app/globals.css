@@ -123,5 +123,5 @@ input[type=number]::-webkit-inner-spin-button { opacity:1; }
 }
 
 /* Tema claro */
-.light .bg-base { background: #f4efe6 !important; }
-.light .text-cream { color: #2c2822 !important; }
+.light .bg-base { background: #faf7f0 !important; }
+.light .text-cream { color: #3a3630 !important; }
