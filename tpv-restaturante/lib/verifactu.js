@@ -8,7 +8,7 @@
  */
 import { createHash } from 'crypto';
 
-const NIF_EMISOR    = 'B12345678';
+const NIF_EMISOR    = process.env.FISKALY_TAXPAYER_NIF || 'B12345678';
 const QR_BASE       = 'https://prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQR';
 
 // Tipo de IGIC general aplicable en Canarias

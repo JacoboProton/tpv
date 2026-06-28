@@ -53,13 +53,13 @@ export default function VerifactuPanel({ colors: C, sales = [] }) {
       try {
         const res = await verifyVerifactuChain(reg.sale_id);
         results[reg.sale_id] = res;
-      } catch {
-        results[reg.sale_id] = { valid: false, details: { error: 'Error de red' } };
+      } catch (err) {
+        results[reg.sale_id] = { valid: false, details: { error: err.message || 'Error de red' } };
       }
     }
     setVerResults(results);
     setVerifying(false);
-    const allValid = Object.values(results).every(r => r.valid);
+    const allValid = Object.values(results).every(r => r && r.valid);
     showToast(allValid ? '✓ Cadena de huellas válida' : '⚠ Se encontraron inconsistencias en la cadena');
   }
 
@@ -87,7 +87,7 @@ export default function VerifactuPanel({ colors: C, sales = [] }) {
   const lastHashPreview = lastHash !== '—' ? lastHash.slice(0, 16) + '...' : '—';
 
   const chainOk = Object.keys(verResults).length > 0
-    ? Object.values(verResults).every(r => r.valid)
+    ? Object.values(verResults).every(r => r && r.valid)
     : null;
 
   return (

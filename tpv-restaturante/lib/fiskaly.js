@@ -46,6 +46,7 @@ async function fiskalyFetch(path, options = {}) {
   });
   if (!res.ok) {
     const err = await res.text();
+    console.error(`Fiskaly error ${res.status} on ${path}:`, err);
     throw new Error(`Fiskaly error ${res.status} on ${path}: ${err}`);
   }
   return res.json();
@@ -171,7 +172,7 @@ export async function registerSaleInFiskaly(sale, numSerie) {
   if (totalAmount <= 0) {
     throw new Error('Importe total inválido');
   }
-  const items = (sale.items || [])
+  let items = (sale.items || [])
     .filter(i => i.productId)
     .map(item => {
       const qty = Number(item.qty) || 1;
@@ -189,6 +190,21 @@ export async function registerSaleInFiskaly(sale, numSerie) {
         },
       };
     });
+
+  // Si no hay items, crear un item genérico con el total
+  if (items.length === 0) {
+    const base = totalAmount / 1.07;
+    items = [{
+      description: descripcion,
+      quantity: 1,
+      unit_amount: Number(totalAmount.toFixed(2)),
+      full_amount: Number(totalAmount.toFixed(2)),
+      vat_category: {
+        rate: 7.0,
+        amount: Number((totalAmount - base).toFixed(2)),
+      },
+    }];
+  }
 
   const d = new Date(sale.closedAt ?? Date.now());
   const numStr = numSerie || String(Date.now()).slice(-6);
