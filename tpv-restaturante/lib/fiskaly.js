@@ -191,21 +191,6 @@ export async function registerSaleInFiskaly(sale, numSerie) {
       };
     });
 
-  // Si no hay items, crear un item genérico con el total
-  if (items.length === 0) {
-    const base = totalAmount / 1.07;
-    items = [{
-      description: descripcion,
-      quantity: 1,
-      unit_amount: Number(totalAmount.toFixed(2)),
-      full_amount: Number(totalAmount.toFixed(2)),
-      vat_category: {
-        rate: 7.0,
-        amount: Number((totalAmount - base).toFixed(2)),
-      },
-    }];
-  }
-
   const d = new Date(sale.closedAt ?? Date.now());
   const numStr = numSerie || String(Date.now()).slice(-6);
   const descripcion = sale.tableName
