@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   LayoutGrid, ChefHat, Package, BarChart3, AlertTriangle,
   LogOut, Users, ShieldCheck, Sun, Moon, ClipboardList, WifiOff, Printer, Settings, Percent, Truck, Euro, Star, Undo2, FileText, Monitor, Calendar, Bell, Clock, Loader2,
+  Power,
 } from 'lucide-react';
 
 import { THEMES, seedCatalog, seedFloor, seedEmployees, euros, round2, clone } from '../components/constants';
@@ -1902,6 +1903,7 @@ export default function App() {
             </span>
             <button onClick={() => setMenuMode('menu')} title="Menu" style={{ color: C.muted }} className="p-2 rounded-lg hover:opacity-80"><LayoutGrid className="w-4 h-4" /></button>
             <button onClick={logout} title="Cerrar sesion" style={{ color: C.muted }} className="p-2 rounded-lg hover:opacity-80"><LogOut className="w-4 h-4" /></button>
+            <button onClick={() => { window.close(); setTimeout(() => showToast('Instala la app (icono 📲 en la barra) para cerrar automáticamente'), 300); }} title="Salir" style={{ color: C.muted }} className="p-2 rounded-lg hover:opacity-80"><Power className="w-4 h-4" /></button>
           </div>
         </nav>
       </header>
