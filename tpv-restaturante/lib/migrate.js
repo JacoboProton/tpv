@@ -1,4 +1,5 @@
 import { sql } from './db';
+import { formatHora } from './verifactu';
 
 export async function runMigrations() {
   await sql`CREATE TABLE IF NOT EXISTS categories (id SERIAL PRIMARY KEY, name TEXT NOT NULL UNIQUE)`;
@@ -141,6 +142,18 @@ export async function runMigrations() {
   // Es imprescindible persistirla para poder verificar la cadena, ya que recalcularla
   // a partir de closed_at da un valor distinto (la firma ocurre después del cierre).
   await sql`ALTER TABLE verifactu_registros ADD COLUMN IF NOT EXISTS fecha_hora_firma TEXT`;
+
+  // Backfill registros viejos sin fecha_hora_firma
+  const sinFirma = await sql`
+    SELECT id, fecha_expedicion, created_at FROM verifactu_registros WHERE fecha_hora_firma IS NULL
+  `;
+  for (const r of sinFirma) {
+    const fechaHoraFirma = `${r.fecha_expedicion}T${formatHora(Number(r.created_at))}`;
+    await sql`UPDATE verifactu_registros SET fecha_hora_firma = ${fechaHoraFirma} WHERE id = ${r.id}`;
+  }
+  if (sinFirma.length > 0) {
+    console.log(`Backfilled fecha_hora_firma for ${sinFirma.length} records`);
+  }
 
   await sql`
     CREATE TABLE IF NOT EXISTS fiskaly_config (
