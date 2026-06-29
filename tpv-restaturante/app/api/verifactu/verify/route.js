@@ -60,6 +60,19 @@ export async function POST(req) {
     const expectedHash = computeHash(registroData);
     const isValid = expectedHash === r.huella;
 
+    console.log('[Verifactu Verify]', {
+      saleId: r.sale_id,
+      numSerie: r.num_serie,
+      fechaExpedicion,
+      fechaHoraFirma,
+      cuotaTotal: Number(r.cuota_iva),
+      importeTotal: Number(r.importe_total),
+      huellaAnterior: r.huella_anterior,
+      expectedHash,
+      actualHash: r.huella,
+      isValid,
+    });
+
     return NextResponse.json({
       saleId: r.sale_id,
       numSerie: r.num_serie,
