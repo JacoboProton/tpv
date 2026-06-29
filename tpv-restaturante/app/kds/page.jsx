@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Monitor, Clock } from 'lucide-react';
 import KDSView from '../../components/KDSView';
-import { connectSocket, emitFloorUpdate } from '../../lib/socket';
+import { connectRealtime, broadcastFloorUpdate, disconnectRealtime } from '../../lib/realtime';
 
 const KTC = { base: '#1a1d23', surface: '#252830', surfaceLight: '#30343e', accent: '#c4a04a', cream: '#e6e1d6', muted: '#9c958a' };
 
@@ -13,11 +13,13 @@ export default function KDSPage() {
   const [catalog, setCatalog] = useState(null);
 
   useEffect(() => {
-    const s = connectSocket();
-    s?.on('floor:updated', (data) => {
-      setFloor(data);
-    });
-    return () => { s?.off('floor:updated'); };
+    const ch = connectRealtime();
+    if (ch) {
+      ch.on('broadcast', { event: 'floor:updated' }, ({ payload }) => {
+        setFloor(payload.floor);
+      });
+    }
+    return () => { disconnectRealtime(); };
   }, []);
 
   useEffect(() => {
@@ -96,7 +98,7 @@ export default function KDSPage() {
   async function persist(flr) {
     try {
       await fetch('/api/floor', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(flr) });
-      emitFloorUpdate(flr);
+      broadcastFloorUpdate(flr);
     } catch {}
   }
 }

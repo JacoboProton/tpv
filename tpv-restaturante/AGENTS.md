@@ -10,7 +10,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 - **Next.js 16** (App Router, Turbopak, `"use client"` only on `app/page.jsx`)
 - **React 19**, Tailwind 4 (`@import "tailwindcss"`, no `tailwind.config`), Lucide icons
-- **PostgreSQL** via `@neondatabase/serverless` (raw SQL template strings, no ORM)
+- **PostgreSQL** via `postgres.js` (raw SQL template strings, no ORM)
+- **Supabase Realtime** (Broadcast) para sincronización KDS/POS en tiempo real
 - **Vitest 4** with jsdom, path alias `@/`
 - **ESC/POS** thermal printing with WebUSB
 
@@ -32,7 +33,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ## Commands
 
 ```bash
-npm run dev          # Custom server with Socket.IO (port 3000)
+npm run dev          # next dev (port 3000)
 npm run build        # Production build
 npm run lint         # ESLint 9 flat config
 npm run test         # Vitest (jsdom)
@@ -60,13 +61,14 @@ Test: `npx vitest run __tests__/constants.test.js`
 - Modals (Settings, clock-in, etc.) need explicit `max-h-[85vh] overflow-y-auto` on the inner card to scroll.
 - Tab content areas in views like `GestoriaView` rely on the main container scroll — don't need their own.
 
-## WebSocket (Socket.IO)
+## Realtime (Supabase Realtime)
 
-- `server.js` wraps Next.js with Socket.IO. Run via `npm run dev` / `npm run start`.
-- `lib/socket.js` provides: `connectSocket()`, `getSocket()`, `emitFloorUpdate(floor)`.
-- Every `persistFloor()` call emits `floor:updated` via socket.
-- KDS (`app/kds/page.jsx`) and POS (`app/page.jsx`) both listen for `floor:updated` to sync state in real time across tabs/devices.
-- KDS also emits `emitFloorUpdate()` on persist so changes flow back to POS.
+- `server.js` is a plain Next.js custom server (no Socket.IO).
+- `lib/realtime.js` provides: `connectRealtime()`, `broadcastFloorUpdate(floor)`, `disconnectRealtime()`.
+- Uses Supabase Realtime **Broadcast** — no depende de la base de datos.
+- Cada `persistFloor()` llama a `broadcastFloorUpdate()`.
+- KDS (`app/kds/page.jsx`) y POS (`app/page.jsx`) escuchan el evento `floor:updated` y sincronizan el estado.
+- Requiere `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` en el entorno.
 
 ## Testing quirks
 
@@ -92,3 +94,4 @@ See `.env.example` / README. Key: `TPV_API_KEY` and `NEXT_PUBLIC_TPV_API_KEY` mu
 - Fiskaly/Stripe no están configurados en `docker-compose.yml` — añadir como `environment:` si se necesitan.
 - `output: 'standalone'` en `next.config.ts` — necesario para el multi-stage build.
 - `server.js` escucha en `0.0.0.0:3000` (variable `HOST`).
+- Para Realtime en Docker necesitas añadir `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` al servicio `app` en `docker-compose.yml`.
