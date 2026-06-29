@@ -32,7 +32,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ## Commands
 
 ```bash
-npm run dev          # Next.js dev (port 3000)
+npm run dev          # Custom server with Socket.IO (port 3000)
 npm run build        # Production build
 npm run lint         # ESLint 9 flat config
 npm run test         # Vitest (jsdom)
@@ -60,11 +60,19 @@ Test: `npx vitest run __tests__/constants.test.js`
 - Modals (Settings, clock-in, etc.) need explicit `max-h-[85vh] overflow-y-auto` on the inner card to scroll.
 - Tab content areas in views like `GestoriaView` rely on the main container scroll — don't need their own.
 
+## WebSocket (Socket.IO)
+
+- `server.js` wraps Next.js with Socket.IO. Run via `npm run dev` / `npm run start`.
+- `lib/socket.js` provides: `connectSocket()`, `getSocket()`, `emitFloorUpdate(floor)`.
+- Every `persistFloor()` call emits `floor:updated` via socket.
+- KDS (`app/kds/page.jsx`) and POS (`app/page.jsx`) both listen for `floor:updated` to sync state in real time across tabs/devices.
+- KDS also emits `emitFloorUpdate()` on persist so changes flow back to POS.
+
 ## Testing quirks
 
 - Tests use **Vitest** (not Jest), run via `npm run test` or `npx vitest run`.
-- Only one test file exists: `__tests__/constants.test.js`. Covers `seedCatalog`, `seedFloor`, `seedEmployees`, `getDailyMenu`.
-- `getDailyMenu("happy_hour")` test is flaky — happy hour is now all-day, so `toBeUndefined()` at 8pm fails. This is a pre-existing issue.
+- 4 test files: `constants.test.js`, `offline.test.js`, `thermal-printer.test.js`, `verifactu.test.js` (86 tests total).
+- `getDailyMenu("happy_hour")` test may return happy hour instead of undefined — happy hour is all-day in test seed.
 
 ## Tailwind 4 notes
 
@@ -75,3 +83,12 @@ Test: `npx vitest run __tests__/constants.test.js`
 ## env vars
 
 See `.env.example` / README. Key: `TPV_API_KEY` and `NEXT_PUBLIC_TPV_API_KEY` must match for API auth. Missing `DATABASE_URL` throws at import time.
+
+## Docker (punto débil #2 resuelto)
+
+- `docker-compose up --build` levanta PostgreSQL 16 + app en puerto 3000.
+- `DATABASE_URL` apunta a `postgres://tpv:tpv_local_dev@postgres:5432/tpv_restaurant`.
+- Las migraciones se ejecutan automáticamente al arrancar.
+- Fiskaly/Stripe no están configurados en `docker-compose.yml` — añadir como `environment:` si se necesitan.
+- `output: 'standalone'` en `next.config.ts` — necesario para el multi-stage build.
+- `server.js` escucha en `0.0.0.0:3000` (variable `HOST`).

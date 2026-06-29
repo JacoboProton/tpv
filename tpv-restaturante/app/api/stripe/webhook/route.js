@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { sql } from '../../../../lib/db';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+function getStripe() {
+  if (!process.env.STRIPE_SECRET_KEY) return null;
+  return new Stripe(process.env.STRIPE_SECRET_KEY);
+}
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 export async function POST(req) {
@@ -17,6 +20,11 @@ export async function POST(req) {
 
     if (!sig) {
       return NextResponse.json({ error: 'Firma Stripe ausente' }, { status: 400 });
+    }
+
+    const stripe = getStripe();
+    if (!stripe) {
+      return NextResponse.json({ error: 'Stripe no configurado' }, { status: 500 });
     }
 
     let event;

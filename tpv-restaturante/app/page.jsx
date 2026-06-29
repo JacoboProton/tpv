@@ -20,6 +20,7 @@ import {
   fetchModifiers,
 } from '../lib/api';
 import { onNetworkChange, clearMutations, getMutations } from '../lib/offline';
+import { connectSocket, emitFloorUpdate, getSocket } from '../lib/socket';
 import { escposOpenDrawer, printESCPOS, isPrinterConnected } from '../lib/thermal-printer';
 import { fetchSettings, saveSettings, fetchOffers, saveOffers, fetchCombos, saveCombos, saveMealMenus, savePriceRules } from '../lib/api';
 import { ALLERGENS } from '../components/constants';
@@ -145,6 +146,11 @@ export default function App() {
 
   useEffect(() => {
     requestNotificationPermission();
+    const s = connectSocket();
+    s?.on('floor:updated', (data) => {
+      setFloor(data);
+    });
+    return () => { s?.off('floor:updated'); };
   }, []);
 
   useEffect(() => {
@@ -332,7 +338,7 @@ export default function App() {
   async function persistFloor(next) {
     setFloor(next);
     if (trainingMode) return;
-    try { await saveFloor(next); }
+    try { await saveFloor(next); emitFloorUpdate(next); }
     catch { showToast('No se ha podido guardar la sala'); }
   }
   const salesQueue = useRef([]);

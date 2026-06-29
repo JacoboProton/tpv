@@ -1,13 +1,21 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+function getStripe() {
+  if (!process.env.STRIPE_SECRET_KEY) return null;
+  return new Stripe(process.env.STRIPE_SECRET_KEY);
+}
 
 // POST /api/stripe/payment-intent
 // body: { amount: number (euros), tableId, tableName, employeeName }
 // Devuelve: { clientSecret }
 export async function POST(req) {
   try {
+    const stripe = getStripe();
+    if (!stripe) {
+      return NextResponse.json({ error: 'Stripe no configurado' }, { status: 500 });
+    }
+
     const { amount, tableId, tableName, employeeName } = await req.json();
 
     if (!amount || amount <= 0) {
