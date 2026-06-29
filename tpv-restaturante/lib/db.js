@@ -1,29 +1,20 @@
-import postgres from 'postgres';
-
-function createSql() {
-  if (!process.env.DATABASE_URL) {
-    throw new Error('DATABASE_URL no está definida en las variables de entorno');
-  }
-  return postgres(process.env.DATABASE_URL, {
-    max: 10,
-    idle_timeout: 30,
-    connect_timeout: 10,
-  });
-}
+import { neon } from '@neondatabase/serverless';
 
 let _sql;
 function getSql() {
-  if (!_sql) _sql = createSql();
+  if (_sql) return _sql;
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL no está definida en las variables de entorno');
+  }
+  _sql = neon(process.env.DATABASE_URL);
   return _sql;
 }
 
-function _call(strings, ...values) {
+function sql(strings, ...values) {
   return getSql()(strings, ...values);
 }
 
-_call.begin = async (fn) => getSql().begin(fn);
-_call.transaction = async (fn) => getSql().transaction(fn);
-_call.unsafe = (str, params) => getSql().unsafe(str, params);
-_call.end = async () => { if (_sql) await _sql.end(); };
+sql.transaction = (queries) => getSql().transaction(queries);
+sql.unsafe = (str, params) => getSql().unsafe(str, params);
 
-export const sql = _call;
+export { sql };
