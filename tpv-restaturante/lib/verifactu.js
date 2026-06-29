@@ -89,17 +89,17 @@ export function buildQRUrl(nif, numSerie, fecha, importe) {
  * @param {string} numSerie      - Número de serie asignado (ej: "VERI-2025-000001")
  * @returns {{ xml, hash, qrUrl, registroData }}
  */
-export function generateRegistroFactura(sale, previousHash, numSerie) {
+export function generateRegistroFactura(sale, previousHash, numSerie, overrides = {}) {
   const ts              = sale.closedAt ?? Date.now();
-  const fechaExpedicion = formatFecha(ts);
+  const fechaExpedicion = overrides.fechaExpedicion ?? formatFecha(ts);
   const hora            = formatHora(ts);
   const fechaHoraFirma  = `${fechaExpedicion}T${hora}`;
 
   // --- Cálculo IGIC (7% incluido en precio) ---
   // Precio total incluye IGIC → base = total / 1.07
-  const importeTotal  = Number((sale.totalWithTip ?? sale.total ?? 0).toFixed(2));
-  const baseImponible = Number((importeTotal / (1 + IGIC_RATE)).toFixed(2));
-  const cuotaIGIC     = Number((importeTotal - baseImponible).toFixed(2));
+  const importeTotal  = overrides.importeTotal ?? Number((sale.totalWithTip ?? sale.total ?? 0).toFixed(2));
+  const baseImponible = overrides.baseImponible ?? Number((importeTotal / (1 + IGIC_RATE)).toFixed(2));
+  const cuotaIGIC     = overrides.cuotaIGIC ?? Number((importeTotal - baseImponible).toFixed(2));
 
   const tipoFactura = 'F1'; // Factura normal
 

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../lib/db';
 import { registerSaleInFiskaly } from '../../../lib/fiskaly';
-import { generateRegistroFactura } from '../../../lib/verifactu';
+import { generateRegistroFactura, formatFecha } from '../../../lib/verifactu';
 
 export async function GET() {
   try {
@@ -43,7 +43,7 @@ export async function POST(req) {
     const importeTotal = Number((sale.total ?? sale.totalWithTip ?? 0).toFixed(2));
     const baseImponible = Number((importeTotal / 1.07).toFixed(2));
     const cuotaIva = Number((importeTotal - baseImponible).toFixed(2));
-    const fechaExpedicion = new Date(sale.closedAt ?? Date.now()).toISOString().slice(0, 10);
+    const fechaExpedicion = formatFecha(sale.closedAt ?? Date.now());
     const now = Date.now();
 
     let fiskalyInvoiceId = null;
@@ -65,13 +65,23 @@ export async function POST(req) {
       qrUrl = fiskalyResult.qrUrl;
       estado = 'registrado';
 
-      const localResult = generateRegistroFactura(sale, previousHash, numSerie);
+      const localResult = generateRegistroFactura(sale, previousHash, numSerie, {
+        importeTotal,
+        baseImponible,
+        cuotaIGIC: cuotaIva,
+        fechaExpedicion,
+      });
       hash = localResult.hash;
       xml = localResult.xml;
       if (!qrUrl) qrUrl = localResult.qrUrl;
     } catch (fkErr) {
       console.warn('Fiskaly fallback a simulación local:', fkErr.message);
-      const fallback = generateRegistroFactura(sale, previousHash, numSerie);
+      const fallback = generateRegistroFactura(sale, previousHash, numSerie, {
+        importeTotal,
+        baseImponible,
+        cuotaIGIC: cuotaIva,
+        fechaExpedicion,
+      });
       hash = fallback.hash;
       xml = fallback.xml;
       qrUrl = fallback.qrUrl;
