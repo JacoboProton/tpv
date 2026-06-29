@@ -137,6 +137,10 @@ export async function runMigrations() {
   `;
   await sql`ALTER TABLE verifactu_registros ADD COLUMN IF NOT EXISTS fiskaly_invoice_id TEXT`;
   await sql`ALTER TABLE verifactu_registros ADD COLUMN IF NOT EXISTS verification_url TEXT`;
+  // Fecha/hora exacta con la que se firmó el registro (entra en el hash SHA-256).
+  // Es imprescindible persistirla para poder verificar la cadena, ya que recalcularla
+  // a partir de closed_at da un valor distinto (la firma ocurre después del cierre).
+  await sql`ALTER TABLE verifactu_registros ADD COLUMN IF NOT EXISTS fecha_hora_firma TEXT`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS fiskaly_config (

@@ -135,7 +135,10 @@ export function generateRegistroFactura(sale, previousHash, numSerie, overrides 
 
   const qrUrl = buildQRUrl(NIF_EMISOR, numSerie, fechaExpedicion, importeTotal);
 
-  return { xml, hash, qrUrl, registroData };
+  // fechaHoraFirma se expone aparte para que los callers la persistan y la
+  // reutilicen al verificar (es uno de los 8 campos del hash y no se debe
+  // recalcular nunca).
+  return { xml, hash, qrUrl, registroData, fechaExpedicion, fechaHoraFirma };
 }
 
 // ---------- Constructor de XML ----------

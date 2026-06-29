@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../../lib/db';
 import { registerSaleInFiskaly } from '../../../../lib/fiskaly';
-import { generateRegistroFactura } from '../../../../lib/verifactu';
+import { generateRegistroFactura, formatFecha } from '../../../../lib/verifactu';
 
 export async function POST(req) {
   try {
@@ -35,9 +35,9 @@ export async function POST(req) {
         const baseImponible = Number((importeTotal / 1.07).toFixed(2));
         const cuotaIva = Number((importeTotal - baseImponible).toFixed(2));
         
-        // Manejar fecha correctamente
-        const closedAt = sale.closed_at ? new Date(Number(sale.closed_at)) : new Date();
-        const fechaExpedicion = closedAt.toISOString().slice(0, 10);
+        // Manejar fecha correctamente (huso horario local de Canarias)
+        const closedAt = sale.closed_at ? Number(sale.closed_at) : Date.now();
+        const fechaExpedicion = formatFecha(closedAt);
         const now = Date.now();
 
         // Intentar registrar en Fiskaly
@@ -47,6 +47,7 @@ export async function POST(req) {
         let estado = 'pendiente';
         let hash = '0';
         let xml = '';
+        let fechaHoraFirma = null;
 
         try {
           const fiskalyResult = await registerSaleInFiskaly(sale, numSerie);
@@ -68,6 +69,7 @@ export async function POST(req) {
           const localResult = generateRegistroFactura(saleForVerifactu, previousHash, numSerie);
           hash = localResult.hash;
           xml = localResult.xml;
+          fechaHoraFirma = localResult.fechaHoraFirma;
           if (!qrUrl) qrUrl = localResult.qrUrl;
         } catch (fkErr) {
           console.error(`Fiskaly fallback a simulación local para venta ${sale.id}:`, fkErr.message);
@@ -84,6 +86,7 @@ export async function POST(req) {
           const fallback = generateRegistroFactura(saleForVerifactu, previousHash, numSerie);
           hash = fallback.hash;
           xml = fallback.xml;
+          fechaHoraFirma = fallback.fechaHoraFirma;
           qrUrl = fallback.qrUrl;
           estado = 'simulado';
         }
@@ -93,12 +96,12 @@ export async function POST(req) {
           INSERT INTO verifactu_registros
             (sale_id, num_serie, fecha_expedicion, importe_total, base_imponible,
              cuota_iva, huella_anterior, huella, xml_registro, qr_url, estado, created_at,
-             fiskaly_invoice_id, verification_url)
+             fiskaly_invoice_id, verification_url, fecha_hora_firma)
           VALUES (
             ${sale.id}, ${numSerie}, ${fechaExpedicion},
             ${importeTotal}, ${baseImponible}, ${cuotaIva},
             ${previousHash}, ${hash}, ${xml}, ${qrUrl || ''}, ${estado}, ${now},
-            ${fiskalyInvoiceId}, ${verificationUrl}
+            ${fiskalyInvoiceId}, ${verificationUrl}, ${fechaHoraFirma}
           )
           RETURNING *
         `;

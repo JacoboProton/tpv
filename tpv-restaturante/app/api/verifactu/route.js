@@ -52,6 +52,7 @@ export async function POST(req) {
     let estado = 'pendiente';
     let hash = '0';
     let xml = '';
+    let fechaHoraFirma = null; // se persiste para poder verificar la cadena después
 
     const lastRows = await sql`
       SELECT huella FROM verifactu_registros ORDER BY id DESC LIMIT 1
@@ -73,6 +74,7 @@ export async function POST(req) {
       });
       hash = localResult.hash;
       xml = localResult.xml;
+      fechaHoraFirma = localResult.fechaHoraFirma;
       if (!qrUrl) qrUrl = localResult.qrUrl;
     } catch (fkErr) {
       console.warn('Fiskaly fallback a simulación local:', fkErr.message);
@@ -84,6 +86,7 @@ export async function POST(req) {
       });
       hash = fallback.hash;
       xml = fallback.xml;
+      fechaHoraFirma = fallback.fechaHoraFirma;
       qrUrl = fallback.qrUrl;
       estado = 'simulado';
     }
@@ -92,12 +95,12 @@ export async function POST(req) {
       INSERT INTO verifactu_registros
         (sale_id, num_serie, fecha_expedicion, importe_total, base_imponible,
          cuota_iva, huella_anterior, huella, xml_registro, qr_url, estado, created_at,
-         fiskaly_invoice_id, verification_url)
+         fiskaly_invoice_id, verification_url, fecha_hora_firma)
       VALUES (
         ${saleId}, ${numSerie}, ${fechaExpedicion},
         ${importeTotal}, ${baseImponible}, ${cuotaIva},
         ${previousHash}, ${hash}, ${xml}, ${qrUrl || ''}, ${estado}, ${now},
-        ${fiskalyInvoiceId}, ${verificationUrl}
+        ${fiskalyInvoiceId}, ${verificationUrl}, ${fechaHoraFirma}
       )
       RETURNING *
     `;
