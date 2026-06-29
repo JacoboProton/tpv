@@ -24,6 +24,17 @@ export async function POST(req) {
     // recalcular a partir de closed_at (la firma ocurre en un instante distinto
     // al cierre de la venta). Se persiste al crear/regenerar y aquí se lee tal cual.
     const fechaHoraFirma = r.fecha_hora_firma;
+    console.log('[Verifactu Verify]', {
+      saleId: r.sale_id,
+      numSerie: r.num_serie,
+      fechaExpedicion: r.fecha_expedicion,
+      fechaHoraFirma,
+      cuotaTotal: Number(r.cuota_iva),
+      importeTotal: Number(r.importe_total),
+      huellaAnterior: r.huella_anterior,
+      huella: r.huella,
+      estado: r.estado,
+    });
     if (!fechaHoraFirma) {
       // Registro previo al fix: no podemos recuperar la hora exacta de la firma.
       return NextResponse.json({
@@ -59,19 +70,6 @@ export async function POST(req) {
 
     const expectedHash = computeHash(registroData);
     const isValid = expectedHash === r.huella;
-
-    console.log('[Verifactu Verify]', {
-      saleId: r.sale_id,
-      numSerie: r.num_serie,
-      fechaExpedicion,
-      fechaHoraFirma,
-      cuotaTotal: Number(r.cuota_iva),
-      importeTotal: Number(r.importe_total),
-      huellaAnterior: r.huella_anterior,
-      expectedHash,
-      actualHash: r.huella,
-      isValid,
-    });
 
     return NextResponse.json({
       saleId: r.sale_id,
