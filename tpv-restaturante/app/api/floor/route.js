@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../lib/db';
 import { getTenantId } from '../../../lib/tenant';
+import { broadcastFloorUpdateServer } from '../../../lib/realtime';
 
 // GET /api/floor → { tables, orders, zones, background }
 export async function GET(req) {
@@ -110,6 +111,9 @@ export async function PUT(req) {
     if (queries.length > 0) {
       await sql.transaction(queries);
     }
+
+    const floor = { tables, orders, zones, background };
+    broadcastFloorUpdateServer(floor).catch(() => {});
 
     return NextResponse.json({ ok: true });
   } catch (err) {

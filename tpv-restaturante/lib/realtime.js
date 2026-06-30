@@ -42,6 +42,20 @@ export function onFloorUpdate(callback) {
   return () => { unsub?.(); };
 }
 
+export async function broadcastFloorUpdateServer(floor) {
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!url || !key) return;
+  const endpoint = url.replace('https://', 'wss://') + '/realtime/v1';
+  const c = new RealtimeClient(endpoint, { params: { apikey: key } });
+  const ch = c.channel('floor-sync');
+  ch.subscribe();
+  c.connect();
+  await new Promise(r => setTimeout(r, 500));
+  ch.send({ type: 'broadcast', event: 'floor:updated', payload: { floor } });
+  setTimeout(() => { ch.unsubscribe(); c.disconnect(); }, 1000);
+}
+
 export function disconnectRealtime() {
   if (channel) {
     channel.unsubscribe();

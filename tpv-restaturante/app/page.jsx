@@ -1775,23 +1775,36 @@ export default function App() {
   );
 
   if (!currentUser) {
+    const qrBlock = (
+      <div
+        style={{ position: 'fixed', bottom: 24, right: 24, background: '#fff', border: `3px solid ${C.brass}`, borderRadius: 16 }}
+        className="p-3 flex flex-col items-center gap-1 shadow-2xl z-50"
+      >
+        <img
+          src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent('https://tpv-sigma.vercel.app/descargar')}`}
+          alt="QR App Móvil"
+          className="w-40 h-40"
+        />
+        <span className="text-xs font-semibold" style={{ color: '#333' }}>Descargar App</span>
+      </div>
+    );
     if (menuMode === 'menu') return (
-      <MenuPrincipal
+      <><MenuPrincipal
         employees={employees}
         onLoginClick={() => { setEntryPoint('entrada'); setMenuMode('login'); }}
         onAlmacenClick={() => { setEntryPoint('almacen'); setMenuMode('login'); }}
         onCajaClick={() => { setEntryPoint('caja'); setMenuMode('login'); }}
         onConfigClick={() => { setEntryPoint('config'); setMenuMode('login'); }}
         colors={C}
-      />
+      />{qrBlock}</>
     );
     if (menuMode === 'login') return (
-      <LoginScreen
+      <><LoginScreen
         employees={employees} loginSelected={loginSelected} setLoginSelected={setLoginSelected}
         pinInput={pinInput} setPinInput={setPinInput}
         onDigit={pressDigit} onDelete={deleteDigit}
         onBack={() => setMenuMode('menu')} colors={C}
-      />
+      />{qrBlock}</>
     );
   }
 
