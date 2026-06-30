@@ -5,7 +5,6 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
     "scheme": "la-comanda",
     "ios": {
       "supportsTablet": false,
@@ -19,15 +18,16 @@
     },
     "plugins": [
       "expo-router",
-      "expo-asset"
+      "expo-asset",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "apiUrl": "http://192.168.1.100:3000",
-      "supabaseUrl": "",
-      "supabaseKey": ""
+      "apiUrl": "http://192.168.1.132:3000",
+      "supabaseUrl": "https://usrdtucgeogytnxyivoy.supabase.co",
+      "supabaseKey": "sb_publishable_yOlWsu92RrtMllJMcKyV_Q_Nr12lm5h"
     }
   }
 }

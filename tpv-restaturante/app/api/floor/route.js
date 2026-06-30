@@ -23,12 +23,14 @@ export async function GET(req) {
       orders[o.id] = o;
     }
 
-    const fp = floorPlanRows[0] || { zones: '[]', background: null };
+    const fp = floorPlanRows[0] || { zones: [], background: null };
+    const rawZones = fp.zones;
+    const zones = typeof rawZones === 'string' ? JSON.parse(rawZones || '[]') : (rawZones || []);
 
     return NextResponse.json({
       tables: tableRows,
       orders,
-      zones: JSON.parse(fp.zones || '[]'),
+      zones,
       background: fp.background,
     });
   } catch (err) {
@@ -94,9 +96,11 @@ export async function PUT(req) {
     }
 
     if (zones || background) {
+      const zonesVal = typeof zones === 'string' ? zones : JSON.stringify(zones || []);
+      const bgVal = typeof background === 'string' ? background : JSON.stringify(background ?? null);
       queries.push(sql`
         INSERT INTO floor_plan (id, zones, background)
-        VALUES (1, ${JSON.stringify(zones || [])}, ${JSON.stringify(background || null)})
+        VALUES (1, ${zonesVal}::jsonb, ${bgVal}::jsonb)
         ON CONFLICT (id) DO UPDATE SET
           zones      = EXCLUDED.zones,
           background = EXCLUDED.background

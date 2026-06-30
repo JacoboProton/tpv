@@ -41,8 +41,8 @@ export async function runMigrations() {
     'employees', 'tables', 'orders', 'products', 'categories', 'offers', 'combos',
   ];
   for (const table of coreTables) {
-    try { await sql.unsafe(`ALTER TABLE "${table}" ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'default'`); } catch (e) { console.warn('tenant_id skip:', table, e.message); }
-    try { await sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_${table}_tenant ON "${table}"(tenant_id)`); } catch {}
+    try { await sql`ALTER TABLE "${sql.unsafe(table)}" ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'default'`; } catch (e) { console.warn('tenant_id skip:', table, e.message); }
+    try { await sql`CREATE INDEX IF NOT EXISTS ${sql.unsafe('idx_' + table + '_tenant')} ON "${sql.unsafe(table)}"(tenant_id)`; } catch {}
   }
 
   await sql`CREATE TABLE IF NOT EXISTS categories (id SERIAL PRIMARY KEY, name TEXT NOT NULL UNIQUE)`;
@@ -73,13 +73,15 @@ export async function runMigrations() {
   await sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS show_qr BOOLEAN DEFAULT true`;
 
   await sql`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`;
-  for (const [k, v] of Object.entries({
-    restaurantName: 'LA COMANDA', logoUrl: '', footerText: 'Gracias por su visita', ticketWidth: '80mm',
-    personalDiscountRates: JSON.stringify({ 'Tapas': 50, 'Principales': 50, 'Postres': 50, 'Bebidas': 20 }),
-    drawerOpenPolicy: 'confirm',
-  })) {
-    await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
-  }
+  try {
+    for (const [k, v] of Object.entries({
+      restaurantName: 'LA COMANDA', logoUrl: '', footerText: 'Gracias por su visita', ticketWidth: '80mm',
+      personalDiscountRates: JSON.stringify({ 'Tapas': 50, 'Principales': 50, 'Postres': 50, 'Bebidas': 20 }),
+      drawerOpenPolicy: 'confirm',
+    })) {
+      await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
+    }
+  } catch (e) { console.warn('settings seed skip:', e.message); }
 
   await sql`
     CREATE TABLE IF NOT EXISTS offers (
@@ -91,9 +93,11 @@ export async function runMigrations() {
       active BOOLEAN NOT NULL DEFAULT true
     )
   `;
-  await sql`INSERT INTO offers (id, name, type, days, start_hour, end_hour, discount_pct, product_ids)
-    VALUES ('offer_menu', 'Menú del día (laborables)', 'menu', '{1,2,3,4,5}', 13, 16, 15, '{p12,p14}')
-    ON CONFLICT (id) DO NOTHING`;
+  try {
+    await sql`INSERT INTO offers (id, name, type, days, start_hour, end_hour, discount_pct, product_ids)
+      VALUES ('offer_menu', 'Menú del día (laborables)', 'menu', '{1,2,3,4,5}', 13, 16, 15, '{p12,p14}')
+      ON CONFLICT (id) DO NOTHING`;
+  } catch (e) { console.warn('offers seed skip:', e.message); }
 
   await sql`
     CREATE TABLE IF NOT EXISTS tables (
@@ -327,9 +331,11 @@ export async function runMigrations() {
     ubereatsStoreId: '',
     ubereatsWebhookSecret: '',
   };
-  for (const [k, v] of Object.entries(platformSettings)) {
-    await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
-  }
+  try {
+    for (const [k, v] of Object.entries(platformSettings)) {
+      await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
+    }
+  } catch (e) { console.warn('platform settings seed skip:', e.message); }
 
   await sql`
     CREATE TABLE IF NOT EXISTS delivery_tracking (
@@ -658,9 +664,11 @@ export async function runMigrations() {
     reservationGoogleReviewUrl: '',
     reservationGoogleReserve: 'false',
   };
-  for (const [k, v] of Object.entries(reservationKeys)) {
-    await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
-  }
+  try {
+    for (const [k, v] of Object.entries(reservationKeys)) {
+      await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
+    }
+  } catch (e) { console.warn('reservation settings seed skip:', e.message); }
 
   await sql`
     CREATE TABLE IF NOT EXISTS waitlist (
@@ -694,9 +702,11 @@ export async function runMigrations() {
     waitlistTwilioPhone: '',
     waitlistTwilioWhatsApp: '',
   };
-  for (const [k, v] of Object.entries(waitlistKeys)) {
-    await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
-  }
+  try {
+    for (const [k, v] of Object.entries(waitlistKeys)) {
+      await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
+    }
+  } catch (e) { console.warn('waitlist settings seed skip:', e.message); }
 
   await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'tpv'`;
 
@@ -735,9 +745,11 @@ export async function runMigrations() {
     qrThemeSecondary: '#1a1a1a',
     qrWelcomeMessage: '¡Bienvenido! Escanea los platos y añádelos a tu carrito.',
   };
-  for (const [k, v] of Object.entries(qrKeys)) {
-    await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
-  }
+  try {
+    for (const [k, v] of Object.entries(qrKeys)) {
+      await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
+    }
+  } catch (e) { console.warn('qr settings seed skip:', e.message); }
 
   await sql`
     CREATE TABLE IF NOT EXISTS delivery_zones (
@@ -816,9 +828,11 @@ export async function runMigrations() {
     ]),
     googleMapsApiKey: '',
   };
-  for (const [k, v] of Object.entries(onlineKeys)) {
-    await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
-  }
+  try {
+    for (const [k, v] of Object.entries(onlineKeys)) {
+      await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
+    }
+  } catch (e) { console.warn('online settings seed skip:', e.message); }
 
   await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS position TEXT DEFAULT ''`;
   await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS work_type TEXT DEFAULT ''`;
@@ -1079,9 +1093,11 @@ export async function runMigrations() {
     clockinLng: '',
     clockinRadius: '100',
   };
-  for (const [k, v] of Object.entries(clockinKeys)) {
-    await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
-  }
+  try {
+    for (const [k, v] of Object.entries(clockinKeys)) {
+      await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
+    }
+  } catch (e) { console.warn('clockin settings seed skip:', e.message); }
 
   // ===== ALBARANES (NOTAS DE ENTREGA) =====
   await sql`
@@ -1242,16 +1258,22 @@ export async function runMigrations() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_buffet_waste_session ON buffet_waste(session_id)`;
 
+  // Ensure tenant_id exists on all core tables (re-check for tables created after the ALTER loop above)
+  const postCreateTables = ['employees', 'tables', 'orders', 'products', 'categories', 'offers', 'combos', 'settings', 'meal_menu_courses', 'meal_menu_course_items', 'meal_menu_schedules'];
+  for (const table of postCreateTables) {
+    try { await sql`ALTER TABLE "${sql.unsafe(table)}" ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'default'`; } catch (e) { console.warn('tenant_id recheck:', table, e.message); }
+  }
+
   // Composite unique constraints for tables with non-standard PKs
-  try { await sql.unsafe(`ALTER TABLE settings DROP CONSTRAINT IF EXISTS settings_pkey`); } catch {}
-  try { await sql.unsafe(`ALTER TABLE settings ADD PRIMARY KEY (tenant_id, key)`); } catch (e) { console.warn('settings PK skip:', e.message); }
+  try { await sql`ALTER TABLE settings DROP CONSTRAINT IF EXISTS settings_pkey`; } catch {}
+  try { await sql`ALTER TABLE settings ADD PRIMARY KEY (tenant_id, key)`; } catch (e) { console.warn('settings PK skip:', e.message); }
 
   // Convert PKs to composite (tenant_id, id) for tables that use ON CONFLICT
   const compositePkTables = ['tables', 'orders', 'products', 'employees', 'offers', 'combos', 'categories'];
   for (const table of compositePkTables) {
     try {
-      await sql.unsafe(`ALTER TABLE "${table}" DROP CONSTRAINT IF EXISTS "${table}_pkey"`);
-      await sql.unsafe(`ALTER TABLE "${table}" ADD PRIMARY KEY (tenant_id, id)`);
+      await sql`ALTER TABLE "${sql.unsafe(table)}" DROP CONSTRAINT IF EXISTS ${sql.unsafe('"' + table + '_pkey"')}`;
+      await sql`ALTER TABLE "${sql.unsafe(table)}" ADD PRIMARY KEY (tenant_id, id)`;
     } catch (e) { console.warn('composite PK skip:', table, e.message); }
   }
 
