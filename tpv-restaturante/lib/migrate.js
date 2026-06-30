@@ -2,6 +2,49 @@ import { sql } from './db';
 import { formatHora } from './verifactu';
 
 export async function runMigrations() {
+  // ===== MULTI-TENANT =====
+  await sql`
+    CREATE TABLE IF NOT EXISTS tenants (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      slug TEXT NOT NULL UNIQUE,
+      logo_url TEXT DEFAULT '',
+      address TEXT DEFAULT '',
+      phone TEXT DEFAULT '',
+      email TEXT DEFAULT '',
+      nif TEXT DEFAULT '',
+      active BOOLEAN NOT NULL DEFAULT true,
+      config JSONB DEFAULT '{}',
+      created_at BIGINT NOT NULL
+    )
+  `;
+  // Seed default tenant
+  await sql`INSERT INTO tenants (id, name, slug, created_at) VALUES ('default', 'La Comanda', 'default', ${Date.now()})
+    ON CONFLICT (id) DO NOTHING`;
+
+  // Add tenant_id to all core tables (idempotent)
+  const coreTables = [
+    'products', 'categories', 'tables', 'orders', 'sales', 'employees',
+    'offers', 'combos', 'meal_menus', 'settings',
+    'delivery_orders', 'delivery_runners', 'delivery_zones',
+    'stock_log', 'cancelled_orders', 'employee_turns',
+    'access_logs', 'verifactu_registros',
+    'qr_orders', 'reservations', 'waitlist',
+    'purchase_orders', 'albaranes', 'suppliers',
+    'supplier_catalog', 'productions', 'recipes',
+    'buffet_sessions', 'buffet_config',
+    'clockin_logs', 'employee_shifts', 'modifier_groups',
+    'combo_slots', 'combo_slot_items', 'combo_items',
+    'product_price_rules', 'product_stock',
+    'purchase_order_lines', 'albaran_lines',
+    'production_ingredients', 'recipe_ingredients',
+    'employees', 'tables', 'orders', 'products', 'categories', 'offers', 'combos',
+  ];
+  for (const table of coreTables) {
+    try { await sql.unsafe(`ALTER TABLE "${table}" ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'default'`); } catch (e) { console.warn('tenant_id skip:', table, e.message); }
+    try { await sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_${table}_tenant ON "${table}"(tenant_id)`); } catch {}
+  }
+
   await sql`CREATE TABLE IF NOT EXISTS categories (id SERIAL PRIMARY KEY, name TEXT NOT NULL UNIQUE)`;
 
   await sql`
@@ -270,6 +313,23 @@ export async function runMigrations() {
     )
   `;
   await sql`ALTER TABLE delivery_orders ADD COLUMN IF NOT EXISTS items JSONB NOT NULL DEFAULT '[]'`;
+  await sql`ALTER TABLE delivery_orders ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'manual'`;
+  await sql`ALTER TABLE delivery_orders ADD COLUMN IF NOT EXISTS platform_order_id TEXT DEFAULT ''`;
+  await sql`ALTER TABLE delivery_orders ADD COLUMN IF NOT EXISTS platform_status TEXT DEFAULT ''`;
+
+  const platformSettings = {
+    glovoEnabled: 'false',
+    glovoApiKey: '',
+    glovoStoreId: '',
+    glovoWebhookSecret: '',
+    ubereatsEnabled: 'false',
+    ubereatsApiKey: '',
+    ubereatsStoreId: '',
+    ubereatsWebhookSecret: '',
+  };
+  for (const [k, v] of Object.entries(platformSettings)) {
+    await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
+  }
 
   await sql`
     CREATE TABLE IF NOT EXISTS delivery_tracking (
@@ -1181,6 +1241,19 @@ export async function runMigrations() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_buffet_waste_session ON buffet_waste(session_id)`;
+
+  // Composite unique constraints for tables with non-standard PKs
+  try { await sql.unsafe(`ALTER TABLE settings DROP CONSTRAINT IF EXISTS settings_pkey`); } catch {}
+  try { await sql.unsafe(`ALTER TABLE settings ADD PRIMARY KEY (tenant_id, key)`); } catch (e) { console.warn('settings PK skip:', e.message); }
+
+  // Convert PKs to composite (tenant_id, id) for tables that use ON CONFLICT
+  const compositePkTables = ['tables', 'orders', 'products', 'employees', 'offers', 'combos', 'categories'];
+  for (const table of compositePkTables) {
+    try {
+      await sql.unsafe(`ALTER TABLE "${table}" DROP CONSTRAINT IF EXISTS "${table}_pkey"`);
+      await sql.unsafe(`ALTER TABLE "${table}" ADD PRIMARY KEY (tenant_id, id)`);
+    } catch (e) { console.warn('composite PK skip:', table, e.message); }
+  }
 
   return { ok: true };
 }

@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../lib/db';
+import { getTenantId } from '../../../lib/tenant';
 
-export async function GET() {
+export async function GET(req) {
   try {
-    const rows = await sql`SELECT key, value FROM settings`;
+    const tenantId = getTenantId(req);
+    const rows = await sql`SELECT key, value FROM settings WHERE tenant_id = ${tenantId}`;
     const settings = {};
     for (const r of rows) settings[r.key] = r.value;
     return NextResponse.json(settings);
@@ -15,8 +17,13 @@ export async function GET() {
 export async function PUT(req) {
   try {
     const body = await req.json();
+    const tenantId = getTenantId(req);
     for (const [key, value] of Object.entries(body)) {
-      await sql`INSERT INTO settings (key, value) VALUES (${key}, ${String(value)}) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`;
+      await sql`
+        INSERT INTO settings (tenant_id, key, value)
+        VALUES (${tenantId}, ${key}, ${String(value)})
+        ON CONFLICT (tenant_id, key) DO UPDATE SET value = EXCLUDED.value
+      `;
     }
     return NextResponse.json({ ok: true });
   } catch (err) {

@@ -82,6 +82,21 @@ Test: `npx vitest run __tests__/constants.test.js`
 - Utility classes defined as `@utility name { ... }` (glass, scrollbar-hide, price-glow).
 - Key custom utilities: `scrollbar-hide` (for hiding scrollbars), `fade-up` (entry animation), `pulse-cuenta` (payment alert ring).
 
+## Public pages
+
+- `app/pedir/page.jsx` — Pedidos online (takeaway/delivery). Client-side, fetches `/api/catalog`, `/api/settings`, `/api/delivery-zones`. Dark theme from `qrThemePrimary`/`qrThemeSecondary` settings.
+- `app/reservar/page.jsx` — Reservas online públicas. 4-step flow: date + pax (calendar), slot selection, contact form, confirmation. Fetches `/api/reservations/availability?date=...&pax=...` for slots. POST to `/api/reservations` with `source: 'online'`.
+- `app/waitlist/page.jsx` — Lista de espera pública.
+- `app/qr/[tableId]/page.jsx` — Menú QR por mesa.
+
+## Online Reservations
+
+- `app/api/reservations/availability/route.js` — `GET /api/reservations/availability?date=YYYY-MM-DD&pax=N` returns `{ slots: [{time, available, paxRemaining}], isClosed, isBlocked, totalSeats, existingPax, availableSeats }`. Checks settings (schedule, closed days, blocked dates, interval, duration, max pax, online toggle), tables capacity, overlapping reservations, and past-time filtering.
+- `app/api/reservations/route.js` — Full CRUD (`GET`, `POST`, `DELETE`). Supports recurring reservations via `recurring=1` param. POST creates reservation with auto-assigned `res_` ID. Valid sources: `manual`, `online`, `qr`.
+- `components/ReservasView.jsx` — Admin view: calendar (month/week/day), availability checker, status flow (pendiente→confirmada→sentada→noshow/cancelada), deposit tracking, recurring reservation support.
+- `components/ReservaSettingsView.jsx` — Settings: schedule type (simple/advanced with shifts), closed days, blocked dates, interval, duration, max pax, auto-confirm, deposits, WhatsApp confirm/reminder, review request.
+- `lib/migrate.js:594-662` — `reservations` table, `reservation_recurring` table, 20+ reservation settings keys seeded.
+
 ## env vars
 
 See `.env.example` / README. Key: `TPV_API_KEY` and `NEXT_PUBLIC_TPV_API_KEY` must match for API auth. Missing `DATABASE_URL` throws at import time.

@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { Clock, Check, ChefHat, Utensils, Truck, Store, User, Phone, MapPin, Euro, Loader2, RefreshCw, Search, X, Zap } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { playKitchenAlert } from '../lib/sound';
+import { Clock, Check, ChefHat, Utensils, Truck, Store, User, Phone, MapPin, Euro, Loader2, RefreshCw, Search, X, Zap, Globe } from 'lucide-react';
 
 const STATUS_LABELS = {
-  pending:    { label: 'Recibido',     color: '#c4a04a', icon: Clock,    next: 'paid' },
+  pending:    { label: 'Recibido',     color: '#c4a04a', icon: Clock,    next: 'confirmed' },
   paid:       { label: 'Pagado',       color: '#6a9af8', icon: Check,    next: 'confirmed' },
   confirmed:  { label: 'Confirmado',   color: '#7a9a7c', icon: Check,    next: 'preparing' },
   preparing:  { label: 'Preparando',   color: '#c4a04a', icon: ChefHat,  next: 'ready' },
@@ -14,12 +15,27 @@ const STATUS_LABELS = {
   cancelled:  { label: 'Cancelado',    color: '#b05e5e', icon: X,        next: null },
 };
 
-const STATUS_FLOW = ['pending','paid','confirmed','preparing','ready','en_camino','delivered'];
+// Delivery orders use different status values
+const DELIVERY_STATUS_LABELS = {
+  pending:    { label: 'Recibido',      color: '#c4a04a', icon: Clock },
+  preparing:  { label: 'Preparando',    color: '#c4a04a', icon: ChefHat },
+  ready:      { label: 'Listo',         color: '#7a9a7c', icon: Utensils },
+  en_ruta:    { label: 'En Ruta',       color: '#6a9af8', icon: Truck },
+  delivered:  { label: 'Entregado',     color: '#7a9a7c', icon: Check },
+  cancelled:  { label: 'Cancelado',     color: '#b05e5e', icon: X },
+};
 
 const MODALITY_LABELS = {
-  dinein:    { label: 'Mesa',   color: '#c4a04a', icon: Store },
-  pickup:    { label: 'Recogida', color: '#6a9af8', icon: Store },
+  dinein:    { label: 'Mesa',      color: '#c4a04a', icon: Store },
+  pickup:    { label: 'Recogida',  color: '#6a9af8', icon: Store },
   delivery:  { label: 'Domicilio', color: '#7a9a7c', icon: Truck },
+};
+
+const SOURCE_LABELS = {
+  qr_mesa:   { label: 'QR Mesa',     color: '#6a9af8' },
+  qr_online: { label: 'Web',         color: '#7a9a7c' },
+  glovo:     { label: 'Glovo',       color: '#6ab04c' },
+  ubereats:  { label: 'UberEats',    color: '#5b9bd5' },
 };
 
 export default function OnlineOrdersView({ colors: C }) {
@@ -27,62 +43,72 @@ export default function OnlineOrdersView({ colors: C }) {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('open');
   const [searchTerm, setSearchTerm] = useState('');
+  const [tab, setTab] = useState('all');
+  const prevPendingRef = useRef(0);
 
-  useEffect(() => { loadOrders(); }, []);
+  useEffect(() => { loadOrders(); const iv = setInterval(loadOrders, 10000); return () => clearInterval(iv); }, []);
+
+  // Sound + notification for new platform orders
+  useEffect(() => {
+    const pending = orders.filter(o =>
+      o.type === 'platform' && o.orderStatus === 'pending'
+    ).length;
+    if (pending > prevPendingRef.current && prevPendingRef.current > 0 && pending > 0) {
+      playKitchenAlert();
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        new Notification('La Comanda — Nuevo pedido', {
+          body: `${pending - prevPendingRef.current} ${pending - prevPendingRef.current === 1 ? 'pedido recibido' : 'pedidos recibidos'} de plataforma`,
+          icon: '/icon-192.svg',
+        });
+      }
+    }
+    prevPendingRef.current = pending;
+  }, [orders]);
 
   async function loadOrders() {
-    setLoading(true);
     try {
-      const r = await fetch('/api/qr-order');
+      const r = await fetch('/api/delivery/combined-orders');
       if (r.ok) setOrders(await r.json());
     } catch {}
     setLoading(false);
   }
 
-  async function advanceStatus(order) {
-    const cfg = STATUS_LABELS[order.orderStatus];
-    if (!cfg?.next) return;
-    try {
-      await fetch('/api/qr-order', {
-        method: 'PUT',
-        body: JSON.stringify({ action: 'status', id: order.id, status: cfg.next }),
-      });
-      loadOrders();
-    } catch {}
-  }
-
-  async function acceptOrder(id) {
-    try {
-      await fetch('/api/qr-order', {
-        method: 'PUT',
-        body: JSON.stringify({ action: 'accept', id }),
-      });
-      loadOrders();
-    } catch {}
+  function getStatusCfg(order) {
+    if (order.type === 'platform') {
+      return DELIVERY_STATUS_LABELS[order.orderStatus] || { label: order.orderStatus, color: C.muted, icon: Clock };
+    }
+    return STATUS_LABELS[order.orderStatus] || { label: order.orderStatus, color: C.muted, icon: Clock };
   }
 
   const filtered = useMemo(() => {
     let list = orders;
-    if (filter === 'open') list = list.filter(o => !['delivered','cancelled'].includes(o.orderStatus) && o.orderStatus !== 'delivered' && o.orderStatus !== 'cancelled');
+    if (tab === 'qr') list = list.filter(o => o.type === 'qr');
+    else if (tab === 'platform') list = list.filter(o => o.type === 'platform');
+
+    if (filter === 'open') list = list.filter(o => !['delivered','cancelled'].includes(o.orderStatus));
     else if (filter === 'closed') list = list.filter(o => o.orderStatus === 'delivered');
     else if (filter === 'cancelled') list = list.filter(o => o.orderStatus === 'cancelled');
+
     if (searchTerm) {
       const q = searchTerm.toLowerCase();
-      list = list.filter(o => (o.customerName || '').toLowerCase().includes(q) || (o.customerPhone || '').includes(q) || o.id.includes(q));
+      list = list.filter(o =>
+        (o.customerName || '').toLowerCase().includes(q) ||
+        (o.customerPhone || '').includes(q) ||
+        o.id.includes(q)
+      );
     }
     return list;
-  }, [orders, filter, searchTerm]);
+  }, [orders, filter, searchTerm, tab]);
 
   const stats = useMemo(() => {
     const active = orders.filter(o => !['delivered','cancelled'].includes(o.orderStatus));
-    const received = orders.filter(o => o.orderStatus === 'pending');
-    const preparing = orders.filter(o => o.orderStatus === 'preparing');
-    const ready = orders.filter(o => o.orderStatus === 'ready');
-    const completed = orders.filter(o => o.orderStatus === 'delivered');
+    const received = active.filter(o => o.orderStatus === 'pending');
+    const preparing = active.filter(o => o.orderStatus === 'preparing' || o.orderStatus === 'confirmed');
+    const platformOrders = orders.filter(o => o.type === 'platform' && !['delivered','cancelled'].includes(o.orderStatus));
     const todayRevenue = orders
       .filter(o => o.createdAt > Date.now() - 86400000)
       .reduce((s, o) => s + Number(o.amount || 0) + Number(o.deliveryCost || 0), 0);
-    return { active: active.length, received: received.length, preparing: preparing.length, ready: ready.length, completed: completed.length, revenue: todayRevenue };
+    return { active: active.length, received: received.length, preparing: preparing.length, platform: platformOrders.length, revenue: todayRevenue };
   }, [orders]);
 
   function timeAgo(ts) {
@@ -113,7 +139,7 @@ export default function OnlineOrdersView({ colors: C }) {
           { label: 'Activos',     value: stats.active,     color: C.brassLight },
           { label: 'Recibidos',   value: stats.received,   color: C.brass },
           { label: 'Preparando',  value: stats.preparing,  color: C.brassLight },
-          { label: 'Listos',      value: stats.ready,      color: C.sage },
+          { label: 'Plataforma',  value: stats.platform,   color: '#6ab04c' },
           { label: 'Hoy',         value: `${stats.revenue.toFixed(0)} €`, color: C.cream },
         ].map(s => (
           <div key={s.label} className="p-2 rounded-lg text-center" style={{ background: C.surfaceLight }}>
@@ -123,15 +149,28 @@ export default function OnlineOrdersView({ colors: C }) {
         ))}
       </div>
 
-      {/* Filters */}
+      {/* Tabs: All / QR / Platform */}
       <div className="flex items-center gap-1 flex-wrap">
-        {[{ id: 'open', label: 'Abiertos' }, { id: 'closed', label: 'Cerrados' }, { id: 'cancelled', label: 'Cancelados' }].map(f => (
-          <button key={f.id} onClick={() => setFilter(f.id)}
+        {[
+          { id: 'all', label: 'Todos' },
+          { id: 'qr', label: 'QR / Web' },
+          { id: 'platform', label: 'Glovo / UberEats' },
+        ].map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)}
             className="px-3 py-1.5 rounded-lg text-[10px] font-medium"
-            style={{ background: filter === f.id ? C.surfaceLight : 'transparent', color: filter === f.id ? C.brassLight : C.muted }}>
-            {f.label}
+            style={{ background: tab === t.id ? C.surfaceLight : 'transparent', color: tab === t.id ? C.brassLight : C.muted }}>
+            {t.label}
           </button>
         ))}
+        <div className="flex gap-1 ml-2">
+          {[{ id: 'open', label: 'Abiertos' }, { id: 'closed', label: 'Cerrados' }, { id: 'cancelled', label: 'Cancelados' }].map(f => (
+            <button key={f.id} onClick={() => setFilter(f.id)}
+              className="px-3 py-1.5 rounded-lg text-[10px] font-medium"
+              style={{ background: filter === f.id ? C.surfaceLight : 'transparent', color: filter === f.id ? C.brassLight : C.muted }}>
+              {f.label}
+            </button>
+          ))}
+        </div>
         <div className="relative flex-1 min-w-[120px]">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3" style={{ color: C.muted }} />
           <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
@@ -149,8 +188,9 @@ export default function OnlineOrdersView({ colors: C }) {
           </div>
         )}
         {filtered.slice(0, 50).map(order => {
-          const statusCfg = STATUS_LABELS[order.orderStatus] || STATUS_LABELS.pending;
-          const modCfg = MODALITY_LABELS[order.modality] || MODALITY_LABELS.dinein;
+          const statusCfg = getStatusCfg(order);
+          const modCfg = MODALITY_LABELS[order.modality] || MODALITY_LABELS.delivery;
+          const srcCfg = SOURCE_LABELS[order.source] || { label: order.source, color: C.muted };
           const items = order.items || [];
           const total = Number(order.amount || 0) + Number(order.deliveryCost || 0);
           return (
@@ -158,6 +198,11 @@ export default function OnlineOrdersView({ colors: C }) {
               {/* Header */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
+                  {order.type === 'platform' && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded font-medium flex items-center gap-0.5" style={{ background: srcCfg.color + '30', color: srcCfg.color }}>
+                      {srcCfg.label}
+                    </span>
+                  )}
                   <span className="text-[9px] px-1.5 py-0.5 rounded font-medium flex items-center gap-0.5" style={{ background: modCfg.color + '30', color: modCfg.color }}>
                     <modCfg.icon className="w-2.5 h-2.5" /> {modCfg.label}
                   </span>
@@ -174,6 +219,8 @@ export default function OnlineOrdersView({ colors: C }) {
                 {order.customerName && <span><User className="w-2.5 h-2.5 inline mr-0.5" />{order.customerName}</span>}
                 {order.customerPhone && <span><Phone className="w-2.5 h-2.5 inline mr-0.5" />{order.customerPhone}</span>}
                 {order.address && <span><MapPin className="w-2.5 h-2.5 inline mr-0.5" />{order.address}</span>}
+                {order.source === 'glovo' && <span className="flex items-center gap-0.5"><Globe className="w-2.5 h-2.5" />Glovo</span>}
+                {order.source === 'ubereats' && <span className="flex items-center gap-0.5"><Globe className="w-2.5 h-2.5" />UberEats</span>}
               </div>
 
               {/* Items */}
@@ -193,15 +240,21 @@ export default function OnlineOrdersView({ colors: C }) {
 
               {/* Actions */}
               <div className="flex items-center gap-1 pt-1">
-                {!order.accepted && order.orderStatus === 'pending' && (
-                  <button onClick={() => acceptOrder(order.id)}
+                {order.type === 'qr' && !order.accepted && order.orderStatus === 'pending' && (
+                  <button onClick={async () => {
+                    await fetch('/api/qr-order', { method: 'PUT', body: JSON.stringify({ action: 'accept', id: order.id }) });
+                    loadOrders();
+                  }}
                     className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-medium hover:opacity-80"
                     style={{ background: C.sage + '30', color: C.sage }}>
                     <Check className="w-3 h-3" /> Aceptar
                   </button>
                 )}
-                {statusCfg.next && (order.accepted || order.orderStatus !== 'pending') && (
-                  <button onClick={() => advanceStatus(order)}
+                {order.type === 'qr' && statusCfg.next && (order.accepted || order.orderStatus !== 'pending') && (
+                  <button onClick={async () => {
+                    await fetch('/api/qr-order', { method: 'PUT', body: JSON.stringify({ action: 'status', id: order.id, status: statusCfg.next }) });
+                    loadOrders();
+                  }}
                     className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-medium hover:opacity-80"
                     style={{ background: C.brass + '30', color: C.brassLight }}>
                     <Zap className="w-3 h-3" />
@@ -211,7 +264,11 @@ export default function OnlineOrdersView({ colors: C }) {
                 {!['delivered','cancelled'].includes(order.orderStatus) && (
                   <button onClick={async () => {
                     if (!confirm('¿Cancelar pedido?')) return;
-                    await fetch('/api/qr-order', { method: 'PUT', body: JSON.stringify({ action: 'status', id: order.id, status: 'cancelled' }) });
+                    if (order.type === 'qr') {
+                      await fetch('/api/qr-order', { method: 'PUT', body: JSON.stringify({ action: 'status', id: order.id, status: 'cancelled' }) });
+                    } else {
+                      await fetch('/api/delivery/orders', { method: 'PUT', body: JSON.stringify({ id: order.id, status: 'cancelled' }) });
+                    }
                     loadOrders();
                   }}
                     className="px-2 py-1.5 rounded-lg text-[10px] hover:opacity-80"

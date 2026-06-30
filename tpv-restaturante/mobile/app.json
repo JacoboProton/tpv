@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "La Comanda",
+    "slug": "la-comanda-movil",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "scheme": "la-comanda",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.lacomanda.movil"
+    },
+    "android": {
+      "package": "com.lacomanda.movil"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-asset"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "apiUrl": "http://192.168.1.100:3000",
+      "supabaseUrl": "",
+      "supabaseKey": ""
+    }
+  }
+}

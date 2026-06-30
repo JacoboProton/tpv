@@ -70,6 +70,13 @@ export default function App() {
   const [theme, setTheme] = useState('dark');
   const C = THEMES[theme];
 
+  // ---------- Multi-tenant ----------
+  const [tenants, setTenants]       = useState([]);
+  const [tenantId, setTenantId]     = useState(() => {
+    if (typeof window === 'undefined') return 'default';
+    try { return localStorage.getItem('tpv:tenant') || 'default'; } catch { return 'default'; }
+  });
+
   // ---------- Estado global ----------
   const [loading, setLoading]       = useState(true);
   const [fatalError, setFatalError] = useState(false);
@@ -177,116 +184,134 @@ export default function App() {
 
   // ---------- Carga inicial con Neon ----------
   useEffect(() => {
-    async function loadAll() {
-      try {
-        await runMigrate();
-
-        const [cat, flr, sls, emps] = await Promise.all([
-          fetchCatalog(),
-          fetchFloor(),
-          fetchSales(),
-          fetchEmployees(),
-        ]);
-
-        if (!cat?.products || cat.products.length === 0) {
-          const seed = seedCatalog();
-          await saveCatalog(seed);
-          setCatalog(seed);
-        } else {
-          setCatalog(cat);
-        }
-
-        if (!flr?.tables || flr.tables.length === 0) {
-          const seed = seedFloor();
-          await saveFloor(seed);
-          setFloor(seed);
-        } else {
-          // Normalize orderIds for backward compatibility
-          flr.tables.forEach(t => {
-            if (!t.orderIds && t.orderId) t.orderIds = [t.orderId];
-            if (!t.orderIds) t.orderIds = [];
-          });
-
-          // Migrate to 3-column layout (mesas izq, barras centro, domicilio der)
-          if (flr.tables.filter(t => t.type === 'barra').length < 6) {
-            const mesas = flr.tables.filter(t => t.type === 'mesa');
-            const barras = flr.tables.filter(t => t.type === 'barra');
-            const others = flr.tables.filter(t => t.type !== 'mesa' && t.type !== 'barra' && t.type !== 'llevar' && t.type !== 'domicilio');
-
-            // Reposition existing mesas
-            mesas.forEach((t, i) => {
-              t.x = 60 + (i % 4) * 140;
-              t.y = 60 + Math.floor(i / 4) * 140;
-            });
-            // Add missing mesas up to 9
-            for (let i = mesas.length; i < 9; i++) {
-              mesas.push({
-                id: `t${i + 1}`, name: `Mesa ${i + 1}`, status: 'libre', orderId: null, orderIds: [],
-                reserved: null, isFiado: false, type: 'mesa',
-                x: 60 + (i % 4) * 140, y: 60 + Math.floor(i / 4) * 140,
-                width: 80, height: 80, radius: 40, shape: 'rect', rotation: 0,
-                seats: 4, zone: 'z1', layer: 0, color: '',
-              });
-            }
-
-            // Reposition existing barras
-            barras.forEach((t, i) => {
-              t.x = 600; t.y = 60 + i * 80; t.width = 140; t.height = 50; t.radius = 25;
-            });
-            // Add missing barras up to 6
-            for (let i = barras.length; i < 6; i++) {
-              barras.push({
-                id: `t${10 + i}`, name: `Barra ${i + 1}`, status: 'libre', orderId: null, orderIds: [],
-                reserved: null, isFiado: false, type: 'barra',
-                x: 600, y: 60 + i * 80, width: 140, height: 50, radius: 25,
-                shape: 'rect', rotation: 0, seats: 4, zone: 'z3', layer: 0, color: '',
-              });
-            }
-
-            // Replace delivery items with new layout
-            const newDelivery = [
-              { id: 't16', name: 'Para llevar', type: 'llevar', x: 810, y: 60 },
-              { id: 't17', name: 'Domicilio', type: 'domicilio', x: 810, y: 140 },
-              { id: 't18', name: 'Domicilio 2', type: 'domicilio', x: 810, y: 220 },
-              { id: 't19', name: 'Domicilio 3', type: 'domicilio', x: 810, y: 300 },
-            ].map(d => ({
-              ...d, status: 'libre', orderId: null, orderIds: [], reserved: null, isFiado: false,
-              width: 90, height: 50, radius: 25, shape: 'rect', rotation: 0, seats: 0,
-              zone: '', layer: 0, color: '',
-            }));
-
-            flr.tables = [...mesas, ...barras, ...newDelivery, ...others];
-            await saveFloor(flr);
-          }
-
-          setFloor(flr);
-        }
-
-        if (!emps?.length) {
-          const seed = seedEmployees();
-          await saveEmployees(seed);
-          setEmployees(seed);
-        } else {
-          setEmployees(emps);
-        }
-
-        setSales(Array.isArray(sls) ? sls : []);
-
-        const stg = await fetchSettings().catch(() => null);
-        if (stg) setTicketSettings(stg);
-        const off = await fetchOffers().catch(() => []);
-        setOffers(off);
-        const cmb = cat?.combos || await fetchCombos().catch(() => []);
-        setCombos(cmb);
-      } catch (err) {
-        console.error('Error cargando datos:', err);
-        setFatalError(true);
-      } finally {
-        setLoading(false);
-      }
-    }
     loadAll();
   }, []);
+
+  // Save tenant ID and reload when changed
+  useEffect(() => {
+    if (loading) return;
+    try { localStorage.setItem('tpv:tenant', tenantId); } catch {}
+    loadAll();
+  }, [tenantId]);
+
+  async function loadAll() {
+    try {
+      await runMigrate();
+
+      const tnts = await fetch('/api/tenants').then(r => r.json()).catch(() => []);
+
+      // If current tenant not in list (deleted), reset to default
+      if (tnts.length > 0 && !tnts.find(t => t.id === tenantId)) {
+        setTenantId('default');
+        try { localStorage.setItem('tpv:tenant', 'default'); } catch {}
+      }
+
+      setTenants(tnts);
+
+      const [cat, flr, sls, emps] = await Promise.all([
+        fetchCatalog(),
+        fetchFloor(),
+        fetchSales(),
+        fetchEmployees(),
+      ]);
+
+      if (!cat?.products || cat.products.length === 0) {
+        const seed = seedCatalog();
+        await saveCatalog(seed);
+        setCatalog(seed);
+      } else {
+        setCatalog(cat);
+      }
+
+      if (!flr?.tables || flr.tables.length === 0) {
+        const seed = seedFloor();
+        await saveFloor(seed);
+        setFloor(seed);
+      } else {
+        // Normalize orderIds for backward compatibility
+        flr.tables.forEach(t => {
+          if (!t.orderIds && t.orderId) t.orderIds = [t.orderId];
+          if (!t.orderIds) t.orderIds = [];
+        });
+
+        // Migrate to 3-column layout (mesas izq, barras centro, domicilio der)
+        if (flr.tables.filter(t => t.type === 'barra').length < 6) {
+          const mesas = flr.tables.filter(t => t.type === 'mesa');
+          const barras = flr.tables.filter(t => t.type === 'barra');
+          const others = flr.tables.filter(t => t.type !== 'mesa' && t.type !== 'barra' && t.type !== 'llevar' && t.type !== 'domicilio');
+
+          // Reposition existing mesas
+          mesas.forEach((t, i) => {
+            t.x = 60 + (i % 4) * 140;
+            t.y = 60 + Math.floor(i / 4) * 140;
+          });
+          // Add missing mesas up to 9
+          for (let i = mesas.length; i < 9; i++) {
+            mesas.push({
+              id: `t${i + 1}`, name: `Mesa ${i + 1}`, status: 'libre', orderId: null, orderIds: [],
+              reserved: null, isFiado: false, type: 'mesa',
+              x: 60 + (i % 4) * 140, y: 60 + Math.floor(i / 4) * 140,
+              width: 80, height: 80, radius: 40, shape: 'rect', rotation: 0,
+              seats: 4, zone: 'z1', layer: 0, color: '',
+            });
+          }
+
+          // Reposition existing barras
+          barras.forEach((t, i) => {
+            t.x = 600; t.y = 60 + i * 80; t.width = 140; t.height = 50; t.radius = 25;
+          });
+          // Add missing barras up to 6
+          for (let i = barras.length; i < 6; i++) {
+            barras.push({
+              id: `t${10 + i}`, name: `Barra ${i + 1}`, status: 'libre', orderId: null, orderIds: [],
+              reserved: null, isFiado: false, type: 'barra',
+              x: 600, y: 60 + i * 80, width: 140, height: 50, radius: 25,
+              shape: 'rect', rotation: 0, seats: 4, zone: 'z3', layer: 0, color: '',
+            });
+          }
+
+          // Replace delivery items with new layout
+          const newDelivery = [
+            { id: 't16', name: 'Para llevar', type: 'llevar', x: 810, y: 60 },
+            { id: 't17', name: 'Domicilio', type: 'domicilio', x: 810, y: 140 },
+            { id: 't18', name: 'Domicilio 2', type: 'domicilio', x: 810, y: 220 },
+            { id: 't19', name: 'Domicilio 3', type: 'domicilio', x: 810, y: 300 },
+          ].map(d => ({
+            ...d, status: 'libre', orderId: null, orderIds: [], reserved: null, isFiado: false,
+            width: 90, height: 50, radius: 25, shape: 'rect', rotation: 0, seats: 0,
+            zone: '', layer: 0, color: '',
+          }));
+
+          flr.tables = [...mesas, ...barras, ...newDelivery, ...others];
+          await saveFloor(flr);
+        }
+
+        setFloor(flr);
+      }
+
+      if (!emps?.length) {
+        const seed = seedEmployees();
+        await saveEmployees(seed);
+        setEmployees(seed);
+      } else {
+        setEmployees(emps);
+      }
+
+      setSales(Array.isArray(sls) ? sls : []);
+
+      const stg = await fetchSettings().catch(() => null);
+      if (stg) setTicketSettings(stg);
+      const off = await fetchOffers().catch(() => []);
+      setOffers(off);
+      const cmb = cat?.combos || await fetchCombos().catch(() => []);
+      setCombos(cmb);
+    } catch (err) {
+      console.error('Error cargando datos:', err);
+      setFatalError(true);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   // ---------- Offline ----------
   const processMutations = useCallback(async () => {
@@ -1807,6 +1832,15 @@ export default function App() {
         <aside style={{ background: C.surface, borderRight: `1px solid ${C.line}`, width: '160px' }} className="flex flex-col shrink-0 no-print sticky top-0 h-screen">
           <div className="p-3 text-center" style={{ borderBottom: `1px solid ${C.line}` }}>
             <h2 className="font-display text-lg" style={{ color: C.brassLight }}>LA COMANDA</h2>
+            {currentUser?.role === 'admin' && tenants.length > 1 && (
+              <select value={tenantId} onChange={e => setTenantId(e.target.value)}
+                style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}` }}
+                className="w-full mt-1 text-[10px] rounded px-1 py-0.5">
+                {tenants.filter(t => t.active).map(t => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            )}
           </div>
           <nav className="flex flex-col gap-1 p-2 overflow-y-auto flex-1">
             {navItems.map(item => {

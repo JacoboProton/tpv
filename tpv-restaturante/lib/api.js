@@ -4,9 +4,15 @@ const TPV_API_KEY = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_TP
   ? process.env.NEXT_PUBLIC_TPV_API_KEY
   : (typeof window !== 'undefined' && window.__TPV_API_KEY) || '';
 
+function getTenantId() {
+  if (typeof window === 'undefined') return 'default';
+  try { return localStorage.getItem('tpv:tenant') || 'default'; } catch { return 'default'; }
+}
+
 function apiHeaders(headers = {}) {
   headers['Content-Type'] = 'application/json';
   if (TPV_API_KEY) headers['x-tpv-key'] = TPV_API_KEY;
+  headers['x-tenant-id'] = getTenantId();
   return headers;
 }
 

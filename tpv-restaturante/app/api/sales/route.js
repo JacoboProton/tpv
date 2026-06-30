@@ -1,15 +1,17 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../lib/db';
+import { getTenantId } from '../../../lib/tenant';
 
 // GET /api/sales → Sale[]
 export async function GET(req) {
   try {
+    const tenantId = getTenantId(req);
     const { searchParams } = new URL(req.url);
     const from = searchParams.get('from');
     const to = searchParams.get('to');
     const year = searchParams.get('year');
 
-    let query = sql`SELECT * FROM sales`;
+    let query = sql`SELECT * FROM sales WHERE tenant_id = ${tenantId}`;
     const conditions = [];
 
     if (year) {
@@ -19,12 +21,12 @@ export async function GET(req) {
       conditions.push(`closed_at >= ${start}`);
       conditions.push(`closed_at < ${end}`);
     } else {
-      if (from) { conditions.push(`closed_at >= ${BigInt(from)}`); }
-      if (to) { conditions.push(`closed_at <= ${BigInt(to)}`); }
+      if (from) conditions.push(`closed_at >= ${BigInt(from)}`);
+      if (to) conditions.push(`closed_at <= ${BigInt(to)}`);
     }
 
     if (conditions.length > 0) {
-      query = sql`${query} WHERE ${sql.unsafe(conditions.join(' AND '))}`;
+      query = sql`${query} AND ${sql.unsafe(conditions.join(' AND '))}`;
     }
     query = sql`${query} ORDER BY closed_at DESC`;
 
@@ -49,20 +51,21 @@ export async function GET(req) {
   }
 }
 
-// POST /api/sales → body: Sale  (añade una venta)
+// POST /api/sales → body: Sale
 export async function POST(req) {
   try {
     const s = await req.json();
+    const tenantId = getTenantId(req);
     await sql`
       INSERT INTO sales (
-        id, table_id, table_name, items, subtotal, discount, discount_amount,
+        tenant_id, id, table_id, table_name, items, subtotal, discount, discount_amount,
         total, tip, total_with_tip, payments, payment_method, tip_method,
         is_fiado, is_debt_payment, employee_id, employee_name, closed_at,
         invoice_nif, invoice_name, invoice_address, invoice_email,
         invoice_number, invoice_created, invoice_created_at,
         payment_intent_id
       ) VALUES (
-        ${s.id}, ${s.tableId}, ${s.tableName}, ${JSON.stringify(s.items)},
+        ${tenantId}, ${s.id}, ${s.tableId}, ${s.tableName}, ${JSON.stringify(s.items)},
         ${s.subtotal}, ${s.discount ?? 0}, ${s.discountAmount ?? 0},
         ${s.total}, ${s.tip ?? 0}, ${s.totalWithTip},
         ${JSON.stringify(s.payments)}, ${s.paymentMethod}, ${s.tipMethod ?? ''},
