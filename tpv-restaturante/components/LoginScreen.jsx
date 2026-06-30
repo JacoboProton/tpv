@@ -19,20 +19,17 @@ export default function LoginScreen({
         <p style={{ color: C.muted }} className="text-sm">TPV Profesional</p>
       </div>
 
-      <a
-        href="/descargar"
-        target="_blank"
-        style={{ position: 'fixed', bottom: 20, right: 20, background: C.surface, border: `1px solid ${C.line}`, borderRadius: 12 }}
-        className="p-2 hover:opacity-80 transition-all flex items-center gap-2"
-        title="Descargar App Móvil"
+      <div
+        style={{ position: 'fixed', bottom: 24, right: 24, background: '#fff', border: `3px solid ${C.brass}`, borderRadius: 16 }}
+        className="p-3 flex flex-col items-center gap-1 shadow-2xl z-50"
       >
         <img
-          src={`https://api.qrserver.com/v1/create-qr-code/?size=50x50&data=${encodeURIComponent('https://tpv-sigma.vercel.app/descargar')}`}
-          alt="QR App"
-          className="w-10 h-10"
+          src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent('https://tpv-sigma.vercel.app/descargar')}`}
+          alt="QR App Móvil"
+          className="w-40 h-40"
         />
-        <span className="text-[10px]" style={{ color: C.muted }}>App<br/>Móvil</span>
-      </a>
+        <span className="text-xs font-semibold" style={{ color: '#333' }}>Descargar App</span>
+      </div>
 
       {!loginSelected ? (
         <div className="w-full max-w-lg flex flex-col items-center gap-5">
