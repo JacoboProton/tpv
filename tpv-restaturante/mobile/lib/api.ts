@@ -44,3 +44,10 @@ export async function fetchCatalog(): Promise<{ categories: Category[]; products
 export async function fetchEmployees(): Promise<Employee[]> {
   return apiFetch('/employees');
 }
+
+export async function createPaymentIntent(amount: number, tableId: string, tableName: string, employeeName: string): Promise<{ clientSecret: string }> {
+  return apiFetch('/stripe/payment-intent', {
+    method: 'POST',
+    body: JSON.stringify({ amount, tableId, tableName, employeeName }),
+  });
+}

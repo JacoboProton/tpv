@@ -11,6 +11,7 @@
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
     "@opentelemetry/api": "^1.9.1",
+    "@stripe/stripe-react-native": "0.64.0",
     "@supabase/supabase-js": "^2.108.2",
     "expo": "^56.0.12",
     "expo-asset": "~56.0.17",

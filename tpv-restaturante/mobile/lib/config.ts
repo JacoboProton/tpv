@@ -6,3 +6,4 @@ export const API_URL: string = (extra.apiUrl as string) || 'http://192.168.1.132
 export const TPV_API_KEY: string = (extra.tpvApiKey as string) || '';
 export const SUPABASE_URL: string = (extra.supabaseUrl as string) || '';
 export const SUPABASE_KEY: string = (extra.supabaseKey as string) || '';
+export const STRIPE_PK: string = (extra.stripePk as string) || '';

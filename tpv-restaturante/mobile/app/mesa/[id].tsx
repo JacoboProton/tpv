@@ -4,9 +4,11 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { fetchFloor, saveFloor, fetchCatalog } from '../../lib/api';
+import { fetchFloor, saveFloor, fetchCatalog, createPaymentIntent } from '../../lib/api';
 import { broadcastFloorUpdate } from '../../lib/realtime';
+import { STRIPE_PK } from '../../lib/config';
 import { globalFloor, setGlobalFloor, globalUser } from '../_layout';
+import { StripeProvider, useStripe } from '@stripe/stripe-react-native';
 import type { Floor, Table, Order, OrderItem, Product, Category } from '../../lib/types';
 
 const C = {
@@ -22,6 +24,56 @@ const MODIFIERS_LIST = [
 
 function generateId() {
   return Math.random().toString(36).slice(2, 10);
+}
+
+function PaymentButton({ floor, tableId, persistFloor, disabled }: {
+  floor: Floor; tableId: string; persistFloor: (f: Floor) => Promise<void>; disabled: boolean;
+}) {
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const [loading, setLoading] = useState(false);
+
+  async function pay() {
+    setLoading(true);
+    try {
+      const t = floor.tables.find(t => t.id === tableId);
+      const total = Object.values(floor.orders).reduce((s, o) =>
+        s + o.items.reduce((s2, i) => s2 + i.price * i.qty, 0), 0);
+      const { clientSecret } = await createPaymentIntent(total, tableId, t?.name || tableId, globalUser?.name || 'Camarero');
+      const { error } = await initPaymentSheet({ paymentIntentClientSecret: clientSecret, merchantDisplayName: 'La Comanda' });
+      if (error) { Alert.alert('Error', error.message); return; }
+      const { error: presentError } = await presentPaymentSheet();
+      if (presentError) {
+        if (presentError.code === 'Canceled') return;
+        Alert.alert('Error', presentError.message);
+        return;
+      }
+      const f = JSON.parse(JSON.stringify(floor)) as Floor;
+      const table = f.tables.find(t => t.id === tableId);
+      if (table) { table.status = 'libre'; table.orderIds = []; table.orderId = null; }
+      for (const oid of Object.keys(f.orders)) {
+        if (floor.orders[oid].tableId === tableId) delete f.orders[oid];
+      }
+      setGlobalFloor(f);
+      await persistFloor(f);
+      Alert.alert('✅ Pagado', `Total: ${total.toFixed(2)}€`);
+      router.back();
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <TouchableOpacity
+      style={[styles.cardBtn, disabled && { opacity: 0.4 }]}
+      onPress={pay}
+      disabled={disabled || loading}
+    >
+      <Ionicons name="card" size={18} color="#fff" />
+      <Text style={styles.cardBtnText}>{loading ? 'Procesando...' : 'Pagar con tarjeta'}</Text>
+    </TouchableOpacity>
+  );
 }
 
 export default function MesaScreen() {
@@ -307,10 +359,14 @@ export default function MesaScreen() {
         <TouchableOpacity style={styles.closeBtn} onPress={() => router.back()}>
           <Text style={styles.closeBtnText}>Cerrar</Text>
         </TouchableOpacity>
+        {floor && allItems.length > 0 && (
+          <StripeProvider publishableKey={STRIPE_PK}>
+            <PaymentButton floor={floor} tableId={tableId} persistFloor={persistFloor} disabled={saving} />
+          </StripeProvider>
+        )}
         <TouchableOpacity
           style={[styles.payBtn, allItems.length === 0 && { opacity: 0.4 }]}
           onPress={() => {
-            // Mark table as cuenta, same as web app does
             if (!floor) return;
             const f = JSON.parse(JSON.stringify(floor)) as Floor;
             const t = f.tables.find(t => t.id === tableId);
@@ -388,6 +444,11 @@ const styles = StyleSheet.create({
   },
   closeBtn: { flex: 1, paddingVertical: 12, backgroundColor: C.surfaceLight, borderRadius: 8, alignItems: 'center' },
   closeBtnText: { color: C.muted, fontWeight: '600' },
-  payBtn: { flex: 2, paddingVertical: 12, backgroundColor: C.brass, borderRadius: 8, alignItems: 'center' },
+  payBtn: { flex: 1, paddingVertical: 12, backgroundColor: C.brass, borderRadius: 8, alignItems: 'center' },
   payBtnText: { color: C.base, fontWeight: '700' },
+  cardBtn: {
+    flex: 1, paddingVertical: 12, backgroundColor: '#635bff', borderRadius: 8,
+    alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6,
+  },
+  cardBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
 });
