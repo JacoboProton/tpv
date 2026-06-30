@@ -44,6 +44,7 @@ export async function PUT(req) {
   try {
     const { tables, orders, zones, background } = await req.json();
     const tenantId = getTenantId(req);
+    const queries = [];
     queries.push(sql`DELETE FROM tables WHERE tenant_id = ${tenantId}`);
     for (const t of tables) {
       queries.push(sql`
