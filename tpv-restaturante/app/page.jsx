@@ -152,6 +152,7 @@ export default function App() {
   // Detectar nuevos items en cocina para sonido + notificación
   const prevPendingRef = useRef(0);
 
+  const floorHashRef = useRef('');
   useEffect(() => {
     requestNotificationPermission();
     const ch = connectRealtime();
@@ -160,8 +161,16 @@ export default function App() {
         setFloor(payload.floor);
       });
     }
-    return () => { disconnectRealtime(); };
-  }, []);
+    const iv = setInterval(async () => {
+      try {
+        const res = await fetch('/api/floor', { headers: { 'x-tenant-id': tenantId } });
+        const data = await res.json();
+        const h = JSON.stringify(data);
+        if (h !== floorHashRef.current) { floorHashRef.current = h; setFloor(data); }
+      } catch {}
+    }, 4000);
+    return () => { disconnectRealtime(); clearInterval(iv); };
+  }, [tenantId]);
 
   useEffect(() => {
     if (!floor) return;
