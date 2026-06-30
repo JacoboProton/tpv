@@ -27,7 +27,11 @@
     "extra": {
       "apiUrl": "https://tpv-sigma.vercel.app",
       "supabaseUrl": "https://usrdtucgeogytnxyivoy.supabase.co",
-      "supabaseKey": "sb_publishable_yOlWsu92RrtMllJMcKyV_Q_Nr12lm5h"
+      "supabaseKey": "sb_publishable_yOlWsu92RrtMllJMcKyV_Q_Nr12lm5h",
+      "router": {},
+      "eas": {
+        "projectId": "4ec74133-8316-4209-80ee-019cba62cd42"
+      }
     }
   }
 }
