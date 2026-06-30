@@ -19,6 +19,21 @@ export default function LoginScreen({
         <p style={{ color: C.muted }} className="text-sm">TPV Profesional</p>
       </div>
 
+      <a
+        href="/descargar"
+        target="_blank"
+        style={{ position: 'fixed', bottom: 20, right: 20, background: C.surface, border: `1px solid ${C.line}`, borderRadius: 12 }}
+        className="p-2 hover:opacity-80 transition-all flex items-center gap-2"
+        title="Descargar App Móvil"
+      >
+        <img
+          src={`https://api.qrserver.com/v1/create-qr-code/?size=50x50&data=${encodeURIComponent('https://tpv-sigma.vercel.app/descargar')}`}
+          alt="QR App"
+          className="w-10 h-10"
+        />
+        <span className="text-[10px]" style={{ color: C.muted }}>App<br/>Móvil</span>
+      </a>
+
       {!loginSelected ? (
         <div className="w-full max-w-lg flex flex-col items-center gap-5">
           <p style={{ color: C.muted }} className="text-xs uppercase tracking-wide mb-2">Selecciona tu usuario</p>
