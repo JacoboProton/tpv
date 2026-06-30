@@ -2,7 +2,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { useEffect, useState } from 'react';
-import { connectRealtime, disconnectRealtime } from '../lib/realtime';
+import { connectRealtime, disconnectRealtime, showReadyNotification } from '../lib/realtime';
 import type { Employee, Floor } from '../lib/types';
 
 export { ErrorBoundary } from 'expo-router';
@@ -34,7 +34,10 @@ export default function RootLayout() {
   setGlobalUser = setUser;
 
   useEffect(() => {
-    const ch = connectRealtime((f) => setFloor(f));
+    const ch = connectRealtime(
+      (f) => setFloor(f),
+      (data) => showReadyNotification(data),
+    );
     setReady(true);
     return () => { disconnectRealtime(); };
   }, []);

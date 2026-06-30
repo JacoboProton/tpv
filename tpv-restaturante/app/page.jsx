@@ -21,7 +21,7 @@ import {
   fetchModifiers,
 } from '../lib/api';
 import { onNetworkChange, clearMutations, getMutations } from '../lib/offline';
-import { connectRealtime, broadcastFloorUpdate, disconnectRealtime } from '../lib/realtime';
+import { connectRealtime, broadcastFloorUpdate, broadcastReadyNotification, disconnectRealtime } from '../lib/realtime';
 import { escposOpenDrawer, printESCPOS, isPrinterConnected } from '../lib/thermal-printer';
 import { fetchSettings, saveSettings, fetchOffers, saveOffers, fetchCombos, saveCombos, saveMealMenus, savePriceRules } from '../lib/api';
 import { ALLERGENS } from '../components/constants';
@@ -573,8 +573,14 @@ export default function App() {
 
   function markReady(orderId) {
     const next = clone(floor);
-    next.orders[orderId].items.forEach(i => { if (i.sent) i.ready = true; });
+    const order = next.orders[orderId];
+    const readyItems = order.items.filter(i => i.sent && !i.ready);
+    if (readyItems.length === 0) return;
+    readyItems.forEach(i => i.ready = true);
     persistFloor(next);
+    const table = next.tables.find(t => t.id === order.tableId);
+    const names = [...new Set(readyItems.map(i => i.name))];
+    broadcastReadyNotification(table?.name || order.tableId, names, order.employeeName);
   }
 
   // ----- KDS (Kitchen Display System) -----

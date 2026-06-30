@@ -60,6 +60,15 @@ export async function broadcastFloorUpdateServer(floor) {
   });
 }
 
+export function broadcastReadyNotification(tableName, itemNames, waiterName) {
+  if (!channel) return;
+  channel.send({
+    type: 'broadcast',
+    event: 'ready:notification',
+    payload: { tableName, itemNames, waiterName, time: Date.now() },
+  });
+}
+
 export function disconnectRealtime() {
   if (channel) {
     channel.unsubscribe();

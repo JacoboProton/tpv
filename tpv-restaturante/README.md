@@ -1,35 +1,80 @@
-<!-- BEGIN:nextjs-agent-rules -->
-# This is NOT the Next.js you know
-
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
-<!-- END:nextjs-agent-rules -->
-
 # La Comanda — TPV Restaurante
+
+Sistema de TPV profesional para restaurantes con POS web, app móvil para camareros, pedidos online, reservas y KDS en tiempo real.
 
 ## Stack
 
-- **Next.js 16** (App Router, Turbopak, `"use client"` only on `app/page.jsx`)
-- **React 19**, Tailwind 4 (`@import "tailwindcss"`, no `tailwind.config`), Lucide icons
-- **PostgreSQL** via `@neondatabase/serverless` (raw SQL template strings, no ORM)
-- **Vitest 4** with jsdom, path alias `@/`
-- **ESC/POS** thermal printing with WebUSB
+- **Next.js 16** (App Router, Turbopak)
+- **React 19**, Tailwind 4, Lucide icons
+- **PostgreSQL** via `@neondatabase/serverless` (HTTP) — sin ORM
+- **Supabase Realtime** — sincronización en vivo POS/KDS/móvil
+- **Expo / React Native** — app móvil para camareros (`mobile/`)
+- **Vitest 4** con jsdom
+- **ESC/POS** — impresión térmica con WebUSB
 
-## Key architecture
+## Arquitectura
 
-- `app/page.jsx` is the **SPA entrypoint** — a single 2400+ line `"use client"` component orchestrating all views via `view` state. All state (floor, catalog, sales, employees) lives here.
-- Views are mounted conditionally: `{view === 'salon' && <SalonView .../>}`
-- API routes in `app/api/*/route.js` use `import { sql } from '@/lib/db'` directly. No ORM. Middleware (`app/middleware.js`) protects `/api/*` with `x-tpv-key` header.
-- DB migrations auto-run on first load via `lib/migrate.js` (idempotent `CREATE TABLE IF NOT EXISTS`, `ALTER TABLE ADD COLUMN IF NOT EXISTS`).
-- Seed data functions in `components/constants.js` (`seedCatalog`, `seedFloor`, `seedEmployees`). Called when DB returns empty.
+- `app/page.jsx` — SPA central (~2500 líneas), orquesta todas las vistas vía estado `view`
+- Vistas condicionales: `{view === 'salon' && <SalonView .../>}`
+- API routes en `app/api/*/route.js` con `@neondatabase/serverless`
+- Migraciones automáticas en `lib/migrate.js` (idempotentes)
+- Seed data en `components/constants.js` (catalogo, sala, empleados)
+- `tenant_id` en todas las tablas core para multi-local
 
-## Offline architecture
+## App Móvil (Expo)
 
-- GET cache in `localStorage` with prefix `tpv:cache:` (read from cache on fetch failure)
-- Mutations queue in `localStorage` (`tpv:mutations`) when offline, retried every 10s + on reconnect
-- Use `lib/offline.js` helpers (`cacheGet`, `cacheSet`, `enqueueMutation`, `onNetworkChange`)
-- `lib/api.js` `apiFetchWithCache()` wraps the pattern: fetch → cache → fallback
+- `mobile/` — Proyecto Expo con expo-router
+- `mobile/lib/api.ts` — Conexión al backend con `x-tpv-key` y `x-tenant-id`
+- `mobile/lib/realtime.ts` — Escucha broadcasts de Supabase para actualizar en vivo
+- Login con PIN → selección de perfiles → salón → comandas → cocina
+- APK disponible en `https://tpv-sigma.vercel.app/descargar`
 
-## Commands
+Para build:
+```bash
+cd mobile
+npx eas build -p android --profile preview
+npx eas update --branch production --message "cambios"  # solo JS
+```
+
+## Sincronización en Tiempo Real
+
+- `lib/realtime.js` — Cliente Supabase Realtime (broadcast, no DB replication)
+- `connectRealtime()` — Conecta al canal `floor-sync`
+- `broadcastFloorUpdate()` / `broadcastFloorUpdateServer()` — Emiten evento `floor:updated`
+- `app/api/floor/route.js` — Al guardar la sala, el servidor también emite broadcast
+- KDS (`app/kds/page.jsx`) y POS escuchan el mismo evento
+- Requiere `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+
+## Offline
+
+- GET cache en localStorage (`tpv:cache:`)
+- Cola de mutaciones (`tpv:mutations`) reintentada cada 10s
+- Helpers en `lib/offline.js`
+
+## Páginas Públicas
+
+- `/pedir` — Pedidos online (takeaway/delivery)
+- `/reservar` — Reservas online (4 pasos: fecha, hora, datos, confirmación)
+- `/waitlist` — Lista de espera
+- `/qr/[tableId]` — Menú QR por mesa
+- `/descargar` — Descarga APK móvil (con QR)
+
+## Multi-local (Tenants)
+
+- `tenants` table + `tenant_id` en 40+ tablas
+- PK compuestas `(tenant_id, id)` en tablas core
+- Cabecera `x-tenant-id` en todas las peticiones API
+- Selector de local en sidebar (solo admin)
+
+## Convenciones
+
+- Sin comentarios en código salvo necesarios
+- Inline styles en camelCase; Tailwind para layout
+- `<img>` en vez de `<Image>` (regla ESLint desactivada)
+- Colores desde objeto `C` mutable (`components/constants.js:40-44`)
+- `clone()` para deep-copy antes de mutar estado
+
+## Comandos
 
 ```bash
 npm run dev          # Next.js dev (port 3000)
@@ -38,41 +83,33 @@ npm run lint         # ESLint 9 flat config
 npm run test         # Vitest (jsdom)
 ```
 
-Test: `npx vitest run __tests__/constants.test.js`
+## Variables de Entorno
 
-## Conventions
+Ver `.env.example`. Claves mínimas:
 
-- **No comments in code** unless necessary for clarity — let the code speak.
-- **React inline styles** must use camelCase (`overflowY`, not `overflow-y`). Tailwind classes preferred for layout.
-- **`<img>` instead of `<Image>`** — `@next/next/no-img-element` is explicitly disabled in the ESLint config.
-- **Colors** come from a mutable `C` object (`components/constants.js:40-44`), swapped via `setTheme('dark'|'light')`. Always use `C.cream`, `C.muted`, `C.brass` etc. Never hardcode hex.
-- **`seedFloor()`** layout: 9 mesas (left, 4-column grid), 6 barras (center), 4 delivery (right). Migration in `page.jsx` auto-upgrades old floors.
-- **`clone()`** from `constants.js` for deep-copying state before mutation.
-- **Floors** have `tables[]` with `type: 'mesa'|'barra'|'llevar'|'domicilio'`, `status`, `orderId`, `orderIds[]`.
-- **Products** have `agotado` (boolean), `show_tpv`, `show_qr`, `course`, `ubicacion`, `allergens[]`.
-- **Thermal printing** via `window.print()` with `#thermal-ticket` CSS or WebUSB ESC/POS from `lib/thermal-printer.js`.
-- **Verifactu** (AEAT) uses Fiskaly REST API (no SDK) — `lib/verifactu.js` + `lib/fiskaly.js`.
-- **Stripe** payments implemented (optional) via `lib/api.js` `createPaymentIntent`.
+| Variable | Descripción |
+|----------|-------------|
+| `DATABASE_URL` | Conexión Neon PostgreSQL |
+| `TPV_API_KEY` | Clave API para middleware |
+| `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto Supabase |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Clave anónima Supabase |
+| `STRIPE_SECRET_KEY` | (opcional) Stripe |
+| `FISKALY_API_KEY` | (opcional) Verifactu |
 
-## Scroll gotchas
+## Docker
 
-- Main content container has `maxHeight: '100vh'` with `overflowY: 'auto'` — overflow fixes go here (`page.jsx:1774`).
-- Modals (Settings, clock-in, etc.) need explicit `max-h-[85vh] overflow-y-auto` on the inner card to scroll.
-- Tab content areas in views like `GestoriaView` rely on the main container scroll — don't need their own.
+```bash
+docker-compose up --build
+```
 
-## Testing quirks
+PostgreSQL 16 + app en puerto 3000. Realtime requiere configurar variables Supabase.
 
-- Tests use **Vitest** (not Jest), run via `npm run test` or `npx vitest run`.
-- Only one test file exists: `__tests__/constants.test.js`. Covers `seedCatalog`, `seedFloor`, `seedEmployees`, `getDailyMenu`.
-- `getDailyMenu("happy_hour")` test is flaky — happy hour is now all-day, so `toBeUndefined()` at 8pm fails. This is a pre-existing issue.
+## Testing
 
-## Tailwind 4 notes
+```bash
+npx vitest run __tests__/constants.test.js
+```
 
-- Config via CSS `@import "tailwindcss"` + `@theme inline {}` block — no `tailwind.config.js`.
-- Utility classes defined as `@utility name { ... }` (glass, scrollbar-hide, price-glow).
-- Key custom utilities: `scrollbar-hide` (for hiding scrollbars), `fade-up` (entry animation), `pulse-cuenta` (payment alert ring).
+## Vercel
 
-## env vars
-
-See `.env.example` / README. Key: `TPV_API_KEY` and `NEXT_PUBLIC_TPV_API_KEY` must match for API auth. Missing `DATABASE_URL` throws at import time.
-
+Deploy automático con `git push`. Requiere variables de entorno configuradas en dashboard.
