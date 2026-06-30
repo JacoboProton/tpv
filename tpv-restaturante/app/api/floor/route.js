@@ -57,7 +57,8 @@ export async function PUT(req) {
                 ${t.x ?? 100}, ${t.y ?? 100}, ${t.width ?? 80}, ${t.height ?? 80}, ${t.radius ?? 40},
                 ${t.shape ?? 'rect'}, ${t.rotation ?? 0}, ${t.seats ?? 4},
                 ${t.zone ?? ''}, ${t.layer ?? 0}, ${t.color ?? ''})
-        ON CONFLICT (tenant_id, id) DO UPDATE SET
+        ON CONFLICT (id) DO UPDATE SET
+          tenant_id    = EXCLUDED.tenant_id,
           status       = EXCLUDED.status,
           order_id     = EXCLUDED.order_id,
           order_ids    = EXCLUDED.order_ids,
@@ -85,7 +86,8 @@ export async function PUT(req) {
         queries.push(sql`
           INSERT INTO orders (tenant_id, id, table_id, items, created_at, employee_name)
           VALUES (${tenantId}, ${oid}, ${o.tableId}, ${JSON.stringify(o.items)}, ${o.createdAt}, ${o.employeeName ?? null})
-          ON CONFLICT (tenant_id, id) DO UPDATE SET
+          ON CONFLICT (id) DO UPDATE SET
+            tenant_id     = EXCLUDED.tenant_id,
             table_id      = EXCLUDED.table_id,
             items         = EXCLUDED.items,
             employee_name = EXCLUDED.employee_name

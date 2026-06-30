@@ -160,8 +160,12 @@ export default function App() {
         setFloor(payload.floor);
       });
     }
-    return () => { disconnectRealtime(); };
-  }, []);
+    const interval = setInterval(() => {
+      fetch('/api/floor', { headers: { 'x-tenant-id': tenantId } })
+        .then(r => r.json()).then(d => setFloor(d)).catch(() => {});
+    }, 7000);
+    return () => { disconnectRealtime(); clearInterval(interval); };
+  }, [tenantId]);
 
   useEffect(() => {
     if (!floor) return;
