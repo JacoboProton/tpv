@@ -44,8 +44,7 @@ export async function PUT(req) {
   try {
     const { tables, orders, zones, background } = await req.json();
     const tenantId = getTenantId(req);
-    const queries = [];
-
+    queries.push(sql`DELETE FROM tables WHERE tenant_id = ${tenantId}`);
     for (const t of tables) {
       queries.push(sql`
         INSERT INTO tables (tenant_id, id, name, status, order_id, order_ids, reserved, reserved_for, is_fiado, type,
@@ -57,45 +56,15 @@ export async function PUT(req) {
                 ${t.x ?? 100}, ${t.y ?? 100}, ${t.width ?? 80}, ${t.height ?? 80}, ${t.radius ?? 40},
                 ${t.shape ?? 'rect'}, ${t.rotation ?? 0}, ${t.seats ?? 4},
                 ${t.zone ?? ''}, ${t.layer ?? 0}, ${t.color ?? ''})
-        ON CONFLICT (id) DO UPDATE SET
-          tenant_id    = EXCLUDED.tenant_id,
-          status       = EXCLUDED.status,
-          order_id     = EXCLUDED.order_id,
-          order_ids    = EXCLUDED.order_ids,
-          reserved     = EXCLUDED.reserved,
-          reserved_for = EXCLUDED.reserved_for,
-          is_fiado     = EXCLUDED.is_fiado,
-          type         = EXCLUDED.type,
-          pos_x        = EXCLUDED.pos_x,
-          pos_y        = EXCLUDED.pos_y,
-          table_width  = EXCLUDED.table_width,
-          table_height = EXCLUDED.table_height,
-          table_radius = EXCLUDED.table_radius,
-          table_shape  = EXCLUDED.table_shape,
-          rotation     = EXCLUDED.rotation,
-          seats        = EXCLUDED.seats,
-          zone         = EXCLUDED.zone,
-          layer        = EXCLUDED.layer,
-          table_color  = EXCLUDED.table_color
       `);
     }
 
-    const orderIds = Object.keys(orders);
-    if (orderIds.length > 0) {
-      for (const [oid, o] of Object.entries(orders)) {
-        queries.push(sql`
-          INSERT INTO orders (tenant_id, id, table_id, items, created_at, employee_name)
-          VALUES (${tenantId}, ${oid}, ${o.tableId}, ${JSON.stringify(o.items)}, ${o.createdAt}, ${o.employeeName ?? null})
-          ON CONFLICT (id) DO UPDATE SET
-            tenant_id     = EXCLUDED.tenant_id,
-            table_id      = EXCLUDED.table_id,
-            items         = EXCLUDED.items,
-            employee_name = EXCLUDED.employee_name
-        `);
-      }
-      queries.push(sql`DELETE FROM orders WHERE tenant_id = ${tenantId} AND id != ALL(${orderIds})`);
-    } else {
-      queries.push(sql`DELETE FROM orders WHERE tenant_id = ${tenantId}`);
+    queries.push(sql`DELETE FROM orders WHERE tenant_id = ${tenantId}`);
+    for (const [oid, o] of Object.entries(orders)) {
+      queries.push(sql`
+        INSERT INTO orders (tenant_id, id, table_id, items, created_at, employee_name)
+        VALUES (${tenantId}, ${oid}, ${o.tableId}, ${JSON.stringify(o.items)}, ${o.createdAt}, ${o.employeeName ?? null})
+      `);
     }
 
     if (zones || background) {
