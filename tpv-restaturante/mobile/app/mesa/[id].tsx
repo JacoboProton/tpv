@@ -5,6 +5,7 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchFloor, saveFloor, fetchCatalog } from '../../lib/api';
+import { broadcastFloorUpdate } from '../../lib/realtime';
 import { globalFloor, setGlobalFloor, globalUser } from '../_layout';
 import type { Floor, Table, Order, OrderItem, Product, Category } from '../../lib/types';
 
@@ -176,6 +177,7 @@ export default function MesaScreen() {
     setSaving(true);
     try {
       await saveFloor(f);
+      broadcastFloorUpdate(f);
     } catch (e) {
       console.error('Error saving floor', e);
     } finally {
