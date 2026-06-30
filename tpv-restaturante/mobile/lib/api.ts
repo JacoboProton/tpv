@@ -1,4 +1,4 @@
-import { API_URL } from './config';
+import { API_URL, TPV_API_KEY } from './config';
 import type { Employee, Floor, Product, Category, Order } from './types';
 
 let _tenantId = 'default';
@@ -6,8 +6,10 @@ export function setTenantId(id: string) { _tenantId = id; }
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_URL}/api${path}`;
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', 'x-tenant-id': _tenantId };
+  if (TPV_API_KEY) headers['x-tpv-key'] = TPV_API_KEY;
   const res = await fetch(url, {
-    headers: { 'Content-Type': 'application/json', 'x-tenant-id': _tenantId, ...options.headers },
+    headers: { ...headers, ...options.headers as Record<string, string> },
     ...options,
   });
   if (!res.ok) {

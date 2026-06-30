@@ -49,11 +49,15 @@ export async function broadcastFloorUpdateServer(floor) {
   const endpoint = url.replace('https://', 'wss://') + '/realtime/v1';
   const c = new RealtimeClient(endpoint, { params: { apikey: key } });
   const ch = c.channel('floor-sync');
-  ch.subscribe();
   c.connect();
-  await new Promise(r => setTimeout(r, 500));
-  ch.send({ type: 'broadcast', event: 'floor:updated', payload: { floor } });
-  setTimeout(() => { ch.unsubscribe(); c.disconnect(); }, 1000);
+  await new Promise(resolve => {
+    ch.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        ch.send({ type: 'broadcast', event: 'floor:updated', payload: { floor } });
+        setTimeout(() => { ch.unsubscribe(); c.disconnect(); resolve(); }, 100);
+      }
+    });
+  });
 }
 
 export function disconnectRealtime() {

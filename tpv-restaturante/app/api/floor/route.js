@@ -112,8 +112,7 @@ export async function PUT(req) {
       await sql.transaction(queries);
     }
 
-    const floor = { tables, orders, zones, background };
-    broadcastFloorUpdateServer(floor).catch(() => {});
+    await broadcastFloorUpdateServer({ tables, orders, zones, background }).catch(() => {});
 
     return NextResponse.json({ ok: true });
   } catch (err) {
