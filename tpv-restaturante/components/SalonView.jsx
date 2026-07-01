@@ -49,6 +49,7 @@ export default function SalonView({ floor, onSelect, persistFloor, colors: C, on
       tables = tables.filter(t => {
         let actualStatus = t.status;
         if (t.reserved && !t.orderId) actualStatus = 'reservada';
+        if (t.reserved_for && !t.orderId) actualStatus = 'reservada';
         return actualStatus === filterStatus;
       });
     }
@@ -183,7 +184,7 @@ export default function SalonView({ floor, onSelect, persistFloor, colors: C, on
                   let actualStatus = t.status;
                   if (t.reserved && !t.orderId) actualStatus = 'reservada';
                   if (t.reserved_for && !t.orderId) actualStatus = 'reservada';
-                  const s = statusStyle[actualStatus];
+                  const s = statusStyle[actualStatus] || statusStyle.libre;
                   const urgent = order && order.items.some(i => i.sent && !i.ready && (Date.now() - (i.sentAt || 0)) / 60000 >= 10);
 
                   return (
