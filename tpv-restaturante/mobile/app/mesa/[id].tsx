@@ -80,13 +80,18 @@ function PaymentButton({ floor, tableId, persistFloor, disabled }: {
 function NfcPaymentButton({ floor, tableId, persistFloor, disabled }: {
   floor: Floor; tableId: string; persistFloor: (f: Floor) => Promise<void>; disabled: boolean;
 }) {
-  const { discoverReaders, connectReader, disconnectReader, createPaymentIntent, collectPaymentMethod, processPayment, supportsReadersOfType } = useStripeTerminal();
+  const { initialize, isInitialized, discoverReaders, connectReader, disconnectReader, createPaymentIntent, collectPaymentMethod, processPayment, supportsReadersOfType } = useStripeTerminal();
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState('');
 
   async function payWithNfc() {
     setLoading(true);
     try {
+      setStep('Inicializando...');
+      if (!isInitialized) {
+        const { error: initErr } = await initialize();
+        if (initErr) { Alert.alert('Error', initErr.message); return; }
+      }
       setStep('Verificando...');
       const { readerSupportResult } = await supportsReadersOfType({ deviceType: 'tapToPay' });
       if (!readerSupportResult) {
