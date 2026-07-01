@@ -2,7 +2,9 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { useEffect, useState } from 'react';
+import { StripeTerminalProvider } from '@stripe/stripe-terminal-react-native';
 import { connectRealtime, disconnectRealtime, showReadyNotification } from '../lib/realtime';
+import { API_URL, TPV_API_KEY } from '../lib/config';
 import type { Employee, Floor } from '../lib/types';
 
 export { ErrorBoundary } from 'expo-router';
@@ -51,28 +53,39 @@ export default function RootLayout() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: COLORS.base }}>
-      <StatusBar style="light" />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: COLORS.base },
-        }}
-      >
-        <Stack.Screen name="index" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen
-          name="mesa/[id]"
-          options={{
-            headerShown: true,
-            headerTitle: 'Mesa',
-            headerStyle: { backgroundColor: COLORS.surface },
-            headerTintColor: COLORS.cream,
-            presentation: 'fullScreenModal',
+    <StripeTerminalProvider
+      tokenProvider={async () => {
+        const res = await fetch(`${API_URL}/api/stripe/terminal-connection-token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-tpv-key': TPV_API_KEY },
+        });
+        const d = await res.json();
+        return d.connectionToken;
+      }}
+    >
+      <View style={{ flex: 1, backgroundColor: COLORS.base }}>
+        <StatusBar style="light" />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: COLORS.base },
           }}
-        />
-      </Stack>
-    </View>
+        >
+          <Stack.Screen name="index" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen
+            name="mesa/[id]"
+            options={{
+              headerShown: true,
+              headerTitle: 'Mesa',
+              headerStyle: { backgroundColor: COLORS.surface },
+              headerTintColor: COLORS.cream,
+              presentation: 'fullScreenModal',
+            }}
+          />
+        </Stack>
+      </View>
+    </StripeTerminalProvider>
   );
 }
 

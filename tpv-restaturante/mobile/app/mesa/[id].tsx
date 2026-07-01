@@ -4,11 +4,12 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { fetchFloor, saveFloor, fetchCatalog, createPaymentIntent } from '../../lib/api';
+import { fetchFloor, saveFloor, fetchCatalog, createPaymentIntent, fetchTerminalConfig } from '../../lib/api';
 import { broadcastFloorUpdate } from '../../lib/realtime';
 import { STRIPE_PK } from '../../lib/config';
 import { globalFloor, setGlobalFloor, globalUser } from '../_layout';
 import { StripeProvider, useStripe } from '@stripe/stripe-react-native';
+import { useStripeTerminal } from '@stripe/stripe-terminal-react-native';
 import type { Floor, Table, Order, OrderItem, Product, Category } from '../../lib/types';
 
 const C = {
@@ -72,6 +73,93 @@ function PaymentButton({ floor, tableId, persistFloor, disabled }: {
     >
       <Ionicons name="card" size={18} color="#fff" />
       <Text style={styles.cardBtnText}>{loading ? 'Procesando...' : 'Pagar con tarjeta'}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function NfcPaymentButton({ floor, tableId, persistFloor, disabled }: {
+  floor: Floor; tableId: string; persistFloor: (f: Floor) => Promise<void>; disabled: boolean;
+}) {
+  const { discoverReaders, connectReader, disconnectReader, createPaymentIntent, collectPaymentMethod, processPayment, supportsReadersOfType } = useStripeTerminal();
+  const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState('');
+
+  async function payWithNfc() {
+    setLoading(true);
+    try {
+      setStep('Verificando...');
+      const { readerSupportResult } = await supportsReadersOfType({ deviceType: 'tapToPay' });
+      if (!readerSupportResult) {
+        Alert.alert('No soportado', 'Este dispositivo no soporta pago NFC');
+        return;
+      }
+
+      setStep('Conectando...');
+      const { locationId } = await fetchTerminalConfig();
+
+      // EasyConnect combines discover + connect for Tap to Pay
+      const { error: connectErr } = await discoverReaders({ discoveryMethod: 'tapToPay', simulated: false });
+      if (connectErr) { Alert.alert('Error', connectErr.message); return; }
+
+      // The discovered reader is automatically connected via StripeTerminalProvider
+      // Now create the PaymentIntent
+      const t = floor.tables.find(t => t.id === tableId);
+      const total = Object.values(floor.orders).reduce((s, o) =>
+        s + o.items.reduce((s2, i) => s2 + i.price * i.qty, 0), 0);
+      const totalCents = Math.round(total * 100);
+
+      setStep('Creando pago...');
+      const { paymentIntent, error: createErr } = await createPaymentIntent({
+        amount: totalCents,
+        currency: 'eur',
+        metadata: {
+          tableId: tableId,
+          tableName: t?.name || tableId,
+          employeeName: globalUser?.name || 'Camarero',
+          source: 'la-comanda-tpv-nfc',
+        },
+      });
+      if (createErr) { Alert.alert('Error', createErr.message); return; }
+
+      setStep('Acerca tarjeta/iPhone al móvil...');
+      const { error: collectErr } = await collectPaymentMethod(paymentIntent!);
+      if (collectErr) {
+        if (collectErr.code === 'canceled') return;
+        Alert.alert('Error', collectErr.message); return;
+      }
+
+      setStep('Procesando...');
+      const { error: processErr } = await processPayment(paymentIntent!);
+      if (processErr) { Alert.alert('Error', processErr.message); return; }
+
+      await disconnectReader();
+
+      const f = JSON.parse(JSON.stringify(floor)) as Floor;
+      const table = f.tables.find(t => t.id === tableId);
+      if (table) { table.status = 'libre'; table.orderIds = []; table.orderId = null; }
+      for (const oid of Object.keys(f.orders)) {
+        if (floor.orders[oid].tableId === tableId) delete f.orders[oid];
+      }
+      setGlobalFloor(f);
+      await persistFloor(f);
+      Alert.alert('✅ Pagado con NFC', `Total: ${total.toFixed(2)}€`);
+      router.back();
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+    } finally {
+      setLoading(false);
+      setStep('');
+    }
+  }
+
+  return (
+    <TouchableOpacity
+      style={[styles.nfcBtn, disabled && { opacity: 0.4 }]}
+      onPress={payWithNfc}
+      disabled={disabled || loading}
+    >
+      <Ionicons name="phone-portrait" size={18} color="#fff" />
+      <Text style={styles.nfcBtnText}>{loading ? step : 'NFC'}</Text>
     </TouchableOpacity>
   );
 }
@@ -360,9 +448,12 @@ export default function MesaScreen() {
           <Text style={styles.closeBtnText}>Cerrar</Text>
         </TouchableOpacity>
         {floor && allItems.length > 0 && (
-          <StripeProvider publishableKey={STRIPE_PK}>
-            <PaymentButton floor={floor} tableId={tableId} persistFloor={persistFloor} disabled={saving} />
-          </StripeProvider>
+          <>
+            <StripeProvider publishableKey={STRIPE_PK}>
+              <PaymentButton floor={floor} tableId={tableId} persistFloor={persistFloor} disabled={saving} />
+            </StripeProvider>
+            <NfcPaymentButton floor={floor} tableId={tableId} persistFloor={persistFloor} disabled={saving} />
+          </>
         )}
         <TouchableOpacity
           style={[styles.payBtn, allItems.length === 0 && { opacity: 0.4 }]}
@@ -451,4 +542,9 @@ const styles = StyleSheet.create({
     alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6,
   },
   cardBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  nfcBtn: {
+    flex: 1, paddingVertical: 12, backgroundColor: C.sage, borderRadius: 8,
+    alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6,
+  },
+  nfcBtnText: { color: C.base, fontWeight: '700', fontSize: 13 },
 });

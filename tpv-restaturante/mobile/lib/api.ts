@@ -51,3 +51,9 @@ export async function createPaymentIntent(amount: number, tableId: string, table
     body: JSON.stringify({ amount, tableId, tableName, employeeName }),
   });
 }
+
+export async function fetchTerminalConfig(): Promise<{ connectionToken: string; locationId: string }> {
+  return apiFetch('/stripe/terminal-connection-token', {
+    method: 'POST',
+  });
+}

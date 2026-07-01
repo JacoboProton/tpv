@@ -11,7 +11,12 @@
       "bundleIdentifier": "com.lacomanda.movil"
     },
     "android": {
-      "package": "com.lacomanda.movil"
+      "package": "com.lacomanda.movil",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "NFC"
+      ]
     },
     "web": {
       "bundler": "metro"
@@ -20,7 +25,13 @@
       "expo-router",
       "expo-asset",
       "expo-font",
-      ["@stripe/stripe-react-native", { "merchantIdentifier": "" }]
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": ""
+        }
+      ],
+      ["@stripe/stripe-terminal-react-native", { "tapToPayCheck": true }]
     ],
     "experiments": {
       "typedRoutes": true
