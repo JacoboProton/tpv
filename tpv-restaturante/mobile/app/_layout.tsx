@@ -60,6 +60,7 @@ export default function RootLayout() {
           headers: { 'Content-Type': 'application/json', 'x-tpv-key': TPV_API_KEY },
         });
         const d = await res.json();
+        if (!res.ok) throw new Error(d.error || 'Error al conectar con Stripe');
         return d.connectionToken;
       }}
     >

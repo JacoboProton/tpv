@@ -80,7 +80,7 @@ function PaymentButton({ floor, tableId, persistFloor, disabled }: {
 function NfcPaymentButton({ floor, tableId, persistFloor, disabled }: {
   floor: Floor; tableId: string; persistFloor: (f: Floor) => Promise<void>; disabled: boolean;
 }) {
-  const { initialize, isInitialized, discoverReaders, connectReader, disconnectReader, createPaymentIntent, collectPaymentMethod, processPayment, supportsReadersOfType } = useStripeTerminal();
+  const { initialize, isInitialized, easyConnect, disconnectReader, createPaymentIntent, collectPaymentMethod, processPayment } = useStripeTerminal();
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState('');
 
@@ -90,23 +90,27 @@ function NfcPaymentButton({ floor, tableId, persistFloor, disabled }: {
       setStep('Inicializando...');
       if (!isInitialized) {
         const { error: initErr } = await initialize();
-        if (initErr) { Alert.alert('Error', initErr.message); return; }
+        if (initErr) { Alert.alert('Error al inicializar', initErr.message); return; }
       }
-      setStep('Verificando...');
-      const { readerSupportResult } = await supportsReadersOfType({ deviceType: 'tapToPay' });
-      if (!readerSupportResult) {
-        Alert.alert('No soportado', 'Este dispositivo no soporta pago NFC');
+
+      setStep('Conectando NFC...');
+      const { locationId } = await fetchTerminalConfig();
+      setStep('Acerca el terminal al móvil...');
+      const { reader, error: connectErr } = await easyConnect({
+        discoveryMethod: 'tapToPay',
+        simulated: true,
+        locationId,
+        merchantDisplayName: 'La Comanda',
+      });
+      if (connectErr) {
+        if (connectErr.code === 'TAP_TO_PAY_UNSUPPORTED_DEVICE') {
+          Alert.alert('No disponible', 'NFC no disponible en este dispositivo. Usa "Pagar con tarjeta".');
+        } else {
+          Alert.alert('Error NFC', connectErr.message);
+        }
         return;
       }
 
-      setStep('Conectando...');
-      const { locationId } = await fetchTerminalConfig();
-
-      // EasyConnect combines discover + connect for Tap to Pay
-      const { error: connectErr } = await discoverReaders({ discoveryMethod: 'tapToPay', simulated: false });
-      if (connectErr) { Alert.alert('Error', connectErr.message); return; }
-
-      // The discovered reader is automatically connected via StripeTerminalProvider
       // Now create the PaymentIntent
       const t = floor.tables.find(t => t.id === tableId);
       const total = Object.values(floor.orders).reduce((s, o) =>
