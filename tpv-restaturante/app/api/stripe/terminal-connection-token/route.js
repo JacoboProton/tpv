@@ -8,6 +8,10 @@ function getStripe() {
 
 let cachedLocationId = null;
 
+function env(key, fallback) {
+  return process.env[key] || fallback;
+}
+
 async function getOrCreateLocation(stripe) {
   if (cachedLocationId) return cachedLocationId;
   const existing = await stripe.terminal.locations.list({ limit: 1 });
@@ -15,12 +19,12 @@ async function getOrCreateLocation(stripe) {
     cachedLocationId = existing.data[0].id;
   } else {
     const loc = await stripe.terminal.locations.create({
-      display_name: 'La Comanda',
+      display_name: env('STRIPE_LOCATION_NAME', 'La Comanda'),
       address: {
-        line1: 'Restaurante',
-        city: 'Ciudad',
-        country: 'ES',
-        postal_code: '28001',
+        line1: env('STRIPE_LOCATION_LINE1', 'Restaurante'),
+        city: env('STRIPE_LOCATION_CITY', 'Ciudad'),
+        country: env('STRIPE_LOCATION_COUNTRY', 'ES'),
+        postal_code: env('STRIPE_LOCATION_POSTAL_CODE', '28001'),
       },
     });
     cachedLocationId = loc.id;

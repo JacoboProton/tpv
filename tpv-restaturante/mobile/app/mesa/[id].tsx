@@ -6,7 +6,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchFloor, saveFloor, fetchCatalog, createPaymentIntent, fetchTerminalConfig } from '../../lib/api';
 import { broadcastFloorUpdate } from '../../lib/realtime';
-import { STRIPE_PK } from '../../lib/config';
+import { STRIPE_PK, STRIPE_SIMULATED } from '../../lib/config';
 import { globalFloor, setGlobalFloor, globalUser } from '../_layout';
 import { StripeProvider, useStripe } from '@stripe/stripe-react-native';
 import { useStripeTerminal } from '@stripe/stripe-terminal-react-native';
@@ -80,9 +80,11 @@ function PaymentButton({ floor, tableId, persistFloor, disabled }: {
 function NfcPaymentButton({ floor, tableId, persistFloor, disabled }: {
   floor: Floor; tableId: string; persistFloor: (f: Floor) => Promise<void>; disabled: boolean;
 }) {
-  const { initialize, isInitialized, easyConnect, disconnectReader, createPaymentIntent, collectPaymentMethod, processPayment } = useStripeTerminal();
+  const { initialize, isInitialized, easyConnect, disconnectReader, createPaymentIntent, collectPaymentMethod, processPayment, connectionStatus } = useStripeTerminal();
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState('');
+
+  const isConnected = connectionStatus === 'connected';
 
   async function payWithNfc() {
     setLoading(true);
@@ -98,7 +100,7 @@ function NfcPaymentButton({ floor, tableId, persistFloor, disabled }: {
       setStep('Acerca el terminal al móvil...');
       const { reader, error: connectErr } = await easyConnect({
         discoveryMethod: 'tapToPay',
-        simulated: true,
+        simulated: STRIPE_SIMULATED,
         locationId,
         merchantDisplayName: 'La Comanda',
       });
@@ -162,14 +164,23 @@ function NfcPaymentButton({ floor, tableId, persistFloor, disabled }: {
   }
 
   return (
-    <TouchableOpacity
-      style={[styles.nfcBtn, disabled && { opacity: 0.4 }]}
-      onPress={payWithNfc}
-      disabled={disabled || loading}
-    >
-      <Ionicons name="phone-portrait" size={18} color="#fff" />
-      <Text style={styles.nfcBtnText}>{loading ? step : 'NFC'}</Text>
-    </TouchableOpacity>
+    <View style={{ flex: 1 }}>
+      {isConnected && !loading && (
+        <Text style={{
+          fontSize: 9, color: C.sage, textAlign: 'center', marginBottom: 2,
+        }}>
+          NFC conectado
+        </Text>
+      )}
+      <TouchableOpacity
+        style={[styles.nfcBtn, disabled && { opacity: 0.4 }, isConnected && !loading && { backgroundColor: C.brass }]}
+        onPress={payWithNfc}
+        disabled={disabled || loading}
+      >
+        <Ionicons name="phone-portrait" size={18} color="#fff" />
+        <Text style={styles.nfcBtnText}>{loading ? step : 'NFC'}</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
