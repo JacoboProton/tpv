@@ -47,7 +47,7 @@ describe('terminal-connection-token API route', () => {
     expect(body.locationId).toBe('loc_abc');
     expect(mockLocations.create).toHaveBeenCalledWith({
       display_name: 'La Comanda',
-      address: { line1: 'Restaurante', city: 'Ciudad', country: 'ES', postal_code: '28001' },
+      address: { line1: 'Restaurante', city: 'Ciudad', state: 'Madrid', country: 'ES', postal_code: '28001' },
     });
   });
 
@@ -56,6 +56,7 @@ describe('terminal-connection-token API route', () => {
     process.env.STRIPE_LOCATION_NAME = 'Mi Restaurante';
     process.env.STRIPE_LOCATION_LINE1 = 'Calle Mayor 1';
     process.env.STRIPE_LOCATION_CITY = 'Madrid';
+    process.env.STRIPE_LOCATION_STATE = 'Madrid';
     process.env.STRIPE_LOCATION_COUNTRY = 'ES';
     process.env.STRIPE_LOCATION_POSTAL_CODE = '28013';
 
@@ -70,7 +71,7 @@ describe('terminal-connection-token API route', () => {
     expect(res.status).toBe(200);
     expect(mockLocations.create).toHaveBeenCalledWith({
       display_name: 'Mi Restaurante',
-      address: { line1: 'Calle Mayor 1', city: 'Madrid', country: 'ES', postal_code: '28013' },
+      address: { line1: 'Calle Mayor 1', city: 'Madrid', state: 'Madrid', country: 'ES', postal_code: '28013' },
     });
 
     delete process.env.STRIPE_LOCATION_NAME;

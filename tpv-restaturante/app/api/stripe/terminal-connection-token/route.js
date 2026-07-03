@@ -23,6 +23,7 @@ async function getOrCreateLocation(stripe) {
       address: {
         line1: env('STRIPE_LOCATION_LINE1', 'Restaurante'),
         city: env('STRIPE_LOCATION_CITY', 'Ciudad'),
+        state: env('STRIPE_LOCATION_STATE', 'Madrid'),
         country: env('STRIPE_LOCATION_COUNTRY', 'ES'),
         postal_code: env('STRIPE_LOCATION_POSTAL_CODE', '28001'),
       },
