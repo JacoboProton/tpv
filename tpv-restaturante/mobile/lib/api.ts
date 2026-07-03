@@ -64,3 +64,10 @@ export async function createTerminalPaymentIntent(amountCents: number, tableId: 
     body: JSON.stringify({ amount: amountCents, tableId, tableName, employeeName }),
   });
 }
+
+export async function addSale(sale: Record<string, unknown>): Promise<{ ok: boolean }> {
+  return apiFetch('/sales', {
+    method: 'POST',
+    body: JSON.stringify(sale),
+  });
+}

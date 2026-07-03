@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { fetchFloor, saveFloor, fetchCatalog, createPaymentIntent, createTerminalPaymentIntent, fetchTerminalConfig } from '../../lib/api';
+import { fetchFloor, saveFloor, fetchCatalog, createPaymentIntent, createTerminalPaymentIntent, fetchTerminalConfig, addSale } from '../../lib/api';
 import { broadcastFloorUpdate } from '../../lib/realtime';
 import { STRIPE_PK, STRIPE_SIMULATED } from '../../lib/config';
 import { globalFloor, setGlobalFloor, globalUser } from '../_layout';
@@ -156,6 +156,26 @@ function NfcPaymentButton({ floor, tableId, persistFloor, disabled }: {
       for (const oid of Object.keys(f.orders)) {
         if (floor.orders[oid].tableId === tableId) delete f.orders[oid];
       }
+
+      const saleId = generateId();
+      const allOrderItems = Object.values(floor.orders)
+        .filter(o => o.tableId === tableId)
+        .flatMap(o => o.items.map(i => ({ id: i.id, productId: i.productId, name: i.name, qty: i.qty, price: i.price })));
+
+      try {
+        await addSale({
+          id: saleId, tableId, tableName: t?.name || tableId,
+          items: allOrderItems, subtotal: total, discount: 0, discountAmount: 0,
+          total, tip: 0, totalWithTip: total,
+          payments: [{ method: 'card', amount: total }],
+          paymentMethod: 'Tarjeta (NFC)', isFiado: false, isDebtPayment: false,
+          employeeId: null, employeeName: globalUser?.name || 'Camarero',
+          closedAt: Date.now(),
+        });
+      } catch (e) {
+        console.warn('Error al guardar venta NFC:', e);
+      }
+
       setGlobalFloor(f);
       await persistFloor(f);
       Alert.alert('✅ Pagado con NFC', `Total: ${total.toFixed(2)}€`);

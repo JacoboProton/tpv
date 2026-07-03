@@ -1825,35 +1825,64 @@ export default function App() {
     );
   }
 
-  const navItems = [
-    { id: 'salon',      label: 'Salon',      icon: LayoutGrid,    adminOnly: false },
-    { id: 'cocina',     label: 'Cocina',     icon: ChefHat,       adminOnly: false },
-    { id: 'comandas',   label: 'Comandas',   icon: ClipboardList, adminOnly: false },
-    { id: 'kds',        label: 'Cocina KDS',  icon: ChefHat,       adminOnly: false },
-    { id: 'pedidos',    label: 'Pedidos',    icon: Undo2,         adminOnly: false },
-    { id: 'inventario', label: 'Inventario', icon: Package,       adminOnly: true  },
-    { id: 'carta',      label: 'Carta',      icon: ClipboardList, adminOnly: true  },
-    { id: 'informes',   label: 'Informes',   icon: BarChart3,     adminOnly: true  },
-    { id: 'empleados',  label: 'Equipo',     icon: Users,         adminOnly: true  },
-    { id: 'ofertas',    label: 'Ofertas',    icon: Percent,       adminOnly: true  },
-    { id: 'combos',     label: 'Combos',     icon: Package,       adminOnly: true  },
-    { id: 'menus',      label: 'Menús',      icon: ChefHat,       adminOnly: true  },
-    { id: 'carrusel',   label: 'Carrusel',   icon: Star,          adminOnly: true  },
-    { id: 'precios',    label: 'Precios',    icon: Euro,          adminOnly: true  },
-  { id: 'reparto',    label: 'Reparto',    icon: Truck,         adminOnly: true  },
-  { id: 'gestoria',   label: 'Gestoria',   icon: FileText,      adminOnly: true  },
-  { id: 'pairing',    label: 'Emparejar',  icon: Monitor,       adminOnly: true  },
-  { id: 'audit',      label: 'Auditoria',  icon: ClipboardList, adminOnly: true  },
-  { id: 'turnos',     label: 'Turnos',     icon: Calendar,      adminOnly: true  },
-  { id: 'registro-horario', label: 'Reg. Horario', icon: Clock, adminOnly: true  },
-  { id: 'solicitudes',  label: 'Solicitudes', icon: ClipboardList,  adminOnly: true  },
-  { id: 'pedidos-compra', label: 'Pedidos Compra', icon: FileText, adminOnly: true },
-  { id: 'produccion', label: 'Producción', icon: Package, adminOnly: true  },
-  { id: 'reservas',   label: 'Reservas',   icon: Calendar,      adminOnly: true  },
-  { id: 'waitlist',   label: 'Lista Espera', icon: Users,        adminOnly: true  },
-  { id: 'onlineorders', label: 'Pedidos Online', icon: Truck,     adminOnly: true  },
-  { id: 'buffet',      label: 'Buffet Kiosk', icon: ClipboardList, adminOnly: true  },
-].filter(item => !item.adminOnly || currentUser.role === 'admin');
+  const navGroups = [
+    {
+      label: 'Sala y Cocina', color: '#4a90d9',
+      items: [
+        { id: 'salon',      label: 'Salon',      icon: LayoutGrid },
+        { id: 'pairing',    label: 'Emparejar',  icon: Monitor },
+        { id: 'comandas',   label: 'Comandas',   icon: ClipboardList },
+        { id: 'cocina',     label: 'Cocina',     icon: ChefHat },
+        { id: 'kds',        label: 'Cocina KDS',  icon: ChefHat },
+      ],
+    },
+    {
+      label: 'Operaciones', color: '#4a90d9',
+      adminOnly: true,
+      items: [
+        { id: 'pedidos',    label: 'Pedidos',    icon: Undo2 },
+        { id: 'reservas',   label: 'Reservas',   icon: Calendar },
+        { id: 'waitlist',   label: 'Lista Espera', icon: Users },
+      ],
+    },
+    {
+      label: 'Canales', color: '#4caf50',
+      adminOnly: true,
+      items: [
+        { id: 'buffet',      label: 'Buffet Kiosk', icon: ClipboardList },
+        { id: 'onlineorders', label: 'Pedidos Online', icon: Truck },
+        { id: 'reparto',    label: 'Reparto',    icon: Truck },
+      ],
+    },
+    {
+      label: 'Gestión', color: '#e8a838',
+      adminOnly: true,
+      items: [
+        { id: 'inventario', label: 'Inventario', icon: Package },
+        { id: 'carta',      label: 'Carta',      icon: ClipboardList },
+        { id: 'informes',   label: 'Informes',   icon: BarChart3 },
+        { id: 'empleados',  label: 'Equipo',     icon: Users },
+        { id: 'ofertas',    label: 'Ofertas',    icon: Percent },
+        { id: 'combos',     label: 'Combos',     icon: Package },
+        { id: 'menus',      label: 'Menús',      icon: ChefHat },
+        { id: 'carrusel',   label: 'Carrusel',   icon: Star },
+        { id: 'precios',    label: 'Precios',    icon: Euro },
+      ],
+    },
+    {
+      label: 'Administración', color: '#c0392b',
+      adminOnly: true,
+      items: [
+        { id: 'gestoria',   label: 'Gestoria',   icon: FileText },
+        { id: 'audit',      label: 'Auditoria',  icon: ClipboardList },
+        { id: 'turnos',     label: 'Turnos',     icon: Calendar },
+        { id: 'registro-horario', label: 'Reg. Horario', icon: Clock },
+        { id: 'solicitudes',  label: 'Solicitudes', icon: ClipboardList },
+        { id: 'pedidos-compra', label: 'Pedidos Compra', icon: FileText },
+        { id: 'produccion', label: 'Producción', icon: Package },
+      ],
+    },
+  ];
 
   return (
     <div style={{ background: C.base, color: C.cream, minHeight: '100vh' }} className="flex">
@@ -1872,25 +1901,38 @@ export default function App() {
               </select>
             )}
           </div>
-          <nav className="flex flex-col gap-1 p-2 overflow-y-auto flex-1">
-            {navItems.map(item => {
-              const Icon = item.icon;
-              const active = view === item.id;
+          <nav className="flex flex-col gap-3 p-2 overflow-y-auto flex-1">
+            {navGroups.map(group => {
+              if (group.adminOnly && currentUser.role !== 'admin') return null;
+              const filtered = group.items;
+              if (filtered.length === 0) return null;
               return (
-                <button key={item.id} onClick={() => setView(item.id)}
-                  style={{
-                    background: active ? C.surfaceLight : 'transparent',
-                    color: active ? C.brassLight : C.muted,
-                    borderLeft: active ? `3px solid ${C.brassLight}` : '3px solid transparent',
-                  }}
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors hover:opacity-90 text-left shrink-0"
-                >
-                  <Icon className="w-4 h-4 shrink-0" />
-                  <span className="flex-1">{item.label}</span>
-                  {item.id === 'inventario' && lowStockProducts.length > 0 && (
-                    <span style={{ background: C.wine }} className="text-xs rounded-full w-5 h-5 flex items-center justify-center shrink-0">{lowStockProducts.length}</span>
-                  )}
-                </button>
+                <div key={group.label}>
+                  <div className="text-[9px] font-bold uppercase tracking-wider px-3 pb-1 pt-1"
+                    style={{ color: group.color }}>
+                    {group.label}
+                  </div>
+                  {filtered.map(item => {
+                    const Icon = item.icon;
+                    const active = view === item.id;
+                    return (
+                      <button key={item.id} onClick={() => setView(item.id)}
+                        style={{
+                          background: active ? C.surfaceLight : 'transparent',
+                          color: active ? group.color : C.muted,
+                          borderLeft: active ? `3px solid ${group.color}` : '3px solid transparent',
+                        }}
+                        className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:opacity-90 text-left shrink-0 w-full"
+                      >
+                        <Icon className="w-4 h-4 shrink-0" />
+                        <span className="flex-1">{item.label}</span>
+                        {item.id === 'inventario' && lowStockProducts.length > 0 && (
+                          <span style={{ background: C.wine }} className="text-xs rounded-full w-5 h-5 flex items-center justify-center shrink-0">{lowStockProducts.length}</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               );
             })}
           </nav>
