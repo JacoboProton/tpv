@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, PermissionsAndroid, Platform,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -93,6 +93,18 @@ function NfcPaymentButton({ floor, tableId, persistFloor, disabled }: {
       if (!isInitialized) {
         const { error: initErr } = await initialize();
         if (initErr) { Alert.alert('Error al inicializar', initErr.message); return; }
+      }
+
+      setStep('Solicitando permisos...');
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          { title: 'Permiso de localización', message: 'La app necesita acceso a la ubicación para usar NFC', buttonPositive: 'OK' },
+        );
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          Alert.alert('Permiso denegado', 'Activa la localización en Ajustes para usar NFC');
+          return;
+        }
       }
 
       setStep('Conectando NFC...');
