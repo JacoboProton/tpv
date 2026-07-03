@@ -2534,7 +2534,7 @@ export default function App() {
       <CommandPalette
         isOpen={showCommands}
         onClose={() => setShowCommands(false)}
-        navItems={navItems}
+        navItems={navGroups.flatMap(g => g.items)}
         floor={floor}
         onSelectTable={(id) => { setSelectedTableId(id); setActiveCategory('Todos'); }}
         onNavigate={(id) => { setView(id); }}
