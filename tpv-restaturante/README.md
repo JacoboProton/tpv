@@ -1,6 +1,6 @@
 # La Comanda — TPV Restaurante
 
-Sistema de TPV profesional para restaurantes con POS web, app móvil para camareros, pedidos online, reservas y KDS en tiempo real.
+Sistema de TPV profesional para restaurantes con POS web, app móvil para camareros, pedidos online, reservas, KDS en tiempo real y pago NFC.
 
 ## Stack
 
@@ -11,29 +11,47 @@ Sistema de TPV profesional para restaurantes con POS web, app móvil para camare
 - **Expo / React Native** — app móvil para camareros (`mobile/`)
 - **Vitest 4** con jsdom
 - **ESC/POS** — impresión térmica con WebUSB
+- **Stripe Terminal** — pago NFC Tap-to-Pay en móvil
 
 ## Arquitectura
 
 - `app/page.jsx` — SPA central (~2500 líneas), orquesta todas las vistas vía estado `view`
-- Vistas condicionales: `{view === 'salon' && <SalonView .../>}`
+- Vistas agrupadas en sidebar por bloques con códigos de color
 - API routes en `app/api/*/route.js` con `@neondatabase/serverless`
 - Migraciones automáticas en `lib/migrate.js` (idempotentes)
 - Seed data en `components/constants.js` (catalogo, sala, empleados)
 - `tenant_id` en todas las tablas core para multi-local
 
+## Sidebar — Grupos de Navegación
+
+| Grupo | Color | Vistas |
+|-------|-------|--------|
+| **Sala y Cocina** | Azul | Salón, Emparejar (screen mirroring), Comandas, Cocina, Cocina KDS |
+| **Operaciones** | Azul | Pedidos, Reservas, Lista Espera |
+| **Canales** | Verde | Buffet Kiosk, Pedidos Online, Reparto |
+| **Gestión** | Naranja | Inventario, Carta, Informes, Equipo, Ofertas, Combos, Menús, Carrusel, Precios |
+| **Administración** | Rojo | Gestoría, Auditoría, Turnos, Reg. Horario, Solicitudes, Pedidos Compra, Producción |
+
+Cada grupo tiene un color de acento propio. La vista activa se ilumina con el color del grupo.
+
 ## App Móvil (Expo)
 
-- `mobile/` — Proyecto Expo con expo-router
+- `mobile/` — Proyecto Expo con expo-router (SDK 56)
 - `mobile/lib/api.ts` — Conexión al backend con `x-tpv-key` y `x-tenant-id`
 - `mobile/lib/realtime.ts` — Escucha broadcasts de Supabase para actualizar en vivo
 - Login con PIN → selección de perfiles → salón → comandas → cocina
-- APK disponible en `https://tpv-sigma.vercel.app/descargar`
+- **Pago NFC** — Integración con `@stripe/stripe-terminal-react-native` para Tap-to-Pay en Android
+  - Simulado (`STRIPE_SIMULATED=true`) para desarrollo, real en producción
+  - Solicita permiso de ubicación (Android 13+) antes de conectar lector
+  - Crea PaymentIntent desde servidor, evita error de publishable key
+  - Persiste venta en caja al completar cobro
 
 Para build:
 ```bash
 cd mobile
-npx eas build -p android --profile preview
-npx eas update --branch production --message "cambios"  # solo JS
+npx eas build -p android --profile preview   # APK test
+npx eas build -p android --profile production # Play Store
+npx eas update --branch production --message "cambios"  # solo JS (OTA)
 ```
 
 ## Sincronización en Tiempo Real
@@ -55,7 +73,7 @@ npx eas update --branch production --message "cambios"  # solo JS
 
 - `/pedir` — Pedidos online (takeaway/delivery)
 - `/reservar` — Reservas online (4 pasos: fecha, hora, datos, confirmación)
-- `/waitlist` — Lista de espera
+- `/waitlist` — Lista de espera pública
 - `/qr/[tableId]` — Menú QR por mesa
 - `/descargar` — Descarga APK móvil (con QR)
 
@@ -93,7 +111,8 @@ Ver `.env.example`. Claves mínimas:
 | `TPV_API_KEY` | Clave API para middleware |
 | `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto Supabase |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Clave anónima Supabase |
-| `STRIPE_SECRET_KEY` | (opcional) Stripe |
+| `STRIPE_SECRET_KEY` | (opcional) Stripe Terminal |
+| `STRIPE_WEBHOOK_SECRET` | (opcional) Webhook Stripe |
 | `FISKALY_API_KEY` | (opcional) Verifactu |
 
 ## Docker
@@ -107,9 +126,10 @@ PostgreSQL 16 + app en puerto 3000. Realtime requiere configurar variables Supab
 ## Testing
 
 ```bash
-npx vitest run __tests__/constants.test.js
+npx vitest run           # Todos los tests
+npx vitest run __tests__/constants.test.js   # Tests específicos
 ```
 
 ## Vercel
 
-Deploy automático con `git push`. Requiere variables de entorno configuradas en dashboard.
+Deploy automático con `git push` a `main`. Requiere variables de entorno configuradas en dashboard de Vercel.
