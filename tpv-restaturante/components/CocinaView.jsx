@@ -15,7 +15,7 @@ export default function CocinaView({ floor, onReady, colors: C }) {
   }, []);
 
   const tickets = useMemo(() => floor.tables
-    .filter(t => t.orderId)
+    .filter(t => t.orderId && floor.orders[t.orderId])
     .map(t => ({ table: t, order: floor.orders[t.orderId] }))
     .filter(({ order }) => order.items.some(i => i.sent && !i.ready)),
   [floor]);

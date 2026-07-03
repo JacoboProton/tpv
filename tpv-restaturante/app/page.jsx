@@ -881,6 +881,8 @@ export default function App() {
     }
     table.status  = 'libre';
     table.isFiado = false;
+    table.orderId = null;
+    table.orderIds = [];
     persistFloor(next);
     setSelectedTableId(null);
     showToast(`${table.name} cancelada y liberada`);
