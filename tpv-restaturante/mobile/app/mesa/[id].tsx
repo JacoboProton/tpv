@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { fetchFloor, saveFloor, fetchCatalog, createPaymentIntent, fetchTerminalConfig } from '../../lib/api';
+import { fetchFloor, saveFloor, fetchCatalog, createPaymentIntent, createTerminalPaymentIntent, fetchTerminalConfig } from '../../lib/api';
 import { broadcastFloorUpdate } from '../../lib/realtime';
 import { STRIPE_PK, STRIPE_SIMULATED } from '../../lib/config';
 import { globalFloor, setGlobalFloor, globalUser } from '../_layout';
@@ -80,7 +80,7 @@ function PaymentButton({ floor, tableId, persistFloor, disabled }: {
 function NfcPaymentButton({ floor, tableId, persistFloor, disabled }: {
   floor: Floor; tableId: string; persistFloor: (f: Floor) => Promise<void>; disabled: boolean;
 }) {
-  const { initialize, isInitialized, easyConnect, disconnectReader, createPaymentIntent, collectPaymentMethod, processPayment, connectionStatus } = useStripeTerminal();
+  const { initialize, isInitialized, easyConnect, disconnectReader, retrievePaymentIntent, collectPaymentMethod, processPaymentIntent, connectionStatus } = useStripeTerminal();
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState('');
 
@@ -120,27 +120,20 @@ function NfcPaymentButton({ floor, tableId, persistFloor, disabled }: {
       const totalCents = Math.round(total * 100);
 
       setStep('Creando pago...');
-      const { paymentIntent, error: createErr } = await createPaymentIntent({
-        amount: totalCents,
-        currency: 'eur',
-        metadata: {
-          tableId: tableId,
-          tableName: t?.name || tableId,
-          employeeName: globalUser?.name || 'Camarero',
-          source: 'la-comanda-tpv-nfc',
-        },
-      });
-      if (createErr) { Alert.alert('Error', createErr.message); return; }
+      const { clientSecret } = await createTerminalPaymentIntent(totalCents, tableId, t?.name || tableId, globalUser?.name || 'Camarero');
 
       setStep('Acerca tarjeta/iPhone al móvil...');
-      const { error: collectErr } = await collectPaymentMethod(paymentIntent!);
+      const { paymentIntent, error: retrieveErr } = await retrievePaymentIntent(clientSecret);
+      if (retrieveErr) { Alert.alert('Error', retrieveErr.message); return; }
+
+      const { error: collectErr } = await collectPaymentMethod({ paymentIntent });
       if (collectErr) {
         if (collectErr.code === 'canceled') return;
         Alert.alert('Error', collectErr.message); return;
       }
 
       setStep('Procesando...');
-      const { error: processErr } = await processPayment(paymentIntent!);
+      const { error: processErr } = await processPaymentIntent({ paymentIntent });
       if (processErr) { Alert.alert('Error', processErr.message); return; }
 
       await disconnectReader();

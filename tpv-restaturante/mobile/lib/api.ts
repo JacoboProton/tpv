@@ -57,3 +57,10 @@ export async function fetchTerminalConfig(): Promise<{ connectionToken: string; 
     method: 'POST',
   });
 }
+
+export async function createTerminalPaymentIntent(amountCents: number, tableId: string, tableName: string, employeeName: string): Promise<{ clientSecret: string }> {
+  return apiFetch('/stripe/terminal-payment-intent', {
+    method: 'POST',
+    body: JSON.stringify({ amount: amountCents, tableId, tableName, employeeName }),
+  });
+}
