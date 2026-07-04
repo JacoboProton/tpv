@@ -220,6 +220,20 @@ export default function MesaScreen() {
 
   useEffect(() => {
     loadData();
+    const iv = setInterval(async () => {
+      try {
+        const f = await fetchFloor();
+        if (f) {
+          setFloor(f);
+          setGlobalFloor(f);
+          const table = f.tables.find(t => t.id === tableId);
+          if (table && table.status === 'libre' && !table.orderIds?.length) {
+            router.back();
+          }
+        }
+      } catch {}
+    }, 4000);
+    return () => clearInterval(iv);
   }, []);
 
   async function loadData() {

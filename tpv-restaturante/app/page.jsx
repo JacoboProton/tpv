@@ -20,7 +20,7 @@ import {
   saveTurn,
   fetchModifiers,
 } from '../lib/api';
-import { onNetworkChange, clearMutations, getMutations } from '../lib/offline';
+import { onNetworkChange, clearMutations, getMutations, cacheSet } from '../lib/offline';
 import { connectRealtime, broadcastFloorUpdate, broadcastReadyNotification, disconnectRealtime } from '../lib/realtime';
 import { escposOpenDrawer, printESCPOS, isPrinterConnected } from '../lib/thermal-printer';
 import { fetchSettings, saveSettings, fetchOffers, saveOffers, fetchCombos, saveCombos, saveMealMenus, savePriceRules } from '../lib/api';
@@ -203,6 +203,14 @@ export default function App() {
     try { localStorage.setItem('tpv:tenant', tenantId); } catch {}
     loadAll();
   }, [tenantId]);
+
+  // Refrescar sales al navegar a la vista Tickets (recupera del API aunque loadAll fallara)
+  useEffect(() => {
+    if (view !== 'tickets') return;
+    fetchSales().then(sls => {
+      if (Array.isArray(sls) && sls.length > 0) setSales(sls);
+    }).catch(() => {});
+  }, [view]);
 
   async function loadAll() {
     try {
@@ -407,6 +415,7 @@ export default function App() {
 
   async function persistSales(next) {
     setSales(next);
+    cacheSet('sales', next);
     const newSale = next[next.length - 1];
     salesQueue.current.push(newSale);
     processSalesQueue();

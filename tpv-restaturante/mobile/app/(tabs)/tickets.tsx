@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchSales } from '../../lib/api';
 
@@ -26,10 +27,9 @@ export default function TicketsScreen() {
     }
   }, []);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     loadTickets();
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-  }, [loadTickets]);
+  }, [loadTickets]));
 
   const todayStr = new Date().toDateString();
   const todaySales = sales.filter(s => {

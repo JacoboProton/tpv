@@ -64,6 +64,20 @@ export default function SaloonScreen() {
     if (globalFloor) setFloor(globalFloor);
   }, [globalFloor]);
 
+  // Polling periódico para sincronizar cambios desde la web
+  useEffect(() => {
+    const iv = setInterval(async () => {
+      try {
+        const f = await fetchFloor();
+        if (f) {
+          setFloor(f);
+          setGlobalFloor(f);
+        }
+      } catch {}
+    }, 4000);
+    return () => clearInterval(iv);
+  }, []);
+
   async function loadFloor() {
     try {
       const f = await fetchFloor();
