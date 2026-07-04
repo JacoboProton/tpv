@@ -12,7 +12,6 @@
     },
     "android": {
       "package": "com.lacomanda.movil",
-      "minSdkVersion": 26,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
@@ -27,12 +26,25 @@
       "expo-asset",
       "expo-font",
       [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26
+          }
+        }
+      ],
+      [
         "@stripe/stripe-react-native",
         {
           "merchantIdentifier": ""
         }
       ],
-      ["@stripe/stripe-terminal-react-native", { "tapToPayCheck": true }]
+      [
+        "@stripe/stripe-terminal-react-native",
+        {
+          "tapToPayCheck": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
