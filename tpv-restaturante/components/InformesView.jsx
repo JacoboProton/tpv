@@ -507,6 +507,35 @@ function CierreCajaTab({ sales, colors: C }) {
                 </div>
               ))}
             </div>
+
+            <hr style={{ borderColor: C.line }} className="my-4" />
+            <p style={{ color: C.muted }} className="text-xs uppercase tracking-wide mb-3">Listado de tickets</p>
+            <div className="max-h-64 overflow-y-auto text-xs space-y-1">
+              {periodSales.map(s => {
+                const d = new Date(s.closedAt);
+                return (
+                  <div key={s.id} style={{ borderBottom: `1px solid ${C.line}` }}
+                    className="flex items-center justify-between py-1.5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-mono shrink-0" style={{ color: C.cream }}>
+                        {d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <span className="shrink-0" style={{ color: C.muted }}>{s.tableName || '—'}</span>
+                      <span className="truncate" style={{ color: C.muted }}>
+                        {(s.items || []).slice(0, 2).map(i => `${i.qty}x ${i.name}`).join(', ')}
+                        {(s.items || []).length > 2 && ' ...'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: C.surfaceLight, color: C.muted }}>
+                        {s.paymentMethod || '—'}
+                      </span>
+                      <span className="font-mono" style={{ color: C.brassLight }}>{euros(s.total)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </>
         )}
       </div>

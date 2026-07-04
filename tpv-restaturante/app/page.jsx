@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   LayoutGrid, ChefHat, Package, BarChart3, AlertTriangle,
   LogOut, Users, ShieldCheck, Sun, Moon, ClipboardList, WifiOff, Printer, Settings, Percent, Truck, Euro, Star, Undo2, FileText, Monitor, Calendar, Bell, Clock, Loader2,
-  Power,
+  Power, Ticket,
 } from 'lucide-react';
 
 import { THEMES, seedCatalog, seedFloor, seedEmployees, euros, round2, clone } from '../components/constants';
@@ -64,6 +64,7 @@ import SolicitudesView             from '../components/SolicitudesView';
 import PedidosCompraView           from '../components/PedidosCompraView';
 import AlbaranesView               from '../components/AlbaranesView';
 import ProduccionView              from '../components/ProduccionView';
+import TicketsView                 from '../components/TicketsView';
 
 export default function App() {
   // ---------- Tema claro/oscuro ----------
@@ -1834,6 +1835,7 @@ export default function App() {
         { id: 'comandas',   label: 'Comandas',   icon: ClipboardList },
         { id: 'cocina',     label: 'Cocina',     icon: ChefHat },
         { id: 'kds',        label: 'Cocina KDS',  icon: ChefHat },
+        { id: 'tickets',    label: 'Tickets',    icon: Ticket },
       ],
     },
     {
@@ -2129,6 +2131,7 @@ export default function App() {
           {view === 'buffet'    && (
             <BuffetKioskView floor={floor} currentUser={currentUser} onToast={showToast} />
           )}
+          {view === 'tickets'   && <TicketsView sales={sales} colors={C} />}
         </div>
       </main>
 

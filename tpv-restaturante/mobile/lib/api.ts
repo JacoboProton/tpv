@@ -71,3 +71,7 @@ export async function addSale(sale: Record<string, unknown>): Promise<{ ok: bool
     body: JSON.stringify(sale),
   });
 }
+
+export async function fetchSales(): Promise<Record<string, unknown>[]> {
+  return apiFetch('/sales');
+}

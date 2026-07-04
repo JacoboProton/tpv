@@ -52,7 +52,7 @@ function PaymentButton({ floor, tableId, persistFloor, disabled }: {
       const table = f.tables.find(t => t.id === tableId);
       if (table) { table.status = 'libre'; table.orderIds = []; table.orderId = null; }
       for (const oid of Object.keys(f.orders)) {
-        if (floor.orders[oid].tableId === tableId) delete f.orders[oid];
+        if (f.orders[oid].tableId === tableId) delete f.orders[oid];
       }
       setGlobalFloor(f);
       await persistFloor(f);
@@ -154,11 +154,11 @@ function NfcPaymentButton({ floor, tableId, persistFloor, disabled }: {
       const table = f.tables.find(t => t.id === tableId);
       if (table) { table.status = 'libre'; table.orderIds = []; table.orderId = null; }
       for (const oid of Object.keys(f.orders)) {
-        if (floor.orders[oid].tableId === tableId) delete f.orders[oid];
+        if (f.orders[oid].tableId === tableId) delete f.orders[oid];
       }
 
       const saleId = generateId();
-      const allOrderItems = Object.values(floor.orders)
+      const allOrderItems = Object.values(f.orders)
         .filter(o => o.tableId === tableId)
         .flatMap(o => o.items.map(i => ({ id: i.id, productId: i.productId, name: i.name, qty: i.qty, price: i.price })));
 
@@ -506,14 +506,36 @@ export default function MesaScreen() {
             if (!floor) return;
             const f = JSON.parse(JSON.stringify(floor)) as Floor;
             const t = f.tables.find(t => t.id === tableId);
-            if (t) t.status = 'cuenta';
+            if (t) { t.status = 'libre'; t.orderIds = []; t.orderId = null; }
+            for (const oid of Object.keys(f.orders)) {
+              if (f.orders[oid].tableId === tableId) delete f.orders[oid];
+            }
+            // Guardar venta en efectivo
+            const saleId = generateId();
+            const allOrderItems = Object.values(f.orders)
+              .filter(o => o.tableId === tableId)
+              .flatMap(o => o.items.map(i => ({ id: i.id, productId: i.productId, name: i.name, qty: i.qty, price: i.price })));
+            try {
+              addSale({
+                id: saleId, tableId, tableName: t?.name || tableId,
+                items: allOrderItems, subtotal: total, discount: 0, discountAmount: 0,
+                total, tip: 0, totalWithTip: total,
+                payments: [{ method: 'card', amount: total }],
+                paymentMethod: 'Efectivo', isFiado: false, isDebtPayment: false,
+                employeeId: null, employeeName: globalUser?.name || 'Camarero',
+                closedAt: Date.now(),
+              });
+            } catch (e) {
+              console.warn('Error al guardar venta:', e);
+            }
             setFloor(f);
             setGlobalFloor(f);
             persistFloor(f);
-            Alert.alert('Ok', 'Mesa marcada como pendiente de pago');
+            Alert.alert('✅ Pagado', `Total: ${total.toFixed(2)}€`);
+            router.back();
           }}
         >
-          <Text style={styles.payBtnText}>Solicitar cuenta</Text>
+          <Text style={styles.payBtnText}>Efectivo</Text>
         </TouchableOpacity>
       </View>
     </View>
