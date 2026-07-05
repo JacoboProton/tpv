@@ -377,6 +377,75 @@ function ResumenTab({ sales, colors: C }) {
 }
 
 // ---------- Tab: Cierre de caja ----------
+function CuadraturaCard({ closure, colors: C }) {
+  const [open, setOpen] = useState(false);
+  const cuad = closure.cuadratura;
+  const hasCuadratura = cuad && Array.isArray(cuad.denoms) && cuad.denoms.length > 0;
+  return (
+    <div style={{ background: C.surface, border: `1px solid ${C.brass}` }} className="rounded-xl p-4 mb-4">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="font-display text-base" style={{ color: C.brassLight }}>
+            <ShieldCheck className="w-4 h-4 inline mr-1.5" />
+            Cierre de caja registrado
+          </p>
+          <p style={{ color: C.muted }} className="text-xs mt-1">
+            {new Date(closure.closed_at).toLocaleString('es-ES')} — {euros(closure.total)} — {closure.ticket_count} tickets
+          </p>
+        </div>
+        {hasCuadratura && (
+          <button onClick={() => setOpen(!open)} style={{ color: C.muted }} className="text-xs underline">
+            {open ? 'Ocultar' : 'Ver'} cuadratura
+          </button>
+        )}
+      </div>
+      {hasCuadratura && open && (
+        <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${C.line}` }}>
+          <div className="grid grid-cols-4 gap-2 text-xs mb-2">
+            <span style={{ color: C.muted }}>Esperado:</span>
+            <span className="font-mono" style={{ color: C.cream }}>{euros(cuad.expected || 0)}</span>
+            <span style={{ color: C.muted }}>Contado:</span>
+            <span className="font-mono" style={{ color: C.cream }}>{euros(cuad.counted || 0)}</span>
+          </div>
+          <div className="flex items-center justify-between text-xs mb-2">
+            <span style={{ color: C.muted }}>Diferencia:</span>
+            <span className={`font-mono ${Math.abs(cuad.diff) < 0.01 ? '' : cuad.diff > 0 ? 'text-green-400' : 'text-red-400'}`}
+              style={{ color: Math.abs(cuad.diff) < 0.01 ? C.cream : undefined }}>
+              {cuad.diff >= 0 ? '+' : ''}{euros(cuad.diff)}
+            </span>
+          </div>
+          <div className="grid grid-cols-5 gap-1 text-xs">
+            {cuad.denoms.filter(d => d.count > 0).map(d => (
+              <div key={d.value} className="flex justify-between" style={{ color: C.muted }}>
+                <span>{d.label}:</span>
+                <span className="font-mono" style={{ color: C.cream }}>{d.count}×</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const DENOMS = [
+  { value: 500,  label: '500€' },
+  { value: 200,  label: '200€' },
+  { value: 100,  label: '100€' },
+  { value: 50,   label: '50€' },
+  { value: 20,   label: '20€' },
+  { value: 10,   label: '10€' },
+  { value: 5,    label: '5€' },
+  { value: 2,    label: '2€' },
+  { value: 1,    label: '1€' },
+  { value: 0.50, label: '0,50€' },
+  { value: 0.20, label: '0,20€' },
+  { value: 0.10, label: '0,10€' },
+  { value: 0.05, label: '0,05€' },
+  { value: 0.02, label: '0,02€' },
+  { value: 0.01, label: '0,01€' },
+];
+
 function CierreCajaTab({ sales, colors: C }) {
   const [period, setPeriod] = useState('dia');
   const [dateValue, setDateValue] = useState(() => new Date().toISOString().slice(0, 10));
@@ -384,6 +453,8 @@ function CierreCajaTab({ sales, colors: C }) {
   const [closing, setClosing] = useState(false);
   const [lastClosure, setLastClosure] = useState(null);
   const [existingClosures, setExistingClosures] = useState([]);
+  const [cuadraturaCounts, setCuadraturaCounts] = useState(() => DENOMS.reduce((acc, d) => ({ ...acc, [d.value]: '' }), {}));
+  const [cuadraturaOk, setCuadraturaOk] = useState(false);
 
   useEffect(() => {
     fetchClosures().then(setExistingClosures).catch(() => {});
@@ -392,6 +463,8 @@ function CierreCajaTab({ sales, colors: C }) {
   useEffect(() => {
     const found = existingClosures.find(c => c.date === dateValue);
     setLastClosure(found || null);
+    setCuadraturaOk(false);
+    setCuadraturaCounts(DENOMS.reduce((acc, d) => ({ ...acc, [d.value]: '' }), {}));
   }, [dateValue, existingClosures]);
 
   const periodSales = useMemo(() => {
@@ -553,69 +626,150 @@ function CierreCajaTab({ sales, colors: C }) {
       </div>
 
       <div className="no-print mt-6">
-        {lastClosure ? (
-          <div style={{ background: C.surface, border: `1px solid ${C.brass}` }} className="rounded-xl p-4 mb-4">
-            <p className="font-display text-base" style={{ color: C.brassLight }}>
-              <ShieldCheck className="w-4 h-4 inline mr-1.5" />
-              Cierre de caja registrado
-            </p>
-            <p style={{ color: C.muted }} className="text-xs mt-1">
-              {new Date(lastClosure.closed_at).toLocaleString('es-ES')} — {euros(lastClosure.total)} — {lastClosure.ticket_count} tickets
-            </p>
-          </div>
+        {lastClosure && (
+          <CuadraturaCard closure={lastClosure} colors={C} />
+        )}
         ) : period === 'dia' && periodSales.length > 0 && (
-          <div style={{ background: C.surface, border: `1px solid ${C.line}` }} className="rounded-xl p-5">
-            <h4 className="font-display text-lg mb-2" style={{ color: C.cream }}>Cerrar caja</h4>
-            <p style={{ color: C.muted }} className="text-sm mb-3">
-              Se generará un informe del día {new Date(dateValue + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}
-              con {ticketCount} tickets y {euros(total)}. No se podrá deshacer.
-            </p>
-            <button
-              onClick={async () => {
-                setClosing(true);
-                try {
-                  const methods = PAYMENT_METHODS.map(m => ({
-                    method: m.id,
-                    label: m.label,
-                    total: periodSales.reduce((sum, s) => {
-                      const payments = s.payments?.length ? s.payments : [{ method: s.paymentMethod, amount: s.total }];
-                      return sum + payments.filter(p => p.method === m.id).reduce((a, p) => a + p.amount, 0);
-                    }, 0),
-                  }));
-                  const employees = employeeTotals.map(([name, data]) => ({ name, total: data.total, count: data.count }));
-                  const data = {
-                    id: `closure_${dateValue}`,
-                    date: dateValue,
-                    total,
-                    ticket_count: ticketCount,
-                    avg_ticket: round2(avgTicket),
-                    methods,
-                    employees,
-                    sales_ids: periodSales.map(s => s.id),
-                    closed_at: Date.now(),
-                    employee_name: 'Admin',
-                  };
-                  const res = await saveClosure(data);
-                  if (res && res.ok) {
-                    setLastClosure(data);
-                    setExistingClosures(prev => [data, ...prev]);
-                  }
-                } catch (e) {
-                  console.error('Error al cerrar caja:', e);
-                }
-                setClosing(false);
-              }}
-              disabled={closing}
-              style={{ background: C.brass, color: C.base }}
-              className="w-full text-lg font-bold py-4 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {closing ? (
-                <>Cerrando...</>
-              ) : (
-                <><Save className="w-5 h-5" /> CERRAR CAJA</>
-              )}
-            </button>
-          </div>
+          <>
+            {/* ---- Cuadratura de caja ---- */}
+            {!cuadraturaOk && (
+              <div style={{ background: C.surface, border: `1px solid ${C.line}` }} className="rounded-xl p-5 mb-4">
+                <h4 className="font-display text-lg mb-2" style={{ color: C.cream }}>
+                  <Banknote className="w-5 h-5 inline mr-1.5" />
+                  Cuadratura de caja
+                </h4>
+                <p style={{ color: C.muted }} className="text-sm mb-3">
+                  Introduce el recuento físico de la caja para el día {new Date(dateValue + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}
+                </p>
+
+                {(() => {
+                  const expectedEfectivo = periodSales.reduce((sum, s) => {
+                    const payments = s.payments?.length ? s.payments : [{ method: s.paymentMethod, amount: s.total }];
+                    return sum + payments.filter(p => p.method === 'efectivo').reduce((a, p) => a + p.amount, 0);
+                  }, 0);
+                  const totalCounted = DENOMS.reduce((s, d) => s + (parseFloat(cuadraturaCounts[d.value]) || 0) * d.value, 0);
+                  const diff = round2(totalCounted - expectedEfectivo);
+
+                  return (
+                    <>
+                      <div className="text-sm mb-3 flex items-center justify-between" style={{ color: C.muted }}>
+                        <span>Esperado en efectivo:</span>
+                        <span className="font-mono" style={{ color: C.cream }}>{euros(expectedEfectivo)}</span>
+                      </div>
+
+                      <div className="grid grid-cols-5 gap-2 mb-3">
+                        {DENOMS.map(d => (
+                          <div key={d.value} className="flex flex-col items-center">
+                            <span className="text-xs mb-1" style={{ color: C.muted }}>{d.label}</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={cuadraturaCounts[d.value]}
+                              onChange={e => setCuadraturaCounts(prev => ({ ...prev, [d.value]: e.target.value }))}
+                              style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}`, width: '100%' }}
+                              className="rounded-lg px-2 py-1.5 text-sm text-center"
+                            />
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center justify-between text-sm mb-3 pt-2" style={{ borderTop: `1px solid ${C.line}` }}>
+                        <span style={{ color: C.muted }}>Total contado:</span>
+                        <span className="font-mono" style={{ color: C.cream }}>{euros(totalCounted)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm mb-4">
+                        <span style={{ color: C.muted }}>Diferencia:</span>
+                        <span className={`font-mono ${Math.abs(diff) < 0.01 ? '' : diff > 0 ? 'text-green-400' : 'text-red-400'}`}
+                          style={{ color: Math.abs(diff) < 0.01 ? C.cream : undefined }}>
+                          {diff >= 0 ? '+' : ''}{euros(diff)}
+                        </span>
+                      </div>
+
+                      <button
+                        onClick={() => setCuadraturaOk(true)}
+                        style={{ background: C.brass, color: C.base }}
+                        className="w-full text-base font-bold py-3 rounded-xl flex items-center justify-center gap-2"
+                      >
+                        <ShieldCheck className="w-5 h-5" /> CONFIRMAR CUADRATURA
+                      </button>
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+
+            {/* ---- Cerrar caja ---- */}
+            {cuadraturaOk && (
+              <div style={{ background: C.surface, border: `1px solid ${C.line}` }} className="rounded-xl p-5">
+                <h4 className="font-display text-lg mb-2" style={{ color: C.cream }}>Cerrar caja</h4>
+                <p style={{ color: C.muted }} className="text-sm mb-3">
+                  Se generará un informe del día {new Date(dateValue + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}
+                  con {ticketCount} tickets y {euros(total)}. No se podrá deshacer.
+                </p>
+                <button
+                  onClick={async () => {
+                    setClosing(true);
+                    try {
+                      const methods = PAYMENT_METHODS.map(m => ({
+                        method: m.id,
+                        label: m.label,
+                        total: periodSales.reduce((sum, s) => {
+                          const payments = s.payments?.length ? s.payments : [{ method: s.paymentMethod, amount: s.total }];
+                          return sum + payments.filter(p => p.method === m.id).reduce((a, p) => a + p.amount, 0);
+                        }, 0),
+                      }));
+                      const employees = employeeTotals.map(([name, data]) => ({ name, total: data.total, count: data.count }));
+                      const expectedEfectivo = periodSales.reduce((sum, s) => {
+                        const payments = s.payments?.length ? s.payments : [{ method: s.paymentMethod, amount: s.total }];
+                        return sum + payments.filter(p => p.method === 'efectivo').reduce((a, p) => a + p.amount, 0);
+                      }, 0);
+                      const totalCounted = DENOMS.reduce((s, d) => s + (parseFloat(cuadraturaCounts[d.value]) || 0) * d.value, 0);
+                      const cuadratura = DENOMS.map(d => ({
+                        value: d.value,
+                        label: d.label,
+                        count: parseInt(cuadraturaCounts[d.value]) || 0,
+                        subtotal: ((parseInt(cuadraturaCounts[d.value]) || 0) * d.value),
+                      }));
+                      const data = {
+                        id: `closure_${dateValue}`,
+                        date: dateValue,
+                        total,
+                        ticket_count: ticketCount,
+                        avg_ticket: round2(avgTicket),
+                        methods,
+                        employees,
+                        sales_ids: periodSales.map(s => s.id),
+                        closed_at: Date.now(),
+                        employee_name: 'Admin',
+                        cuadratura,
+                        cuadratura_expected: expectedEfectivo,
+                        cuadratura_counted: totalCounted,
+                        cuadratura_diff: round2(totalCounted - expectedEfectivo),
+                      };
+                      const res = await saveClosure(data);
+                      if (res && res.ok) {
+                        setLastClosure(data);
+                        setExistingClosures(prev => [data, ...prev]);
+                      }
+                    } catch (e) {
+                      console.error('Error al cerrar caja:', e);
+                    }
+                    setClosing(false);
+                  }}
+                  disabled={closing}
+                  style={{ background: C.brass, color: C.base }}
+                  className="w-full text-lg font-bold py-4 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {closing ? (
+                    <>Cerrando...</>
+                  ) : (
+                    <><Save className="w-5 h-5" /> CERRAR CAJA</>
+                  )}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

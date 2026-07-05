@@ -1294,6 +1294,8 @@ export async function runMigrations() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_closures_date ON closures(date)`;
 
+  try { await sql`ALTER TABLE closures ADD COLUMN IF NOT EXISTS cuadratura JSONB DEFAULT '[]'`; } catch (e) { console.warn('cuadratura col skip:', e.message); }
+
   return { ok: true };
 }
 
