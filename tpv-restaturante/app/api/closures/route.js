@@ -1,8 +1,18 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
+import { runMigrations } from '@/lib/migrate';
+
+async function ensureTable() {
+  try {
+    await runMigrations();
+  } catch (e) {
+    console.warn('migration error:', e.message);
+  }
+}
 
 export async function GET() {
   try {
+    await ensureTable();
     const rows = await sql`
       SELECT * FROM closures
       WHERE tenant_id = 'default'
@@ -16,6 +26,7 @@ export async function GET() {
 
 export async function POST(req) {
   try {
+    await ensureTable();
     const body = await req.json();
     const { id, date, total, ticket_count, avg_ticket, methods, employees, sales_ids, closed_at, employee_name, cuadratura, cuadratura_expected, cuadratura_counted, cuadratura_diff } = body;
     await sql`

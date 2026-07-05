@@ -379,8 +379,12 @@ function ResumenTab({ sales, colors: C }) {
 // ---------- Tab: Cierre de caja ----------
 function CuadraturaCard({ closure, colors: C }) {
   const [open, setOpen] = useState(false);
-  const cuad = closure.cuadratura;
-  const hasCuadratura = cuad && Array.isArray(cuad.denoms) && cuad.denoms.length > 0;
+  const raw = closure.cuadratura;
+  const cuadDenoms = Array.isArray(raw) ? raw : (raw?.denoms || []);
+  const cuadExpected = raw?.expected ?? (Array.isArray(raw) ? raw.reduce((s, d) => s + (d.subtotal || 0), 0) : 0);
+  const cuadCounted = raw?.counted ?? (Array.isArray(raw) ? raw.reduce((s, d) => s + (d.subtotal || 0), 0) : 0);
+  const cuadDiff = raw?.diff ?? 0;
+  const hasCuadratura = Array.isArray(cuadDenoms) && cuadDenoms.length > 0;
   return (
     <div style={{ background: C.surface, border: `1px solid ${C.brass}` }} className="rounded-xl p-4 mb-4">
       <div className="flex items-start justify-between">
@@ -403,19 +407,19 @@ function CuadraturaCard({ closure, colors: C }) {
         <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${C.line}` }}>
           <div className="grid grid-cols-4 gap-2 text-xs mb-2">
             <span style={{ color: C.muted }}>Esperado:</span>
-            <span className="font-mono" style={{ color: C.cream }}>{euros(cuad.expected || 0)}</span>
+            <span className="font-mono" style={{ color: C.cream }}>{euros(cuadExpected)}</span>
             <span style={{ color: C.muted }}>Contado:</span>
-            <span className="font-mono" style={{ color: C.cream }}>{euros(cuad.counted || 0)}</span>
+            <span className="font-mono" style={{ color: C.cream }}>{euros(cuadCounted)}</span>
           </div>
           <div className="flex items-center justify-between text-xs mb-2">
             <span style={{ color: C.muted }}>Diferencia:</span>
-            <span className={`font-mono ${Math.abs(cuad.diff) < 0.01 ? '' : cuad.diff > 0 ? 'text-green-400' : 'text-red-400'}`}
-              style={{ color: Math.abs(cuad.diff) < 0.01 ? C.cream : undefined }}>
-              {cuad.diff >= 0 ? '+' : ''}{euros(cuad.diff)}
+            <span className={`font-mono ${Math.abs(cuadDiff) < 0.01 ? '' : cuadDiff > 0 ? 'text-green-400' : 'text-red-400'}`}
+              style={{ color: Math.abs(cuadDiff) < 0.01 ? C.cream : undefined }}>
+              {cuadDiff >= 0 ? '+' : ''}{euros(cuadDiff)}
             </span>
           </div>
           <div className="grid grid-cols-5 gap-1 text-xs">
-            {cuad.denoms.filter(d => d.count > 0).map(d => (
+            {cuadDenoms.filter(d => d.count > 0).map(d => (
               <div key={d.value} className="flex justify-between" style={{ color: C.muted }}>
                 <span>{d.label}:</span>
                 <span className="font-mono" style={{ color: C.cream }}>{d.count}×</span>
