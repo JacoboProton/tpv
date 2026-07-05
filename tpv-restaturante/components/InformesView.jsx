@@ -1633,6 +1633,27 @@ function CierresGuardadosTab({ colors: C }) {
               <div className="px-4 pb-4 pt-0">
                 <hr style={{ borderColor: C.line }} className="mb-3" />
 
+                <button
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    if (!confirm('¿Eliminar este cierre?')) return;
+                    try {
+                      await fetch('/api/closures', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'delete', id: c.id }),
+                      });
+                      setClosures(prev => prev.filter(x => x.id !== c.id));
+                    } catch (err) {
+                      console.error('Error al eliminar cierre:', err);
+                    }
+                  }}
+                  style={{ color: C.wineLight }}
+                  className="text-xs underline mb-3 block"
+                >
+                  Eliminar cierre
+                </button>
+
                 <p style={{ color: C.muted }} className="text-xs uppercase tracking-wide mb-1">Ticket medio</p>
                 <p className="font-mono text-sm mb-3" style={{ color: C.cream }}>{euros(c.avg_ticket)}</p>
 
