@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL, TPV_API_KEY } from './config';
 import type { Employee, Floor, Product, Category, Order } from './types';
 
@@ -66,12 +67,34 @@ export async function createTerminalPaymentIntent(amountCents: number, tableId: 
 }
 
 export async function addSale(sale: Record<string, unknown>): Promise<{ ok: boolean }> {
-  return apiFetch('/sales', {
-    method: 'POST',
-    body: JSON.stringify(sale),
-  });
+  try {
+    const res = await apiFetch<{ ok: boolean }>('/sales', {
+      method: 'POST',
+      body: JSON.stringify(sale),
+    });
+    // Cache the sale locally on success
+    const cached = await AsyncStorage.getItem('tpv:sales');
+    const sales = cached ? JSON.parse(cached) : [];
+    sales.push(sale);
+    await AsyncStorage.setItem('tpv:sales', JSON.stringify(sales));
+    return res;
+  } catch (e) {
+    // Cache on failure too so the sale isn't lost
+    const cached = await AsyncStorage.getItem('tpv:sales');
+    const sales = cached ? JSON.parse(cached) : [];
+    sales.push(sale);
+    await AsyncStorage.setItem('tpv:sales', JSON.stringify(sales));
+    throw e;
+  }
 }
 
 export async function fetchSales(): Promise<Record<string, unknown>[]> {
-  return apiFetch('/sales');
+  try {
+    const data = await apiFetch<Record<string, unknown>[]>('/sales');
+    await AsyncStorage.setItem('tpv:sales', JSON.stringify(data));
+    return data;
+  } catch {
+    const cached = await AsyncStorage.getItem('tpv:sales');
+    return cached ? JSON.parse(cached) : [];
+  }
 }
