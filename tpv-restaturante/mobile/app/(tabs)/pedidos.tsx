@@ -1,20 +1,12 @@
 import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
+import { router } from 'expo-router';
+import { C } from '../../lib/theme';
 import { globalFloor } from '../_layout';
-import type { Floor, Order } from '../../lib/types';
-
-const C = {
-  base: '#3d424f', surface: '#4d5363', surfaceLight: '#5f6578',
-  brass: '#e0c06a', cream: '#f5f0e8', muted: '#c0b8ac', sage: '#9abaa0', wine: '#d08080',
-};
+import type { Floor } from '../../lib/types';
 
 export default function PedidosScreen() {
   const [floor, setFloor] = useState<Floor | null>(globalFloor);
-
-  useFocusEffect(() => {
-    if (globalFloor) setFloor(globalFloor);
-  });
 
   useEffect(() => {
     if (globalFloor) setFloor(globalFloor);

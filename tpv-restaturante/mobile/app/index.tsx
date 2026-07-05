@@ -1,15 +1,10 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, TextInput, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { verifyPin, fetchEmployees } from '../lib/api';
 import type { Employee } from '../lib/types';
+import { C } from '../lib/theme';
 import { setGlobalUser } from './_layout';
-
-const C = {
-  base: '#3d424f', surface: '#4d5363', surfaceLight: '#5f6578',
-  brass: '#e0c06a', brassLight: '#f0d88a', cream: '#f5f0e8',
-  muted: '#c0b8ac', wine: '#d08080',
-};
 
 export default function LoginScreen() {
   const [employees, setEmployees] = useState<Employee[]>([]);

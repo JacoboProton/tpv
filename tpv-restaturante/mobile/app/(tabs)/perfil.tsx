@@ -1,12 +1,8 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { C } from '../../lib/theme';
 import { setGlobalUser, globalUser } from '../_layout';
-
-const C = {
-  base: '#3d424f', surface: '#4d5363', surfaceLight: '#5f6578',
-  brass: '#e0c06a', cream: '#f5f0e8', muted: '#c0b8ac', wine: '#d08080',
-};
 
 export default function PerfilScreen() {
   const user = globalUser;

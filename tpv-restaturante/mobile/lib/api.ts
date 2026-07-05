@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL, TPV_API_KEY } from './config';
-import type { Employee, Floor, Product, Category, Order } from './types';
+import type { Employee, Floor, Product, Category } from './types';
 
 let _tenantId = 'default';
 export function setTenantId(id: string) { _tenantId = id; }
@@ -27,15 +27,102 @@ export async function verifyPin(pin: string): Promise<Employee> {
   });
 }
 
+let lastFloor: Floor | null = null;
+
+export function setLastFloor(floor: Floor | null) {
+  lastFloor = floor ? JSON.parse(JSON.stringify(floor)) : null;
+}
+
+function computeFloorDiff(last: Floor | null, next: Floor) {
+  if (!last || !last.tables || !next || !next.tables) {
+    return { isFullSync: true };
+  }
+  if (last.tables.length !== next.tables.length || 
+      JSON.stringify(last.zones) !== JSON.stringify(next.zones) || 
+      last.background !== next.background) {
+    return { isFullSync: true };
+  }
+
+  const updatedTables: any[] = [];
+  const deletedTableIds: string[] = [];
+  const lastTablesMap = new Map(last.tables.map(t => [t.id, t]));
+  
+  for (const t of next.tables) {
+    const prev = lastTablesMap.get(t.id);
+    if (!prev) {
+      return { isFullSync: true };
+    }
+    if (prev.x !== t.x || prev.y !== t.y || prev.width !== t.width || prev.height !== t.height ||
+        prev.radius !== t.radius || prev.shape !== t.shape || prev.rotation !== t.rotation ||
+        prev.seats !== t.seats || prev.zone !== t.zone || prev.layer !== t.layer || prev.color !== t.color ||
+        prev.name !== t.name || prev.type !== t.type) {
+      return { isFullSync: true };
+    }
+    if (prev.status !== t.status ||
+        prev.orderId !== t.orderId ||
+        JSON.stringify(prev.orderIds) !== JSON.stringify(t.orderIds) ||
+        JSON.stringify(prev.reserved) !== JSON.stringify(t.reserved) ||
+        prev.reserved_for !== t.reserved_for ||
+        prev.isFiado !== t.isFiado) {
+      updatedTables.push(t);
+    }
+  }
+
+  const updatedOrders: Record<string, any> = {};
+  const deletedOrderIds: string[] = [];
+  const lastOrders = last.orders || {};
+  const nextOrders = next.orders || {};
+
+  for (const [oid, o] of Object.entries(nextOrders)) {
+    const prev = lastOrders[oid];
+    if (!prev || JSON.stringify(prev) !== JSON.stringify(o)) {
+      updatedOrders[oid] = o;
+    }
+  }
+  for (const oid of Object.keys(lastOrders)) {
+    if (!nextOrders[oid]) {
+      deletedOrderIds.push(oid);
+    }
+  }
+
+  return {
+    isFullSync: false,
+    updatedTables,
+    deletedTableIds,
+    updatedOrders,
+    deletedOrderIds
+  };
+}
+
 export async function fetchFloor(): Promise<Floor> {
-  return apiFetch('/floor');
+  const floor = await apiFetch<Floor>('/floor');
+  if (floor) {
+    setLastFloor(floor);
+  }
+  return floor;
 }
 
 export async function saveFloor(floor: Floor): Promise<{ ok: boolean }> {
-  return apiFetch('/floor', {
-    method: 'PUT',
-    body: JSON.stringify(floor),
-  });
+  const diff = computeFloorDiff(lastFloor, floor);
+  setLastFloor(floor);
+
+  if (diff.isFullSync) {
+    return apiFetch('/floor', {
+      method: 'PUT',
+      body: JSON.stringify(floor),
+    });
+  } else {
+    if (diff.updatedTables.length === 0 && 
+        diff.deletedTableIds.length === 0 && 
+        Object.keys(diff.updatedOrders).length === 0 && 
+        diff.deletedOrderIds.length === 0) {
+      return { ok: true };
+    }
+    return apiFetch('/floor', {
+      method: 'PATCH',
+      body: JSON.stringify(diff),
+    });
+  }
 }
 
 export async function fetchCatalog(): Promise<{ categories: Category[]; products: Product[] }> {

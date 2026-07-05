@@ -1,24 +1,15 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { useEffect, useState } from 'react';
 import { StripeTerminalProvider } from '@stripe/stripe-terminal-react-native';
 import { connectRealtime, disconnectRealtime, showReadyNotification } from '../lib/realtime';
 import { API_URL, TPV_API_KEY } from '../lib/config';
+import { C } from '../lib/theme';
 import type { Employee, Floor } from '../lib/types';
+import { setLastFloor } from '../lib/api';
 
 export { ErrorBoundary } from 'expo-router';
-
-const COLORS = {
-  base: '#3d424f',
-  surface: '#4d5363',
-  surfaceLight: '#5f6578',
-  brass: '#e0c06a',
-  cream: '#f5f0e8',
-  muted: '#c0b8ac',
-  wine: '#d08080',
-  sage: '#9abaa0',
-};
 
 export let globalFloor: Floor | null = null;
 export let setGlobalFloor: (f: Floor | null) => void = () => {};
@@ -37,7 +28,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     const ch = connectRealtime(
-      (f) => setFloor(f),
+      (f) => { setFloor(f); setLastFloor(f); },
       (data) => showReadyNotification(data),
     );
     setReady(true);
@@ -46,8 +37,8 @@ export default function RootLayout() {
 
   if (!ready) {
     return (
-      <View style={[styles.container, { backgroundColor: COLORS.base }]}>
-        <ActivityIndicator size="large" color={COLORS.brass} />
+      <View style={[styles.container, { backgroundColor: C.base }]}>
+        <ActivityIndicator size="large" color={C.brass} />
       </View>
     );
   }
@@ -64,12 +55,12 @@ export default function RootLayout() {
         return d.connectionToken;
       }}
     >
-      <View style={{ flex: 1, backgroundColor: COLORS.base }}>
+      <View style={{ flex: 1, backgroundColor: C.base }}>
         <StatusBar style="light" />
         <Stack
           screenOptions={{
             headerShown: false,
-            contentStyle: { backgroundColor: COLORS.base },
+            contentStyle: { backgroundColor: C.base },
           }}
         >
           <Stack.Screen name="index" />
@@ -79,8 +70,8 @@ export default function RootLayout() {
             options={{
               headerShown: true,
               headerTitle: 'Mesa',
-              headerStyle: { backgroundColor: COLORS.surface },
-              headerTintColor: COLORS.cream,
+              headerStyle: { backgroundColor: C.surface },
+              headerTintColor: C.cream,
               presentation: 'fullScreenModal',
             }}
           />

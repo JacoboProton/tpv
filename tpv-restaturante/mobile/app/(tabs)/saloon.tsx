@@ -1,15 +1,10 @@
 import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
-import { fetchFloor, saveFloor } from '../../lib/api';
+import { router } from 'expo-router';
+import { fetchFloor } from '../../lib/api';
+import { C } from '../../lib/theme';
 import { globalFloor, setGlobalFloor } from '../_layout';
 import type { Floor, Table } from '../../lib/types';
-
-const C = {
-  base: '#3d424f', surface: '#4d5363', surfaceLight: '#5f6578',
-  brass: '#e0c06a', brassLight: '#f0d88a', cream: '#f5f0e8',
-  muted: '#c0b8ac', sage: '#9abaa0', wine: '#d08080', line: '#7a8095',
-};
 
 const STATUS_COLORS: Record<string, string> = {
   libre: C.sage, ocupado: C.brass, cuenta: C.wine,
@@ -51,10 +46,6 @@ export default function SaloonScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(!globalFloor);
 
-  useFocusEffect(() => {
-    if (globalFloor) setFloor(globalFloor);
-  });
-
   useEffect(() => {
     if (!globalFloor) loadFloor();
   }, []);
@@ -64,19 +55,7 @@ export default function SaloonScreen() {
     if (globalFloor) setFloor(globalFloor);
   }, [globalFloor]);
 
-  // Polling periódico para sincronizar cambios desde la web
-  useEffect(() => {
-    const iv = setInterval(async () => {
-      try {
-        const f = await fetchFloor();
-        if (f) {
-          setFloor(f);
-          setGlobalFloor(f);
-        }
-      } catch {}
-    }, 4000);
-    return () => clearInterval(iv);
-  }, []);
+
 
   async function loadFloor() {
     try {

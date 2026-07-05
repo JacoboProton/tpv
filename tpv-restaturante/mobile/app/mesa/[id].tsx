@@ -10,18 +10,8 @@ import { STRIPE_PK, STRIPE_SIMULATED } from '../../lib/config';
 import { globalFloor, setGlobalFloor, globalUser } from '../_layout';
 import { StripeProvider, useStripe } from '@stripe/stripe-react-native';
 import { useStripeTerminal } from '@stripe/stripe-terminal-react-native';
+import { C } from '../../lib/theme';
 import type { Floor, Table, Order, OrderItem, Product, Category } from '../../lib/types';
-
-const C = {
-  base: '#3d424f', surface: '#4d5363', surfaceLight: '#5f6578',
-  brass: '#e0c06a', brassLight: '#f0d88a', cream: '#f5f0e8',
-  muted: '#c0b8ac', wine: '#d08080', sage: '#9abaa0', line: '#7a8095',
-};
-
-const MODIFIERS_LIST = [
-  'Sin cebolla', 'Sin gluten', 'Poco hecho', 'Bien hecho', 'Sin sal',
-  'Sin lactosa', 'Extra queso', 'A la plancha', 'Frito', 'Sin ajo',
-];
 
 function generateId() {
   return Math.random().toString(36).slice(2, 10);
@@ -220,21 +210,17 @@ export default function MesaScreen() {
 
   useEffect(() => {
     loadData();
-    const iv = setInterval(async () => {
-      try {
-        const f = await fetchFloor();
-        if (f) {
-          setFloor(f);
-          setGlobalFloor(f);
-          const table = f.tables.find(t => t.id === tableId);
-          if (table && table.status === 'libre' && !table.orderIds?.length) {
-            router.back();
-          }
-        }
-      } catch {}
-    }, 4000);
-    return () => clearInterval(iv);
   }, []);
+
+  useEffect(() => {
+    if (globalFloor) {
+      setFloor(globalFloor);
+      const table = globalFloor.tables.find(t => t.id === tableId);
+      if (table && table.status === 'libre' && !table.orderIds?.length) {
+        router.back();
+      }
+    }
+  }, [globalFloor, tableId]);
 
   async function loadData() {
     try {

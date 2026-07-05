@@ -1,14 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { C } from '../../lib/theme';
 import { fetchSales } from '../../lib/api';
-
-const C = {
-  base: '#3d424f', surface: '#4d5363', surfaceLight: '#5f6578',
-  brass: '#e0c06a', brassLight: '#f0d88a', cream: '#f5f0e8',
-  muted: '#c0b8ac', sage: '#9abaa0', wine: '#d08080',
-};
 
 export default function TicketsScreen() {
   const [sales, setSales] = useState<Record<string, unknown>[]>([]);
@@ -30,10 +25,6 @@ export default function TicketsScreen() {
   useFocusEffect(useCallback(() => {
     loadTickets();
   }, [loadTickets]));
-
-  useEffect(() => {
-    loadTickets();
-  }, []);
 
   const todayStr = new Date().toDateString();
   const todaySales = sales.filter(s => {

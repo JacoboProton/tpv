@@ -10,7 +10,7 @@ import {
 import { THEMES, seedCatalog, seedFloor, seedEmployees, euros, round2, clone } from '../components/constants';
 import {
   runMigrate, fetchCatalog, saveCatalog,
-  fetchFloor, saveFloor,
+  fetchFloor, saveFloor, setLastFloor,
   fetchSales, addSale,
   fetchEmployees, saveEmployees,
   logAccess,
@@ -161,6 +161,7 @@ export default function App() {
     if (ch) {
       ch.on('broadcast', { event: 'floor:updated' }, ({ payload }) => {
         setFloor(payload.floor);
+        setLastFloor(payload.floor);
       });
     }
     const iv = setInterval(async () => {
