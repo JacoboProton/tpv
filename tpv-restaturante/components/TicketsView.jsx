@@ -151,7 +151,8 @@ export default function TicketsView({ sales, colors: C }) {
       ) : (
         <div style={{ background: C.surface, border: `1px solid ${C.line}` }} className="rounded-xl overflow-hidden">
           <div style={{ background: C.surfaceLight, color: C.muted }}
-            className="grid grid-cols-9 gap-2 px-4 py-2.5 text-xs font-medium uppercase tracking-wide">
+            className="grid grid-cols-10 gap-2 px-4 py-2.5 text-xs font-medium uppercase tracking-wide">
+            <span>#</span>
             <span>Hora</span>
             <span>Mesa</span>
             <span>Empleado</span>
@@ -160,13 +161,14 @@ export default function TicketsView({ sales, colors: C }) {
             <span className="col-span-3">Artículos</span>
             <span className="text-right"></span>
           </div>
-          {todaySales.map(s => {
+          {todaySales.map((s, i) => {
             const d = new Date(s.closedAt);
             const items = (s.items || []).slice(0, 3);
             const extra = (s.items || []).length - 3;
             return (
               <div key={s.id} style={{ borderTop: `1px solid ${C.line}` }}
-                className="grid grid-cols-9 gap-2 px-4 py-2 text-sm items-center">
+                className="grid grid-cols-10 gap-2 px-4 py-2 text-sm items-center">
+                <span className="font-mono text-xs" style={{ color: C.muted }}>{i + 1}</span>
                 <span className="font-mono" style={{ color: C.cream }}>
                   {d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
                 </span>
@@ -191,12 +193,12 @@ export default function TicketsView({ sales, colors: C }) {
             );
           })}
           <div style={{ borderTop: `2px solid ${C.brass}`, background: C.surfaceLight }}
-            className="grid grid-cols-9 gap-2 px-4 py-3 text-sm font-semibold items-center">
+            className="grid grid-cols-10 gap-2 px-4 py-3 text-sm font-semibold items-center">
             <span className="col-span-3" style={{ color: C.cream }}>TOTAL DEL DÍA</span>
             <span className="font-mono text-right" style={{ color: C.brassLight }}>
               {euros(totalAmount)}
             </span>
-            <span className="col-span-5" style={{ color: C.muted }}>
+            <span className="col-span-6" style={{ color: C.muted }}>
               {todaySales.length} tickets
             </span>
           </div>
