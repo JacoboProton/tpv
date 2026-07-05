@@ -401,27 +401,30 @@ export default function App() {
     while (salesQueue.current.length > 0) {
       const sale = salesQueue.current[0];
       let ok = false;
+      let lastErr = '';
       try {
         const res = await addSale(sale);
         ok = res && res.ok;
+        if (!ok) lastErr = 'respuesta vacía';
       } catch (e) {
-        console.warn('addSale error:', e);
+        lastErr = e && e.message ? e.message : String(e);
+        console.warn('addSale error:', lastErr);
       }
       if (ok) {
         salesQueue.current.shift();
       } else {
-        showToast('No se ha podido guardar la venta. Reintentando...');
+        showToast(`Error venta: ${lastErr}. Reintentando...`);
         await new Promise(r => setTimeout(r, 2000));
         try {
           const res = await addSale(sale);
           if (res && res.ok) {
             salesQueue.current.shift();
           } else {
-            showToast('No se ha podido guardar la venta tras reintentar');
+            showToast(`Error venta: ${lastErr}. No se pudo guardar`);
             salesQueue.current.shift();
           }
-        } catch {
-          showToast('No se ha podido guardar la venta tras reintentar');
+        } catch (e2) {
+          showToast(`Error venta: ${e2 && e2.message ? e2.message : String(e2)}. No se pudo guardar`);
           salesQueue.current.shift();
         }
       }
