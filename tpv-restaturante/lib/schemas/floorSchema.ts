@@ -38,7 +38,7 @@ export const FloorPlanSchema = z.object({
 
 export const FloorPutBodySchema = z.object({
   tables: z.array(TableSchema),
-  orders: z.record(OrderSchema),
+  orders: z.record(z.string(), OrderSchema),
   zones: z.union([z.string(), z.array(z.any())]).optional(),
   background: z.union([z.string(), z.null()]).optional(),
 });
