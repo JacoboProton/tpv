@@ -529,6 +529,7 @@ export default function MesaScreen() {
             const allOrderItems = Object.values(f.orders)
               .filter(o => o.tableId === tableId)
               .flatMap(o => o.items.map(i => ({ id: i.id, productId: i.productId, name: i.name, qty: i.qty, price: i.price })));
+            const total = allOrderItems.reduce((s, i) => s + i.price * i.qty, 0);
             try {
               addSale({
                 id: saleId, tableId, tableName: t?.name || tableId,
