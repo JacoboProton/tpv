@@ -31,6 +31,10 @@ export default function TicketsScreen() {
     loadTickets();
   }, [loadTickets]));
 
+  useEffect(() => {
+    loadTickets();
+  }, []);
+
   const todayStr = new Date().toDateString();
   const todaySales = sales.filter(s => {
     if (!s.closedAt) return false;

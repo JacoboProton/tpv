@@ -396,15 +396,26 @@ export default function App() {
     salesProcessing.current = true;
     while (salesQueue.current.length > 0) {
       const sale = salesQueue.current[0];
+      let ok = false;
       try {
-        await addSale(sale);
+        const res = await addSale(sale);
+        ok = res && res.ok;
+      } catch (e) {
+        console.warn('addSale error:', e);
+      }
+      if (ok) {
         salesQueue.current.shift();
-      } catch {
+      } else {
         showToast('No se ha podido guardar la venta. Reintentando...');
         await new Promise(r => setTimeout(r, 2000));
         try {
-          await addSale(sale);
-          salesQueue.current.shift();
+          const res = await addSale(sale);
+          if (res && res.ok) {
+            salesQueue.current.shift();
+          } else {
+            showToast('No se ha podido guardar la venta tras reintentar');
+            salesQueue.current.shift();
+          }
         } catch {
           showToast('No se ha podido guardar la venta tras reintentar');
           salesQueue.current.shift();
