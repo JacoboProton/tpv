@@ -15,6 +15,9 @@
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
+        "NFC",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
         "NFC"
       ]
     },
@@ -60,6 +63,12 @@
       "eas": {
         "projectId": "4ec74133-8316-4209-80ee-019cba62cd42"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/4ec74133-8316-4209-80ee-019cba62cd42"
     }
   }
 }
