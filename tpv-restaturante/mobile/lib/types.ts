@@ -45,6 +45,7 @@ export interface OrderItem {
   modifiers?: string[];
   notes?: string;
   course?: string;
+  ubicacion?: string;
 }
 
 export interface Order {

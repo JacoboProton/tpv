@@ -297,6 +297,7 @@ export default function MesaScreen() {
       order.items.push({
         id: generateId(), productId: product.id, name: product.name,
         price: product.price, qty: 1, course: product.course || '',
+        ubicacion: product.ubicacion || 'Bar',
       });
     }
 
@@ -358,18 +359,25 @@ export default function MesaScreen() {
     await persistFloor(f);
   }
 
-  async function sendAllToKDS() {
+  async function sendAllToKDS(ubicacionFilter?: string) {
     if (!floor) return;
     const f = JSON.parse(JSON.stringify(floor)) as Floor;
+    let count = 0;
 
     for (const order of Object.values(f.orders)) {
-      order.items.forEach(i => { if (!i.sent) i.sent = true; });
+      order.items.forEach(i => {
+        if (!i.sent && (!ubicacionFilter || i.ubicacion === ubicacionFilter)) {
+          i.sent = true;
+          count++;
+        }
+      });
     }
 
     setFloor(f);
     setGlobalFloor(f);
     await persistFloor(f);
-    Alert.alert('Enviado', 'Todos los productos han sido enviados a cocina');
+    const label = ubicacionFilter === 'Bar' ? 'barra' : ubicacionFilter === 'Cocina' ? 'cocina' : 'cocina/barra';
+    Alert.alert('Enviado', `${count} producto(s) enviado(s) a ${label}`);
   }
 
   async function persistFloor(f: Floor) {
@@ -438,7 +446,9 @@ export default function MesaScreen() {
                   <View style={styles.orderItemActions}>
                     {isSent ? (
                       <View style={[styles.statusBadge, isReady ? styles.readyBadge : styles.sentBadge]}>
-                        <Text style={styles.statusText}>{isReady ? 'Listo' : 'En cocina'}</Text>
+                        <Text style={styles.statusText}>
+                          {isReady ? 'Listo' : item.ubicacion === 'Bar' ? 'En barra' : 'En cocina'}
+                        </Text>
                       </View>
                     ) : (
                       <TouchableOpacity style={styles.sendBtn} onPress={() => sendToKDS(item.id)}>
@@ -451,10 +461,20 @@ export default function MesaScreen() {
             })}
           </ScrollView>
           {pendingItems.length > 0 && (
-            <TouchableOpacity style={styles.sendAllBtn} onPress={sendAllToKDS}>
-              <Ionicons name="send" size={16} color={C.base} />
-              <Text style={styles.sendAllText}>Enviar todo a cocina</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {pendingItems.some(i => i.ubicacion === 'Cocina') && (
+                <TouchableOpacity style={[styles.sendAllBtn, { flex: 1 }]} onPress={() => sendAllToKDS('Cocina')}>
+                  <Ionicons name="send" size={16} color={C.base} />
+                  <Text style={styles.sendAllText}>Cocina</Text>
+                </TouchableOpacity>
+              )}
+              {pendingItems.some(i => i.ubicacion === 'Bar') && (
+                <TouchableOpacity style={[styles.sendAllBtn, { flex: 1 }]} onPress={() => sendAllToKDS('Bar')}>
+                  <Ionicons name="send" size={16} color={C.base} />
+                  <Text style={styles.sendAllText}>Barra</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           )}
         </View>
       )}
@@ -520,16 +540,16 @@ export default function MesaScreen() {
             if (!floor) return;
             const f = JSON.parse(JSON.stringify(floor)) as Floor;
             const t = f.tables.find(t => t.id === tableId);
-            if (t) { t.status = 'libre'; t.orderIds = []; t.orderId = null; }
-            for (const oid of Object.keys(f.orders)) {
-              if (f.orders[oid].tableId === tableId) delete f.orders[oid];
-            }
-            // Guardar venta en efectivo
+            // Guardar venta en efectivo ANTES de borrar los pedidos
             const saleId = generateId();
             const allOrderItems = Object.values(f.orders)
               .filter(o => o.tableId === tableId)
               .flatMap(o => o.items.map(i => ({ id: i.id, productId: i.productId, name: i.name, qty: i.qty, price: i.price })));
             const total = allOrderItems.reduce((s, i) => s + i.price * i.qty, 0);
+            if (t) { t.status = 'libre'; t.orderIds = []; t.orderId = null; }
+            for (const oid of Object.keys(f.orders)) {
+              if (f.orders[oid].tableId === tableId) delete f.orders[oid];
+            }
             try {
               addSale({
                 id: saleId, tableId, tableName: t?.name || tableId,
