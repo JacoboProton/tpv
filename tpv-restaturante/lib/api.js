@@ -318,5 +318,5 @@ export async function fetchClosures() {
 }
 
 export async function saveClosure(data) {
-  return apiFetch('/api/closures', 'POST', data);
+  return apiFetch('/api/closures', { method: 'POST', body: JSON.stringify(data) });
 }
