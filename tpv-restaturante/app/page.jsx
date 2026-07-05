@@ -218,6 +218,9 @@ export default function App() {
 
       setTenants(tnts);
 
+      // Leer cache local ANTES de fetchSales (que sobrescribe el cache con datos de API)
+      const preFetchCache = cacheGet('sales');
+
       const [cat, flr, sls, emps] = await Promise.all([
         fetchCatalog(),
         fetchFloor(),
@@ -308,15 +311,16 @@ export default function App() {
       }
 
       const salesFromApi = Array.isArray(sls) ? sls : [];
-      const cachedSales = cacheGet('sales');
-      if (Array.isArray(cachedSales) && cachedSales.length > 0) {
+      if (Array.isArray(preFetchCache) && preFetchCache.length > 0) {
         const apiIds = new Set(salesFromApi.map(s => s.id));
-        const missing = cachedSales.filter(s => s.id && !apiIds.has(s.id));
+        const missing = preFetchCache.filter(s => s.id && !apiIds.has(s.id));
         if (missing.length > 0) {
           salesFromApi.push(...missing);
         }
       }
       setSales(salesFromApi);
+      // Repoblar cache con los datos fusionados para futuros refrescos
+      cacheSet('sales', salesFromApi);
 
       const stg = await fetchSettings().catch(() => null);
       if (stg) setTicketSettings(stg);
