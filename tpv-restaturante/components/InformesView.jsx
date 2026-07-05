@@ -396,7 +396,7 @@ function CuadraturaCard({ closure, colors: C }) {
             Cierre de caja registrado
           </p>
           <p style={{ color: C.muted }} className="text-xs mt-1">
-            {new Date(closure.closed_at).toLocaleString('es-ES')} — {euros(closure.total)} — {closure.ticket_count} tickets
+            {new Date(Number(closure.closed_at)).toLocaleString('es-ES')} — {euros(closure.total)} — {closure.ticket_count} tickets
           </p>
         </div>
         {hasCuadratura && (
@@ -1606,7 +1606,7 @@ function CierresGuardadosTab({ colors: C }) {
   return (
     <div className="max-w-2xl space-y-3">
       {sorted.map(c => {
-        const d = new Date(c.closed_at);
+        const d = new Date(Number(c.closed_at));
         const dateLabel = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
         const timeLabel = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
         const open = expanded === c.id;
