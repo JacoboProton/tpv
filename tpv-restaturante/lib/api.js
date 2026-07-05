@@ -312,3 +312,11 @@ export async function fetchBuffetTableSession(tableId) {
 export async function fetchBuffetRounds(sessionId) {
   return apiFetch(`/api/buffet?scope=rounds&sessionId=${sessionId}`);
 }
+
+export async function fetchClosures() {
+  return apiFetch('/api/closures');
+}
+
+export async function saveClosure(data) {
+  return apiFetch('/api/closures', 'POST', data);
+}

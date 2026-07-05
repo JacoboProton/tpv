@@ -8,7 +8,7 @@ import {
   BarChart3, Banknote, CreditCard, Smartphone, Clock, Download, Printer, LogIn, ShieldCheck, User, Save,
 } from 'lucide-react';
 import { euros, round2 } from './constants';
-import { fetchAccessLogs, fetchBackup, fetchStockLog, fetchTurns } from '../lib/api';
+import { fetchAccessLogs, fetchBackup, fetchStockLog, fetchTurns, fetchClosures, saveClosure } from '../lib/api';
 import VerifactuPanel from './VerifactuPanel';
 import FoodCostView from './FoodCostView';
 
@@ -381,6 +381,18 @@ function CierreCajaTab({ sales, colors: C }) {
   const [period, setPeriod] = useState('dia');
   const [dateValue, setDateValue] = useState(() => new Date().toISOString().slice(0, 10));
   const [monthValue, setMonthValue] = useState(() => new Date().toISOString().slice(0, 7));
+  const [closing, setClosing] = useState(false);
+  const [lastClosure, setLastClosure] = useState(null);
+  const [existingClosures, setExistingClosures] = useState([]);
+
+  useEffect(() => {
+    fetchClosures().then(setExistingClosures).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const found = existingClosures.find(c => c.date === dateValue);
+    setLastClosure(found || null);
+  }, [dateValue, existingClosures]);
 
   const periodSales = useMemo(() => {
     if (period === 'dia') return sales.filter(s => new Date(s.closedAt).toISOString().slice(0, 10) === dateValue);
@@ -537,6 +549,73 @@ function CierreCajaTab({ sales, colors: C }) {
               })}
             </div>
           </>
+        )}
+      </div>
+
+      <div className="no-print mt-6">
+        {lastClosure ? (
+          <div style={{ background: C.surface, border: `1px solid ${C.brass}` }} className="rounded-xl p-4 mb-4">
+            <p className="font-display text-base" style={{ color: C.brassLight }}>
+              <ShieldCheck className="w-4 h-4 inline mr-1.5" />
+              Cierre de caja registrado
+            </p>
+            <p style={{ color: C.muted }} className="text-xs mt-1">
+              {new Date(lastClosure.closed_at).toLocaleString('es-ES')} — {euros(lastClosure.total)} — {lastClosure.ticket_count} tickets
+            </p>
+          </div>
+        ) : period === 'dia' && periodSales.length > 0 && (
+          <div style={{ background: C.surface, border: `1px solid ${C.line}` }} className="rounded-xl p-5">
+            <h4 className="font-display text-lg mb-2" style={{ color: C.cream }}>Cerrar caja</h4>
+            <p style={{ color: C.muted }} className="text-sm mb-3">
+              Se generará un informe del día {new Date(dateValue + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}
+              con {ticketCount} tickets y {euros(total)}. No se podrá deshacer.
+            </p>
+            <button
+              onClick={async () => {
+                setClosing(true);
+                try {
+                  const methods = PAYMENT_METHODS.map(m => ({
+                    method: m.id,
+                    label: m.label,
+                    total: periodSales.reduce((sum, s) => {
+                      const payments = s.payments?.length ? s.payments : [{ method: s.paymentMethod, amount: s.total }];
+                      return sum + payments.filter(p => p.method === m.id).reduce((a, p) => a + p.amount, 0);
+                    }, 0),
+                  }));
+                  const employees = employeeTotals.map(([name, data]) => ({ name, total: data.total, count: data.count }));
+                  const data = {
+                    id: `closure_${dateValue}`,
+                    date: dateValue,
+                    total,
+                    ticket_count: ticketCount,
+                    avg_ticket: round2(avgTicket),
+                    methods,
+                    employees,
+                    sales_ids: periodSales.map(s => s.id),
+                    closed_at: Date.now(),
+                    employee_name: 'Admin',
+                  };
+                  const res = await saveClosure(data);
+                  if (res && res.ok) {
+                    setLastClosure(data);
+                    setExistingClosures(prev => [data, ...prev]);
+                  }
+                } catch (e) {
+                  console.error('Error al cerrar caja:', e);
+                }
+                setClosing(false);
+              }}
+              disabled={closing}
+              style={{ background: C.brass, color: C.base }}
+              className="w-full text-lg font-bold py-4 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {closing ? (
+                <>Cerrando...</>
+              ) : (
+                <><Save className="w-5 h-5" /> CERRAR CAJA</>
+              )}
+            </button>
+          </div>
         )}
       </div>
     </div>

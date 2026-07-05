@@ -1277,6 +1277,23 @@ export async function runMigrations() {
     } catch (e) { console.warn('composite PK skip:', table, e.message); }
   }
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS closures (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL DEFAULT 'default',
+      date TEXT NOT NULL,
+      total NUMERIC(10,2) NOT NULL DEFAULT 0,
+      ticket_count INTEGER NOT NULL DEFAULT 0,
+      avg_ticket NUMERIC(10,2) NOT NULL DEFAULT 0,
+      methods JSONB NOT NULL DEFAULT '[]',
+      employees JSONB NOT NULL DEFAULT '[]',
+      sales_ids TEXT[] NOT NULL DEFAULT '{}',
+      closed_at BIGINT NOT NULL,
+      employee_name TEXT NOT NULL DEFAULT ''
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_closures_date ON closures(date)`;
+
   return { ok: true };
 }
 
