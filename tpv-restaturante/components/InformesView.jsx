@@ -629,7 +629,7 @@ function CierreCajaTab({ sales, colors: C }) {
         {lastClosure && (
           <CuadraturaCard closure={lastClosure} colors={C} />
         )}
-        ) : period === 'dia' && periodSales.length > 0 && (
+        {!lastClosure && period === 'dia' && periodSales.length > 0 && (
           <>
             {/* ---- Cuadratura de caja ---- */}
             {!cuadraturaOk && (
