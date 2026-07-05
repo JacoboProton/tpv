@@ -20,7 +20,7 @@ import {
   saveTurn,
   fetchModifiers,
 } from '../lib/api';
-import { onNetworkChange, clearMutations, getMutations, cacheSet } from '../lib/offline';
+import { onNetworkChange, clearMutations, getMutations, cacheGet, cacheSet } from '../lib/offline';
 import { connectRealtime, broadcastFloorUpdate, broadcastReadyNotification, disconnectRealtime } from '../lib/realtime';
 import { escposOpenDrawer, printESCPOS, isPrinterConnected } from '../lib/thermal-printer';
 import { fetchSettings, saveSettings, fetchOffers, saveOffers, fetchCombos, saveCombos, saveMealMenus, savePriceRules } from '../lib/api';
@@ -204,14 +204,6 @@ export default function App() {
     loadAll();
   }, [tenantId]);
 
-  // Refrescar sales al navegar a la vista Tickets (recupera del API aunque loadAll fallara)
-  useEffect(() => {
-    if (view !== 'tickets') return;
-    fetchSales().then(sls => {
-      if (Array.isArray(sls) && sls.length > 0) setSales(sls);
-    }).catch(() => {});
-  }, [view]);
-
   async function loadAll() {
     try {
       await runMigrate();
@@ -315,7 +307,16 @@ export default function App() {
         setEmployees(emps);
       }
 
-      setSales(Array.isArray(sls) ? sls : []);
+      const salesFromApi = Array.isArray(sls) ? sls : [];
+      const cachedSales = cacheGet('sales');
+      if (Array.isArray(cachedSales) && cachedSales.length > 0) {
+        const apiIds = new Set(salesFromApi.map(s => s.id));
+        const missing = cachedSales.filter(s => s.id && !apiIds.has(s.id));
+        if (missing.length > 0) {
+          salesFromApi.push(...missing);
+        }
+      }
+      setSales(salesFromApi);
 
       const stg = await fetchSettings().catch(() => null);
       if (stg) setTicketSettings(stg);
