@@ -154,6 +154,7 @@ export default function App() {
   const prevPendingRef = useRef(0);
 
   const floorHashRef = useRef('');
+  const salesHashRef = useRef('');
   useEffect(() => {
     requestNotificationPermission();
     const ch = connectRealtime();
@@ -170,7 +171,15 @@ export default function App() {
         if (h !== floorHashRef.current) { floorHashRef.current = h; setFloor(data); }
       } catch {}
     }, 4000);
-    return () => { disconnectRealtime(); clearInterval(iv); };
+    const ivSales = setInterval(async () => {
+      try {
+        const data = await fetchSales();
+        if (!data) return;
+        const h = JSON.stringify(data);
+        if (h !== salesHashRef.current) { salesHashRef.current = h; setSales(data); }
+      } catch {}
+    }, 5000);
+    return () => { disconnectRealtime(); clearInterval(iv); clearInterval(ivSales); };
   }, [tenantId]);
 
   useEffect(() => {
