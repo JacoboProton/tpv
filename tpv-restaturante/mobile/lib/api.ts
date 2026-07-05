@@ -66,7 +66,7 @@ export async function createTerminalPaymentIntent(amountCents: number, tableId: 
   });
 }
 
-export async function addSale(sale: Record<string, unknown>): Promise<void> {
+export async function addSale(sale: Record<string, unknown>): Promise<{ ok: boolean } | null> {
   // Cache immediately so it shows up in tickets right away (no race)
   try {
     const cached = await AsyncStorage.getItem('tpv:sales');
@@ -74,8 +74,16 @@ export async function addSale(sale: Record<string, unknown>): Promise<void> {
     sales.push(sale);
     await AsyncStorage.setItem('tpv:sales', JSON.stringify(sales));
   } catch {}
-  // Fire-and-forget POST to API (best-effort)
-  apiFetch('/sales', { method: 'POST', body: JSON.stringify(sale) }).catch(() => {});
+  // Try API POST
+  try {
+    return await apiFetch<{ ok: boolean }>('/sales', {
+      method: 'POST',
+      body: JSON.stringify(sale),
+    });
+  } catch (e) {
+    console.warn('addSale API error:', e);
+    return null;
+  }
 }
 
 export async function fetchSales(): Promise<Record<string, unknown>[]> {
