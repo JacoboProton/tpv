@@ -48,3 +48,14 @@ export async function POST(req) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }
+
+export async function DELETE(req) {
+  try {
+    await ensureTable();
+    const { id } = await req.json();
+    await sql`DELETE FROM closures WHERE id = ${id} AND tenant_id = 'default'`;
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return NextResponse.json({ error: e.message }, { status: 500 });
+  }
+}
