@@ -164,8 +164,8 @@ export default function App() {
     }
     const iv = setInterval(async () => {
       try {
-        const res = await fetch('/api/floor', { headers: { 'x-tenant-id': tenantId } });
-        const data = await res.json();
+        const data = await fetchFloor();
+        if (!data) return;
         const h = JSON.stringify(data);
         if (h !== floorHashRef.current) { floorHashRef.current = h; setFloor(data); }
       } catch {}
