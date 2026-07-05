@@ -28,6 +28,10 @@ export async function POST(req) {
   try {
     await ensureTable();
     const body = await req.json();
+    if (body.action === 'delete') {
+      await sql`DELETE FROM closures WHERE id = ${body.id} AND tenant_id = 'default'`;
+      return NextResponse.json({ ok: true });
+    }
     const { id, date, total, ticket_count, avg_ticket, methods, employees, sales_ids, closed_at, employee_name, cuadratura, cuadratura_expected, cuadratura_counted, cuadratura_diff } = body;
     await sql`
       INSERT INTO closures (id, tenant_id, date, total, ticket_count, avg_ticket, methods, employees, sales_ids, closed_at, employee_name, cuadratura)
@@ -43,17 +47,6 @@ export async function POST(req) {
         employee_name = EXCLUDED.employee_name,
         cuadratura = EXCLUDED.cuadratura
     `;
-    return NextResponse.json({ ok: true });
-  } catch (e) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
-  }
-}
-
-export async function DELETE(req) {
-  try {
-    await ensureTable();
-    const { id } = await req.json();
-    await sql`DELETE FROM closures WHERE id = ${id} AND tenant_id = 'default'`;
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ error: e.message }, { status: 500 });
