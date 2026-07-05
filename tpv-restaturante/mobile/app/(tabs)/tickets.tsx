@@ -85,13 +85,15 @@ export default function TicketsScreen() {
         ) : (
           filtered.map(s => {
             const d = new Date(s.closedAt);
+            const fecha = d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+            const hora = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
             const items = (s.items || []).slice(0, 3);
             const extra = (s.items || []).length - 3;
             return (
               <View key={s.id} style={styles.ticketCard}>
                 <View style={styles.ticketHeader}>
                   <Text style={styles.ticketTime}>
-                    {d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                    {fecha} · {hora}
                   </Text>
                   <Text style={styles.ticketTable}>{s.tableName || '—'}</Text>
                   <Text style={styles.ticketTotal}>{s.total?.toFixed(2)}€</Text>
