@@ -969,49 +969,139 @@ function PropinasTab({ sales, colors: C }) {
 
 // ---------- Tab: Control de caja ----------
 function ControlCajaTab({ sales, colors: C }) {
-  const [realCount, setRealCount] = useState('0');
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const [cuadraturaCounts, setCuadraturaCounts] = useState(() => DENOMS.reduce((acc, d) => ({ ...acc, [d.value]: '' }), {}));
+  const [validated, setValidated] = useState(false);
+  const [existingClosures, setExistingClosures] = useState([]);
+  const [saving, setSaving] = useState(false);
 
-  const today = new Date().toDateString();
-  const todaySales = sales.filter(s => new Date(s.closedAt).toDateString() === today);
+  useEffect(() => {
+    fetchClosures().then(setExistingClosures).catch(() => {});
+  }, []);
+
+  const todayClosure = existingClosures.find(c => c.date === todayStr);
+  const hasClosure = !!todayClosure;
+
+  const todaySales = sales.filter(s => new Date(s.closedAt).toISOString().slice(0, 10) === todayStr);
 
   const expectedCash = todaySales.reduce((sum, s) => {
     const payments = s.payments?.length ? s.payments : [{ method: s.paymentMethod, amount: s.total }];
     return sum + payments.filter(p => p.method === 'efectivo').reduce((a, p) => a + p.amount, 0);
   }, 0);
 
-  const realCountNum = parseFloat(realCount) || 0;
-  const difference = round2(realCountNum - expectedCash);
-  const differenceColor = Math.abs(difference) < 0.005 ? C.sage : difference > 0 ? C.sageLight : C.wineLight;
+  const totalCounted = DENOMS.reduce((s, d) => s + (parseFloat(cuadraturaCounts[d.value]) || 0) * d.value, 0);
+  const diff = round2(totalCounted - expectedCash);
+
+  if (hasClosure) {
+    return <CuadraturaCard closure={todayClosure} colors={C} />;
+  }
 
   return (
     <div>
       <div style={{ background: C.surface, border: `1px solid ${C.line}` }} className="rounded-xl p-5 max-w-md">
-        <p className="font-display text-lg mb-4" style={{ color: C.cream }}>Cuadratura de efectivo</p>
-        <div className="flex flex-col gap-3 mb-4">
-          <div>
-            <p style={{ color: C.muted }} className="text-xs uppercase tracking-wide mb-1">Esperado (según sistema)</p>
-            <p className="font-display text-2xl" style={{ color: C.brassLight }}>{euros(expectedCash)}</p>
-          </div>
-          <div>
-            <p style={{ color: C.muted }} className="text-xs uppercase tracking-wide mb-1">Efectivo real en caja</p>
-            <input
-              type="number" step="0.01" value={realCount}
-              onChange={e => setRealCount(e.target.value)}
-              style={{ background: C.surfaceLight, color: C.cream }}
-              className="w-full rounded-lg px-3 py-3 text-xl font-mono font-bold text-center"
-              placeholder="0.00"
-            />
-          </div>
-          <div>
-            <p style={{ color: C.muted }} className="text-xs uppercase tracking-wide mb-1">Diferencia</p>
-            <p className="font-display text-2xl" style={{ color: differenceColor }}>
-              {difference > 0 ? '+' : ''}{euros(difference)}
-            </p>
-            {Math.abs(difference) < 0.005 && <p style={{ color: C.sage }} className="text-xs mt-1">✓ Cuadra perfectamente</p>}
-            {difference > 0.01  && <p style={{ color: C.sageLight }} className="text-xs mt-1">Sobrante de {euros(difference)}</p>}
-            {difference < -0.01 && <p style={{ color: C.wineLight }} className="text-xs mt-1">Faltante de {euros(Math.abs(difference))}</p>}
-          </div>
+        <p className="font-display text-lg mb-4" style={{ color: C.cream }}>
+          <Banknote className="w-5 h-5 inline mr-1.5" />
+          Cuadratura de efectivo
+        </p>
+
+        <p style={{ color: C.muted }} className="text-sm mb-3">
+          {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+        </p>
+
+        <hr style={{ borderColor: C.line }} className="my-3" />
+
+        <p className="text-sm font-medium mb-2" style={{ color: C.cream }}>Recuento físico de efectivo</p>
+        <div className="text-sm mb-3 flex items-center justify-between" style={{ color: C.muted }}>
+          <span>Esperado en caja (ventas efectivo):</span>
+          <span className="font-mono" style={{ color: C.cream }}>{euros(expectedCash)}</span>
         </div>
+
+        <div className="grid grid-cols-5 gap-2 mb-3">
+          {DENOMS.map(d => (
+            <div key={d.value} className="flex flex-col items-center">
+              <span className="text-xs mb-1" style={{ color: C.muted }}>{d.label}</span>
+              <input
+                type="number" min="0" step="1"
+                disabled={validated}
+                value={cuadraturaCounts[d.value]}
+                onChange={e => setCuadraturaCounts(prev => ({ ...prev, [d.value]: e.target.value }))}
+                style={{ background: validated ? C.surface : C.surfaceLight, color: C.cream, border: `1px solid ${C.line}`, width: '100%' }}
+                className="rounded-lg px-2 py-1.5 text-sm text-center"
+              />
+            </div>
+          ))}
+        </div>
+
+        <div className="flex items-center justify-between text-sm mb-3 pt-2" style={{ borderTop: `1px solid ${C.line}` }}>
+          <span style={{ color: C.muted }}>Total contado:</span>
+          <span className="font-mono" style={{ color: C.cream }}>{euros(totalCounted)}</span>
+        </div>
+        <div className="flex items-center justify-between text-sm mb-4">
+          <span style={{ color: C.muted }}>Diferencia:</span>
+          <span className={`font-mono ${Math.abs(diff) < 0.01 ? '' : diff > 0 ? 'text-green-400' : 'text-red-400'}`}
+            style={{ color: Math.abs(diff) < 0.01 ? C.cream : undefined }}>
+            {diff >= 0 ? '+' : ''}{euros(diff)}
+          </span>
+        </div>
+
+        {validated ? (
+          <button
+            onClick={async () => {
+              setSaving(true);
+              try {
+                const methodTotals = PAYMENT_METHODS.map(m => ({
+                  method: m.id, label: m.label,
+                  total: todaySales.reduce((sum, s) => {
+                    const payments = s.payments?.length ? s.payments : [{ method: s.paymentMethod, amount: s.total }];
+                    return sum + payments.filter(p => p.method === m.id).reduce((a, p) => a + p.amount, 0);
+                  }, 0),
+                }));
+                const total = todaySales.reduce((s, x) => s + x.total, 0);
+                const cuadDenoms = DENOMS.map(d => ({
+                  value: d.value, label: d.label,
+                  count: parseInt(cuadraturaCounts[d.value]) || 0,
+                  subtotal: ((parseInt(cuadraturaCounts[d.value]) || 0) * d.value),
+                }));
+                const data = {
+                  id: `closure_${todayStr}`,
+                  date: todayStr,
+                  total,
+                  ticket_count: todaySales.length,
+                  avg_ticket: round2(todaySales.length ? total / todaySales.length : 0),
+                  methods: methodTotals,
+                  employees: [],
+                  sales_ids: todaySales.map(s => s.id),
+                  closed_at: Date.now(),
+                  employee_name: 'Admin',
+                  cuadratura: cuadDenoms,
+                  cuadratura_expected: expectedCash,
+                  cuadratura_counted: totalCounted,
+                  cuadratura_diff: diff,
+                };
+                const res = await saveClosure(data);
+                if (res && res.ok) {
+                  setExistingClosures(prev => [data, ...prev]);
+                }
+              } catch (e) {
+                console.error('Error al guardar validación:', e);
+              }
+              setSaving(false);
+            }}
+            disabled={saving}
+            style={{ background: C.brass, color: C.base }}
+            className="w-full text-base font-bold py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {saving ? 'Guardando...' : <><Save className="w-5 h-5" /> FINALIZAR CIERRE DE CAJA</>}
+          </button>
+        ) : (
+          <button
+            onClick={() => setValidated(true)}
+            style={{ background: C.brass, color: C.base }}
+            className="w-full text-base font-bold py-3 rounded-xl flex items-center justify-center gap-2"
+          >
+            <ShieldCheck className="w-5 h-5" /> VALIDAR CUADRATURA
+          </button>
+        )}
       </div>
     </div>
   );
