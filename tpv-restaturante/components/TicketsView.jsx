@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import { Ticket, Download, Search } from 'lucide-react';
+import { Ticket, Download, Search, Printer } from 'lucide-react';
 import { euros } from './constants';
 
 export default function TicketsView({ sales, colors: C }) {
@@ -37,6 +37,46 @@ export default function TicketsView({ sales, colors: C }) {
     });
     return ['Todas', ...Array.from(set)];
   }, [sales]);
+
+  function printTicket(sale) {
+    const d = new Date(sale.closedAt);
+    const dateStr = d.toLocaleString('es-ES');
+    const items = (sale.items || []).filter(i => !i.voided);
+    const itemsHtml = items.map(i =>
+      `<div style="font-weight:bold">${i.name}</div>
+       <div class="ticket-row"><span>${i.qty} x ${i.price.toFixed(2)}€</span><span>${(i.qty * i.price).toFixed(2)}€</span></div>`
+    ).join('');
+    const tip = sale.tip || 0;
+    const total = sale.totalWithTip || sale.total || 0;
+    const html = `<html><head><meta charset="utf-8"><style>
+      @page { margin:0; size:80mm auto; }
+      body { font-family:'Courier New',monospace; font-size:12px; width:72mm; margin:0 auto; padding:4mm 0; color:#000; }
+      .ticket-header { text-align:center; font-size:16px; font-weight:bold; margin-bottom:4px; }
+      .ticket-divider { border-top:1px dashed #000; margin:4px 0; }
+      .ticket-row { display:flex; justify-content:space-between; font-size:11px; }
+      .ticket-total { font-weight:bold; font-size:13px; }
+    </style></head><body>
+      <div class="ticket-header">LA COMANDA</div>
+      <div style="text-align:center;font-size:10px;margin-bottom:4px">
+        ${dateStr}<br/>
+        Mesa: ${sale.tableName || '—'}<br/>
+        ${sale.employeeName ? 'Camarero: ' + sale.employeeName : ''}
+      </div>
+      <div class="ticket-divider"/>
+      ${itemsHtml}
+      <div class="ticket-divider"/>
+      <div class="ticket-row"><span>Total</span><span>${euros(total)}</span></div>
+      ${tip > 0 ? `<div class="ticket-row" style="font-size:10px;color:#666"><span>Propina</span><span>+${euros(tip)}</span></div>` : ''}
+      <div class="ticket-divider"/>
+      <div style="text-align:center;font-size:10px;margin-top:4px">${sale.paymentMethod || ''}</div>
+      <div style="text-align:center;font-size:10px;margin-top:4px">Gracias por su visita</div>
+    </body></html>`;
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.write(html);
+    w.document.close();
+    setTimeout(() => { w.print(); w.close(); }, 300);
+  }
 
   function downloadCSV() {
     const rows = [
@@ -111,13 +151,14 @@ export default function TicketsView({ sales, colors: C }) {
       ) : (
         <div style={{ background: C.surface, border: `1px solid ${C.line}` }} className="rounded-xl overflow-hidden">
           <div style={{ background: C.surfaceLight, color: C.muted }}
-            className="grid grid-cols-8 gap-2 px-4 py-2.5 text-xs font-medium uppercase tracking-wide">
+            className="grid grid-cols-9 gap-2 px-4 py-2.5 text-xs font-medium uppercase tracking-wide">
             <span>Hora</span>
             <span>Mesa</span>
             <span>Empleado</span>
             <span className="text-right">Total</span>
             <span>Método</span>
             <span className="col-span-3">Artículos</span>
+            <span className="text-right"></span>
           </div>
           {todaySales.map(s => {
             const d = new Date(s.closedAt);
@@ -125,7 +166,7 @@ export default function TicketsView({ sales, colors: C }) {
             const extra = (s.items || []).length - 3;
             return (
               <div key={s.id} style={{ borderTop: `1px solid ${C.line}` }}
-                className="grid grid-cols-8 gap-2 px-4 py-2 text-sm items-center">
+                className="grid grid-cols-9 gap-2 px-4 py-2 text-sm items-center">
                 <span className="font-mono" style={{ color: C.cream }}>
                   {d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
                 </span>
@@ -141,16 +182,21 @@ export default function TicketsView({ sales, colors: C }) {
                   {items.map(i => `${i.qty}x ${i.name}`).join(', ')}
                   {extra > 0 && <span style={{ color: C.brass }}> +{extra} más</span>}
                 </span>
+                <button onClick={() => printTicket(s)}
+                  style={{ color: C.muted, background: 'transparent', border: 'none', cursor: 'pointer' }}
+                  className="hover:opacity-80 text-right">
+                  <Printer className="w-3.5 h-3.5 inline" />
+                </button>
               </div>
             );
           })}
           <div style={{ borderTop: `2px solid ${C.brass}`, background: C.surfaceLight }}
-            className="grid grid-cols-8 gap-2 px-4 py-3 text-sm font-semibold items-center">
+            className="grid grid-cols-9 gap-2 px-4 py-3 text-sm font-semibold items-center">
             <span className="col-span-3" style={{ color: C.cream }}>TOTAL DEL DÍA</span>
             <span className="font-mono text-right" style={{ color: C.brassLight }}>
               {euros(totalAmount)}
             </span>
-            <span className="col-span-4" style={{ color: C.muted }}>
+            <span className="col-span-5" style={{ color: C.muted }}>
               {todaySales.length} tickets
             </span>
           </div>
