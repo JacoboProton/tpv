@@ -28,9 +28,8 @@ async function apiFetch(url, options = {}) {
     }
     return res.json();
   } catch (err) {
-    if (!isOnline() || options.method === 'GET') throw err;
-    enqueueMutation(url, options.body);
-    return null;
+    console.warn(`apiFetch ${options.method || 'GET'} ${url}:`, err);
+    throw err;
   }
 }
 
