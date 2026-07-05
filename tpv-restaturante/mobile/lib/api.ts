@@ -66,33 +66,28 @@ export async function createTerminalPaymentIntent(amountCents: number, tableId: 
   });
 }
 
-export async function addSale(sale: Record<string, unknown>): Promise<{ ok: boolean }> {
+export async function addSale(sale: Record<string, unknown>): Promise<void> {
+  // Cache immediately so it shows up in tickets right away (no race)
   try {
-    const res = await apiFetch<{ ok: boolean }>('/sales', {
-      method: 'POST',
-      body: JSON.stringify(sale),
-    });
-    // Cache the sale locally on success
     const cached = await AsyncStorage.getItem('tpv:sales');
     const sales = cached ? JSON.parse(cached) : [];
     sales.push(sale);
     await AsyncStorage.setItem('tpv:sales', JSON.stringify(sales));
-    return res;
-  } catch (e) {
-    // Cache on failure too so the sale isn't lost
-    const cached = await AsyncStorage.getItem('tpv:sales');
-    const sales = cached ? JSON.parse(cached) : [];
-    sales.push(sale);
-    await AsyncStorage.setItem('tpv:sales', JSON.stringify(sales));
-    throw e;
-  }
+  } catch {}
+  // Fire-and-forget POST to API (best-effort)
+  apiFetch('/sales', { method: 'POST', body: JSON.stringify(sale) }).catch(() => {});
 }
 
 export async function fetchSales(): Promise<Record<string, unknown>[]> {
   try {
     const data = await apiFetch<Record<string, unknown>[]>('/sales');
-    await AsyncStorage.setItem('tpv:sales', JSON.stringify(data));
-    return data;
+    // Merge with local cache so recently-saved sales appear immediately
+    const cached = await AsyncStorage.getItem('tpv:sales');
+    const local = cached ? JSON.parse(cached) : [];
+    const ids = new Set(data.map(s => s.id));
+    const merged = [...data, ...local.filter(s => !ids.has(s.id))];
+    await AsyncStorage.setItem('tpv:sales', JSON.stringify(merged));
+    return merged;
   } catch {
     const cached = await AsyncStorage.getItem('tpv:sales');
     return cached ? JSON.parse(cached) : [];

@@ -550,19 +550,15 @@ export default function MesaScreen() {
             for (const oid of Object.keys(f.orders)) {
               if (f.orders[oid].tableId === tableId) delete f.orders[oid];
             }
-            try {
-              addSale({
-                id: saleId, tableId, tableName: t?.name || tableId,
-                items: allOrderItems, subtotal: total, discount: 0, discountAmount: 0,
-                total, tip: 0, totalWithTip: total,
-                payments: [{ method: 'card', amount: total }],
-                paymentMethod: 'Efectivo', isFiado: false, isDebtPayment: false,
-                employeeId: null, employeeName: globalUser?.name || 'Camarero',
-                closedAt: Date.now(),
-              });
-            } catch (e) {
-              console.warn('Error al guardar venta:', e);
-            }
+            addSale({
+              id: saleId, tableId, tableName: t?.name || tableId,
+              items: allOrderItems, subtotal: total, discount: 0, discountAmount: 0,
+              total, tip: 0, totalWithTip: total,
+              payments: [{ method: 'efectivo', amount: total }],
+              paymentMethod: 'Efectivo', isFiado: false, isDebtPayment: false,
+              employeeId: null, employeeName: globalUser?.name || 'Camarero',
+              closedAt: Date.now(),
+            });
             setFloor(f);
             setGlobalFloor(f);
             persistFloor(f);
