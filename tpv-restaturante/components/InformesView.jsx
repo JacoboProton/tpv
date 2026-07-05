@@ -36,10 +36,11 @@ export default function InformesView({ sales, colors: C }) {
     { id: 'verifactu', label: 'Verifactu' },
     { id: 'stock',     label: 'Stock' },
     { id: 'turns',     label: 'Turnos' },
+    { id: 'cierres',   label: 'Cierres' },
     { id: 'respaldo',  label: 'Respaldo' },
   ];
 
-  if (sales.length === 0 && tab !== 'accesos' && tab !== 'verifactu' && tab !== 'respaldo' && tab !== 'extracto') {
+  if (sales.length === 0 && tab !== 'accesos' && tab !== 'verifactu' && tab !== 'respaldo' && tab !== 'extracto' && tab !== 'cierres') {
     return (
       <div className="text-center py-16">
         <BarChart3 className="w-10 h-10 mx-auto mb-3" style={{ color: C.muted }} />
@@ -88,6 +89,7 @@ export default function InformesView({ sales, colors: C }) {
       {tab === 'verifactu' && <VerifactuPanel colors={C} sales={sales} />}
       {tab === 'stock'     && <StockLogTab colors={C} />}
       {tab === 'turns'     && <TurnsTab colors={C} />}
+      {tab === 'cierres'   && <CierresGuardadosTab colors={C} />}
       {tab === 'respaldo'  && <RespaldoTab colors={C} />}
     </div>
   );
@@ -1569,6 +1571,138 @@ function TurnsTab({ colors: C }) {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------- Tab: Cierres guardados ----------
+function CierresGuardadosTab({ colors: C }) {
+  const [closures, setClosures] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(null);
+
+  useEffect(() => {
+    fetchClosures()
+      .then(data => setClosures(Array.isArray(data) ? data : []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return <p style={{ color: C.muted }} className="text-sm text-center py-6">Cargando...</p>;
+  }
+
+  if (closures.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <Banknote className="w-10 h-10 mx-auto mb-3" style={{ color: C.muted }} />
+        <p style={{ color: C.muted }} className="text-sm">No hay cierres de caja registrados.</p>
+      </div>
+    );
+  }
+
+  const sorted = [...closures].sort((a, b) => (b.closed_at || 0) - (a.closed_at || 0));
+
+  return (
+    <div className="max-w-2xl space-y-3">
+      {sorted.map(c => {
+        const d = new Date(c.closed_at);
+        const dateLabel = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        const timeLabel = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+        const open = expanded === c.id;
+        return (
+          <div key={c.id} style={{ background: C.surface, border: `1px solid ${C.brass}` }} className="rounded-xl">
+            <div className="p-4 cursor-pointer" onClick={() => setExpanded(open ? null : c.id)}>
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="font-display text-base" style={{ color: C.brassLight }}>
+                    <ShieldCheck className="w-4 h-4 inline mr-1.5" />
+                    {dateLabel}
+                  </p>
+                  <p style={{ color: C.muted }} className="text-xs mt-1">
+                    Cerrado a las {timeLabel} por {c.employee_name || 'Admin'}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="font-display text-lg" style={{ color: C.cream }}>{euros(c.total)}</p>
+                  <p style={{ color: C.muted }} className="text-xs">{c.ticket_count} tickets</p>
+                </div>
+              </div>
+            </div>
+            {open && (
+              <div className="px-4 pb-4 pt-0">
+                <hr style={{ borderColor: C.line }} className="mb-3" />
+
+                <p style={{ color: C.muted }} className="text-xs uppercase tracking-wide mb-1">Ticket medio</p>
+                <p className="font-mono text-sm mb-3" style={{ color: C.cream }}>{euros(c.avg_ticket)}</p>
+
+                {c.methods?.length > 0 && (
+                  <>
+                    <p style={{ color: C.muted }} className="text-xs uppercase tracking-wide mb-1">Por método</p>
+                    <div className="flex flex-col gap-1 mb-3">
+                      {c.methods.map(m => (
+                        <div key={m.method} className="flex justify-between text-sm">
+                          <span style={{ color: C.muted }}>{m.label || m.method}</span>
+                          <span className="font-mono" style={{ color: C.brassLight }}>{euros(m.total)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {c.employees?.length > 0 && (
+                  <>
+                    <p style={{ color: C.muted }} className="text-xs uppercase tracking-wide mb-1">Por empleado</p>
+                    <div className="flex flex-col gap-1 mb-3">
+                      {c.employees.map(e => (
+                        <div key={e.name} className="flex justify-between text-sm">
+                          <span style={{ color: C.muted }}>{e.name} <span className="text-xs">({e.count} tickets)</span></span>
+                          <span className="font-mono" style={{ color: C.brassLight }}>{euros(e.total)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {c.cuadratura && (() => {
+                  const raw = c.cuadratura;
+                  const denoms = Array.isArray(raw) ? raw : (raw?.denoms || []);
+                  const expected = raw?.expected ?? (Array.isArray(raw) ? raw.reduce((s, d) => s + (d.subtotal || 0), 0) : 0);
+                  const counted = raw?.counted ?? (Array.isArray(raw) ? raw.reduce((s, d) => s + (d.subtotal || 0), 0) : 0);
+                  const diff = raw?.diff ?? 0;
+                  return (
+                    <>
+                      <hr style={{ borderColor: C.line }} className="mb-3" />
+                      <p style={{ color: C.muted }} className="text-xs uppercase tracking-wide mb-1">Cuadratura</p>
+                      <div className="grid grid-cols-3 gap-2 text-sm mb-2">
+                        <div><span style={{ color: C.muted }}>Esperado: </span><span className="font-mono" style={{ color: C.cream }}>{euros(expected)}</span></div>
+                        <div><span style={{ color: C.muted }}>Contado: </span><span className="font-mono" style={{ color: C.cream }}>{euros(counted)}</span></div>
+                        <div>
+                          <span style={{ color: C.muted }}>Diferencia: </span>
+                          <span className={`font-mono ${Math.abs(diff) < 0.01 ? '' : diff > 0 ? 'text-green-400' : 'text-red-400'}`}
+                            style={{ color: Math.abs(diff) < 0.01 ? C.cream : undefined }}>
+                            {diff >= 0 ? '+' : ''}{euros(diff)}
+                          </span>
+                        </div>
+                      </div>
+                      {denoms.filter(d => d.count > 0).length > 0 && (
+                        <div className="grid grid-cols-5 gap-1 text-xs">
+                          {denoms.filter(d => d.count > 0).map(d => (
+                            <div key={d.value} className="flex justify-between" style={{ color: C.muted }}>
+                              <span>{d.label}:</span>
+                              <span className="font-mono" style={{ color: C.cream }}>{d.count}×</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
