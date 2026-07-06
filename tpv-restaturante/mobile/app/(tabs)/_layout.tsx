@@ -45,12 +45,13 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => <TabIcon name="person-outline" color={color} size={size} />,
         }}
       />
-    <Tabs.Screen
-          name="operations"
-          options={{
-            title: 'Operaciones',
-            tabBarIcon: ({ color, size }) => <TabIcon name="analytics-outline" color={color} size={size} />,\n          }}
-        />
-        </Tabs>
+      <Tabs.Screen
+        name="operations"
+        options={{
+          title: 'Operaciones',
+          tabBarIcon: ({ color, size }) => <TabIcon name="analytics-outline" color={color} size={size} />,
+        }}
+      />
+    </Tabs>
   );
 }
