@@ -469,7 +469,7 @@ function OrderCard({ order, now, layout, K, KTC, onItemClick, onReprint }) {
   const readyCount = items.filter(i => i.ready).length;
 
   const courseOrder = ['Entrantes', 'Principales', 'Postres', ''];
-  const groups: Record<string, typeof items> = {};
+  const groups = {};
   for (const item of items) {
     const key = item.course || 'General';
     if (!groups[key]) groups[key] = [];
@@ -479,7 +479,7 @@ function OrderCard({ order, now, layout, K, KTC, onItemClick, onReprint }) {
     Object.keys(groups).filter(k => !courseOrder.includes(k === 'General' ? '' : k))
   );
 
-  function renderItem(item: any) {
+  function renderItem(item) {
     const state = item.ready ? 'ready' : item.inPreparation ? 'preparing' : 'pending';
     return (
       <button key={item.id} onClick={() => onItemClick(item.id)}
