@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../lib/db';
+import { validateRequest, ConfirmSchema } from '../../../lib/gestoriaSchemas';
 
 function makeId() { return 'g_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8); }
 
@@ -70,6 +71,12 @@ export async function GET(req) {
 export async function POST(req) {
   try {
     const body = await req.json();
+    // Validate request payload using Zod schemas
+    try {
+      validateRequest(body);
+    } catch (e) {
+      return NextResponse.json({ error: e.errors || e.message }, { status: 400 });
+    }
     const { action } = body;
 
     if (action === 'document') {
@@ -141,6 +148,12 @@ export async function POST(req) {
 export async function PUT(req) {
   try {
     const body = await req.json();
+    // Validate request payload using Zod schemas
+    try {
+      validateRequest(body);
+    } catch (e) {
+      return NextResponse.json({ error: e.errors || e.message }, { status: 400 });
+    }
     const { action } = body;
 
     if (action === 'settings') {
@@ -186,6 +199,12 @@ export async function PUT(req) {
 export async function DELETE(req) {
   try {
     const body = await req.json();
+    // Validate request payload for delete actions
+    try {
+      ConfirmSchema.parse(body);
+    } catch (e) {
+      return NextResponse.json({ error: e.errors || e.message }, { status: 400 });
+    }
     const { action, id } = body;
     if (action === 'document') {
       await sql`DELETE FROM gestoria_documents WHERE id = ${id}`;
