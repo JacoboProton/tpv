@@ -48,7 +48,7 @@ export default function KDSPairPage() {
         localStorage.setItem('kds_paired', 'true');
         setStatus('success');
         setMessage('Pantalla emparejada correctamente');
-        setTimeout(() => { window.location.href = '/?view=kds'; }, 1500);
+        setTimeout(() => { window.location.href = '/kds'; }, 1500);
       } else {
         setStatus('error');
         setMessage(data.error || 'Código inválido o caducado');
