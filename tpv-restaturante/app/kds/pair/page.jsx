@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Check, X, Monitor, Shield } from 'lucide-react';
 
-const KTC = { base: '#1a1d23', surface: '#252830', surfaceLight: '#30343e', accent: '#c4a04a', accentLight: '#d6b86a', cream: '#e6e1d6', muted: '#9c958a', success: '#7a9a7c', danger: '#b05e5e' };
+const KTC = { base: '#1a1d23', surface: '#252830', surfaceLight: '#30343e', accent: '#c4a04a', accentLight: '#d6b86a', cream: '#e6e1d6', muted: '#9c958a', success: '#7a9a7c', danger: '#b05e5e', line: '#404550' };
 
 export default function KDSPairPage() {
   const [code, setCode] = useState(['', '', '', '', '', '']);
@@ -32,7 +32,7 @@ export default function KDSPairPage() {
   async function handleSubmit(e) {
     e.preventDefault();
     const fullCode = code.join('');
-    if (fullCode.length !== 6) return;
+    if (fullCode.length !== 6) { setStatus('error'); setMessage('Faltan caracteres'); return; }
     setLoading(true);
     setStatus(null);
     try {
@@ -96,7 +96,7 @@ export default function KDSPairPage() {
             </div>
           )}
 
-          <button type="submit" disabled={code.join('').length !== 6 || loading}
+          <button type="submit" disabled={loading}
             className="w-full py-3 rounded-xl text-base font-bold hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40 transition-all"
             style={{ background: KTC.accent, color: '#000' }}>
             {loading ? 'Verificando…' : 'Emparejar'}

@@ -76,8 +76,9 @@ export default function TicketsScreen() {
         ) : (
           filtered.map(s => {
             const d = new Date(s.closedAt);
-            const fecha = d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
-            const hora = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+            const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+            const fecha = String(d.getDate()).padStart(2,'0') + ' ' + meses[d.getMonth()];
+            const hora = String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
             const items = (s.items || []).slice(0, 3);
             const extra = (s.items || []).length - 3;
             return (
