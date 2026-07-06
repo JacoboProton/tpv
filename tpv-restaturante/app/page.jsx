@@ -596,6 +596,14 @@ export default function App() {
     if (count) showToast(`${course || 'Todo'} enviado a cocina (${count} ${count === 1 ? 'linea' : 'lineas'})`);
   }
 
+  function sendItemToKitchen(itemId) {
+    const next = clone(floor);
+    const table = next.tables.find(t => t.id === selectedTableId);
+    const order = next.orders[table.orderId];
+    const item = order.items.find(i => i.id === itemId);
+    if (item && !item.sent) { item.sent = true; item.sentAt = Date.now(); persistFloor(next); showToast(`${item.name} enviado a cocina`); }
+  }
+
   function updateItemCourse(itemId, course) {
     const next = clone(floor);
     const table = next.tables.find(t => t.id === selectedTableId);
@@ -2183,7 +2191,7 @@ export default function App() {
           onAddItem={addItem} onChangeQty={changeQty}
           onRemoveItem={removeItem}
           onCancelTable={cancelTable}
-          onSendToKitchenCourse={sendToKitchenCourse} onToggleCuenta={toggleCuenta}
+          onSendToKitchenCourse={sendToKitchenCourse} onSendItemToKitchen={sendItemToKitchen} onToggleCuenta={toggleCuenta}
           onOpenPayment={() => { setPaymentSplits([]); setTipAmount(0); setTipMethod('efectivo'); setInvoiceNif(''); setInvoiceName(''); setInvoiceAddress(''); setInvoiceEmail(''); setPaying(true); }}
           onResetTable={() => {
             const next = clone(floor);

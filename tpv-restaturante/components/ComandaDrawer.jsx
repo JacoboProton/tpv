@@ -13,7 +13,7 @@ export default function ComandaDrawer({
   catalog, activeCategory, setActiveCategory,
   orderTotal, orderDiscount, setOrderDiscount, tipAmount, finalTotal,
   onClose, onAddItem, onChangeQty, onRemoveItem, onCancelTable,
-  onSendToKitchenCourse, onToggleCuenta,
+  onSendToKitchenCourse, onSendItemToKitchen, onToggleCuenta,
   onOpenPayment, onResetTable,
   onUpdateNotes, onUpdateItemCourse, onEditItemModifiers,
   onSetItemDiscount, onRemoveItemDiscount, onSetItemCourtesy, onRemoveItemCourtesy,
@@ -755,6 +755,10 @@ export default function ComandaDrawer({
                             <button onClick={() => setActionItemId(showActions ? null : item.id)}
                               className="p-0.5 hover:opacity-80" style={{ color: showActions ? C.brass : '#9a8e80' }}>
                               <Edit3 className="w-3 h-3" />
+                            </button>
+                            <button onClick={() => onSendItemToKitchen(item.id)}
+                              className="p-0.5" style={{ color: C.sage }}>
+                              <ChefHat className="w-3.5 h-3.5" />
                             </button>
                           </>
                         ) : (
