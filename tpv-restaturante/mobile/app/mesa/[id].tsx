@@ -356,6 +356,21 @@ export default function MesaScreen() {
     Alert.alert('Enviado', `${count} producto(s) enviado(s) a ${label}`);
   }
 
+  async function sendCourseToKDS(course: string) {
+    if (!floor) return;
+    const f = JSON.parse(JSON.stringify(floor)) as Floor;
+    let count = 0;
+    for (const order of Object.values(f.orders)) {
+      order.items.forEach(i => {
+        if (!i.sent && i.course === course) { i.sent = true; i.sentAt = Date.now(); count++; }
+      });
+    }
+    setFloor(f);
+    setGlobalFloor(f);
+    await persistFloor(f);
+    if (count) Alert.alert('Enviado', `${course} enviado (${count} producto(s))`);
+  }
+
   async function persistFloor(f: Floor) {
     setSaving(true);
     try {
@@ -437,20 +452,43 @@ export default function MesaScreen() {
             })}
           </ScrollView>
           {pendingItems.length > 0 && (
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              {pendingItems.some(i => i.ubicacion === 'Cocina') && (
-                <TouchableOpacity style={[styles.sendAllBtn, { flex: 1 }]} onPress={() => sendAllToKDS('Cocina')}>
-                  <Ionicons name="send" size={16} color={C.base} />
-                  <Text style={styles.sendAllText}>Cocina</Text>
-                </TouchableOpacity>
-              )}
-              {pendingItems.some(i => i.ubicacion === 'Bar') && (
-                <TouchableOpacity style={[styles.sendAllBtn, { flex: 1 }]} onPress={() => sendAllToKDS('Bar')}>
-                  <Ionicons name="send" size={16} color={C.base} />
-                  <Text style={styles.sendAllText}>Barra</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+            <>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {pendingItems.some(i => i.ubicacion === 'Cocina') && (
+                  <TouchableOpacity style={[styles.sendAllBtn, { flex: 1 }]} onPress={() => sendAllToKDS('Cocina')}>
+                    <Ionicons name="send" size={16} color={C.base} />
+                    <Text style={styles.sendAllText}>Cocina</Text>
+                  </TouchableOpacity>
+                )}
+                {pendingItems.some(i => i.ubicacion === 'Bar') && (
+                  <TouchableOpacity style={[styles.sendAllBtn, { flex: 1 }]} onPress={() => sendAllToKDS('Bar')}>
+                    <Ionicons name="send" size={16} color={C.base} />
+                    <Text style={styles.sendAllText}>Barra</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              {(() => {
+                const courses = [...new Set(pendingItems.map(i => i.course).filter(Boolean))] as string[];
+                return (
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                    <TouchableOpacity style={[styles.sendAllBtn, { flex: 1, minWidth: 80 }]} onPress={() => sendAllToKDS()}>
+                      <Ionicons name="send" size={14} color={C.base} />
+                      <Text style={styles.sendAllText}>Todo</Text>
+                    </TouchableOpacity>
+                    {courses.map(course => {
+                      const count = pendingItems.filter(i => i.course === course).length;
+                      const colors: Record<string, string> = { Entrantes: '#7a9a7c', Principales: '#c4a04a', Postres: '#b05e5e' };
+                      return (
+                        <TouchableOpacity key={course} style={[styles.sendAllBtn, { flex: 1, backgroundColor: colors[course] || C.brass }]}
+                          onPress={() => sendCourseToKDS(course)}>
+                          <Text style={styles.sendAllText}>{course} ({count})</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                );
+              })()}
+            </>
           )}
         </View>
       )}

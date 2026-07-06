@@ -76,8 +76,9 @@ export default function ComandaDrawer({
   const hasItems     = selectedOrder && selectedOrder.items.length > 0;
   const isCuenta     = selectedTable.status === 'cuenta';
 
+  const unsentItems = selectedOrder ? selectedOrder.items.filter(i => !i.sent) : [];
   const unsentCourses = selectedOrder
-    ? [...new Set(selectedOrder.items.filter(i => !i.sent).map(i => i.course).filter(Boolean))]
+    ? [...new Set(unsentItems.map(i => i.course).filter(Boolean))]
     : [];
 
   function handleCancelTable() {
@@ -949,23 +950,26 @@ export default function ComandaDrawer({
         {/* ── Acciones principales (solo visibles si NO está en estado "cuenta") ── */}
         {!isCuenta && (
           <div className="p-4 flex flex-col gap-2" style={{ borderTop: `1px solid ${C.line}` }}>
-            {!isDebtOnly && unsentCourses.length > 0 && (
+            {!isDebtOnly && unsentItems.length > 0 && (
               <div className="flex gap-2 flex-wrap">
-                {unsentCourses.map(course => {
+                {unsentCourses.length > 0 && unsentCourses.map(course => {
                   const count = selectedOrder.items.filter(i => !i.sent && i.course === course).length;
                   const colors = { Entrantes: '#7a9a7c', Principales: '#c4a04a', Postres: '#b05e5e' };
                   const color = colors[course] || C.sage;
                   return (
-                    <button
-                      key={course}
+                    <button key={course}
                       onClick={() => onSendToKitchenCourse(course)}
                       style={{ background: color, color: '#fff', border: `1px solid ${color}` }}
-                      className="flex-1 rounded-lg py-2 text-xs font-medium flex items-center justify-center gap-1.5 hover:opacity-90 transition-opacity"
-                    >
+                      className="flex-1 rounded-lg py-2 text-xs font-medium flex items-center justify-center gap-1.5 hover:opacity-90 transition-opacity">
                       <ChefHat className="w-3.5 h-3.5" /> {course} ({count})
                     </button>
                   );
                 })}
+                <button onClick={() => onSendToKitchenCourse('')}
+                  style={{ background: C.brass, color: C.base, border: `1px solid ${C.brass}` }}
+                  className="rounded-lg py-2 text-xs font-medium flex items-center justify-center gap-1.5 hover:opacity-90 transition-opacity px-4">
+                  <ChefHat className="w-3.5 h-3.5" /> Enviar todo ({unsentItems.length})
+                </button>
               </div>
             )}
             <button

@@ -398,7 +398,6 @@ export default function KDSView({ floor, catalog, onReady, onAgotar, onUpdateIte
           {filteredOrders.map(order => (
             <OrderCard key={order.orderId} order={order} now={now} layout={layout} K={K} KTC={KTC}
               onItemClick={(itemId) => handleItemState(order.orderId, itemId)}
-              onAdvanceClick={() => handleAdvanceOrder(order.orderId)}
               onReprint={() => onReprint?.(order.orderId)} />
           ))}
         </div>
@@ -448,11 +447,7 @@ export default function KDSView({ floor, catalog, onReady, onAgotar, onUpdateIte
                       {item.qty}× {item.name}
                     </button>
                   ))}
-                  <button onClick={() => handleAdvanceOrder(group.orderId)}
-                    className="w-full py-2.5 rounded-lg text-sm font-bold hover:opacity-80 mt-1"
-                    style={{ background: KTC.success, color: '#fff' }}>
-                    {K.markServed}
-                  </button>
+
                 </div>
               </div>
             );
@@ -464,7 +459,7 @@ export default function KDSView({ floor, catalog, onReady, onAgotar, onUpdateIte
 }
 
 // ----- Order Card -----
-function OrderCard({ order, now, layout, K, KTC, onItemClick, onAdvanceClick, onReprint }) {
+function OrderCard({ order, now, layout, K, KTC, onItemClick, onReprint }) {
   const items = order.items;
   const sentAts = items.map(i => i.sentAt || now);
   const minutesAgo = Math.max(0, Math.round((now - Math.min(...sentAts)) / 60000));
@@ -472,9 +467,6 @@ function OrderCard({ order, now, layout, K, KTC, onItemClick, onAdvanceClick, on
   const pendingCount = items.filter(i => !i.inPreparation && !i.ready).length;
   const preparingCount = items.filter(i => i.inPreparation && !i.ready).length;
   const readyCount = items.filter(i => i.ready).length;
-  const allReady = items.every(i => i.ready);
-  const allPreparing = items.every(i => i.inPreparation || i.ready);
-
   return (
     <div className={`rounded-xl overflow-hidden transition-all duration-300 ${urgent ? 'ring-2' : ''}`}
       style={{
@@ -531,14 +523,7 @@ function OrderCard({ order, now, layout, K, KTC, onItemClick, onAdvanceClick, on
           );
         })}
       </div>
-      {/* Advance button */}
-      <div className="px-3 pb-3">
-        <button onClick={onAdvanceClick}
-          className="w-full py-2 rounded-lg text-xs font-bold hover:opacity-80 transition-opacity"
-          style={{ background: allReady ? KTC.success : allPreparing ? KTC.accent : STATE_COLORS.pending, color: allReady || allPreparing ? '#fff' : '#fff' }}>
-          {allReady ? K.markServed : allPreparing ? K.markReady : K.markPreparing}
-        </button>
-      </div>
+
     </div>
   );
 }

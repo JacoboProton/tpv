@@ -590,10 +590,10 @@ export default function App() {
     const order = next.orders[table.orderId];
     let count = 0;
     order.items.forEach(i => {
-      if (!i.sent && i.course === course) { i.sent = true; i.sentAt = Date.now(); count++; }
+      if (!i.sent && (!course || i.course === course)) { i.sent = true; i.sentAt = Date.now(); count++; }
     });
     persistFloor(next);
-    if (count) showToast(`${course} enviado a cocina (${count} ${count === 1 ? 'linea' : 'lineas'})`);
+    if (count) showToast(`${course || 'Todo'} enviado a cocina (${count} ${count === 1 ? 'linea' : 'lineas'})`);
   }
 
   function updateItemCourse(itemId, course) {
