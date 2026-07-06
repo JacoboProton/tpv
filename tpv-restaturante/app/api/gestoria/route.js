@@ -10,6 +10,11 @@ export async function GET(req) {
     const { searchParams } = new URL(req.url);
     const action = searchParams.get('action');
 
+    if (action === 'operations') {
+      const data = await getOperationsData();
+      return NextResponse.json(data);
+    }
+
     if (action === 'settings') {
       const rows = await sql`SELECT key, value FROM gestoria_settings`;
       const s = {};

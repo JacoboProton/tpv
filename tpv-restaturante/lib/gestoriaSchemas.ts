@@ -61,6 +61,8 @@ export const AuthorizationSchema = z.object({
   socialRed: z.boolean().optional(),
   revoke: z.boolean().optional()
 });
+export const OperationsSchema = z.object({});
+
 
 export function validateRequest(body: any) {
   const { action } = body;
@@ -87,5 +89,7 @@ export function validateRequest(body: any) {
     case 'authorization':
       AuthorizationSchema.parse(body);
       break;
-  }
+    case 'operations':
+      OperationsSchema.parse(body);
+      break;  }
 }
