@@ -187,9 +187,9 @@ export async function fetchSales(): Promise<Record<string, unknown>[]> {
     const cached = await AsyncStorage.getItem('tpv:sales');
     return cached ? JSON.parse(cached) : [];
   }
-  // Fetch operations data for Gestoria
-  export async function fetchGestoriaOperations(): Promise<any> {
-    return apiFetch<any>('/gestoria?action=operations');
-  }
 }
 
+// Fetch operations data for Gestoria
+export async function fetchGestoriaOperations(): Promise<any> {
+  return apiFetch<any>('/gestoria?action=operations');
+}
