@@ -4,6 +4,44 @@ import { validateRequest, ConfirmSchema } from '../../../lib/gestoriaSchemas';
 
 function makeId() { return 'g_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8); }
 
+async function getOperationsData() {
+  const docs = await sql`
+    SELECT d.provider_nif, d.provider_name, d.file_name, d.type,
+      COALESCE(json_agg(json_build_object(
+        'base_amount', l.base_amount, 'zone', l.zone, 'type', l.type
+      )) FILTER (WHERE l.id IS NOT NULL), '[]') as lines
+    FROM gestoria_documents d
+    LEFT JOIN gestoria_document_lines l ON l.document_id = d.id
+    WHERE d.confirmed = true
+    GROUP BY d.id
+  `;
+
+  const entregas_intra = [];
+  const adquisiciones_intra = [];
+
+  for (const d of docs) {
+    const lines = typeof d.lines === 'string' ? JSON.parse(d.lines) : d.lines;
+    const euLines = lines.filter(l => l.zone === 'eu');
+    for (const l of euLines) {
+      const entry = {
+        nif: d.provider_nif || '',
+        name: d.provider_name || d.file_name || '',
+        base: Number(l.base_amount || 0),
+        operacion: l.type === 'service' ? 'servicio' : 'bien',
+      };
+      if (d.type === 'expense') {
+        adquisiciones_intra.push(entry);
+      } else {
+        entregas_intra.push(entry);
+      }
+    }
+  }
+
+  const total = [...entregas_intra, ...adquisiciones_intra].reduce((s, e) => s + e.base, 0);
+
+  return { entregas_intra, adquisiciones_intra, total_operaciones: round2(total) };
+}
+
 // GET
 export async function GET(req) {
   try {

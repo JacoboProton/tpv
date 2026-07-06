@@ -189,7 +189,19 @@ export async function fetchSales(): Promise<Record<string, unknown>[]> {
   }
 }
 
-// Fetch operations data for Gestoria
-export async function fetchGestoriaOperations(): Promise<any> {
-  return apiFetch<any>('/gestoria?action=operations');
+export interface GestoriaOperationEntry {
+  nif: string;
+  name: string;
+  base: number;
+  operacion: string;
+}
+
+export interface GestoriaOperationsResponse {
+  entregas_intra: GestoriaOperationEntry[];
+  adquisiciones_intra: GestoriaOperationEntry[];
+  total_operaciones: number;
+}
+
+export async function fetchGestoriaOperations(): Promise<GestoriaOperationsResponse> {
+  return apiFetch<GestoriaOperationsResponse>('/gestoria?action=operations');
 }

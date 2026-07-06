@@ -212,16 +212,6 @@ export default function MesaScreen() {
     loadData();
   }, []);
 
-  useEffect(() => {
-    if (globalFloor) {
-      setFloor(globalFloor);
-      const table = globalFloor.tables.find(t => t.id === tableId);
-      if (table && table.status === 'libre' && !table.orderIds?.length) {
-        router.back();
-      }
-    }
-  }, [globalFloor, tableId]);
-
   async function loadData() {
     try {
       const [f, cat] = await Promise.all([fetchFloor(), fetchCatalog()]);
