@@ -163,6 +163,14 @@ export default function App() {
         setFloor(payload.floor);
         setLastFloor(payload.floor);
       });
+      ch.on('broadcast', { event: 'ready:notification' }, ({ payload }) => {
+        const items = payload.itemNames.slice(0, 3).join(', ');
+        const suffix = payload.itemNames.length > 3 ? ` y ${payload.itemNames.length - 3} más` : '';
+        showToast(`🍽️ ${payload.tableName}: ${items}${suffix}`);
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('🍽️ Plato listo', { body: `${payload.tableName}: ${items}${suffix}` });
+        }
+      });
     }
     const iv = setInterval(async () => {
       try {

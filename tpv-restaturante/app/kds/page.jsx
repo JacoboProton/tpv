@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Monitor, Clock } from 'lucide-react';
 import KDSView from '../../components/KDSView';
-import { connectRealtime, broadcastFloorUpdate, disconnectRealtime } from '../../lib/realtime';
+import { connectRealtime, broadcastFloorUpdate, broadcastReadyNotification, disconnectRealtime } from '../../lib/realtime';
 
 const KTC = { base: '#1a1d23', surface: '#252830', surfaceLight: '#30343e', accent: '#c4a04a', cream: '#e6e1d6', muted: '#9c958a' };
 
@@ -85,7 +85,16 @@ export default function KDSPage() {
   }
 
   return <KDSView floor={floor} catalog={catalog} colors={KTC}
-    onUpdateItemState={(next) => { setFloor(next); persist(next); }}
+    onUpdateItemState={(next, action) => {
+      setFloor(next);
+      if (action?.previousState === 'preparing') {
+        const order = next.orders[action.orderId];
+        const item = order?.items?.find(i => i.id === action.itemId);
+        const table = next.tables?.find(t => t.id === order?.tableId);
+        if (item) broadcastReadyNotification(table?.name || order?.tableId, [item.name], order?.employeeName);
+      }
+      persist(next);
+    }}
     onAdvanceOrder={(next) => { setFloor(next); persist(next); }}
     onAgotar={async (productId, agotado) => {
       const next = { ...catalog, products: catalog.products.map(p => p.id === productId ? { ...p, agotado } : p) };
