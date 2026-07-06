@@ -467,6 +467,49 @@ function OrderCard({ order, now, layout, K, KTC, onItemClick, onReprint }) {
   const pendingCount = items.filter(i => !i.inPreparation && !i.ready).length;
   const preparingCount = items.filter(i => i.inPreparation && !i.ready).length;
   const readyCount = items.filter(i => i.ready).length;
+
+  const courseOrder = ['Entrantes', 'Principales', 'Postres', ''];
+  const groups: Record<string, typeof items> = {};
+  for (const item of items) {
+    const key = item.course || 'General';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(item);
+  }
+  const sortedGroups = courseOrder.filter(c => groups[c || 'General']).concat(
+    Object.keys(groups).filter(k => !courseOrder.includes(k === 'General' ? '' : k))
+  );
+
+  function renderItem(item: any) {
+    const state = item.ready ? 'ready' : item.inPreparation ? 'preparing' : 'pending';
+    return (
+      <button key={item.id} onClick={() => onItemClick(item.id)}
+        className={`w-full text-left transition-colors hover:opacity-80 ${layout === 'compact' ? 'flex items-center gap-2 px-3 py-1.5' : 'px-3 py-2 rounded-lg'}`}
+        style={{ background: layout === 'compact' ? 'transparent' : KTC.surfaceLight }}>
+        {layout === 'compact' ? (
+          <>
+            <span className="w-6 h-6 rounded flex items-center justify-center text-[9px] font-bold shrink-0" style={{ background: STATE_COLORS[state], color: '#fff' }}>{item.qty}</span>
+            <span className="text-sm flex-1 truncate" style={{ color: KTC.cream }}>{item.name}</span>
+            {item.notes && <span className="text-[9px] px-1 py-0.5 rounded shrink-0" style={{ background: KTC.accent + '30', color: KTC.accentLight }}>{item.notes}</span>}
+            {item.modifiers?.length > 0 && <span className="text-[9px]" style={{ color: KTC.muted }}>+{item.modifiers.length}</span>}
+            <div className="w-2 h-2 rounded-full shrink-0" style={{ background: STATE_COLORS[state] }} />
+          </>
+        ) : (
+          <div className="flex items-start justify-between">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-sm" style={{ color: KTC.cream }}>{item.qty}× {item.name}</span>
+                <div className="w-2 h-2 rounded-full shrink-0" style={{ background: STATE_COLORS[state] }} />
+              </div>
+              {item.notes && <p className="text-[10px] mt-0.5" style={{ color: KTC.accentLight }}>{item.notes}</p>}
+              {item.modifiers?.length > 0 && <p className="text-[9px] mt-0.5" style={{ color: KTC.muted }}>{item.modifiers.map(m => typeof m === 'string' ? m : m.name || '').filter(Boolean).join(', ')}</p>}
+            </div>
+            <span className="text-[9px] font-medium shrink-0 ml-2" style={{ color: STATE_COLORS[state] }}>{STATE_LABELS[state]}</span>
+          </div>
+        )}
+      </button>
+    );
+  }
+
   return (
     <div className={`rounded-xl overflow-hidden transition-all duration-300 ${urgent ? 'ring-2' : ''}`}
       style={{
@@ -490,40 +533,32 @@ function OrderCard({ order, now, layout, K, KTC, onItemClick, onReprint }) {
           <button onClick={onReprint} className="p-1 rounded hover:opacity-70" style={{ color: KTC.muted }}><Printer className="w-3 h-3" /></button>
         </div>
       </div>
-      {/* Items */}
-      <div className={layout === 'compact' ? 'divide-y' : 'p-3 space-y-1.5'} style={{ borderColor: KTC.line }}>
-        {items.map(item => {
-          const state = item.ready ? 'ready' : item.inPreparation ? 'preparing' : 'pending';
+      {/* Items grouped by course */}
+      <div className={layout === 'compact' ? 'divide-y' : 'p-3 space-y-3'} style={{ borderColor: KTC.line }}>
+          {sortedGroups.map(courseKey => {
+          const courseItems = groups[courseKey];
+          if (!courseItems?.length) return null;
+          const headerColors: Record<string, string> = { Entrantes: '#7a9a7c', Principales: '#c4a04a', Postres: '#b05e5e' };
+          const isNamed = courseKey !== 'General';
+          const allReady = courseItems.every(i => i.ready);
           return (
-            <button key={item.id} onClick={() => onItemClick(item.id)}
-              className={`w-full text-left transition-colors hover:opacity-80 ${layout === 'compact' ? 'flex items-center gap-2 px-3 py-1.5' : 'px-3 py-2 rounded-lg'}`}
-              style={{ background: layout === 'compact' ? 'transparent' : KTC.surfaceLight }}>
-              {layout === 'compact' ? (
-                <>
-                  <span className="w-6 h-6 rounded flex items-center justify-center text-[9px] font-bold shrink-0" style={{ background: STATE_COLORS[state], color: '#fff' }}>{item.qty}</span>
-                  <span className="text-sm flex-1 truncate" style={{ color: KTC.cream }}>{item.name}</span>
-                  {item.notes && <span className="text-[9px] px-1 py-0.5 rounded shrink-0" style={{ background: KTC.accent + '30', color: KTC.accentLight }}>{item.notes}</span>}
-                  {item.modifiers?.length > 0 && <span className="text-[9px]" style={{ color: KTC.muted }}>+{item.modifiers.length}</span>}
-                  <div className="w-2 h-2 rounded-full shrink-0" style={{ background: STATE_COLORS[state] }} />
-                </>
-              ) : (
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm" style={{ color: KTC.cream }}>{item.qty}× {item.name}</span>
-                      <div className="w-2 h-2 rounded-full shrink-0" style={{ background: STATE_COLORS[state] }} />
-                    </div>
-                    {item.notes && <p className="text-[10px] mt-0.5" style={{ color: KTC.accentLight }}>{item.notes}</p>}
-                    {item.modifiers?.length > 0 && <p className="text-[9px] mt-0.5" style={{ color: KTC.muted }}>{item.modifiers.map(m => typeof m === 'string' ? m : m.name || '').filter(Boolean).join(', ')}</p>}
-                  </div>
-                  <span className="text-[9px] font-medium shrink-0 ml-2" style={{ color: STATE_COLORS[state] }}>{STATE_LABELS[state]}</span>
+            <div key={courseKey}>
+              {isNamed && (
+                <div className="flex items-center gap-2 mb-1 px-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider"
+                    style={{ color: headerColors[courseKey] || KTC.muted }}>
+                    {courseKey}
+                  </span>
+                  {allReady && <span className="text-[9px] font-bold" style={{ color: KTC.success }}>✅ Listo</span>}
                 </div>
               )}
-            </button>
+              <div className={layout === 'compact' ? '' : 'space-y-1.5'}>
+                {courseItems.map(renderItem)}
+              </div>
+            </div>
           );
         })}
       </div>
-
     </div>
   );
 }
