@@ -1275,6 +1275,12 @@ export async function runMigrations() {
       await sql`ALTER TABLE "${sql.unsafe(table)}" DROP CONSTRAINT IF EXISTS ${sql.unsafe('"' + table + '_pkey"')}`;
       await sql`ALTER TABLE "${sql.unsafe(table)}" ADD PRIMARY KEY (tenant_id, id)`;
     } catch (e) { console.warn('composite PK skip:', table, e.message); }
+    // Ensure ON CONFLICT (tenant_id, id) works even if composite PK migration failed
+    try {
+      await sql`ALTER TABLE "${sql.unsafe(table)}" ADD CONSTRAINT "${sql.unsafe(table + '_tenant_id_id_uniq')}" UNIQUE (tenant_id, id)`;
+    } catch (e) {
+      if (!e.message?.includes('already exists')) console.warn('composite unique skip:', table, e.message);
+    }
   }
 
   await sql`
