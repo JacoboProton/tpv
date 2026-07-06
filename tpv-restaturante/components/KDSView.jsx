@@ -538,7 +538,7 @@ function OrderCard({ order, now, layout, K, KTC, onItemClick, onReprint }) {
           {sortedGroups.map(courseKey => {
           const courseItems = groups[courseKey];
           if (!courseItems?.length) return null;
-          const headerColors: Record<string, string> = { Entrantes: '#7a9a7c', Principales: '#c4a04a', Postres: '#b05e5e' };
+          const headerColors = { Entrantes: '#7a9a7c', Principales: '#c4a04a', Postres: '#b05e5e' };
           const isNamed = courseKey !== 'General';
           const allReady = courseItems.every(i => i.ready);
           return (
