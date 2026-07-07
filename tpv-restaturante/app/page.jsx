@@ -1456,10 +1456,11 @@ export default function App() {
     }
     const basePrice = product.price || catalog?.products?.find(p => p.id === product.id)?.price || 0;
     const effectivePrice = round2(basePrice + extraPrice);
+    if (!effectivePrice) showToast(`⚠️ Debug: ${product.name} → price=${product.price} basePrice=${basePrice} ${catalog?.products?.find(p => p.id === product.id) ? 'catOK' : 'catNULL'}`);
     const existing = order.items.find(i => i.productId === product.id && !i.sent && JSON.stringify(i.modifiers) === JSON.stringify(modifiers));
     if (existing) existing.qty += 1;
     else {
-      const notes = window.prompt('Notas para ' + product.name + '?', '') || '';
+      const notes = '';
       order.items.push({
         id: 'i_' + Date.now() + Math.random().toString(16).slice(2),
         productId: product.id, name: product.name, price: effectivePrice,
