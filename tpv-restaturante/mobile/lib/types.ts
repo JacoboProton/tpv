@@ -40,8 +40,11 @@ export interface OrderItem {
   price: number;
   qty: number;
   sent?: boolean;
+  sentAt?: number;
   ready?: boolean;
   delivered?: boolean;
+  servedBy?: string;
+  servedAt?: number;
   modifiers?: string[];
   notes?: string;
   course?: string;

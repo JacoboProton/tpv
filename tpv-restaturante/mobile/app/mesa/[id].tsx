@@ -17,6 +17,28 @@ function generateId() {
   return Math.random().toString(36).slice(2, 10);
 }
 
+function confirmPay(floor: Floor, tableId: string): Promise<boolean> {
+  const items = Object.values(floor.orders)
+    .filter(o => o.tableId === tableId)
+    .flatMap(o => o.items as OrderItem[]);
+  const unsent = items.filter(i => !i.sent);
+  const pending = items.filter(i => i.sent && !i.ready);
+  const parts: string[] = [];
+  if (unsent.length > 0) parts.push(`${unsent.length} sin enviar a cocina`);
+  if (pending.length > 0) parts.push(`${pending.length} en preparación`);
+  if (parts.length === 0) return Promise.resolve(true);
+  return new Promise(resolve => {
+    Alert.alert(
+      '⚠️ Cobrar',
+      `Hay ${parts.join(' y ')}. ¿Seguro que quieres cobrar?`,
+      [
+        { text: 'Esperar', style: 'cancel', onPress: () => resolve(false) },
+        { text: 'Cobrar', style: 'destructive', onPress: () => resolve(true) },
+      ],
+    );
+  });
+}
+
 function PaymentButton({ floor, tableId, persistFloor, disabled }: {
   floor: Floor; tableId: string; persistFloor: (f: Floor) => Promise<void>; disabled: boolean;
 }) {
@@ -24,6 +46,7 @@ function PaymentButton({ floor, tableId, persistFloor, disabled }: {
   const [loading, setLoading] = useState(false);
 
   async function pay() {
+    if (!await confirmPay(floor, tableId)) return;
     setLoading(true);
     try {
       const t = floor.tables.find(t => t.id === tableId);
@@ -77,6 +100,7 @@ function NfcPaymentButton({ floor, tableId, persistFloor, disabled }: {
   const isConnected = connectionStatus === 'connected';
 
   async function payWithNfc() {
+    if (!await confirmPay(floor, tableId)) return;
     setLoading(true);
     try {
       setStep('Inicializando...');
@@ -371,6 +395,23 @@ export default function MesaScreen() {
     if (count) Alert.alert('Enviado', `${course} enviado (${count} producto(s))`);
   }
 
+  async function serveItem(itemId: string) {
+    if (!floor) return;
+    const f = JSON.parse(JSON.stringify(floor)) as Floor;
+    for (const order of Object.values(f.orders)) {
+      const item = order.items.find(i => i.id === itemId);
+      if (item) {
+        item.delivered = true;
+        item.servedBy = globalUser?.name || 'Camarero';
+        item.servedAt = Date.now();
+        break;
+      }
+    }
+    setFloor(f);
+    setGlobalFloor(f);
+    await persistFloor(f);
+  }
+
   async function persistFloor(f: Floor) {
     setSaving(true);
     try {
@@ -419,6 +460,7 @@ export default function MesaScreen() {
             {allItems.map(item => {
               const isSent = item.sent;
               const isReady = item.ready;
+              const isDelivered = item.delivered;
               return (
                 <View key={item.id} style={styles.orderItem}>
                   <View style={styles.orderItemInfo}>
@@ -435,10 +477,23 @@ export default function MesaScreen() {
                     <Text style={styles.itemPrice}>{(item.price * item.qty).toFixed(2)}€</Text>
                   </View>
                   <View style={styles.orderItemActions}>
-                    {isSent ? (
-                      <View style={[styles.statusBadge, isReady ? styles.readyBadge : styles.sentBadge]}>
+                    {isDelivered ? (
+                      <View style={[styles.statusBadge, styles.deliveredBadge]}>
+                        <Text style={styles.statusText}>✓ Servido</Text>
+                      </View>
+                    ) : isReady ? (
+                      <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                        <View style={[styles.statusBadge, styles.readyBadge]}>
+                          <Text style={styles.statusText}>✅ Listo</Text>
+                        </View>
+                        <TouchableOpacity style={styles.serveBtn} onPress={() => serveItem(item.id)}>
+                          <Text style={styles.serveBtnText}>Servir</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : isSent ? (
+                      <View style={[styles.statusBadge, styles.sentBadge]}>
                         <Text style={styles.statusText}>
-                          {isReady ? 'Listo' : item.ubicacion === 'Bar' ? 'En barra' : 'En cocina'}
+                          {item.ubicacion === 'Bar' ? 'En barra' : 'En cocina'}
                         </Text>
                       </View>
                     ) : (
@@ -550,8 +605,9 @@ export default function MesaScreen() {
         )}
         <TouchableOpacity
           style={[styles.payBtn, allItems.length === 0 && { opacity: 0.4 }]}
-          onPress={() => {
+          onPress={async () => {
             if (!floor) return;
+            if (!await confirmPay(floor, tableId)) return;
             const f = JSON.parse(JSON.stringify(floor)) as Floor;
             const t = f.tables.find(t => t.id === tableId);
             // Guardar venta en efectivo ANTES de borrar los pedidos
@@ -615,7 +671,10 @@ const styles = StyleSheet.create({
   statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   sentBadge: { backgroundColor: C.brass },
   readyBadge: { backgroundColor: C.sage },
+  deliveredBadge: { backgroundColor: C.surfaceLight },
   statusText: { fontSize: 10, color: C.base, fontWeight: '600' },
+  serveBtn: { paddingHorizontal: 12, paddingVertical: 4, backgroundColor: C.sage, borderRadius: 6 },
+  serveBtnText: { fontSize: 10, color: C.base, fontWeight: '700' },
   sendBtn: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: C.brass, borderRadius: 6 },
   sendBtnText: { fontSize: 11, color: C.base, fontWeight: '600' },
   sendAllBtn: {

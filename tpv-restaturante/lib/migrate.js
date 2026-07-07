@@ -1258,6 +1258,20 @@ export async function runMigrations() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_buffet_waste_session ON buffet_waste(session_id)`;
 
+  // Sessions table for duplicate login detection
+  await sql`
+    CREATE TABLE IF NOT EXISTS sessions (
+      tenant_id TEXT NOT NULL,
+      employee_id TEXT NOT NULL,
+      device_id TEXT NOT NULL,
+      role TEXT NOT NULL,
+      active BOOLEAN DEFAULT true,
+      created_at BIGINT NOT NULL,
+      last_seen BIGINT NOT NULL
+    )
+  `;
+  try { await sql`ALTER TABLE sessions ADD CONSTRAINT unique_session UNIQUE (tenant_id, employee_id, device_id)`; } catch (e) { console.warn('sessions unique skip:', e.message); }
+
   // Ensure tenant_id exists on all core tables (re-check for tables created after the ALTER loop above)
   const postCreateTables = ['employees', 'tables', 'orders', 'products', 'categories', 'offers', 'combos', 'settings', 'meal_menu_courses', 'meal_menu_course_items', 'meal_menu_schedules'];
   for (const table of postCreateTables) {

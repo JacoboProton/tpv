@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { verifyPin, fetchEmployees } from '../lib/api';
+import { sessionLogin } from '../lib/session';
 import type { Employee } from '../lib/types';
 import { C } from '../lib/theme';
 import { setGlobalUser } from './_layout';
@@ -37,6 +38,26 @@ export default function LoginScreen() {
     setVerifying(true);
     try {
       const user = await verifyPin(p);
+
+      // Check session (only for non-admin)
+      const sessionRes = await sessionLogin(user.id, user.role);
+      if (sessionRes.conflict) {
+        // Already logged in on another device
+        const force = await new Promise<boolean>(resolve => {
+          Alert.alert(
+            'Sesión duplicada',
+            `${user.name} ya está conectado en otro terminal. ¿Cerrar esa sesión y continuar aquí?`,
+            [
+              { text: 'Cancelar', style: 'cancel', onPress: () => resolve(false) },
+              { text: 'Cerrar y continuar', style: 'destructive', onPress: () => resolve(true) },
+            ],
+          );
+        });
+        if (!force) { setVerifying(false); setPin(''); return; }
+        // Retry with force
+        await sessionLogin(user.id, user.role, true);
+      }
+
       setGlobalUser(user);
       router.replace('/(tabs)/saloon');
     } catch {

@@ -1,9 +1,10 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { useEffect, useState } from 'react';
 import { StripeTerminalProvider } from '@stripe/stripe-terminal-react-native';
 import { connectRealtime, disconnectRealtime, showReadyNotification } from '../lib/realtime';
+import { startKeepalive, sessionLogout } from '../lib/session';
 import { API_URL, TPV_API_KEY } from '../lib/config';
 import { C } from '../lib/theme';
 import type { Employee, Floor } from '../lib/types';
@@ -34,6 +35,17 @@ export default function RootLayout() {
     setReady(true);
     return () => { disconnectRealtime(); };
   }, []);
+
+  // Keepalive + session invalidation detection
+  useEffect(() => {
+    if (!user) return;
+    const cleanup = startKeepalive(user.id, () => {
+      Alert.alert('Sesión cerrada', 'Tu sesión fue cerrada porque otro terminal inició sesión con tu usuario.');
+      setGlobalUser(null);
+      setUser(null);
+    });
+    return () => cleanup();
+  }, [user?.id]);
 
   if (!ready) {
     return (

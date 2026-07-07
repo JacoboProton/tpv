@@ -22,6 +22,7 @@ import {
 } from '../lib/api';
 import { onNetworkChange, clearMutations, getMutations, cacheGet, cacheSet } from '../lib/offline';
 import { connectRealtime, broadcastFloorUpdate, broadcastReadyNotification, disconnectRealtime } from '../lib/realtime';
+import { sessionLogin, sessionLogout, startKeepalive } from '../lib/session';
 import { escposOpenDrawer, printESCPOS, isPrinterConnected } from '../lib/thermal-printer';
 import { fetchSettings, saveSettings, fetchOffers, saveOffers, fetchCombos, saveCombos, saveMealMenus, savePriceRules } from '../lib/api';
 import { ALLERGENS } from '../components/constants';
@@ -470,29 +471,53 @@ export default function App() {
   );
 
   // ---------- Login ----------
-  function pressDigit(d) {
+  async function pressDigit(d) {
     if (pinInput.length >= 4) return;
     const next = pinInput + d;
     setPinInput(next);
     if (next.length === 4) {
       if (loginSelected.pin === next) {
-        setCurrentUser(loginSelected);
+        const emp = loginSelected;
+
+        // Check session for non-admin users
+        if (emp.role !== 'admin') {
+          const sessionRes = await sessionLogin(emp.id, emp.role);
+          if (sessionRes.conflict) {
+            const forceLogin = window.confirm(`${emp.name} ya está conectado en otro terminal. ¿Cerrar esa sesión y continuar aquí?`);
+            if (!forceLogin) { setPinInput(''); return; }
+            await sessionLogin(emp.id, emp.role, true);
+          }
+        } else {
+          // Admins can login everywhere, just register the session
+          sessionLogin(emp.id, emp.role).catch(() => {});
+        }
+
+        // Clean up previous keepalive
+        if (window.__keepaliveCleanup) window.__keepaliveCleanup();
+
+        setCurrentUser(emp);
         setLoginSelected(null);
         setPinInput('');
 
+        // Start keepalive
+        window.__keepaliveCleanup = startKeepalive(emp.id, () => {
+          showToast('Sesión cerrada en otro terminal');
+          logout();
+        });
+
         // Turno de entrada
-        saveTurn({ employeeId: loginSelected.id, employeeName: loginSelected.name, action: 'entrada', turnDate: new Date().toISOString().slice(0, 10) }).catch(() => {});
+        saveTurn({ employeeId: emp.id, employeeName: emp.name, action: 'entrada', turnDate: new Date().toISOString().slice(0, 10) }).catch(() => {});
 
         // Determinar la vista destino según el punto de entrada
         let targetView = 'salon';
         if (entryPoint === 'almacen') {
-          if (loginSelected.role !== 'admin') { showToast('Solo administradores pueden acceder al almacen'); setCurrentUser(null); return; }
+          if (emp.role !== 'admin') { showToast('Solo administradores pueden acceder al almacen'); setCurrentUser(null); return; }
           targetView = 'almacen'; setAlmacenUbicacion(null);
         } else if (entryPoint === 'caja') {
-          if (loginSelected.role !== 'admin') { showToast('Solo administradores pueden acceder a la caja'); setCurrentUser(null); return; }
+          if (emp.role !== 'admin') { showToast('Solo administradores pueden acceder a la caja'); setCurrentUser(null); return; }
           targetView = 'informes';
         } else if (entryPoint === 'config') {
-          if (loginSelected.role !== 'admin') { showToast('Solo administradores pueden acceder a configuracion'); setCurrentUser(null); return; }
+          if (emp.role !== 'admin') { showToast('Solo administradores pueden acceder a configuracion'); setCurrentUser(null); return; }
           targetView = 'empleados';
         }
         setView(targetView);
@@ -500,9 +525,9 @@ export default function App() {
 
         // Registrar la entrada en la BD (fire-and-forget, no bloquea la UI)
         logAccess({
-          employeeId:   loginSelected.id,
-          employeeName: loginSelected.name,
-          role:         loginSelected.role,
+          employeeId:   emp.id,
+          employeeName: emp.name,
+          role:         emp.role,
           entryPoint,
         }).catch(err => console.warn('No se pudo registrar la entrada:', err));
 
@@ -516,7 +541,9 @@ export default function App() {
   function logout() {
     if (currentUser) {
       saveTurn({ employeeId: currentUser.id, employeeName: currentUser.name, action: 'salida', turnDate: new Date().toISOString().slice(0, 10) }).catch(() => {});
+      sessionLogout(currentUser.id).catch(() => {});
     }
+    if (window.__keepaliveCleanup) window.__keepaliveCleanup();
     setCurrentUser(null); setLoginSelected(null); setPinInput('');
     setSelectedTableId(null); setView('salon'); setMenuMode('menu');
   }

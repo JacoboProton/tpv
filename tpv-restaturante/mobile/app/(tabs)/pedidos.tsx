@@ -16,9 +16,13 @@ export default function PedidosScreen() {
     o.items.some(i => i.sent && !i.delivered)
   );
 
-  const pendingCount = pendingOrders.reduce((sum, o) =>
-    sum + o.items.filter(i => i.sent && !i.delivered).length, 0
+  const readyCount = pendingOrders.reduce((sum, o) =>
+    sum + o.items.filter(i => i.ready && !i.delivered).length, 0
   );
+  const cookingCount = pendingOrders.reduce((sum, o) =>
+    sum + o.items.filter(i => i.sent && !i.ready && !i.delivered).length, 0
+  );
+  const totalPending = readyCount + cookingCount;
 
   function getTableName(tableId: string) {
     return floor?.tables.find(t => t.id === tableId)?.name || tableId;
@@ -27,9 +31,20 @@ export default function PedidosScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Pedidos Pendientes</Text>
-        <Text style={styles.count}>{pendingCount} artículos</Text>
+        <Text style={styles.title}>Pedidos</Text>
+        <Text style={styles.count}>{totalPending} artículos</Text>
       </View>
+
+      {totalPending > 0 && (
+        <View style={styles.summary}>
+          <View style={[styles.summaryBadge, { backgroundColor: C.sage }]}>
+            <Text style={styles.summaryText}>{readyCount} listos para servir</Text>
+          </View>
+          <View style={[styles.summaryBadge, { backgroundColor: C.brass }]}>
+            <Text style={styles.summaryText}>{cookingCount} en cocina</Text>
+          </View>
+        </View>
+      )}
 
       <ScrollView style={styles.list}>
         {pendingOrders.length === 0 && (
@@ -53,7 +68,18 @@ export default function PedidosScreen() {
               {pendingItems.map(item => (
                 <View key={item.id} style={styles.orderItem}>
                   <Text style={styles.itemQty}>{item.qty}x</Text>
-                  <Text style={styles.itemName}>{item.name}</Text>
+                  <Text style={[styles.itemName, item.ready && !item.delivered && { color: C.sage }]}>
+                    {item.name}
+                  </Text>
+                  {item.ready && !item.delivered ? (
+                    <View style={[styles.miniBadge, { backgroundColor: C.sage }]}>
+                      <Text style={styles.miniBadgeText}>Listo</Text>
+                    </View>
+                  ) : (
+                    <View style={[styles.miniBadge, { backgroundColor: C.brass }]}>
+                      <Text style={styles.miniBadgeText}>En cocina</Text>
+                    </View>
+                  )}
                   {item.modifiers && item.modifiers.length > 0 && (
                     <Text style={styles.itemMods}>{item.modifiers.join(', ')}</Text>
                   )}
@@ -82,6 +108,11 @@ const styles = StyleSheet.create({
   itemQty: { fontSize: 13, color: C.muted, fontWeight: '600', minWidth: 24 },
   itemName: { fontSize: 13, color: C.cream, flex: 1 },
   itemMods: { fontSize: 11, color: C.muted, flexBasis: '100%', marginLeft: 30 },
+  summary: { flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingVertical: 6 },
+  summaryBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  summaryText: { fontSize: 11, color: C.base, fontWeight: '600' },
+  miniBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  miniBadgeText: { fontSize: 9, color: C.base, fontWeight: '600' },
   empty: { padding: 40, alignItems: 'center' },
   emptyText: { color: C.muted, fontSize: 14 },
 });

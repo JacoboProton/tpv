@@ -127,8 +127,31 @@ export default function SaloonScreen() {
     }
   }
 
+  function confirmPay(floor: Floor, tableId: string): Promise<boolean> {
+    const items = Object.values(floor.orders)
+      .filter(o => o.tableId === tableId)
+      .flatMap(o => o.items);
+    const unsent = items.filter(i => !i.sent);
+    const pending = items.filter(i => i.sent && !i.ready);
+    const parts: string[] = [];
+    if (unsent.length > 0) parts.push(`${unsent.length} sin enviar a cocina`);
+    if (pending.length > 0) parts.push(`${pending.length} en preparación`);
+    if (parts.length === 0) return Promise.resolve(true);
+    return new Promise(resolve => {
+      Alert.alert(
+        '⚠️ Cobrar',
+        `Hay ${parts.join(' y ')}. ¿Seguro que quieres cobrar?`,
+        [
+          { text: 'Esperar', style: 'cancel', onPress: () => resolve(false) },
+          { text: 'Cobrar', style: 'destructive', onPress: () => resolve(true) },
+        ],
+      );
+    });
+  }
+
   async function cobrarRapidoEfectivo(table: Table, total: number) {
     if (!floor) return;
+    if (!await confirmPay(floor, table.id)) return;
     const f = JSON.parse(JSON.stringify(floor)) as Floor;
     const t = f.tables.find(x => x.id === table.id);
     
