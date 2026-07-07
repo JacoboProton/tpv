@@ -139,7 +139,7 @@ export default function App() {
 
   // Configuración ticket
   const [ticketSettings, setTicketSettings] = useState({
-    restaurantName: 'LA COMANDA', logoUrl: '', footerText: 'Gracias por su visita', ticketWidth: '80mm',
+    restaurantName: 'LA COMANDA', companyCif: '78406450W', companyAddress: '', companyPhone: '', logoUrl: '', footerText: 'Gracias por su visita', ticketWidth: '80mm',
   });
   const [showSettings, setShowSettings] = useState(false);
 
@@ -1164,6 +1164,17 @@ export default function App() {
     const table       = nextFloor.tables.find(t => t.id === selectedTableId);
     const order       = nextFloor.orders[table.orderId];
     const wasDebt     = table.isFiado && order.items.length === 1 && order.items[0].productId === null;
+
+    // Warn if there are items not sent or still pending in kitchen
+    const unsentItems = order.items.filter(i => !i.sent && !i.voided);
+    const pendingItems = order.items.filter(i => i.sent && !i.ready && !i.voided);
+    if (unsentItems.length > 0 || pendingItems.length > 0) {
+      const parts = [];
+      if (unsentItems.length > 0) parts.push(`${unsentItems.length} artículo(s) sin enviar a cocina`);
+      if (pendingItems.length > 0) parts.push(`${pendingItems.length} artículo(s) en preparación`);
+      if (!window.confirm(`Hay ${parts.join(' y ')}. ¿Seguro que quieres cobrar?`)) return;
+    }
+
     const nextCatalog = clone(catalog);
     order.items.forEach(item => {
       if (item.productId) {
@@ -1580,14 +1591,18 @@ export default function App() {
     const items = order.items.filter(i => i.productId);
     const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
     const discountAmount = round2(subtotal * (orderDiscount / 100));
-    const total = subtotal - discountAmount;
-    const totalWithTip = total + tipAmount;
+    const totalConIgic = subtotal - discountAmount;
+    const baseImponible = round2(totalConIgic / 1.07);
+    const cuotaIgic = round2(totalConIgic - baseImponible);
+    const totalWithTip = totalConIgic + tipAmount;
     const date = new Date().toLocaleString('es-ES');
-    const { restaurantName, logoUrl, footerText, ticketWidth } = ticketSettings;
+    const { restaurantName, companyCif, companyAddress, companyPhone, logoUrl, footerText, ticketWidth } = ticketSettings;
+    const employeeName = currentUser?.name || '';
+    const tableName = selectedTable?.name || '';
 
     function row(item) {
       const mods = item.modifiers?.length
-        ? item.modifiers.map(m => `  + ${m.optionName}`).join('<br>') + '<br>'
+        ? `<div style="font-size:9px;color:#555;padding-left:4px">${item.modifiers.map(m => `+ ${m.optionName}`).join('<br>')}</div>`
         : '';
       const product = catalog?.products?.find(p => p.id === item.productId);
       const itemAllergens = product?.allergens || [];
@@ -1595,10 +1610,13 @@ export default function App() {
         const a = ALLERGENS.find(x => x.id === aid);
         return a ? `<span style="font-size:8px;color:#888;margin-right:2px">[${a.abbr}]</span>` : '';
       }).join('');
-      return `<div style="font-size:10px;margin-bottom:4px">
-        <b>${item.name}</b> ${aIcons}<br>${mods}
-        <span>${item.qty} x ${item.price.toFixed(2)}€</span>
-        <span style="float:right">${(item.qty * item.price).toFixed(2)}€</span>
+      return `<div style="margin-bottom:5px">
+        <div style="font-weight:bold;font-size:10px">${item.name} ${aIcons}</div>
+        ${mods}
+        <div class="r" style="font-size:9px">
+          <span>${item.qty} x ${item.price.toFixed(2)}€</span>
+          <span>${(item.qty * item.price).toFixed(2)}€</span>
+        </div>
       </div>`;
     }
 
@@ -1606,28 +1624,37 @@ export default function App() {
 <html><head><meta charset="utf-8">
 <style>
   @page { margin:0; size:${ticketWidth} auto; }
-  body { width:${ticketWidth}; padding:2mm 3mm; font-family:'Courier New',monospace; font-size:10px; line-height:1.3; color:#222; background:#fff; }
+  body { width:${ticketWidth}; padding:2mm 3mm; font-family:'Courier New',monospace; font-size:10px; line-height:1.35; color:#222; background:#fff; }
   .c { text-align:center; }
   .b { font-weight:bold; }
-  .d { border-top:1px dashed #999; margin:4px 0; }
+  .d { border-top:1px dashed #999; margin:5px 0; }
+  .ds { border-top:1px solid #999; margin:5px 0; }
   .r { display:flex; justify-content:space-between; }
 </style></head><body>
   ${logoUrl ? `<div class="c"><img src="${logoUrl}" style="max-width:60%;max-height:40px;margin-bottom:4px" /></div>` : ''}
-  <div class="c b" style="font-size:14px">${restaurantName}</div>
-  <div class="c" style="font-size:9px;margin-bottom:4px">
-    CIF: 78406450W<br>${date}<br>Mesa: ${selectedTable?.name || ''}
+  <div class="c b" style="font-size:14px;margin-bottom:2px">${restaurantName}</div>
+  <div class="c" style="font-size:9px;margin-bottom:4px;color:#555">
+    ${companyCif ? `CIF: ${companyCif}<br>` : ''}${companyAddress ? `${companyAddress}<br>` : ''}${companyPhone ? `Tel: ${companyPhone}<br>` : ''}
   </div>
+  <div class="c" style="font-size:9px;margin-bottom:2px">${date}</div>
+  <div class="c" style="font-size:9px;margin-bottom:4px">Mesa: ${tableName} · Camarero: ${employeeName}</div>
   <div class="d"></div>
   ${items.map(row).join('')}
   <div class="d"></div>
   <div class="r" style="font-size:9px"><span>Subtotal</span><span>${euros(subtotal)}</span></div>
   ${orderDiscount > 0 ? `<div class="r" style="font-size:9px;color:#777"><span>Dto. ${orderDiscount}%</span><span>-${euros(discountAmount)}</span></div>` : ''}
+  <div class="r" style="font-size:9px;color:#555"><span>Base Imponible</span><span>${euros(baseImponible)}</span></div>
+  <div class="r" style="font-size:9px;color:#555"><span>IGIC 7%</span><span>${euros(cuotaIgic)}</span></div>
+  <div class="r b" style="font-size:11px">
+    <span>Total</span><span>${euros(totalConIgic)}</span>
+  </div>
   ${tipAmount > 0 ? `<div class="r" style="font-size:9px;color:#777"><span>Propina · NO fiscal${tipMethod === 'efectivo' ? ' (efectivo)' : ' (tarjeta)'}</span><span>+${euros(tipAmount)}</span></div>` : ''}
-  <div class="r b" style="font-size:12px;border-top:1px solid #333;padding-top:4px;margin-top:4px">
-    <span>TOTAL</span><span>${euros(totalWithTip)}</span>
+  <div class="ds"></div>
+  <div class="r b" style="font-size:13px;padding-top:2px">
+    <span>TOTAL A PAGAR</span><span>${euros(totalWithTip)}</span>
   </div>
   <div class="d"></div>
-  <div class="c" style="font-size:9px;margin-top:4px">${footerText}</div>
+  <div class="c" style="font-size:9px;margin-top:4px;color:#555">${footerText}</div>
 </body></html>`;
 
     const iframe = document.createElement('iframe');
@@ -2187,7 +2214,7 @@ export default function App() {
           {view === 'buffet'    && (
             <BuffetKioskView floor={floor} currentUser={currentUser} onToast={showToast} />
           )}
-          {view === 'tickets'   && <TicketsView sales={sales} colors={C} />}
+          {view === 'tickets'   && <TicketsView sales={sales} colors={C} ticketSettings={ticketSettings} />}
         </div>
       </main>
 
@@ -2292,10 +2319,10 @@ export default function App() {
           <div style={{ background: C.surface, border: `1px solid ${C.line}` }} className="w-full max-w-sm rounded-xl p-5 fade-up max-h-[85vh] overflow-y-auto">
             <p className="font-display text-lg mb-4" style={{ color: C.cream }}>Configuración</p>
             <div className="flex flex-col gap-3">
-              {['restaurantName', 'logoUrl', 'footerText', 'ticketWidth'].map(field => (
+              {['restaurantName', 'companyCif', 'companyAddress', 'companyPhone', 'logoUrl', 'footerText', 'ticketWidth'].map(field => (
                 <div key={field}>
                   <label style={{ color: C.muted }} className="text-xs uppercase tracking-wide mb-1 block">
-                    {field === 'restaurantName' ? 'Nombre del restaurante' : field === 'logoUrl' ? 'URL del logo' : field === 'footerText' ? 'Texto del pie' : 'Ancho del ticket'}
+                    {field === 'restaurantName' ? 'Nombre del restaurante' : field === 'companyCif' ? 'CIF/NIF' : field === 'companyAddress' ? 'Dirección' : field === 'companyPhone' ? 'Teléfono' : field === 'logoUrl' ? 'URL del logo' : field === 'footerText' ? 'Texto del pie' : 'Ancho del ticket'}
                   </label>
                   <input
                     value={ticketSettings[field]}

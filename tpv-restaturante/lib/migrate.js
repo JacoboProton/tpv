@@ -75,7 +75,7 @@ export async function runMigrations() {
   await sql`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`;
   try {
     for (const [k, v] of Object.entries({
-      restaurantName: 'LA COMANDA', logoUrl: '', footerText: 'Gracias por su visita', ticketWidth: '80mm',
+      restaurantName: 'LA COMANDA', companyCif: '78406450W', companyAddress: '', companyPhone: '', logoUrl: '', footerText: 'Gracias por su visita', ticketWidth: '80mm',
       personalDiscountRates: JSON.stringify({ 'Tapas': 50, 'Principales': 50, 'Postres': 50, 'Bebidas': 20 }),
       drawerOpenPolicy: 'confirm',
     })) {

@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { Ticket, Download, Search, Printer } from 'lucide-react';
 import { euros } from './constants';
 
-export default function TicketsView({ sales, colors: C }) {
+export default function TicketsView({ sales, colors: C, ticketSettings = {} }) {
   const [search, setSearch] = useState('');
   const [filterMethod, setFilterMethod] = useState('Todas');
 
@@ -43,21 +43,31 @@ export default function TicketsView({ sales, colors: C }) {
     const dateStr = d.toLocaleString('es-ES');
     const items = (sale.items || []).filter(i => !i.voided);
     const itemsHtml = items.map(i =>
-      `<div style="font-weight:bold">${i.name}</div>
-       <div class="ticket-row"><span>${i.qty} x ${i.price.toFixed(2)}€</span><span>${(i.qty * i.price).toFixed(2)}€</span></div>`
+      `<div style="font-weight:bold;font-size:11px">${i.name}</div>
+       <div class="ticket-row" style="font-size:10px"><span>${i.qty} x ${i.price.toFixed(2)}€</span><span>${(i.qty * i.price).toFixed(2)}€</span></div>`
     ).join('');
+    const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
+    const discountAmount = sale.discountAmount || 0;
+    const totalConIgic = subtotal - discountAmount;
+    const baseImponible = Math.round(totalConIgic * 100 / 1.07) / 100;
+    const cuotaIgic = totalConIgic - baseImponible;
     const tip = sale.tip || 0;
     const total = sale.totalWithTip || sale.total || 0;
+    const s = ticketSettings || {};
     const html = `<html><head><meta charset="utf-8"><style>
       @page { margin:0; size:80mm auto; }
       body { font-family:'Courier New',monospace; font-size:12px; width:72mm; margin:0 auto; padding:4mm 0; color:#000; }
-      .ticket-header { text-align:center; font-size:16px; font-weight:bold; margin-bottom:4px; }
+      .ticket-header { text-align:center; font-size:14px; font-weight:bold; margin-bottom:2px; }
+      .ticket-sub { text-align:center; font-size:9px; color:#555; margin-bottom:4px; }
       .ticket-divider { border-top:1px dashed #000; margin:4px 0; }
       .ticket-row { display:flex; justify-content:space-between; font-size:11px; }
       .ticket-total { font-weight:bold; font-size:13px; }
     </style></head><body>
-      <div class="ticket-header">LA COMANDA</div>
-      <div style="text-align:center;font-size:10px;margin-bottom:4px">
+      <div class="ticket-header">${s.restaurantName || 'LA COMANDA'}</div>
+      <div class="ticket-sub">
+        ${s.companyCif ? `CIF: ${s.companyCif}<br>` : ''}${s.companyAddress ? `${s.companyAddress}<br>` : ''}${s.companyPhone ? `Tel: ${s.companyPhone}<br>` : ''}
+      </div>
+      <div style="text-align:center;font-size:9px;margin-bottom:4px">
         ${dateStr}<br/>
         Mesa: ${sale.tableName || '—'}<br/>
         ${sale.employeeName ? 'Camarero: ' + sale.employeeName : ''}
@@ -65,11 +75,16 @@ export default function TicketsView({ sales, colors: C }) {
       <div class="ticket-divider"/>
       ${itemsHtml}
       <div class="ticket-divider"/>
-      <div class="ticket-row"><span>Total</span><span>${euros(total)}</span></div>
-      ${tip > 0 ? `<div class="ticket-row" style="font-size:10px;color:#666"><span>Propina</span><span>+${euros(tip)}</span></div>` : ''}
+      <div class="ticket-row" style="font-size:10px"><span>Subtotal</span><span>${euros(subtotal)}</span></div>
+      ${discountAmount > 0 ? `<div class="ticket-row" style="font-size:9px;color:#777"><span>Dto.</span><span>-${euros(discountAmount)}</span></div>` : ''}
+      <div class="ticket-row" style="font-size:9px;color:#555"><span>Base Imponible</span><span>${euros(baseImponible)}</span></div>
+      <div class="ticket-row" style="font-size:9px;color:#555"><span>IGIC 7%</span><span>${euros(cuotaIgic)}</span></div>
+      <div class="ticket-row ticket-total"><span>Total</span><span>${euros(totalConIgic)}</span></div>
+      ${tip > 0 ? `<div class="ticket-row" style="font-size:9px;color:#777"><span>Propina · NO fiscal</span><span>+${euros(tip)}</span></div>` : ''}
+      <div style="border-top:1px solid #000;margin:4px 0"></div>
+      <div class="ticket-row ticket-total" style="font-size:14px"><span>TOTAL A PAGAR</span><span>${euros(total)}</span></div>
       <div class="ticket-divider"/>
-      <div style="text-align:center;font-size:10px;margin-top:4px">${sale.paymentMethod || ''}</div>
-      <div style="text-align:center;font-size:10px;margin-top:4px">Gracias por su visita</div>
+      <div style="text-align:center;font-size:9px;margin-top:4px;color:#555">${s.footerText || 'Gracias por su visita'}</div>
     </body></html>`;
     const iframe = document.createElement('iframe');
     iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:0;height:0;border:none';

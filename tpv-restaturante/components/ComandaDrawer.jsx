@@ -608,6 +608,7 @@ export default function ComandaDrawer({
           <div className="grid grid-cols-2 gap-2 p-4 overflow-y-auto" style={{ maxHeight: '32%' }}>
             {catalog.products
               .filter(p => {
+                if (p.agotado) return false;
                 if (searchQuery) return p.name.toLowerCase().includes(searchQuery.toLowerCase());
                 return activeCategory === 'Todos' || p.category === activeCategory;
               })
