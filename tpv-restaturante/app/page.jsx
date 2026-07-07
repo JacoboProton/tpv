@@ -1456,7 +1456,6 @@ export default function App() {
     }
     const basePrice = product.price || catalog?.products?.find(p => p.id === product.id)?.price || 0;
     const effectivePrice = round2(basePrice + extraPrice);
-    if (!effectivePrice) showToast(`⚠️ Debug: ${product.name} → price=${product.price} basePrice=${basePrice} ${catalog?.products?.find(p => p.id === product.id) ? 'catOK' : 'catNULL'}`);
     const existing = order.items.find(i => i.productId === product.id && !i.sent && JSON.stringify(i.modifiers) === JSON.stringify(modifiers));
     if (existing) existing.qty += 1;
     else {
@@ -1467,6 +1466,7 @@ export default function App() {
         qty: 1, sent: false, ready: false, sentAt: null, notes, modifiers,
         course: product.course || '',
       });
+      showToast(`🔍 ${product.name} → precioPush=${effectivePrice} items=${order.items.length}`);
     }
     persistFloor(next);
   }
