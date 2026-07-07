@@ -2163,9 +2163,14 @@ export default function App() {
             <CartasView
               catalog={catalog}
               onSave={async (next) => {
-                const { categories, products, combos } = next;
-                await saveCatalog({ categories, products, combos: combos || catalog.combos || [] });
                 setCatalog(next);
+                const { categories, products, combos } = next;
+                try {
+                  await saveCatalog({ categories, products, combos: combos || catalog.combos || [] });
+                  showToast('✓ Guardado');
+                } catch {
+                  showToast('Error al guardar en el servidor');
+                }
               }}
               onUpdateField={updateProductField}
               colors={C}
