@@ -625,6 +625,9 @@ export default function CartasView({ catalog, onSave, colors: C }) {
                   </div>
 
                   <div className="flex gap-2">
+                    <button onClick={() => { onSave(local); setEditingProduct(null); }}
+                      style={{ background: C.sage, color: '#fff' }}
+                      className="flex-1 rounded-lg py-2 text-sm font-semibold">Guardar</button>
                     <button onClick={() => setEditingProduct(null)}
                       style={{ background: C.surfaceLight, color: C.muted }}
                       className="flex-1 rounded-lg py-2 text-sm">Cerrar</button>
