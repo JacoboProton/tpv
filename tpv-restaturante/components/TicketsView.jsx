@@ -71,11 +71,14 @@ export default function TicketsView({ sales, colors: C }) {
       <div style="text-align:center;font-size:10px;margin-top:4px">${sale.paymentMethod || ''}</div>
       <div style="text-align:center;font-size:10px;margin-top:4px">Gracias por su visita</div>
     </body></html>`;
-    const w = window.open('', '_blank');
-    if (!w) return;
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:0;height:0;border:none';
+    document.body.appendChild(iframe);
+    const w = iframe.contentWindow;
+    w.document.open();
     w.document.write(html);
     w.document.close();
-    setTimeout(() => { w.print(); w.close(); }, 300);
+    setTimeout(() => { w.focus(); w.print(); setTimeout(() => document.body.removeChild(iframe), 1000); }, 300);
   }
 
   function downloadCSV() {
