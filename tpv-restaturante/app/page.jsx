@@ -2168,8 +2168,8 @@ export default function App() {
                 try {
                   await saveCatalog({ categories, products, combos: combos || catalog.combos || [] });
                   showToast('✓ Guardado');
-                } catch {
-                  showToast('Error al guardar en el servidor');
+                } catch (e) {
+                  showToast('Error: ' + (e?.message || 'desconocido'));
                 }
               }}
               onUpdateField={updateProductField}
