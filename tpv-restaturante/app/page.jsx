@@ -1428,7 +1428,8 @@ export default function App() {
       const item = order.items.find(i => i.id === editingItemModifiers.item.id);
       if (item) {
         item.modifiers = modifiers;
-        item.price = round2((product.price || 0) + extraPrice);
+        const basePrice = product.price || catalog?.products?.find(p => p.id === product.id)?.price || 0;
+        item.price = round2(basePrice + extraPrice);
       }
       persistFloor(next);
       setEditingItemModifiers(null);
@@ -1453,7 +1454,8 @@ export default function App() {
       table.status = 'ocupada';
       setActiveTicketId(orderId);
     }
-    const effectivePrice = round2((product.price || 0) + extraPrice);
+    const basePrice = product.price || catalog?.products?.find(p => p.id === product.id)?.price || 0;
+    const effectivePrice = round2(basePrice + extraPrice);
     const existing = order.items.find(i => i.productId === product.id && !i.sent && JSON.stringify(i.modifiers) === JSON.stringify(modifiers));
     if (existing) existing.qty += 1;
     else {
