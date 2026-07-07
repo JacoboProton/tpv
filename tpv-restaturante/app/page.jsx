@@ -1417,7 +1417,7 @@ export default function App() {
 
   function confirmModifiersAndAdd(modifiers) {
     const product = showModifierSelector.product;
-    const extraPrice = modifiers.reduce((s, m) => s + m.priceDelta, 0);
+    const extraPrice = modifiers.reduce((s, m) => s + (m.priceDelta || 0), 0);
     setShowModifierSelector(null);
 
     // If editing an existing item, update it in place
@@ -1466,7 +1466,6 @@ export default function App() {
         qty: 1, sent: false, ready: false, sentAt: null, notes, modifiers,
         course: product.course || '',
       });
-      showToast(`🔍 ${product.name} → precioPush=${effectivePrice} items=${order.items.length}`);
     }
     persistFloor(next);
   }

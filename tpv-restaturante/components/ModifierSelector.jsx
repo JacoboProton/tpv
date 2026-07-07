@@ -78,14 +78,14 @@ export default function ModifierSelector({ product, modifierGroups, onConfirm, o
         const opt = g.options.find(o => o.id === val);
         if (opt) result.push({
           groupId: g.id, groupName: g.name,
-          optionId: opt.id, optionName: opt.name, priceDelta: opt.priceDelta,
+          optionId: opt.id, optionName: opt.name,           priceDelta: opt.priceDelta || 0,
         });
       } else {
         for (const oid of (val || [])) {
           const opt = g.options.find(o => o.id === oid);
           if (opt) result.push({
             groupId: g.id, groupName: g.name,
-            optionId: opt.id, optionName: opt.name, priceDelta: opt.priceDelta,
+            optionId: opt.id, optionName: opt.name,           priceDelta: opt.priceDelta || 0,
           });
         }
       }
