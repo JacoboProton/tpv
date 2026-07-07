@@ -1428,7 +1428,7 @@ export default function App() {
       const item = order.items.find(i => i.id === editingItemModifiers.item.id);
       if (item) {
         item.modifiers = modifiers;
-        item.price = round2(product.price + extraPrice);
+        item.price = round2((product.price || 0) + extraPrice);
       }
       persistFloor(next);
       setEditingItemModifiers(null);

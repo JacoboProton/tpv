@@ -165,6 +165,9 @@ export default function ModifierSelector({ product, modifierGroups, onConfirm, o
             Extras: +{euros(totalExtra)}
           </p>
         )}
+        <p className="text-right font-mono text-lg font-bold mb-4" style={{ color: C.cream }}>
+          Total: {euros((product.price || 0) + totalExtra)}
+        </p>
 
         <div className="flex gap-2">
           <button
