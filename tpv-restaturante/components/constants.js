@@ -78,7 +78,7 @@ export const PAYMENT_METHODS = [
 ];
 
 export function euros(n) {
-  return n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+  return (n || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 }
 
 export function round2(n) {

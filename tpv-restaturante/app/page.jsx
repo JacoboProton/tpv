@@ -1281,7 +1281,7 @@ export default function App() {
     const invNum = wantInvoice ? 'INV-' + new Date().getFullYear() + '-' + String(Date.now()).slice(-5) : '';
     const sale = {
       id: 's_' + Date.now(), tableId: table.id, tableName: table.name,
-      items: order.items.map(i => ({ id: i.id, productId: i.productId, name: i.name, qty: i.qty, price: i.price, voided: !!i.voided })),
+      items: order.items.map(i => ({ id: i.id, productId: i.productId, name: i.name, qty: i.qty, price: i.price || 0, voided: !!i.voided })),
       subtotal, discount: orderDiscount, discountAmount, total, tip: tipAmount, tipMethod, totalWithTip,
       invoiceNif: wantInvoice ? invoiceNif : '',
       invoiceName: wantInvoice ? invoiceName : '',
@@ -1453,7 +1453,7 @@ export default function App() {
       table.status = 'ocupada';
       setActiveTicketId(orderId);
     }
-    const effectivePrice = round2(product.price + extraPrice);
+    const effectivePrice = round2((product.price || 0) + extraPrice);
     const existing = order.items.find(i => i.productId === product.id && !i.sent && JSON.stringify(i.modifiers) === JSON.stringify(modifiers));
     if (existing) existing.qty += 1;
     else {

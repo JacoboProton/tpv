@@ -684,7 +684,7 @@ export default function ComandaDrawer({
               selectedOrder.items.map(item => {
                 const product = catalog.products.find(p => p.id === item.productId);
                 const disc = product?.discount || 0;
-                const effectivePrice = disc > 0 ? item.price * (1 - disc / 100) : item.price;
+                const effectivePrice = (disc > 0 ? item.price * (1 - disc / 100) : item.price) || 0;
                 const showActions = actionItemId === item.id;
 
                 return (
@@ -830,7 +830,7 @@ export default function ComandaDrawer({
                         )}
                         {/* Edit price */}
                         {!item.sent && (
-                          <button onClick={() => { setPriceNumpad(String(item.overridePrice ?? item.price)); setShowPriceEdit(item); setActionItemId(null); }}
+                          <button onClick={() => { setPriceNumpad(String((item.overridePrice ?? item.price) || '')); setShowPriceEdit(item); setActionItemId(null); }}
                             style={{ background: C.surfaceLight, border: `1px solid ${C.line}`, color: C.cream }}
                             className="text-[10px] px-2 py-1 rounded-lg">
                             {item.overridePrice != null ? `${item.overridePrice.toFixed(2)}€` : 'Editar precio'}
