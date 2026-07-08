@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
-import { sql } from '../../../lib/db';
+import { sql } from '../../../../lib/db';
 
 // Settings cache
 let settingsCache = null;

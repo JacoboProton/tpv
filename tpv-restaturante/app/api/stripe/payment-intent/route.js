@@ -50,6 +50,9 @@ export async function POST(req) {
       amount: amountCents,
       currency: 'eur',
       automatic_payment_methods: { enabled: true },
+      payment_method_options: {
+        card: { request_extended_authorization: true },
+      },
       metadata: {
         tableId:      tableId      ?? '',
         tableName:    tableName    ?? '',

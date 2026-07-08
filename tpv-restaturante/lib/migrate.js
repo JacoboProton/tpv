@@ -426,6 +426,7 @@ export async function runMigrations() {
   await sql`ALTER TABLE sales ADD COLUMN IF NOT EXISTS stripe_confirmed BOOLEAN DEFAULT false`;
   await sql`ALTER TABLE sales ADD COLUMN IF NOT EXISTS dispute_status TEXT DEFAULT ''`;
   await sql`ALTER TABLE sales ADD COLUMN IF NOT EXISTS dispute_data JSONB DEFAULT '{}'`;
+  await sql`ALTER TABLE sales ADD COLUMN IF NOT EXISTS ticket_number INTEGER`;
 
   // ===== MENÚ DEL DÍA =====
   await sql`

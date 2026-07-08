@@ -28,7 +28,8 @@ export default function PedidosView({ sales, onRefund, onConfirmBizum, onPrintIn
       list = list.filter(s =>
         s.tableName?.toLowerCase().includes(q) ||
         s.employeeName?.toLowerCase().includes(q) ||
-        s.items?.some(i => i.name?.toLowerCase().includes(q))
+        s.items?.some(i => i.name?.toLowerCase().includes(q)) ||
+        String(s.ticketNumber || '').includes(q)
       );
     }
     return list;
@@ -122,6 +123,9 @@ export default function PedidosView({ sales, onRefund, onConfirmBizum, onPrintIn
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span style={{ color: C.cream }} className="text-sm font-medium">{sale.tableName}</span>
+                    <span style={{ color: C.muted }} className="text-[10px] font-mono">
+                      #{sale.ticketNumber}
+                    </span>
                     <span style={{ color: C.muted }} className="text-[10px]">
                       {new Date(sale.closedAt).toLocaleString('es-ES', { hour: '2-digit', minute: '2-digit' })}
                     </span>

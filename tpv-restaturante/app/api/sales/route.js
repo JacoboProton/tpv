@@ -10,19 +10,27 @@ export async function GET(req) {
     const from = searchParams.get('from');
     const to = searchParams.get('to');
     const year = searchParams.get('year');
+    const ticketNumber = searchParams.get('ticketNumber');
 
-    let query = sql`SELECT * FROM sales WHERE tenant_id = ${tenantId}`;
+    let query = sql`SELECT * FROM sales WHERE 1=1`;
     const conditions = [];
 
-    if (year) {
-      const y = parseInt(year, 10);
-      const start = new Date(y, 0, 1).getTime();
-      const end = new Date(y + 1, 0, 1).getTime();
-      conditions.push(`closed_at >= ${start}`);
-      conditions.push(`closed_at < ${end}`);
+    if (tenantId !== 'all') conditions.push(`tenant_id = '${tenantId}'`);
+
+    // If searching by ticket number, ignore other filters
+    if (ticketNumber) {
+      conditions.push(`ticket_number = ${parseInt(ticketNumber, 10)}`);
     } else {
-      if (from) conditions.push(`closed_at >= ${BigInt(from)}`);
-      if (to) conditions.push(`closed_at <= ${BigInt(to)}`);
+      if (year) {
+        const y = parseInt(year, 10);
+        const start = new Date(y, 0, 1).getTime();
+        const end = new Date(y + 1, 0, 1).getTime();
+        conditions.push(`closed_at >= ${start}`);
+        conditions.push(`closed_at < ${end}`);
+      } else {
+        if (from) conditions.push(`closed_at >= ${BigInt(from)}`);
+        if (to) conditions.push(`closed_at <= ${BigInt(to)}`);
+      }
     }
 
     if (conditions.length > 0) {
@@ -65,6 +73,7 @@ export async function GET(req) {
       disputeData: r.dispute_data || {},
       verifactuStatus: verifactuMap[r.id]?.estado || '',
       verifactuNumSerie: verifactuMap[r.id]?.numSerie || '',
+      ticketNumber: r.ticket_number,
     }));
     return NextResponse.json(mapped);
   } catch (err) {
@@ -106,6 +115,17 @@ export async function POST(req) {
       }
     }
 
+    // Assign sequential ticket number (yearly counter)
+    const year = new Date(Number(s.closedAt || Date.now())).getFullYear();
+    const seqRow = await sql`
+      SELECT COALESCE(MAX(ticket_number), 0) + 1 AS next_num
+      FROM sales
+      WHERE ticket_number IS NOT NULL
+        AND closed_at >= ${new Date(year, 0, 1).getTime()}
+        AND closed_at < ${new Date(year + 1, 0, 1).getTime()}
+    `;
+    const ticketNumber = seqRow[0].next_num;
+
     await sql`
       INSERT INTO sales (
         tenant_id, id, table_id, table_name, items, subtotal, discount, discount_amount,
@@ -113,7 +133,7 @@ export async function POST(req) {
         is_fiado, is_debt_payment, employee_id, employee_name, closed_at,
         invoice_nif, invoice_name, invoice_address, invoice_email,
         invoice_number, invoice_created, invoice_created_at,
-        payment_intent_id
+        payment_intent_id, ticket_number
       ) VALUES (
         ${tenantId}, ${s.id}, ${s.tableId}, ${s.tableName}, ${JSON.stringify(s.items)},
         ${s.subtotal}, ${s.discount ?? 0}, ${s.discountAmount ?? 0},
@@ -123,11 +143,11 @@ export async function POST(req) {
         ${s.employeeId ?? null}, ${s.employeeName ?? null}, ${s.closedAt},
         ${s.invoiceNif ?? ''}, ${s.invoiceName ?? ''}, ${s.invoiceAddress ?? ''}, ${s.invoiceEmail ?? ''},
         ${s.invoiceNumber ?? ''}, ${s.invoiceCreated ?? false}, ${s.invoiceCreatedAt ?? null},
-        ${s.paymentIntentId ?? ''}
+        ${s.paymentIntentId ?? ''}, ${ticketNumber}
       )
       ON CONFLICT (id) DO NOTHING
     `;
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, ticketNumber });
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

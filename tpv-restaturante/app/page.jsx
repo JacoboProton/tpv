@@ -1356,6 +1356,7 @@ export default function App() {
       offerDiscount: offerDiscountAmount,
       employeeId: currentUser?.id || null, employeeName: currentUser?.name || 'Sin asignar',
       closedAt: Date.now(),
+      ticketNumber: Date.now(),  // provisional, se asigna en backend
     };
 
     // Save to history before removing
