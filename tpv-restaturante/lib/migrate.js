@@ -45,7 +45,7 @@ export async function runMigrations() {
     try { await sql`CREATE INDEX IF NOT EXISTS ${sql.unsafe('idx_' + table + '_tenant')} ON "${sql.unsafe(table)}"(tenant_id)`; } catch {}
   }
 
-  await sql`CREATE TABLE IF NOT EXISTS categories (id SERIAL PRIMARY KEY, name TEXT NOT NULL UNIQUE)`;
+  await sql`CREATE TABLE IF NOT EXISTS categories (id TEXT PRIMARY KEY, name TEXT NOT NULL)`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS products (

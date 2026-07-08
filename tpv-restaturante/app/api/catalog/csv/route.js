@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../../lib/db';
+import { getTenantId } from '../../../../lib/tenant';
 
-export async function GET() {
+export async function GET(req) {
   try {
+    const tenantId = getTenantId(req);
     const products = await sql`
       SELECT id, name, category, price::float AS price, active, show_tpv, show_qr, agotado, description
-      FROM products ORDER BY category, name
+      FROM products WHERE tenant_id = ${tenantId} ORDER BY category, name
     `;
     const header = 'id,nombre,precio,categoria,activo,tpv,qr,agotado,descripcion';
     const rows = products.map(p =>
@@ -35,6 +37,7 @@ export async function GET() {
 
 export async function POST(req) {
   try {
+    const tenantId = getTenantId(req);
     const text = await req.text();
     const lines = text.split('\n').filter(Boolean);
     if (lines.length < 2) return NextResponse.json({ ok: true, imported: 0 });
@@ -64,9 +67,9 @@ export async function POST(req) {
       const agotado = agotadoIdx >= 0 ? cols[agotadoIdx] === '1' : false;
 
       await sql`
-        INSERT INTO products (id, name, category, price, active, show_tpv, show_qr, agotado)
-        VALUES (${id}, ${name}, ${category}, ${price}, ${active}, ${showTpv}, ${showQr}, ${agotado})
-        ON CONFLICT (id) DO UPDATE SET
+        INSERT INTO products (tenant_id, id, name, category, price, active, show_tpv, show_qr, agotado)
+        VALUES (${tenantId}, ${id}, ${name}, ${category}, ${price}, ${active}, ${showTpv}, ${showQr}, ${agotado})
+        ON CONFLICT (tenant_id, id) DO UPDATE SET
           name = EXCLUDED.name, category = EXCLUDED.category,
           price = EXCLUDED.price, active = EXCLUDED.active,
           show_tpv = EXCLUDED.show_tpv, show_qr = EXCLUDED.show_qr,
