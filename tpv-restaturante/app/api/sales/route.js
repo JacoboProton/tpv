@@ -142,7 +142,7 @@ export async function POST(req) {
         ${s.isFiado ?? false}, ${s.isDebtPayment ?? false},
         ${s.employeeId ?? null}, ${s.employeeName ?? null}, ${s.closedAt},
         ${s.invoiceNif ?? ''}, ${s.invoiceName ?? ''}, ${s.invoiceAddress ?? ''}, ${s.invoiceEmail ?? ''},
-        ${s.invoiceNumber ?? ''}, ${s.invoiceCreated ?? false}, ${s.invoiceCreatedAt ?? null},
+        ${s.invoiceNumber ?? ''}, ${s.invoiceCreated === true || s.invoiceCreated === 'true'}, ${s.invoiceCreatedAt ?? null},
         ${s.paymentIntentId ?? ''}, ${ticketNumber}
       )
       ON CONFLICT (id) DO NOTHING
