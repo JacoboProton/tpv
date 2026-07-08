@@ -1847,7 +1847,7 @@ export default function App() {
   }
 
   // ---------- Factura ----------
-  function printInvoice(sale) {
+  async function printInvoice(sale) {
     if (!sale) return;
     const { restaurantName, companyCif, companyAddress, companyPhone, footerText } = ticketSettings;
     const totalConIva = sale.total || 0;
@@ -1904,6 +1904,54 @@ export default function App() {
     const w = window.open('', '_blank');
     if (w) { w.document.write(html); w.document.close(); w.print(); }
     else showToast('Permite ventanas emergentes para imprimir la factura');
+  }
+
+  async function handleDownloadPdf(sale) {
+    if (!sale) return;
+    try {
+      const res = await fetch('/api/invoice/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sale }),
+      });
+      if (!res.ok) { showToast('Error al generar PDF'); return; }
+      const data = await res.json();
+      const blob = b64ToBlob(data.pdf, 'application/pdf');
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = data.filename;
+      a.click(); URL.revokeObjectURL(url);
+      showToast('PDF descargado');
+    } catch { showToast('Error al descargar PDF'); }
+  }
+
+  async function handleSendInvoiceEmail(sale) {
+    if (!sale || !sale.invoiceEmail) { showToast('El cliente no tiene email registrado'); return; }
+    try {
+      const pdfRes = await fetch('/api/invoice/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sale }),
+      });
+      if (!pdfRes.ok) { showToast('Error al generar PDF'); return; }
+      const pdfData = await pdfRes.json();
+      const sendRes = await fetch('/api/invoice/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ saleId: sale.id, pdfBase64: pdfData.pdf, filename: pdfData.filename, to: sale.invoiceEmail }),
+      });
+      const sendData = await sendRes.json();
+      if (sendData.method === 'smtp') showToast('Factura enviada por email');
+      else if (sendData.method === 'download') { handleDownloadPdf(sale); showToast('Email no configurado — PDF descargado'); }
+      else showToast('Error al enviar: ' + (sendData.error || 'desconocido'));
+    } catch { showToast('Error al enviar factura'); }
+  }
+
+  function btoa(str) { if (typeof window.btoa === 'function') return window.btoa(str); return Buffer.from(str).toString('base64'); }
+  function b64ToBlob(b64, mime) {
+    const byteChars = typeof atob === 'function' ? atob(b64) : Buffer.from(b64, 'base64').toString('binary');
+    const byteNums = new Array(byteChars.length);
+    for (let i = 0; i < byteChars.length; i++) byteNums[i] = byteChars.charCodeAt(i);
+    return new Blob([new Uint8Array(byteNums)], { type: mime });
   }
 
   // ---------- Devoluciones ----------
@@ -2313,7 +2361,7 @@ export default function App() {
             />
           )}
           {view === 'reparto'    && <DeliveryView catalog={catalog} colors={C} />}
-          {view === 'pedidos'    && <PedidosView sales={sales} onRefund={handleRefund} onConfirmBizum={handleConfirmBizum} onPrintInvoice={(sale) => { printInvoice(sale); }} colors={C} />}
+          {view === 'pedidos'    && <PedidosView sales={sales} onRefund={handleRefund} onConfirmBizum={handleConfirmBizum} onPrintInvoice={(sale) => { printInvoice(sale); }} onDownloadPdf={handleDownloadPdf} onSendInvoiceEmail={handleSendInvoiceEmail} colors={C} />}
           {view === 'fiados'     && <FiadosView sales={sales} floor={floor} onNavigateToTable={(tableId) => { setSelectedTableId(tableId); setView('salon'); }} colors={C} />}
           {view === 'empleados'  && <EmpleadosView employees={employees} colors={C} onAdd={addEmployee} onUpdateField={updateEmployeeField} onDelete={deleteEmployee} confirmDeleteId={confirmDeleteId} setConfirmDeleteId={setConfirmDeleteId} />}
           {view === 'gestoria'   && <GestoriaView sales={sales} colors={C} />}

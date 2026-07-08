@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Search, X, Undo2, Euro, ChevronDown, Check, FileText } from 'lucide-react';
 import { euros, round2, clone } from './constants';
 
-export default function PedidosView({ sales, onRefund, onConfirmBizum, onPrintInvoice, colors: C }) {
+export default function PedidosView({ sales, onRefund, onConfirmBizum, onPrintInvoice, onDownloadPdf, onSendInvoiceEmail, colors: C }) {
   const [query, setQuery] = useState('');
   const [dateFilter, setDateFilter] = useState('today');
   const [selectedSale, setSelectedSale] = useState(null);
@@ -169,11 +169,25 @@ export default function PedidosView({ sales, onRefund, onConfirmBizum, onPrintIn
                     </button>
                   )}
                   {sale.invoiceCreated ? (
-                    <button onClick={(e) => { e.stopPropagation(); onPrintInvoice?.(sale); }}
-                      style={{ color: C.sageLight, background: C.sage + '20', border: `1px solid ${C.sage}` }}
-                      className="rounded-lg px-2.5 py-2 text-xs font-medium flex items-center gap-1 hover:opacity-80">
-                      <FileText className="w-3.5 h-3.5" /> {sale.invoiceNumber}
-                    </button>
+                    <>
+                      <button onClick={(e) => { e.stopPropagation(); onPrintInvoice?.(sale); }}
+                        style={{ color: C.sageLight, background: C.sage + '20', border: `1px solid ${C.sage}` }}
+                        className="rounded-lg px-2.5 py-2 text-xs font-medium flex items-center gap-1 hover:opacity-80">
+                        <FileText className="w-3.5 h-3.5" /> {sale.invoiceNumber}
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); onDownloadPdf?.(sale); }}
+                        style={{ color: C.brassLight, background: C.brass + '20', border: `1px solid ${C.brass}` }}
+                        className="rounded-lg px-2 py-2 text-xs font-medium hover:opacity-80">
+                        PDF
+                      </button>
+                      {sale.invoiceEmail && (
+                        <button onClick={(e) => { e.stopPropagation(); onSendInvoiceEmail?.(sale); }}
+                          style={{ color: '#6b9bf8', background: '#6b9bf8' + '20', border: '1px solid #6b9bf8' }}
+                          className="rounded-lg px-2 py-2 text-xs font-medium hover:opacity-80">
+                          Email
+                        </button>
+                      )}
+                    </>
                   ) : (
                     <button onClick={(e) => { e.stopPropagation(); onPrintInvoice?.(sale); }}
                       style={{ color: C.brassLight, background: C.brass + '20', border: `1px solid ${C.brass}` }}

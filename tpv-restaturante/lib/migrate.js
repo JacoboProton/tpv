@@ -1404,7 +1404,34 @@ export async function fetchTurns(employeeId, turnDate) {
 }
 
 export async function backupAll() {
-  const [categories, products, tables, orders, sales, employees, accessLogs, stockLog, cancelledOrders, offers, settings, backups, deliveryRunners, deliveryOrders, deliveryTracking, mealMenus, waitlist, clockinLogs, buffetConfig, buffetSessions, buffetRounds, buffetWaste] = await Promise.all([
+  const [
+    categories, products, tables, orders, sales, employees, accessLogs,
+    stockLog, cancelledOrders, offers, settings, backups,
+    deliveryRunners, deliveryOrders, deliveryTracking,
+    mealMenus, mealMenuCourses, mealMenuCourseItems, mealMenuSchedules,
+    waitlist, clockinLogs, clockinCorrections, timeOffRequests,
+    employeeShifts, shiftObjectives,
+    suppliers, supplierCatalog, purchaseOrders, purchaseOrderLines,
+    autoOrderSettings, supplierPriceHistory,
+    buffetConfig, buffetSessions, buffetRounds, buffetWaste,
+    combos, combosSlots, combosSlotItems, combosItems,
+    qrOrders, qrCalls,
+    reservations, reservationRecurring,
+    deliveryZones,
+    produtosRecipes, recipeIngredients, modifierRecipes, modifierRecipeIngredients,
+    productions, productionIngredients,
+    albaranes, albaranLines, productBatches,
+    closures,
+    webhookEvents,
+    verifactuRegistros, paymentLogs, fiskalyConfig,
+    modifierGroups, modifierOptions, productModifiers,
+    productStock, productPriceRules,
+    sessions, employeeTurns,
+    gestoriaSettings, gestoriaDocuments, gestoriaDocumentLines,
+    gestoriaPayrolls, gestoriaTaxModels, gestoriaAuthorization,
+    kdsPairings, kdsAuditLog,
+    tenants,
+  ] = await Promise.all([
     sql`SELECT * FROM categories`,
     sql`SELECT * FROM products`,
     sql`SELECT * FROM tables`,
@@ -1421,6 +1448,9 @@ export async function backupAll() {
     sql`SELECT * FROM delivery_orders`,
     sql`SELECT * FROM delivery_tracking ORDER BY id`,
     sql`SELECT * FROM meal_menus`,
+    sql`SELECT * FROM meal_menu_courses ORDER BY id`,
+    sql`SELECT * FROM meal_menu_course_items ORDER BY id`,
+    sql`SELECT * FROM meal_menu_schedules ORDER BY id`,
     sql`SELECT * FROM waitlist ORDER BY position`,
     sql`SELECT * FROM clockin_logs ORDER BY id`,
     sql`SELECT * FROM clockin_corrections ORDER BY id`,
@@ -1437,11 +1467,90 @@ export async function backupAll() {
     sql`SELECT * FROM buffet_sessions ORDER BY started_at DESC`,
     sql`SELECT * FROM buffet_rounds ORDER BY round_number`,
     sql`SELECT * FROM buffet_waste ORDER BY created_at`,
+    sql`SELECT * FROM combos`,
+    sql`SELECT * FROM combo_slots ORDER BY id`,
+    sql`SELECT * FROM combo_slot_items ORDER BY id`,
+    sql`SELECT * FROM combo_items ORDER BY id`,
+    sql`SELECT * FROM qr_orders ORDER BY id`,
+    sql`SELECT * FROM qr_calls ORDER BY id`,
+    sql`SELECT * FROM reservations ORDER BY created_at DESC`,
+    sql`SELECT * FROM reservation_recurring ORDER BY id`,
+    sql`SELECT * FROM delivery_zones ORDER BY name`,
+    sql`SELECT * FROM recipes ORDER BY id`,
+    sql`SELECT * FROM recipe_ingredients ORDER BY id`,
+    sql`SELECT * FROM modifier_recipes ORDER BY id`,
+    sql`SELECT * FROM modifier_recipe_ingredients ORDER BY id`,
+    sql`SELECT * FROM productions ORDER BY id`,
+    sql`SELECT * FROM production_ingredients ORDER BY id`,
+    sql`SELECT * FROM albaranes ORDER BY id`,
+    sql`SELECT * FROM albaran_lines ORDER BY id`,
+    sql`SELECT * FROM product_batches ORDER BY id`,
+    sql`SELECT * FROM closures ORDER BY id`,
+    sql`SELECT * FROM webhook_events ORDER BY id`,
+    sql`SELECT * FROM verifactu_registros ORDER BY id`,
+    sql`SELECT * FROM payment_logs ORDER BY id`,
+    sql`SELECT * FROM fiskaly_config`,
+    sql`SELECT * FROM modifier_groups ORDER BY id`,
+    sql`SELECT * FROM modifier_options ORDER BY id`,
+    sql`SELECT * FROM product_modifiers ORDER BY id`,
+    sql`SELECT * FROM product_stock ORDER BY id`,
+    sql`SELECT * FROM product_price_rules ORDER BY id`,
+    sql`SELECT * FROM employee_turns ORDER BY id`,
+    sql`SELECT * FROM employees ORDER BY id`,
+    sql`SELECT * FROM sessions`,
+    sql`SELECT * FROM gestoria_settings`,
+    sql`SELECT * FROM gestoria_documents ORDER BY id`,
+    sql`SELECT * FROM gestoria_document_lines ORDER BY id`,
+    sql`SELECT * FROM gestoria_payrolls ORDER BY id`,
+    sql`SELECT * FROM gestoria_tax_models ORDER BY id`,
+    sql`SELECT * FROM gestoria_authorization WHERE id = 1`,
+    sql`SELECT * FROM kds_pairings ORDER BY id`,
+    sql`SELECT * FROM kds_audit_log ORDER BY id`,
+    sql`SELECT * FROM tenants WHERE id = 'default'`,
   ]);
   return {
     exportedAt: new Date().toISOString(),
-    version: '2.2',
-    data: { categories, products, tables, orders, sales, employees, accessLogs, stockLog, cancelledOrders, offers, settings, backups, deliveryRunners, deliveryOrders, deliveryTracking, mealMenus, waitlist, clockinLogs, timeOffRequests: time_off_requests, employeeShifts: employee_shifts, shiftObjectives: shift_objectives, suppliers, supplierCatalog: supplier_catalog, purchaseOrders: purchase_orders, purchaseOrderLines: purchase_order_lines, autoOrderSettings: auto_order_settings, supplierPriceHistory: supplier_price_history, buffetConfig, buffetSessions, buffetRounds, buffetWaste },
-
+    version: '3.0',
+    data: {
+      // Core
+      categories, products, tables, orders, sales, employees, accessLogs,
+      stockLog, cancelledOrders, offers, settings, backups,
+      // Delivery
+      deliveryRunners, deliveryOrders, deliveryTracking,
+      // Menú del día
+      mealMenus, mealMenuCourses, mealMenuCourseItems, mealMenuSchedules,
+      // Waitlist / QR / Reservas
+      waitlist, qrOrders, qrCalls, reservations, reservationRecurring, deliveryZones,
+      // Buffet
+      buffetConfig, buffetSessions, buffetRounds, buffetWaste,
+      // Combos
+      combos, combosSlots, combosSlotItems, combosItems,
+      // Recetas / Producción
+      recipes, recipeIngredients, modifierRecipes, modifierRecipeIngredients,
+      productions, productionIngredients,
+      // Compras / Proveedores
+      suppliers, supplierCatalog, purchaseOrders, purchaseOrderLines,
+      autoOrderSettings, supplierPriceHistory,
+      // Albaranes
+      albaranes, albaranLines, productBatches,
+      // RRHH
+      clockinLogs, clockinCorrections, timeOffRequests,
+      employeeShifts, shiftObjectives, employeeTurns,
+      // Modificadores
+      modifierGroups, modifierOptions, productModifiers,
+      // Productos
+      productStock, productPriceRules,
+      // Facturación electrónica
+      verifactuRegistros, paymentLogs, fiskalyConfig,
+      // Seguridad
+      closures, webhookEvents,
+      // Gestoría
+      gestoriaSettings, gestoriaDocuments, gestoriaDocumentLines,
+      gestoriaPayrolls, gestoriaTaxModels, gestoriaAuthorization,
+      // KDS
+      kdsPairings, kdsAuditLog,
+      // Multi-local
+      tenants,
+    },
   };
 }
