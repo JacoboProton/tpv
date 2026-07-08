@@ -51,10 +51,12 @@ import CartasView           from '../components/CartasView';
 import DeliveryView         from '../components/DeliveryView';
 import CommandPalette       from '../components/CommandPalette';
 import PedidosView          from '../components/PedidosView';
+import FiadosView           from '../components/FiadosView';
 import GestoriaView          from '../components/GestoriaView';
 import KDSView               from '../components/KDSView';
 import PairingPanel           from '../components/PairingPanel';
 import AuditView              from '../components/AuditView';
+import PaymentsView           from '../components/PaymentsView';
 import ReservasView            from '../components/ReservasView';
 import WaitlistView              from '../components/WaitlistView';
 import BuffetKioskView           from '../components/BuffetKioskView';
@@ -1326,8 +1328,13 @@ export default function App() {
     const discountAmount  = round2(round2(subtotal * (orderDiscount / 100)) + offerDiscountAmount);
     const total           = round2(subtotal - discountAmount);
     const totalWithTip   = round2(total + tipAmount);
-    const payments       = paymentSplits.map(s => ({ method: s.method, amount: round2(s.amount) }));
+    const payments       = paymentSplits.map(s => {
+      const p = { method: s.method, amount: round2(s.amount) };
+      if (s.method === 'bizum') p.confirmed = false;
+      return p;
+    });
     const isFiado        = payments.some(p => p.method === 'fiado');
+    const hasPendingBizum = payments.some(p => p.method === 'bizum' && p.confirmed === false);
     const methodLabel    = payments.map(p => ({ efectivo:'Efectivo', tarjeta:'Tarjeta', bizum:'Bizum', fiado:'Fiado' }[p.method] || p.method)).join(' + ');
 
     const wantInvoice = invoiceNif.trim() && invoiceName.trim();
@@ -1345,7 +1352,7 @@ export default function App() {
       invoiceCreatedAt: wantInvoice ? Date.now() : null,
       paymentIntentId: paymentIntentId,
       payments: isFiado ? [{ method: 'fiado', amount: totalWithTip }] : payments,
-      paymentMethod: methodLabel, isFiado, isDebtPayment: wasDebt,
+      paymentMethod: methodLabel, isFiado, hasPendingBizum, isDebtPayment: wasDebt,
       offerDiscount: offerDiscountAmount,
       employeeId: currentUser?.id || null, employeeName: currentUser?.name || 'Sin asignar',
       closedAt: Date.now(),
@@ -1385,7 +1392,12 @@ export default function App() {
     persistSales([...sales, sale]);
 
     // Auto-registrar en Verifactu (fire-and-forget)
-    registerVerifactu(sale.id, sale).catch(err => console.warn('Verifactu:', err));
+    registerVerifactu(sale.id, sale).then(() => {
+      showToast(`✅ Factura electrónica registrada (${sale.invoiceNumber || sale.id})`);
+    }).catch(err => {
+      console.warn('Verifactu:', err);
+      showToast('⚠️ Error al registrar factura electrónica — revisa Gestoría');
+    });
 
     setPaying(false); setPaymentSplits([]); setOrderDiscount(0); setTipAmount(0); setTipMethod('efectivo');
     setPaymentIntentId('');
@@ -1837,42 +1849,57 @@ export default function App() {
   // ---------- Factura ----------
   function printInvoice(sale) {
     if (!sale) return;
-    const { restaurantName, footerText } = ticketSettings;
+    const { restaurantName, companyCif, companyAddress, companyPhone, footerText } = ticketSettings;
+    const totalConIva = sale.total || 0;
+    const baseImponible = round2(totalConIva / 1.07);
+    const cuotaIgic = round2(totalConIva - baseImponible);
     const itemsHtml = (sale.items || []).filter(i => !i.voided).map(i =>
-      `<tr><td style="padding:2px 0">${i.name}</td><td style="text-align:center">${i.qty}</td><td style="text-align:right">${euros(i.price)}</td><td style="text-align:right">${euros((i.price || 0) * (i.qty || 0))}</td></tr>`
+      `<tr><td style="padding:3px 0">${i.name.replace(/</g,'&lt;')}</td><td style="text-align:center;width:40px">${i.qty}</td><td style="text-align:right;width:70px">${euros(i.price)}</td><td style="text-align:right;width:80px">${euros((i.price || 0) * (i.qty || 0))}</td></tr>`
     ).join('');
     const html = `<html><head><meta charset="utf-8"><style>
-      @page { margin:10mm; size: A4; }
-      body { font-family:'Segoe UI',Arial,sans-serif; font-size:12px; color:#222; padding:0; margin:0; }
-      .h { text-align:center; margin-bottom:20px; }
-      .h h1 { margin:0; font-size:22px; }
-      .h p { margin:2px 0; font-size:11px; color:#555; }
-      table { width:100%; border-collapse:collapse; margin:15px 0; }
-      th { border-bottom:2px solid #222; padding:6px 4px; text-align:left; font-size:11px; }
-      td { padding:4px; border-bottom:1px solid #ddd; font-size:11px; }
+      @page { margin:8mm 12mm; size: A4; }
+      body { font-family:'Segoe UI',Arial,sans-serif; font-size:11px; color:#222; margin:0; padding:0; }
+      .header { text-align:center; margin-bottom:18px; border-bottom:2px solid #222; padding-bottom:12px; }
+      .header h1 { margin:0; font-size:20px; letter-spacing:1px; }
+      .header .info { font-size:10px; color:#555; margin-top:4px; }
+      .header .numero { font-size:13px; font-weight:bold; margin-top:4px; }
+      table { width:100%; border-collapse:collapse; margin:12px 0; }
+      th { border-bottom:2px solid #222; padding:5px 4px; text-align:left; font-size:10px; text-transform:uppercase; }
+      td { padding:3px 4px; border-bottom:1px solid #ddd; font-size:11px; }
       .r { text-align:right; }
-      .total td { border-top:2px solid #222; font-weight:bold; font-size:13px; }
-      .f { margin-top:25px; font-size:10px; color:#888; text-align:center; }
-      .meta { font-size:10px; color:#555; margin:10px 0; }
+      .g { border-top:2px solid #222; font-weight:bold; font-size:12px; }
+      .igic-line { font-size:10px; color:#555; }
+      .footer { margin-top:20px; font-size:9px; color:#888; text-align:center; border-top:1px solid #ddd; padding-top:10px; }
+      .client-box { background:#f5f5f5; padding:8px 10px; border-radius:4px; margin:10px 0; font-size:10px; }
+      .client-box p { margin:2px 0; }
     </style></head><body>
-      <div class="h">
+      <div class="header">
         <h1>${restaurantName || 'FACTURA'}</h1>
-        <p><strong>${sale.invoiceNumber || sale.id}</strong></p>
-        <p>${new Date(sale.closedAt).toLocaleDateString('es-ES', { day:'2-digit', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' })}</p>
+        <div class="info">
+          ${companyCif ? `CIF/NIF: ${companyCif}<br>` : ''}
+          ${companyAddress ? `${companyAddress}<br>` : ''}
+          ${companyPhone ? `Tel: ${companyPhone}` : ''}
+        </div>
+        <div class="numero">${sale.invoiceNumber || sale.id}</div>
+        <div class="info">${new Date(sale.closedAt).toLocaleDateString('es-ES', { day:'2-digit', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' })}</div>
       </div>
-      <div class="meta">
+      <div class="client-box">
         <p><strong>Cliente:</strong> ${sale.invoiceName || '—'}</p>
         <p><strong>NIF:</strong> ${sale.invoiceNif || '—'}</p>
         ${sale.invoiceAddress ? `<p><strong>Dirección:</strong> ${sale.invoiceAddress}</p>` : ''}
-        <p><strong>Mesa:</strong> ${sale.tableName}</p>
+        <p><strong>Mesa:</strong> ${sale.tableName} · <strong>Camarero:</strong> ${sale.employeeName || '—'}</p>
       </div>
       <table>
         <tr><th>Artículo</th><th style="text-align:center">Ud.</th><th style="text-align:right">Precio</th><th style="text-align:right">Importe</th></tr>
         ${itemsHtml}
-        <tr class="total"><td colspan="3">TOTAL</td><td class="r">${euros(sale.totalWithTip || sale.total || 0)}</td></tr>
+        <tr><td colspan="3" style="border:none;padding:3px 4px;font-size:10px;color:#555;text-align:right">Base Imponible</td><td class="r igic-line">${euros(baseImponible)}</td></tr>
+        <tr><td colspan="3" style="border:none;padding:1px 4px;font-size:10px;color:#555;text-align:right">IGIC 7%</td><td class="r igic-line">${euros(cuotaIgic)}</td></tr>
+        <tr class="g"><td colspan="3" style="text-align:right;font-size:12px">TOTAL</td><td class="r" style="font-size:13px">${euros(totalConIva)}</td></tr>
       </table>
       ${sale.tip > 0 ? `<p style="font-size:10px;color:#888;text-align:right">Propina (NO fiscal): +${euros(sale.tip)}</p>` : ''}
-      <div class="f">${footerText || 'Gracias por su visita'}</div>
+      ${sale.discount > 0 ? `<p style="font-size:10px;color:#888;text-align:right">Descuento aplicado: ${sale.discount}%</p>` : ''}
+      ${sale.invoiceEmail ? `<p style="font-size:9px;color:#888;margin-top:8px">Enviada a: ${sale.invoiceEmail}</p>` : ''}
+      <div class="footer">${footerText || 'Gracias por su visita'}</div>
     </body></html>`;
     const w = window.open('', '_blank');
     if (w) { w.document.write(html); w.document.close(); w.print(); }
@@ -1885,16 +1912,50 @@ export default function App() {
     const sale = next.find(s => s.id === saleId);
     if (!sale) return;
     if (!sale.refunds) sale.refunds = [];
-    sale.refunds.push(refund);
+    const refundWithEmployee = { ...refund, employeeName: globalUser?.name || '—' };
+    sale.refunds.push(refundWithEmployee);
     setSales(next);
-    // Fire-and-forget persist
-    const refundBody = JSON.stringify({ saleId, refund });
+    // Persist + Stripe refund
+    const refundBody = JSON.stringify({ saleId, refund: refundWithEmployee });
     fetch('/api/sales/refund', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: refundBody,
-    }).catch(() => { enqueueMutation('/api/sales/refund', refundBody); showToast('Sin conexión — la devolución se guardará cuando vuelva la red'); });
-    showToast(`Devolución de ${euros(refund.amount)} registrada`);
+    }).then(async (res) => {
+      if (!res.ok) {
+        const data = await res.json();
+        showToast(`Error en devolución: ${data.error}`);
+      } else {
+        const data = await res.json();
+        if (data.stripeRefundId) {
+          showToast(`Devolución de ${euros(refundWithEmployee.amount)} procesada en Stripe (${data.stripeRefundId})`);
+        } else {
+          showToast(`Devolución de ${euros(refundWithEmployee.amount)} registrada (efectivo/offline)`);
+        }
+      }
+    }).catch(() => {
+      enqueueMutation('/api/sales/refund', refundBody);
+      showToast('Sin conexión — la devolución se guardará cuando vuelva la red');
+    });
+  }
+
+  // ---------- Bizum ----------
+  function handleConfirmBizum(saleId) {
+    const next = clone(sales);
+    const sale = next.find(s => s.id === saleId);
+    if (!sale) return;
+    const confirmed = (sale.payments || []).map(p =>
+      p.method === 'bizum' ? { ...p, confirmed: true } : p
+    );
+    sale.payments = confirmed;
+    delete sale.hasPendingBizum;
+    setSales(next);
+    fetch('/api/sales', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ saleId, payments: confirmed }),
+    }).catch(() => enqueueMutation('/api/sales', JSON.stringify({ saleId, payments: confirmed })));
+    showToast('Bizum confirmado');
   }
 
   // ---------- Pantallas de carga / error ----------
@@ -1969,6 +2030,7 @@ export default function App() {
       adminOnly: true,
       items: [
         { id: 'pedidos',    label: 'Pedidos',    icon: Undo2 },
+        { id: 'fiados',     label: 'Fiados',     icon: Clock },
         { id: 'reservas',   label: 'Reservas',   icon: Calendar },
         { id: 'waitlist',   label: 'Lista Espera', icon: Users },
       ],
@@ -2002,6 +2064,7 @@ export default function App() {
       adminOnly: true,
       items: [
         { id: 'gestoria',   label: 'Gestoria',   icon: FileText },
+        { id: 'pagos',      label: 'Pagos',      icon: CreditCard },
         { id: 'audit',      label: 'Auditoria',  icon: ClipboardList },
         { id: 'turnos',     label: 'Turnos',     icon: Calendar },
         { id: 'registro-horario', label: 'Reg. Horario', icon: Clock },
@@ -2250,7 +2313,8 @@ export default function App() {
             />
           )}
           {view === 'reparto'    && <DeliveryView catalog={catalog} colors={C} />}
-          {view === 'pedidos'    && <PedidosView sales={sales} onRefund={handleRefund} onPrintInvoice={(sale) => { printInvoice(sale); }} colors={C} />}
+          {view === 'pedidos'    && <PedidosView sales={sales} onRefund={handleRefund} onConfirmBizum={handleConfirmBizum} onPrintInvoice={(sale) => { printInvoice(sale); }} colors={C} />}
+          {view === 'fiados'     && <FiadosView sales={sales} floor={floor} onNavigateToTable={(tableId) => { setSelectedTableId(tableId); setView('salon'); }} colors={C} />}
           {view === 'empleados'  && <EmpleadosView employees={employees} colors={C} onAdd={addEmployee} onUpdateField={updateEmployeeField} onDelete={deleteEmployee} confirmDeleteId={confirmDeleteId} setConfirmDeleteId={setConfirmDeleteId} />}
           {view === 'gestoria'   && <GestoriaView sales={sales} colors={C} />}
           {view === 'pairing'    && <PairingPanel colors={C} />}
@@ -2266,6 +2330,7 @@ export default function App() {
             <BuffetKioskView floor={floor} currentUser={currentUser} onToast={showToast} />
           )}
           {view === 'tickets'   && <TicketsView sales={sales} colors={C} ticketSettings={ticketSettings} />}
+          {view === 'pagos'     && <PaymentsView colors={C} />}
         </div>
       </main>
 

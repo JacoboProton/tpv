@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { rateLimit } from '../../../../lib/rate-limit';
+import { logPayment } from '../../../../lib/payment-logger';
 
 function getStripe() {
   if (!process.env.STRIPE_SECRET_KEY) return null;
@@ -51,13 +52,31 @@ export async function POST(req) {
         employeeName: employeeName ?? '',
         source:       'la-comanda-tpv-nfc',
         env:          process.env.VERCEL_ENV || 'development',
+        max_amount:   String(MAX_PAYMENT_AMOUNT),
       },
       description: `${tableName ?? 'Mesa'} — La Comanda (NFC)`,
     }, { idempotencyKey: key });
 
+    logPayment({
+      paymentIntentId: paymentIntent.id,
+      operation: 'terminal_payment_intent.create',
+      amountCents: amount,
+      tableId, tableName, employeeName,
+      source: 'la-comanda-tpv-nfc',
+      stripeResponse: { id: paymentIntent.id, status: paymentIntent.status },
+    });
+
     return NextResponse.json({ clientSecret: paymentIntent.client_secret });
   } catch (err) {
     console.error('Terminal PaymentIntent error:', err);
+    logPayment({
+      paymentIntentId: null,
+      operation: 'terminal_payment_intent.create',
+      amountCents: 0,
+      status: 'error',
+      error: err.message,
+      source: 'la-comanda-tpv-nfc',
+    });
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

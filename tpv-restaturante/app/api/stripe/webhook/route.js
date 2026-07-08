@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { sql } from '../../../../lib/db';
+import { logPayment } from '../../../../lib/payment-logger';
 
 function getStripe() {
   if (!process.env.STRIPE_SECRET_KEY) return null;
@@ -82,6 +83,73 @@ async function handlePaymentIntentFailed(failed) {
   console.error(`[Stripe Webhook] payment_intent.payment_failed: ${failed.id} — ${failed.last_payment_error?.message}`);
 }
 
+async function handleChargeDisputeCreated(dispute) {
+  const piId = dispute.payment_intent?.id || dispute.charge?.payment_intent;
+  const amount = dispute.amount;
+  console.error(`[Stripe Webhook] ⚠️ CHARGEBACK CREADO: dispute=${dispute.id} pi=${piId} amount=${(amount / 100).toFixed(2)}€ reason=${dispute.reason}`);
+
+  if (piId) {
+    await sql`
+      UPDATE sales SET
+        dispute_status = 'disputed',
+        dispute_data = ${JSON.stringify({
+          id: dispute.id,
+          reason: dispute.reason,
+          status: dispute.status,
+          amount,
+          currency: dispute.currency,
+          evidence_due_by: dispute.evidence_details?.due_by,
+          created: Date.now(),
+        })}
+      WHERE payment_intent_id = ${piId}
+    `;
+  }
+
+  logPayment({
+    eventId: dispute.id,
+    paymentIntentId: piId,
+    operation: 'chargeback.dispute_created',
+    amountCents: amount,
+    status: 'warning',
+    error: `Chargeback: ${dispute.reason}`,
+    source: 'webhook',
+    stripeResponse: { id: dispute.id, reason: dispute.reason, status: dispute.status },
+  });
+}
+
+async function handleChargeDisputeClosed(dispute) {
+  const piId = dispute.payment_intent?.id || dispute.charge?.payment_intent;
+  const closedStatus = dispute.status;
+  console.error(`[Stripe Webhook] ⚠️ CHARGEBACK ${closedStatus === 'won' ? 'GANADO' : 'PERDIDO'}: dispute=${dispute.id} pi=${piId} status=${closedStatus}`);
+
+  if (piId) {
+    await sql`
+      UPDATE sales SET
+        dispute_status = CASE WHEN ${closedStatus} = 'won' THEN 'dispute_won' ELSE 'dispute_lost' END,
+        dispute_data = ${JSON.stringify({
+          id: dispute.id,
+          reason: dispute.reason,
+          status: closedStatus,
+          amount: dispute.amount,
+          currency: dispute.currency,
+          closed: Date.now(),
+        })}
+      WHERE payment_intent_id = ${piId}
+    `;
+  }
+
+  logPayment({
+    eventId: dispute.id,
+    paymentIntentId: piId,
+    operation: `chargeback.dispute_${closedStatus}`,
+    amountCents: dispute.amount,
+    status: closedStatus === 'won' ? 'ok' : 'error',
+    error: closedStatus !== 'won' ? `Chargeback perdido: ${dispute.reason}` : undefined,
+    source: 'webhook',
+    stripeResponse: { id: dispute.id, reason: dispute.reason, status: closedStatus },
+  });
+}
+
 export async function POST(req) {
   try {
     if (!webhookSecret) {
@@ -123,14 +191,45 @@ export async function POST(req) {
         case 'payment_intent.payment_failed':
           await handlePaymentIntentFailed(event.data.object);
           break;
+        case 'charge.dispute.created':
+          await handleChargeDisputeCreated(event.data.object);
+          break;
+        case 'charge.dispute.updated':
+          await handleChargeDisputeCreated(event.data.object);
+          break;
+        case 'charge.dispute.closed':
+          await handleChargeDisputeClosed(event.data.object);
+          break;
         default:
           console.log(`[Stripe Webhook] Evento ignorado: ${event.type}`);
       }
 
       await markProcessed(event.id);
+
+      const pi = event.data.object;
+      logPayment({
+        eventId: event.id,
+        paymentIntentId: pi?.id,
+        operation: `webhook.${event.type}`,
+        amountCents: pi?.amount ?? 0,
+        tableId: pi?.metadata?.tableId,
+        tableName: pi?.metadata?.tableName,
+        source: pi?.metadata?.source || 'webhook',
+        status: 'ok',
+      });
+
       return NextResponse.json({ received: true });
     } catch (err) {
       await markFailed(event.id, event.data.object, err.message);
+      logPayment({
+        eventId: event.id,
+        paymentIntentId: event.data.object?.id,
+        operation: `webhook.${event.type}`,
+        amountCents: event.data.object?.amount ?? 0,
+        status: 'error',
+        error: err.message,
+        source: 'webhook',
+      });
       throw err;
     }
   } catch (err) {

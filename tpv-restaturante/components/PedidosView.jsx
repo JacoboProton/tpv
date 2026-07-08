@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Search, X, Undo2, Euro, ChevronDown, Check, FileText } from 'lucide-react';
 import { euros, round2, clone } from './constants';
 
-export default function PedidosView({ sales, onRefund, onPrintInvoice, colors: C }) {
+export default function PedidosView({ sales, onRefund, onConfirmBizum, onPrintInvoice, colors: C }) {
   const [query, setQuery] = useState('');
   const [dateFilter, setDateFilter] = useState('today');
   const [selectedSale, setSelectedSale] = useState(null);
@@ -135,6 +135,20 @@ export default function PedidosView({ sales, onRefund, onPrintInvoice, colors: C
                         🧾 {sale.invoiceNumber}
                       </span>
                     )}
+                    {sale.hasPendingBizum && (
+                      <span style={{ color: '#fbbf24' }} className="text-[10px] font-medium bg-yellow-900/30 px-1.5 py-0.5 rounded">
+                        ⏳ Bizum pendiente
+                      </span>
+                    )}
+                    {sale.verifactuStatus && sale.verifactuStatus !== 'registrado' && (
+                      <span style={{
+                        color: sale.verifactuStatus === 'pendiente' ? C.muted : C.wineLight,
+                        background: (sale.verifactuStatus === 'pendiente' ? C.muted : C.wineLight) + '20',
+                      }} className="text-[10px] font-medium px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                        <span>{sale.verifactuStatus === 'simulado' ? '🔶' : '⚪'}</span>
+                        Verifactu: {sale.verifactuStatus}
+                      </span>
+                    )}
                   </div>
                   <p style={{ color: C.muted }} className="text-xs truncate mt-0.5">
                     {sale.items?.filter(i => !i.voided).slice(0, 4).map(i => i.name).join(', ')}
@@ -146,9 +160,16 @@ export default function PedidosView({ sales, onRefund, onPrintInvoice, colors: C
                     <span style={{ color: C.muted }} className="text-[10px]">{sale.employeeName}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5">
+                  {sale.hasPendingBizum && (
+                    <button onClick={(e) => { e.stopPropagation(); onConfirmBizum(sale.id); }}
+                      style={{ color: '#fbbf24', background: '#fbbf24' + '20', border: '1px solid #fbbf24' }}
+                      className="rounded-lg px-2.5 py-2 text-xs font-medium flex items-center gap-1 hover:opacity-80">
+                      ✅ Confirmar Bizum
+                    </button>
+                  )}
                   {sale.invoiceCreated ? (
-                    <button onClick={() => window.open('', '_blank') /* handled by onPrintInvoice prop */}
+                    <button onClick={(e) => { e.stopPropagation(); onPrintInvoice?.(sale); }}
                       style={{ color: C.sageLight, background: C.sage + '20', border: `1px solid ${C.sage}` }}
                       className="rounded-lg px-2.5 py-2 text-xs font-medium flex items-center gap-1 hover:opacity-80">
                       <FileText className="w-3.5 h-3.5" /> {sale.invoiceNumber}

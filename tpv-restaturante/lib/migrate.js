@@ -190,6 +190,8 @@ export async function runMigrations() {
   // a partir de closed_at da un valor distinto (la firma ocurre después del cierre).
   await sql`ALTER TABLE verifactu_registros ADD COLUMN IF NOT EXISTS fecha_hora_firma TEXT`;
 
+  await sql`ALTER TABLE verifactu_registros ADD COLUMN IF NOT EXISTS payment_intent_id TEXT`;
+
   // Backfill registros viejos sin fecha_hora_firma
   const sinFirma = await sql`
     SELECT id, fecha_expedicion, created_at FROM verifactu_registros WHERE fecha_hora_firma IS NULL
@@ -201,6 +203,25 @@ export async function runMigrations() {
   if (sinFirma.length > 0) {
     console.log(`Backfilled fecha_hora_firma for ${sinFirma.length} records`);
   }
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS payment_logs (
+      id SERIAL PRIMARY KEY,
+      event_id TEXT,
+      payment_intent_id TEXT,
+      operation TEXT NOT NULL,
+      amount_cents INTEGER NOT NULL DEFAULT 0,
+      currency TEXT NOT NULL DEFAULT 'eur',
+      status TEXT NOT NULL DEFAULT 'ok',
+      table_id TEXT,
+      table_name TEXT,
+      employee_name TEXT,
+      source TEXT,
+      error TEXT,
+      stripe_response TEXT,
+      created_at BIGINT NOT NULL
+    )
+  `;
 
   await sql`
     CREATE TABLE IF NOT EXISTS fiskaly_config (
@@ -403,6 +424,8 @@ export async function runMigrations() {
   await sql`ALTER TABLE sales ADD COLUMN IF NOT EXISTS invoice_created_at BIGINT`;
   await sql`ALTER TABLE sales ADD COLUMN IF NOT EXISTS payment_intent_id TEXT DEFAULT ''`;
   await sql`ALTER TABLE sales ADD COLUMN IF NOT EXISTS stripe_confirmed BOOLEAN DEFAULT false`;
+  await sql`ALTER TABLE sales ADD COLUMN IF NOT EXISTS dispute_status TEXT DEFAULT ''`;
+  await sql`ALTER TABLE sales ADD COLUMN IF NOT EXISTS dispute_data JSONB DEFAULT '{}'`;
 
   // ===== MENÚ DEL DÍA =====
   await sql`

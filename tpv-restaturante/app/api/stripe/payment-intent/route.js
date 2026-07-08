@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { rateLimit } from '../../../../lib/rate-limit';
+import { logPayment } from '../../../../lib/payment-logger';
 
 function getStripe() {
   if (!process.env.STRIPE_SECRET_KEY) return null;
@@ -55,13 +56,31 @@ export async function POST(req) {
         employeeName: employeeName ?? '',
         source:       'la-comanda-tpv',
         env:          process.env.VERCEL_ENV || 'development',
+        max_amount:   String(MAX_PAYMENT_AMOUNT),
       },
       description: `${tableName ?? 'Mesa'} — La Comanda`,
     }, { idempotencyKey: key });
 
+    logPayment({
+      paymentIntentId: paymentIntent.id,
+      operation: 'payment_intent.create',
+      amountCents,
+      tableId, tableName, employeeName,
+      source: 'la-comanda-tpv',
+      stripeResponse: { id: paymentIntent.id, status: paymentIntent.status },
+    });
+
     return NextResponse.json({ clientSecret: paymentIntent.client_secret });
   } catch (err) {
     console.error('Stripe PaymentIntent error:', err);
+    logPayment({
+      paymentIntentId: null,
+      operation: 'payment_intent.create',
+      amountCents: 0,
+      status: 'error',
+      error: err.message,
+      source: 'la-comanda-tpv',
+    });
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

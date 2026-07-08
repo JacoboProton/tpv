@@ -111,7 +111,10 @@ function ExtractoTab({ sales, colors: C }) {
       const byMethod = {};
       monthSales.forEach(s => {
         const payments = s.payments?.length ? s.payments : [{ method: s.paymentMethod, amount: s.total }];
-        payments.forEach(p => { byMethod[p.method] = (byMethod[p.method] || 0) + p.amount; });
+        payments.forEach(p => {
+          if (p.method === 'bizum' && p.confirmed === false) return;
+          byMethod[p.method] = (byMethod[p.method] || 0) + p.amount;
+        });
       });
       return { month: MONTHS[i], total, count, byMethod, sales: monthSales };
     });
@@ -343,6 +346,24 @@ function ResumenTab({ sales, colors: C }) {
             );
           })}
         </div>
+      </div>
+
+      <div style={{ background: C.surface, border: `1px solid ${C.line}` }} className="rounded-xl p-4 mb-6">
+        <p style={{ color: C.muted }} className="text-xs uppercase tracking-wide mb-3">Deudas pendientes (fiado)</p>
+        {(() => {
+          const fiadoSales = sales.filter(s => s.isFiado && !s.isDebtPayment);
+          const paidTableIds = new Set(sales.filter(s => s.isDebtPayment).map(s => s.tableId));
+          const pending = fiadoSales.filter(s => !paidTableIds.has(s.tableId));
+          const totalPending = pending.reduce((s, x) => s + (x.totalWithTip || 0), 0);
+          return pending.length === 0 ? (
+            <p style={{ color: C.muted }} className="text-sm text-center py-3">No hay deudas pendientes</p>
+          ) : (
+            <div className="flex items-center justify-between">
+              <span style={{ color: C.cream }} className="text-sm">{pending.length} mesa{pending.length !== 1 ? 's' : ''} con fiado pendiente</span>
+              <span className="font-mono font-bold text-lg" style={{ color: C.wineLight }}>{euros(totalPending)}</span>
+            </div>
+          );
+        })()}
       </div>
 
       <div style={{ background: C.surface, border: `1px solid ${C.line}` }} className="rounded-xl p-4 mb-6">

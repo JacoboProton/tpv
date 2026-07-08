@@ -96,12 +96,13 @@ export async function POST(req) {
           INSERT INTO verifactu_registros
             (sale_id, num_serie, fecha_expedicion, importe_total, base_imponible,
              cuota_iva, huella_anterior, huella, xml_registro, qr_url, estado, created_at,
-             fiskaly_invoice_id, verification_url, fecha_hora_firma)
+             fiskaly_invoice_id, verification_url, fecha_hora_firma, payment_intent_id)
           VALUES (
             ${sale.id}, ${numSerie}, ${fechaExpedicion},
             ${importeTotal}, ${baseImponible}, ${cuotaIva},
             ${previousHash}, ${hash}, ${xml}, ${qrUrl || ''}, ${estado}, ${now},
-            ${fiskalyInvoiceId}, ${verificationUrl}, ${fechaHoraFirma}
+            ${fiskalyInvoiceId}, ${verificationUrl}, ${fechaHoraFirma},
+            ${sale.payment_intent_id ?? ''}
           )
           RETURNING *
         `;

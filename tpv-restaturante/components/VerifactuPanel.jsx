@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { ShieldCheck, RefreshCw, QrCode, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { ShieldCheck, RefreshCw, QrCode, CheckCircle2, XCircle, AlertCircle, RotateCcw } from 'lucide-react';
 import { fetchVerifactuRegistros, verifyVerifactuChain, registerVerifactu } from '../lib/api';
 
 /**
@@ -19,6 +19,7 @@ export default function VerifactuPanel({ colors: C, sales = [] }) {
   const [qrVisible, setQrVisible]       = useState(null);
   const [manualSaleId, setManualSaleId] = useState('');
   const [registering, setRegistering]   = useState(false);
+  const [retrying, setRetrying]         = useState(false);
   const [toast, setToast]               = useState(null);
 
   function showToast(msg) {
@@ -78,6 +79,21 @@ export default function VerifactuPanel({ colors: C, sales = [] }) {
       showToast('Error al registrar: ' + err.message);
     } finally {
       setRegistering(false);
+    }
+  }
+
+  // ---------- Reintentar simulados ----------
+  async function handleRetrySimulados() {
+    setRetrying(true);
+    try {
+      const res = await fetch('/api/verifactu/retry', { method: 'POST' });
+      const data = await res.json();
+      showToast(data.message || `Reintentados ${data.retried} registros`);
+      await loadRegistros();
+    } catch (err) {
+      showToast('Error al reintentar: ' + err.message);
+    } finally {
+      setRetrying(false);
     }
   }
 
@@ -155,6 +171,16 @@ export default function VerifactuPanel({ colors: C, sales = [] }) {
             <ShieldCheck className="w-4 h-4" />
           )}
           Verificar cadena
+        </button>
+
+        <button
+          onClick={handleRetrySimulados}
+          disabled={retrying}
+          style={{ background: C.surfaceLight, color: C.brassLight, border: `1px solid ${C.brass}` }}
+          className="text-sm font-medium px-3 py-2 rounded-lg flex items-center gap-2 disabled:opacity-40"
+        >
+          <RotateCcw className={`w-4 h-4 ${retrying ? 'animate-spin' : ''}`} />
+          Reintentar simulados
         </button>
 
         {/* Registro manual */}
