@@ -20,7 +20,7 @@ import {
   saveTurn,
   fetchModifiers,
 } from '../lib/api';
-import { onNetworkChange, clearMutations, getMutations, cacheGet, cacheSet } from '../lib/offline';
+import { onNetworkChange, enqueueMutation, getMutations, cacheGet, cacheSet } from '../lib/offline';
 import { connectRealtime, broadcastFloorUpdate, broadcastReadyNotification, disconnectRealtime } from '../lib/realtime';
 import { sessionLogin, sessionLogout, startKeepalive } from '../lib/session';
 import { escposOpenDrawer, printESCPOS, isPrinterConnected } from '../lib/thermal-printer';
@@ -359,18 +359,24 @@ export default function App() {
   const processMutations = useCallback(async () => {
     const q = getMutations();
     if (q.length === 0) return;
+    const now = Date.now();
+    const MAX_AGE = 24 * 60 * 60 * 1000;
+    const remaining = [];
     for (const m of q) {
+      if (now - m.createdAt > MAX_AGE) continue;
       try {
         const h = { 'Content-Type': 'application/json' };
         const apiKey = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_TPV_API_KEY
           ? process.env.NEXT_PUBLIC_TPV_API_KEY
           : (typeof window !== 'undefined' && window.__TPV_API_KEY) || '';
         if (apiKey) h['x-tpv-key'] = apiKey;
-        await fetch(m.key, { method: 'PUT', headers: h, body: m.payload });
+        const res = await fetch(m.key, { method: m.method || 'PUT', headers: h, body: m.payload });
+        if (res.ok) continue;
       } catch {}
+      remaining.push(m);
     }
-    clearMutations();
-    setPendingMutations(0);
+    localStorage.setItem('tpv:mutations', JSON.stringify(remaining));
+    setPendingMutations(remaining.length);
   }, []);
 
   useEffect(() => {
@@ -403,13 +409,19 @@ export default function App() {
   async function persistCatalog(next) {
     setCatalog(next);
     try { await saveCatalog(next); }
-    catch { showToast('No se ha podido guardar el catalogo'); }
+    catch {
+      enqueueMutation('/api/catalog', JSON.stringify(next));
+      showToast('Sin conexión — el catálogo se guardará cuando vuelva la red');
+    }
   }
   async function persistFloor(next) {
     setFloor(next);
     if (trainingMode) return;
     try { await saveFloor(next); broadcastFloorUpdate(next); }
-    catch { showToast('No se ha podido guardar la sala'); }
+    catch {
+      enqueueMutation('/api/floor', JSON.stringify(next));
+      showToast('Sin conexión — la sala se guardará cuando vuelva la red');
+    }
   }
   const salesQueue = useRef([]);
   const salesProcessing = useRef(false);
@@ -461,7 +473,10 @@ export default function App() {
   async function persistEmployees(next) {
     setEmployees(next);
     try { await saveEmployees(next); }
-    catch { showToast('No se ha podido guardar el equipo'); }
+    catch {
+      enqueueMutation('/api/employees', JSON.stringify(next));
+      showToast('Sin conexión — el equipo se guardará cuando vuelva la red');
+    }
   }
 
   // ---------- Stock bajo ----------
@@ -580,7 +595,7 @@ export default function App() {
     const f = debtFloorRef.current;
     debtFloorRef.current = null;
     setFloor(f);
-    saveFloor(f).catch(() => showToast('No se ha podido guardar la deuda'));
+    saveFloor(f).catch(() => { enqueueMutation('/api/floor', JSON.stringify(f)); showToast('Sin conexión — la deuda se guardará cuando vuelva la red'); });
   }, []);
 
   const orderTotal = selectedOrder ? selectedOrder.items.reduce((s, i) => {
@@ -701,7 +716,7 @@ export default function App() {
     const p = next.products.find(x => x.id === productId);
     if (p) p.agotado = agotado;
     setCatalog(next);
-    try { await saveCatalog(next); } catch { showToast('No se pudo actualizar el stock'); }
+    try { await saveCatalog(next); } catch { enqueueMutation('/api/catalog', JSON.stringify(next)); showToast('Sin conexión — el stock se actualizará cuando vuelva la red'); }
     logKDSAuditFn('item_86', { productName: p?.name, productId, agotado });
   }
 
@@ -1873,11 +1888,12 @@ export default function App() {
     sale.refunds.push(refund);
     setSales(next);
     // Fire-and-forget persist
+    const refundBody = JSON.stringify({ saleId, refund });
     fetch('/api/sales/refund', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ saleId, refund }),
-    }).catch(() => showToast('No se pudo guardar la devolución'));
+      body: refundBody,
+    }).catch(() => { enqueueMutation('/api/sales/refund', refundBody); showToast('Sin conexión — la devolución se guardará cuando vuelva la red'); });
     showToast(`Devolución de ${euros(refund.amount)} registrada`);
   }
 
@@ -2186,21 +2202,21 @@ export default function App() {
           {view === 'ofertas'   && (
             <OfertasPanel
               offers={offers} catalog={catalog}
-              onSave={async (next) => { setOffers(next); await saveOffers(next).catch(() => showToast('No se pudieron guardar las ofertas')); }}
+              onSave={async (next) => { setOffers(next); try { await saveOffers(next); } catch { enqueueMutation('/api/offers', JSON.stringify(next)); showToast('Sin conexión — las ofertas se guardarán cuando vuelva la red'); } }}
               colors={C}
             />
           )}
           {view === 'combos' && (
             <CombosPanel
               combos={combos} catalog={catalog}
-              onSave={async (next) => { setCombos(next); await saveCombos(next).catch(() => showToast('No se pudieron guardar los combos')); }}
+              onSave={async (next) => { setCombos(next); try { await saveCombos(next); } catch { enqueueMutation('/api/combos', JSON.stringify(next)); showToast('Sin conexión — los combos se guardarán cuando vuelva la red'); } }}
               colors={C}
             />
           )}
           {view === 'menus' && (
             <MenusDelDiaPanel
               mealMenus={catalog?.mealMenus || []} catalog={catalog}
-              onSave={async (next) => { await saveMealMenus(next).catch(() => showToast('No se pudieron guardar los menús')); setCatalog(prev => ({ ...prev, mealMenus: next })); }}
+              onSave={async (next) => { try { await saveMealMenus(next); } catch { enqueueMutation('/api/meal-menus', JSON.stringify(next)); showToast('Sin conexión — los menús se guardarán cuando vuelva la red'); } setCatalog(prev => ({ ...prev, mealMenus: next })); }}
               colors={C}
             />
           )}
@@ -2208,11 +2224,14 @@ export default function App() {
             <CarruselPanel
               catalog={catalog}
               onSave={async (data) => {
-                await fetch('/api/catalog', {
-                  method: 'PATCH',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ action: 'reorder-carousel', data }),
-                }).catch(() => showToast('No se pudo guardar el carrusel'));
+                const payload = JSON.stringify({ action: 'reorder-carousel', data });
+                try {
+                  await fetch('/api/catalog', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: payload,
+                  });
+                } catch { enqueueMutation('/api/catalog', payload, 'PATCH'); showToast('Sin conexión — el carrusel se guardará cuando vuelva la red'); }
                 const updated = await fetch('/api/catalog').then(r => r.json());
                 setCatalog(updated);
               }}
@@ -2224,7 +2243,7 @@ export default function App() {
               catalog={catalog}
               priceRules={catalog?.priceRules || []}
               onSaveRules={async (rules) => {
-                await savePriceRules(rules).catch(() => showToast('No se pudieron guardar las reglas'));
+                try { await savePriceRules(rules); } catch { enqueueMutation('/api/price-rules', JSON.stringify(rules)); showToast('Sin conexión — las reglas se guardarán cuando vuelva la red'); }
                 setCatalog(prev => ({ ...prev, priceRules: rules }));
               }}
               colors={C}
@@ -2505,8 +2524,8 @@ export default function App() {
             </div>
             <div className="flex gap-2 mt-4">
               <button
-                onClick={() => {
-                  saveSettings(ticketSettings).catch(() => showToast('No se pudo guardar la configuración'));
+                onClick={async () => {
+                  try { await saveSettings(ticketSettings); } catch { enqueueMutation('/api/settings', JSON.stringify(ticketSettings)); showToast('Sin conexión — la configuración se guardará cuando vuelva la red'); }
                   setShowSettings(false);
                 }}
                 style={{ background: C.sage, color: '#fff' }}

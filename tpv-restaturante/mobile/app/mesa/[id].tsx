@@ -11,6 +11,7 @@ import { globalFloor, setGlobalFloor, globalUser } from '../_layout';
 import { StripeProvider, useStripe } from '@stripe/stripe-react-native';
 import { useStripeTerminal } from '@stripe/stripe-terminal-react-native';
 import { C } from '../../lib/theme';
+import { classifyError } from '../../lib/errors';
 import type { Floor, Table, Order, OrderItem, Product, Category } from '../../lib/types';
 
 function generateId() {
@@ -63,6 +64,24 @@ function PaymentButton({ floor, tableId, persistFloor, disabled }: {
       }
       const f = JSON.parse(JSON.stringify(floor)) as Floor;
       const table = f.tables.find(t => t.id === tableId);
+      // Guardar venta ANTES de borrar los pedidos
+      const saleId = generateId();
+      const allOrderItems = Object.values(f.orders)
+        .filter(o => o.tableId === tableId)
+        .flatMap(o => o.items.map(i => ({ id: i.id, productId: i.productId, name: i.name, qty: i.qty, price: i.price })));
+      try {
+        await addSale({
+          id: saleId, tableId, tableName: table?.name || tableId,
+          items: allOrderItems, subtotal: total, discount: 0, discountAmount: 0,
+          total, tip: 0, totalWithTip: total,
+          payments: [{ method: 'card', amount: total }],
+          paymentMethod: 'Tarjeta', isFiado: false, isDebtPayment: false,
+          employeeId: null, employeeName: globalUser?.name || 'Camarero',
+          closedAt: Date.now(),
+        });
+      } catch (e) {
+        console.warn('Error al guardar venta tarjeta:', e);
+      }
       if (table) { table.status = 'libre'; table.orderIds = []; table.orderId = null; }
       for (const oid of Object.keys(f.orders)) {
         if (f.orders[oid].tableId === tableId) delete f.orders[oid];
@@ -71,8 +90,9 @@ function PaymentButton({ floor, tableId, persistFloor, disabled }: {
       await persistFloor(f);
       Alert.alert('✅ Pagado', `Total: ${total.toFixed(2)}€`);
       router.back();
-    } catch (e: any) {
-      Alert.alert('Error', e.message);
+    } catch (e: unknown) {
+      const { title, message } = classifyError(e);
+      Alert.alert(title, message);
     } finally {
       setLoading(false);
     }
@@ -166,15 +186,15 @@ function NfcPaymentButton({ floor, tableId, persistFloor, disabled }: {
 
       const f = JSON.parse(JSON.stringify(floor)) as Floor;
       const table = f.tables.find(t => t.id === tableId);
-      if (table) { table.status = 'libre'; table.orderIds = []; table.orderId = null; }
-      for (const oid of Object.keys(f.orders)) {
-        if (f.orders[oid].tableId === tableId) delete f.orders[oid];
-      }
-
+      // Guardar venta ANTES de borrar los pedidos
       const saleId = generateId();
       const allOrderItems = Object.values(f.orders)
         .filter(o => o.tableId === tableId)
         .flatMap(o => o.items.map(i => ({ id: i.id, productId: i.productId, name: i.name, qty: i.qty, price: i.price })));
+      if (table) { table.status = 'libre'; table.orderIds = []; table.orderId = null; }
+      for (const oid of Object.keys(f.orders)) {
+        if (f.orders[oid].tableId === tableId) delete f.orders[oid];
+      }
 
       try {
         await addSale({
@@ -194,8 +214,9 @@ function NfcPaymentButton({ floor, tableId, persistFloor, disabled }: {
       await persistFloor(f);
       Alert.alert('✅ Pagado con NFC', `Total: ${total.toFixed(2)}€`);
       router.back();
-    } catch (e: any) {
-      Alert.alert('Error', e.message);
+    } catch (e: unknown) {
+      const { title, message } = classifyError(e);
+      Alert.alert(title, message);
     } finally {
       setLoading(false);
       setStep('');
@@ -242,8 +263,9 @@ export default function MesaScreen() {
       setFloor(f);
       setGlobalFloor(f);
       setCatalog(cat);
-    } catch (e) {
-      Alert.alert('Error', 'No se pudieron cargar los datos');
+    } catch (e: unknown) {
+      const { title, message } = classifyError(e);
+      Alert.alert(title, message || 'No se pudieron cargar los datos');
     }
   }
 

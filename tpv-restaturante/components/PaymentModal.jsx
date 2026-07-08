@@ -29,6 +29,8 @@ export default function PaymentModal({
   const [showInvoice, setShowInvoice] = useState(false);
   const [stripeOpen, setStripeOpen] = useState(false);
   const isCardOnly = paymentSplits.length === 1 && paymentSplits[0].method === 'tarjeta';
+  const hasCardSplit = paymentSplits.some(s => s.method === 'tarjeta');
+  const cardAmount = paymentSplits.filter(s => s.method === 'tarjeta').reduce((s, sp) => s + round2(sp.amount), 0);
 
   const assignedItemIds = new Set(
     paymentSplits.filter(s => s.method !== 'fiado').flatMap(s => s.itemIds || [])
@@ -262,12 +264,12 @@ export default function PaymentModal({
           </button>
 
           {/* Botón confirmar */}
-          <button onClick={() => { if (isCardOnly) { setStripeOpen(true); } else { onConfirm(); } }}
+          <button onClick={() => { if (hasCardSplit) { setStripeOpen(true); } else { onConfirm(); } }}
             disabled={!canConfirm}
             style={{ background: canConfirm ? C.sage : C.surfaceLight, color: canConfirm ? '#fff' : C.muted }}
             className="w-full rounded-lg py-3.5 text-sm font-semibold disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:opacity-90 transition-all">
-            {isCardOnly
-              ? <><CreditCard className="w-4.5 h-4.5" /> Pagar con Stripe</>
+            {hasCardSplit
+              ? <><CreditCard className="w-4.5 h-4.5" /> Pagar {euros(cardAmount)} con Stripe</>
               : <><CheckCircle2 className="w-4.5 h-4.5" /> Confirmar cobro</>}
           </button>
 
@@ -281,6 +283,7 @@ export default function PaymentModal({
 
       {stripeOpen && (
         <StripeModal
+          amount={cardAmount}
           finalTotal={finalTotal}
           selectedTable={selectedTable}
           currentUser={currentUser}

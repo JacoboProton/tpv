@@ -35,9 +35,9 @@ export function getMutations() {
   } catch { return []; }
 }
 
-export function enqueueMutation(key, payload) {
+export function enqueueMutation(key, payload, method = 'PUT') {
   const q = getMutations();
-  q.push({ key, payload, createdAt: Date.now() });
+  q.push({ key, payload, method, createdAt: Date.now() });
   localStorage.setItem(QUEUE_KEY, JSON.stringify(q));
 }
 

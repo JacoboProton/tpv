@@ -10,6 +10,7 @@ const pk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 const stripePromise = pk && pk.startsWith('pk_') ? loadStripe(pk) : null;
 
 export default function StripeModal({
+  amount,
   finalTotal,
   selectedTable,
   currentUser,
@@ -28,7 +29,7 @@ export default function StripeModal({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            amount:       finalTotal,
+            amount:       amount || finalTotal,
             tableId:      selectedTable?.id,
             tableName:    selectedTable?.name,
             employeeName: currentUser?.name,
@@ -141,6 +142,7 @@ export default function StripeModal({
             options={{ clientSecret, appearance }}
           >
             <StripePaymentForm
+              amount={amount}
               finalTotal={finalTotal}
               onSuccess={onSuccess}
               onCancel={onCancel}

@@ -150,6 +150,7 @@ export default function GestoriaView({ sales, colors: C }) {
 
   return (
     <div className="space-y-6">
+
       {toast && (
         <div className="fixed top-4 right-4 z-50 px-4 py-2 rounded-lg shadow-lg text-sm animate-fade-in" style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}` }}>
           {toast}
@@ -178,7 +179,7 @@ export default function GestoriaView({ sales, colors: C }) {
           );
         })}
       </div>
-      <div className="fade-up" key={tab}>
+      <div className="fade-up" key={tab} style={{ maxHeight: 'calc(100vh - 190px)', overflowY: 'auto' }}>
         {tab === 'panel' && <PanelTab
           settings={settings} taxModels={taxModels} currentYear={currentYear}
           calculating={calculating} getModelStatus={getModelStatus}

@@ -1,29 +1,49 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { rateLimit } from '../../../../lib/rate-limit';
 
 function getStripe() {
   if (!process.env.STRIPE_SECRET_KEY) return null;
   return new Stripe(process.env.STRIPE_SECRET_KEY);
 }
 
+const IDEMPOTENCY_WINDOW_MS = 5 * 60 * 1000;
+const MAX_PAYMENT_AMOUNT = 9999.99;
+
+const RATE_LIMIT_MAX = 10;
+const RATE_LIMIT_WINDOW = 60 * 1000;
+
 // POST /api/stripe/payment-intent
-// body: { amount: number (euros), tableId, tableName, employeeName }
+// body: { amount: number (euros), tableId, tableName, employeeName, idempotencyKey? }
 // Devuelve: { clientSecret }
 export async function POST(req) {
   try {
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const rl = rateLimit(`pi:${ip}`, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: `Demasiadas solicitudes. Inténtalo de nuevo en ${Math.ceil((rl.reset - Date.now()) / 1000)}s.` },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.reset - Date.now()) / 1000)) } }
+      );
+    }
+
     const stripe = getStripe();
     if (!stripe) {
       return NextResponse.json({ error: 'Stripe no configurado' }, { status: 500 });
     }
 
-    const { amount, tableId, tableName, employeeName } = await req.json();
+    const { amount, tableId, tableName, employeeName, idempotencyKey } = await req.json();
 
     if (!amount || amount <= 0) {
       return NextResponse.json({ error: 'Importe inválido' }, { status: 400 });
     }
 
-    // Stripe trabaja en céntimos (enteros)
+    if (amount > MAX_PAYMENT_AMOUNT) {
+      return NextResponse.json({ error: `El importe máximo permitido es ${MAX_PAYMENT_AMOUNT}€` }, { status: 400 });
+    }
+
     const amountCents = Math.round(amount * 100);
+    const key = idempotencyKey || `pi_${tableId}_${amountCents}_${Math.floor(Date.now() / IDEMPOTENCY_WINDOW_MS)}`;
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amountCents,
@@ -34,9 +54,10 @@ export async function POST(req) {
         tableName:    tableName    ?? '',
         employeeName: employeeName ?? '',
         source:       'la-comanda-tpv',
+        env:          process.env.VERCEL_ENV || 'development',
       },
       description: `${tableName ?? 'Mesa'} — La Comanda`,
-    });
+    }, { idempotencyKey: key });
 
     return NextResponse.json({ clientSecret: paymentIntent.client_secret });
   } catch (err) {

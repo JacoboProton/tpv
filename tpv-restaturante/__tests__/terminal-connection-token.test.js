@@ -12,10 +12,16 @@ function MockStripe() {
 
 vi.mock('stripe', () => ({ default: MockStripe }));
 
+// Mock the DB module so it never finds a cached location
+vi.mock('../lib/db', () => ({
+  sql: vi.fn(() => Promise.resolve([])),
+}), { virtual: true });
+
 describe('terminal-connection-token API route', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
+    delete globalThis.__stripeLocationId;
   });
 
   it('returns 500 when Stripe is not configured', async () => {

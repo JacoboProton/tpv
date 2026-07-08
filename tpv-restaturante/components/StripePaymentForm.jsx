@@ -9,7 +9,7 @@ import {
 import { CreditCard, Loader } from 'lucide-react';
 import { euros } from './constants';
 
-export default function StripePaymentForm({ finalTotal, onSuccess, onCancel, colors: C }) {
+export default function StripePaymentForm({ amount, finalTotal, onSuccess, onCancel, colors: C }) {
   const stripe   = useStripe();
   const elements = useElements();
   const [error,      setError]      = useState(null);
@@ -49,9 +49,9 @@ export default function StripePaymentForm({ finalTotal, onSuccess, onCancel, col
         style={{ background: C.surfaceLight, border: `1px solid ${C.line}` }}
         className="rounded-xl px-4 py-3 flex items-center justify-between"
       >
-        <span style={{ color: C.muted }} className="text-sm">Total a cobrar</span>
+        <span style={{ color: C.muted }} className="text-sm">{amount ? 'Pago con tarjeta' : 'Total a cobrar'}</span>
         <span className="font-display text-2xl" style={{ color: C.brassLight }}>
-          {euros(finalTotal)}
+          {euros(amount || finalTotal)}
         </span>
       </div>
 
@@ -90,7 +90,7 @@ export default function StripePaymentForm({ finalTotal, onSuccess, onCancel, col
       >
         {processing
           ? <><Loader className="w-4 h-4 animate-spin" /> Procesando...</>
-          : <><CreditCard className="w-4 h-4" /> Confirmar pago {euros(finalTotal)}</>
+          : <><CreditCard className="w-4 h-4" /> Confirmar pago {euros(amount || finalTotal)}</>
         }
       </button>
 

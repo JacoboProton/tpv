@@ -402,6 +402,7 @@ export async function runMigrations() {
   await sql`ALTER TABLE sales ADD COLUMN IF NOT EXISTS invoice_created BOOLEAN DEFAULT false`;
   await sql`ALTER TABLE sales ADD COLUMN IF NOT EXISTS invoice_created_at BIGINT`;
   await sql`ALTER TABLE sales ADD COLUMN IF NOT EXISTS payment_intent_id TEXT DEFAULT ''`;
+  await sql`ALTER TABLE sales ADD COLUMN IF NOT EXISTS stripe_confirmed BOOLEAN DEFAULT false`;
 
   // ===== MENÚ DEL DÍA =====
   await sql`
@@ -1315,6 +1316,20 @@ export async function runMigrations() {
   await sql`CREATE INDEX IF NOT EXISTS idx_closures_date ON closures(date)`;
 
   try { await sql`ALTER TABLE closures ADD COLUMN IF NOT EXISTS cuadratura JSONB DEFAULT '[]'`; } catch (e) { console.warn('cuadratura col skip:', e.message); }
+
+  // Webhook events for idempotency and retry tracking
+  await sql`
+    CREATE TABLE IF NOT EXISTS webhook_events (
+      event_id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'received',
+      body JSONB,
+      error TEXT,
+      created_at BIGINT NOT NULL,
+      processed_at BIGINT
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_webhook_events_status ON webhook_events(status)`;
 
   return { ok: true };
 }

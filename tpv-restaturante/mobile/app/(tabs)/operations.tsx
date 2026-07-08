@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { C } from '../../lib/theme';
+import { classifyError } from '../../lib/errors';
 import { fetchGestoriaOperations } from '../../lib/api';
 import type { GestoriaOperationsResponse, GestoriaOperationEntry } from '../../lib/api';
 
@@ -18,8 +19,9 @@ export default function OperationsRoute() {
     try {
       const result = await fetchGestoriaOperations();
       setData(result);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error al cargar operaciones');
+    } catch (e: unknown) {
+      const { title, message } = classifyError(e);
+      setError(`${title}: ${message}`);
     } finally {
       setLoading(false);
     }

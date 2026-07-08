@@ -5,6 +5,7 @@ import { verifyPin, fetchEmployees } from '../lib/api';
 import { sessionLogin } from '../lib/session';
 import type { Employee } from '../lib/types';
 import { C } from '../lib/theme';
+import { classifyError } from '../lib/errors';
 import { setGlobalUser } from './_layout';
 
 export default function LoginScreen() {
@@ -17,7 +18,10 @@ export default function LoginScreen() {
   useEffect(() => {
     fetchEmployees()
       .then(setEmployees)
-      .catch(() => Alert.alert('Error', 'No se pudo conectar con el servidor'))
+      .catch((e: unknown) => {
+        const { title, message } = classifyError(e);
+        Alert.alert(title, message);
+      })
       .finally(() => setLoading(false));
   }, []);
 

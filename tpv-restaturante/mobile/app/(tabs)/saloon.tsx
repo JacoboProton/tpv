@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, A
 import { router } from 'expo-router';
 import { fetchFloor, saveFloor, addSale } from '../../lib/api';
 import { C } from '../../lib/theme';
+import { classifyError } from '../../lib/errors';
 import { globalFloor, setGlobalFloor, globalUser } from '../_layout';
 import { broadcastFloorUpdate } from '../../lib/realtime';
 import type { Floor, Table } from '../../lib/types';
@@ -121,8 +122,9 @@ export default function SaloonScreen() {
         await saveFloor(f);
         broadcastFloorUpdate(f);
         Alert.alert('Cuenta solicitada', `El estado de la ${table.name} ha cambiado a "Cuenta".`);
-      } catch (e) {
-        Alert.alert('Error', 'No se pudo actualizar el estado en el servidor');
+      } catch (e: unknown) {
+        const { title, message } = classifyError(e);
+        Alert.alert(title, message || 'No se pudo actualizar el estado en el servidor');
       }
     }
   }
@@ -200,8 +202,9 @@ export default function SaloonScreen() {
       await saveFloor(f);
       broadcastFloorUpdate(f);
       Alert.alert('✅ Mesa Cerrada', `Mesa ${table.name} cobrada en efectivo (${total.toFixed(2)}€)`);
-    } catch (e) {
-      Alert.alert('Error', 'No se pudo guardar el estado en el servidor');
+    } catch (e: unknown) {
+      const { title, message } = classifyError(e);
+      Alert.alert(title, message || 'No se pudo guardar el estado en el servidor');
     }
   }
 
