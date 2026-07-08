@@ -18,7 +18,8 @@ export function upsertTableQueries(tables: any[], tenantId: TenantId) {
         ${t.shape ?? 'rect'}, ${t.rotation ?? 0}, ${t.seats ?? 4},
         ${t.zone ?? ''}, ${t.layer ?? 0}, ${t.color ?? ''}
       )
-      ON CONFLICT (tenant_id, id) DO UPDATE SET
+      ON CONFLICT (id) DO UPDATE SET
+        tenant_id = EXCLUDED.tenant_id,
         name = EXCLUDED.name,
         status = EXCLUDED.status,
         order_id = EXCLUDED.order_id,
@@ -52,7 +53,8 @@ export function upsertOrderQueries(orders: Record<string, any>, tenantId: Tenant
       VALUES (
         ${tenantId}, ${oid}, ${o.tableId}, ${JSON.stringify(o.items)}, ${o.createdAt}, ${o.employeeName ?? null}
       )
-      ON CONFLICT (tenant_id, id) DO UPDATE SET
+      ON CONFLICT (id) DO UPDATE SET
+        tenant_id = EXCLUDED.tenant_id,
         table_id = EXCLUDED.table_id,
         items = EXCLUDED.items,
         created_at = EXCLUDED.created_at,

@@ -96,7 +96,8 @@ export async function PUT(req) {
         await sql`
           INSERT INTO categories (tenant_id, id, name, sort_order, active, printer_zone, show_qr)
           VALUES (${tenantId}, ${catId}, ${name}, ${sortOrder}, ${active}, ${printerZone}, ${showQr})
-          ON CONFLICT (tenant_id, id) DO UPDATE SET
+          ON CONFLICT (id) DO UPDATE SET
+            tenant_id = EXCLUDED.tenant_id,
             name = EXCLUDED.name,
             sort_order = EXCLUDED.sort_order,
             active = EXCLUDED.active,
@@ -112,8 +113,8 @@ export async function PUT(req) {
         queries.push(sql`
           INSERT INTO products (tenant_id, id, name, category, price, ubicacion, course, image, allergens, description, featured, active, show_tpv, show_qr, agotado, carousel_sort, type, inventariable)
           VALUES (${tenantId}, ${p.id}, ${p.name}, ${p.category}, ${p.price}, ${p.ubicacion ?? 'Bar'}, ${p.course ?? ''}, ${p.image ?? null}, ${p.allergens ?? []}, ${p.description ?? null}, ${p.featured ?? false}, ${p.active ?? true}, ${p.show_tpv ?? true}, ${p.show_qr ?? true}, ${p.agotado ?? false}, ${p.carousel_sort ?? null}, ${p.type ?? ''}, ${p.inventariable ?? false})
-          ON CONFLICT (tenant_id, id) DO UPDATE SET
-            name = EXCLUDED.name, category = EXCLUDED.category, price = EXCLUDED.price,
+          ON CONFLICT (id) DO UPDATE SET
+            tenant_id = EXCLUDED.tenant_id, name = EXCLUDED.name, category = EXCLUDED.category, price = EXCLUDED.price,
             ubicacion = EXCLUDED.ubicacion, course = EXCLUDED.course, image = EXCLUDED.image,
             allergens = EXCLUDED.allergens, description = EXCLUDED.description,
             featured = EXCLUDED.featured, active = EXCLUDED.active,
@@ -129,8 +130,8 @@ export async function PUT(req) {
             queries.push(sql`
               INSERT INTO product_stock (tenant_id, product_id, location, stock, low_stock)
               VALUES (${tenantId}, ${p.id}, ${loc}, ${entry.stock ?? 0}, ${entry.lowStock ?? 5})
-              ON CONFLICT (tenant_id, product_id, location) DO UPDATE SET
-                stock = EXCLUDED.stock, low_stock = EXCLUDED.low_stock
+              ON CONFLICT (product_id, location) DO UPDATE SET
+                tenant_id = EXCLUDED.tenant_id, stock = EXCLUDED.stock, low_stock = EXCLUDED.low_stock
             `);
           }
         }

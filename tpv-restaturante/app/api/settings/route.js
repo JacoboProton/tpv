@@ -22,7 +22,7 @@ export async function PUT(req) {
       await sql`
         INSERT INTO settings (tenant_id, key, value)
         VALUES (${tenantId}, ${key}, ${String(value)})
-        ON CONFLICT (tenant_id, key) DO UPDATE SET value = EXCLUDED.value
+        ON CONFLICT (key) DO UPDATE SET tenant_id = EXCLUDED.tenant_id, value = EXCLUDED.value
       `;
     }
     return NextResponse.json({ ok: true });

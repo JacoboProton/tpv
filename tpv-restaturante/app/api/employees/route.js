@@ -39,7 +39,8 @@ export async function PUT(req) {
           ${e.personalDiscountEnabled || false}, ${e.monthlyLimit || 0}, ${e.monthlyUsed || 0},
           ${e.monthlyUsedMonth || ''}, ${e.whatsappCode || ''}, ${e.whatsappLinked || false},
           ${e.createdAt || Date.now()})
-        ON CONFLICT (tenant_id, id) DO UPDATE SET
+        ON CONFLICT (id) DO UPDATE SET
+          tenant_id = EXCLUDED.tenant_id,
           name = EXCLUDED.name, pin = EXCLUDED.pin, role = EXCLUDED.role,
           position = EXCLUDED.position, work_type = EXCLUDED.work_type,
           work_pct = EXCLUDED.work_pct, dni = EXCLUDED.dni, notes = EXCLUDED.notes,
