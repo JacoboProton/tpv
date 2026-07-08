@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   LayoutGrid, ChefHat, Package, BarChart3, AlertTriangle,
   LogOut, Users, ShieldCheck, Sun, Moon, ClipboardList, WifiOff, Printer, Settings, Percent, Truck, Euro, Star, Undo2, FileText, Monitor, Calendar, Bell, Clock, Loader2,
-  Power, Ticket,
+  Power, Ticket, CreditCard,
 } from 'lucide-react';
 
 import { THEMES, seedCatalog, seedFloor, seedEmployees, euros, round2, clone } from '../components/constants';
