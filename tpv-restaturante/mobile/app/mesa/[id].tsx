@@ -257,6 +257,14 @@ export default function MesaScreen() {
     loadData();
   }, []);
 
+  // Poll globalFloor every 3s for Realtime updates from KDS
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (globalFloor && globalFloor !== floor) setFloor(globalFloor);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [floor]);
+
   async function loadData() {
     try {
       const [f, cat] = await Promise.all([fetchFloor(), fetchCatalog()]);
@@ -482,7 +490,7 @@ export default function MesaScreen() {
             {allItems.map(item => {
               const isSent = item.sent;
               const isReady = item.ready;
-              const isDelivered = item.delivered;
+              const isDelivered = item.delivered || item.served;
               return (
                 <View key={item.id} style={styles.orderItem}>
                   <View style={styles.orderItemInfo}>

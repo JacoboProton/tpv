@@ -42,6 +42,7 @@ export interface OrderItem {
   sent?: boolean;
   sentAt?: number;
   ready?: boolean;
+  served?: boolean;
   delivered?: boolean;
   servedBy?: string;
   servedAt?: number;
