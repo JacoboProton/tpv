@@ -488,6 +488,27 @@ export default function App() {
     [catalog]
   );
 
+  // ---------- Comandas pendientes (barra / cocina) ----------
+  const pendingBarCount = useMemo(() =>
+    floor ? Object.values(floor.orders).reduce((s, o) =>
+      s + o.items.filter(i => i.sent && !i.ready && i.ubicacion === 'Bar').length, 0) : 0,
+  [floor]);
+
+  const pendingCocinaCount = useMemo(() =>
+    floor ? Object.values(floor.orders).reduce((s, o) =>
+      s + o.items.filter(i => i.sent && !i.ready && i.ubicacion !== 'Bar').length, 0) : 0,
+  [floor]);
+
+  // Parpadeo de pestaña cuando hay pendientes
+  const pendingTotal = pendingBarCount + pendingCocinaCount;
+  useEffect(() => {
+    if (pendingTotal > 0) {
+      document.title = `(${pendingTotal}) LA COMANDA`;
+    } else {
+      document.title = 'LA COMANDA';
+    }
+  }, [pendingTotal]);
+
   // ---------- Login ----------
   async function pressDigit(d) {
     if (pinInput.length >= 4) return;
@@ -2180,6 +2201,12 @@ export default function App() {
                         <span className="flex-1">{item.label}</span>
                         {item.id === 'inventario' && lowStockProducts.length > 0 && (
                           <span style={{ background: C.wine }} className="text-xs rounded-full w-5 h-5 flex items-center justify-center shrink-0">{lowStockProducts.length}</span>
+                        )}
+                        {item.id === 'barra' && pendingBarCount > 0 && (
+                          <span style={{ background: C.brass }} className="text-xs rounded-full w-5 h-5 flex items-center justify-center shrink-0">{pendingBarCount}</span>
+                        )}
+                        {item.id === 'cocina' && pendingCocinaCount > 0 && (
+                          <span style={{ background: C.brass }} className="text-xs rounded-full w-5 h-5 flex items-center justify-center shrink-0">{pendingCocinaCount}</span>
                         )}
                       </button>
                     );

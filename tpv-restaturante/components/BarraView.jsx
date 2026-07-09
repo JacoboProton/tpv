@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Beer, Clock, Check } from 'lucide-react';
 import { TICKET_EDGE } from './constants';
 
 export default function BarraView({ floor, onReady, colors: C }) {
   const [now, setNow] = useState(() => Date.now());
+  const prevPendingRef = useRef(0);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 15000);
@@ -17,6 +18,24 @@ export default function BarraView({ floor, onReady, colors: C }) {
     .map(t => ({ table: t, order: floor.orders[t.orderId] }))
     .filter(({ order }) => order.items.some(i => i.sent && !i.ready && i.ubicacion === 'Bar')),
   [floor]);
+
+  const pendingCount = useMemo(() =>
+    tickets.reduce((s, { order }) => s + order.items.filter(i => i.sent && !i.ready && i.ubicacion === 'Bar').length, 0),
+  [tickets]);
+
+  useEffect(() => {
+    if (pendingCount > prevPendingRef.current && prevPendingRef.current > 0) {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        osc.type = 'sine'; osc.frequency.value = 660;
+        const g = ctx.createGain(); g.gain.value = 0.12;
+        osc.connect(g); g.connect(ctx.destination);
+        osc.start(); osc.stop(ctx.currentTime + 0.25);
+      } catch {}
+    }
+    prevPendingRef.current = pendingCount;
+  }, [pendingCount]);
 
   if (tickets.length === 0) {
     return (
