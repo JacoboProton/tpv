@@ -17,7 +17,7 @@ export default function CocinaView({ floor, onReady, colors: C }) {
   const tickets = useMemo(() => floor.tables
     .filter(t => t.orderId && floor.orders[t.orderId])
     .map(t => ({ table: t, order: floor.orders[t.orderId] }))
-    .filter(({ order }) => order.items.some(i => i.sent && !i.ready)),
+    .filter(({ order }) => order.items.some(i => i.sent && !i.ready && i.ubicacion !== 'Bar')),
   [floor]);
 
   if (tickets.length === 0) {
@@ -36,7 +36,7 @@ export default function CocinaView({ floor, onReady, colors: C }) {
       <h2 className="font-display text-2xl mb-4" style={{ color: C.cream }}>COCINA</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         {tickets.map(({ table, order }) => {
-          const pending = order.items.filter(i => i.sent && !i.ready);
+          const pending = order.items.filter(i => i.sent && !i.ready && i.ubicacion !== 'Bar');
           const sentAts = pending.map(i => i.sentAt || now);
           const minutesAgo = Math.max(0, Math.round((now - Math.min(...sentAts)) / 60000));
           const urgent = minutesAgo >= 10;
@@ -89,7 +89,7 @@ export default function CocinaView({ floor, onReady, colors: C }) {
                 )}
 
                 <button
-                  onClick={() => onReady(order.id)}
+                  onClick={() => onReady(order.id, 'Cocina')}
                   style={{ background: urgent ? '#fff' : C.sage, color: urgent ? C.wineLight : '#fff' }}
                   className="w-full rounded-md py-2.5 text-sm font-semibold flex items-center justify-center gap-1.5 hover:opacity-90 transition-opacity"
                 >

@@ -73,7 +73,7 @@ export default function KDSView({ floor, catalog, onReady, onAgotar, onUpdateIte
   useEffect(() => {
     if (!floor) return;
     const pending = Object.values(floor.orders || {}).reduce((sum, o) =>
-      sum + o.items.filter(i => i.sent && !i.inPreparation && !i.ready).length, 0
+      sum + o.items.filter(i => i.sent && !i.inPreparation && !i.ready && i.ubicacion !== 'Bar').length, 0
     );
     if (pending > prevPendingRef.current && prevPendingRef.current > 0 && soundEnabled) {
       playAlert();
@@ -124,7 +124,7 @@ export default function KDSView({ floor, catalog, onReady, onAgotar, onUpdateIte
     const next = JSON.parse(JSON.stringify(floor));
     const order = next.orders[orderId];
     if (!order) return;
-    const target = order.items.filter(i => i.sent && !i.served);
+    const target = order.items.filter(i => i.sent && !i.served && i.ubicacion !== 'Bar');
     const allReady = target.every(i => i.ready);
     const allPreparing = target.every(i => i.inPreparation || i.ready);
     action.previousState = allReady ? 'ready' : allPreparing ? 'preparing' : 'pending';
@@ -149,7 +149,7 @@ export default function KDSView({ floor, catalog, onReady, onAgotar, onUpdateIte
       item.ready = undoStack.previousState === 'ready';
       item.served = false;
     } else {
-      order.items.filter(i => i.sent && !i.served).forEach(i => {
+      order.items.filter(i => i.sent && !i.served && i.ubicacion !== 'Bar').forEach(i => {
         if (undoStack.previousState === 'ready') { i.ready = true; i.inPreparation = false; i.served = false; }
         else if (undoStack.previousState === 'preparing') { i.inPreparation = true; i.ready = false; i.served = false; }
         else { i.inPreparation = false; i.ready = false; i.served = false; }
@@ -173,7 +173,7 @@ export default function KDSView({ floor, catalog, onReady, onAgotar, onUpdateIte
     if (!floor?.orders) return [];
     return Object.entries(floor.orders).map(([id, o]) => {
       const table = floor.tables?.find(t => t.id === o.tableId);
-      const items = o.items.filter(i => i.sent && !i.served);
+      const items = o.items.filter(i => i.sent && !i.served && i.ubicacion !== 'Bar');
       const zoneItems = zoneFilter === 'all' ? items : items.filter(i => {
         if (!catalog?.products) return false;
         const p = catalog.products.find(p => p.id === i.productId);
@@ -189,14 +189,14 @@ export default function KDSView({ floor, catalog, onReady, onAgotar, onUpdateIte
   const expoItems = useMemo(() => {
     return Object.entries(floor?.orders || {}).flatMap(([oid, o]) => {
       const table = floor.tables?.find(t => t.id === o.tableId);
-      return o.items.filter(i => i.ready && !i.served).map(i => ({ ...i, orderId: oid, tableName: table?.name || o.tableId, tableId: o.tableId }));
+      return o.items.filter(i => i.ready && !i.served && i.ubicacion !== 'Bar').map(i => ({ ...i, orderId: oid, tableName: table?.name || o.tableId, tableId: o.tableId }));
     });
   }, [floor]);
 
   // Counts
   const counts = useMemo(() => {
     const all = Object.values(floor?.orders || {}).reduce((acc, o) => {
-      o.items.filter(i => i.sent && !i.served).forEach(i => {
+      o.items.filter(i => i.sent && !i.served && i.ubicacion !== 'Bar').forEach(i => {
         if (i.ready) acc.ready++;
         else if (i.inPreparation) acc.preparing++;
         else acc.pending++;

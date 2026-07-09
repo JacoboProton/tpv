@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   LayoutGrid, ChefHat, Package, BarChart3, AlertTriangle,
   LogOut, Users, ShieldCheck, Sun, Moon, ClipboardList, WifiOff, Printer, Settings, Percent, Truck, Euro, Star, Undo2, FileText, Monitor, Calendar, Bell, Clock, Loader2,
-  Power, Ticket, CreditCard,
+  Power, Ticket, CreditCard, Beer,
 } from 'lucide-react';
 
 import { THEMES, seedCatalog, seedFloor, seedEmployees, euros, round2, clone } from '../components/constants';
@@ -51,6 +51,7 @@ import CartasView           from '../components/CartasView';
 import DeliveryView         from '../components/DeliveryView';
 import CommandPalette       from '../components/CommandPalette';
 import PedidosView          from '../components/PedidosView';
+import BarraView            from '../components/BarraView';
 import FiadosView           from '../components/FiadosView';
 import GestoriaView          from '../components/GestoriaView';
 import KDSView               from '../components/KDSView';
@@ -679,10 +680,11 @@ export default function App() {
     persistFloor(next);
   }
 
-  function markReady(orderId) {
+  function markReady(orderId, ubicacion) {
     const next = clone(floor);
     const order = next.orders[orderId];
-    const readyItems = order.items.filter(i => i.sent && !i.ready);
+    let readyItems = order.items.filter(i => i.sent && !i.ready);
+    if (ubicacion) readyItems = readyItems.filter(i => (i.ubicacion || 'Cocina') === ubicacion);
     if (readyItems.length === 0) return;
     readyItems.forEach(i => i.ready = true);
     persistFloor(next);
@@ -1526,11 +1528,13 @@ export default function App() {
     if (existing) existing.qty += 1;
     else {
       const notes = '';
+      const prod = catalog?.products?.find(p => p.id === product.id);
       order.items.push({
         id: 'i_' + Date.now() + Math.random().toString(16).slice(2),
         productId: product.id, name: product.name, price: effectivePrice,
         qty: 1, sent: false, ready: false, sentAt: null, notes, modifiers,
         course: product.course || '',
+        ubicacion: (product.ubicacion || prod?.ubicacion || 'Bar'),
       });
     }
     persistFloor(next);
@@ -1563,6 +1567,7 @@ export default function App() {
               productId: p.id, name: p.name + ` (${menu.name})`, price: 0,
               qty: 1, sent: false, ready: false, sentAt: null, notes: '', modifiers: [],
               course: p.course || '', isMenuItem: true,
+              ubicacion: p.ubicacion || 'Bar',
             });
           }
         }
@@ -2077,6 +2082,7 @@ export default function App() {
         { id: 'comandas',   label: 'Comandas',   icon: ClipboardList },
         { id: 'cocina',     label: 'Cocina',     icon: ChefHat },
         { id: 'kds',        label: 'Cocina KDS',  icon: ChefHat },
+        { id: 'barra',      label: 'Barra',       icon: Beer },
         { id: 'tickets',    label: 'Tickets',    icon: Ticket },
       ],
     },
@@ -2290,6 +2296,7 @@ export default function App() {
             </div>
           )}
           {view === 'cocina'     && <CocinaView floor={floor} onReady={markReady} colors={C} />}
+          {view === 'barra'      && <BarraView floor={floor} onReady={markReady} colors={C} />}
           {view === 'kds'        && <KDSView floor={floor} catalog={catalog} onReady={markReady} onUpdateItemState={updateItemState} onAdvanceOrder={advanceOrder} onAgotar={agotarProducto} onReprint={reprintKitchenTicket} colors={C} />}
           {view === 'comandas'   && <ComandasAbiertasView floor={floor} colors={C} />}
           {view === 'inventario' && <InventarioView catalog={catalog} colors={C} onUpdateField={updateProductField} newProductOpen={newProductOpen} setNewProductOpen={setNewProductOpen} onAddProduct={addProduct} confirmDeleteId={confirmDeleteId} setConfirmDeleteId={setConfirmDeleteId} onDelete={deleteProduct} />}
