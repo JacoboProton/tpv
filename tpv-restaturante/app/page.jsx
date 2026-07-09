@@ -1902,9 +1902,15 @@ export default function App() {
       ${sale.invoiceEmail ? `<p style="font-size:9px;color:#888;margin-top:8px">Enviada a: ${sale.invoiceEmail}</p>` : ''}
       <div class="footer">${footerText || 'Gracias por su visita'}</div>
     </body></html>`;
-    const w = window.open('', '_blank');
-    if (w) { w.document.write(html); w.document.close(); w.print(); }
-    else showToast('Permite ventanas emergentes para imprimir la factura');
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    iframe.contentWindow.document.open();
+    iframe.contentWindow.document.write(html);
+    iframe.contentWindow.document.close();
+    iframe.contentWindow.focus();
+    iframe.contentWindow.print();
+    setTimeout(() => document.body.removeChild(iframe), 1000);
   }
 
   async function handleDownloadPdf(sale) {

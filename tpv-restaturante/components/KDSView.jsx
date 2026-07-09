@@ -16,7 +16,7 @@ const KDS_THEMES = {
 
 const KDS_LANGS = {
   es: {
-    title: 'LISTO', pending: 'Pendientes', preparing: 'Preparando', ready: 'Listos',
+    title: 'COCINA', pending: 'Pendientes', preparing: 'Preparando', ready: 'Listos',
     expo: 'Expo', allZones: 'Todos', allStations: 'Todas', noOrders: 'No hay comandas pendientes',
     markReady: 'Listo', markPreparing: 'Empezar', markServed: 'Servido', undo: 'Deshacer',
     settings: 'Ajustes', sound: 'Sonido', fullscreen: 'Pantalla completa', layout: 'Diseño',
