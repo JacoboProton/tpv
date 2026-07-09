@@ -84,13 +84,14 @@ export default function TicketsScreen() {
             return (
               <View key={s.id} style={styles.ticketCard}>
                 <View style={styles.ticketHeader}>
+                  <Text style={styles.ticketNum}>#{s.ticketNumber || '-'}</Text>
                   <Text style={styles.ticketTime}>
                     {fecha} · {hora}
                   </Text>
-                  <Text style={styles.ticketTable}>{s.tableName || '—'}</Text>
                   <Text style={styles.ticketTotal}>{s.total?.toFixed(2)}€</Text>
                 </View>
                 <View style={styles.ticketBody}>
+                  <Text style={styles.ticketTable}>{s.tableName || '—'}</Text>
                   <Text style={styles.ticketEmployee}>{s.employeeName || '—'}</Text>
                   <Text style={styles.ticketMethod}>{s.paymentMethod || '—'}</Text>
                 </View>
@@ -141,6 +142,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   ticketTime: { fontSize: 12, fontFamily: 'monospace', color: C.cream },
+  ticketNum: { fontSize: 11, fontFamily: 'monospace', color: C.muted, fontWeight: '600' },
   ticketTable: { fontSize: 14, fontWeight: '600', color: C.cream },
   ticketTotal: { fontSize: 14, fontWeight: '700', color: C.brassLight },
   ticketBody: {
