@@ -1,8 +1,5 @@
-import * as Print from 'expo-print';
 import { useState, useEffect, useMemo } from 'react';
-import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, PermissionsAndroid, Platform,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, PermissionsAndroid, Platform, Share } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchFloor, saveFloor, fetchCatalog, createPaymentIntent, createTerminalPaymentIntent, fetchTerminalConfig, addSale } from '../../lib/api';
@@ -444,28 +441,19 @@ export default function MesaScreen() {
   }
 
   async function printTicket() {
-    if (!floor) return;
-    const t = floor.tables.find(t => t.id === tableId);
+    if (!floor || !table) return;
     const items = Object.values(floor.orders)
       .filter(o => o.tableId === tableId)
       .flatMap(o => o.items);
     const total = items.reduce((s, i) => s + i.price * i.qty, 0);
     const date = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    const itemsHtml = items.map(i =>
-      `<tr><td style="padding:2px 0">${i.name}</td><td style="text-align:center;width:30px">${i.qty}</td><td style="text-align:right;width:60px">${(i.price * i.qty).toFixed(2)}€</td></tr>`
-    ).join('');
-    const html = `<html><body style="font-family:monospace;font-size:10px;padding:4mm;width:80mm">
-      <div style="text-align:center;font-weight:bold;font-size:14px;margin-bottom:4px">LA COMANDA</div>
-      <div style="text-align:center;font-size:9px;color:#555;margin-bottom:4px">Mesa: ${t?.name || ''} · ${date}</div>
-      <hr style="border-top:1px dashed #999">
-      <table style="width:100%">${itemsHtml}</table>
-      <hr style="border-top:1px dashed #999">
-      <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:12px">
-        <span>TOTAL</span><span>${total.toFixed(2)}€</span>
-      </div>
-    </body></html>`;
+    let text = `${table.name} · ${date}\n${'─'.repeat(32)}\n`;
+    for (const i of items) {
+      text += `${i.qty}x ${i.name}\n   ${(i.price * i.qty).toFixed(2)}€\n`;
+    }
+    text += `${'─'.repeat(32)}\nTOTAL: ${total.toFixed(2)}€`;
     try {
-      await Print.printAsync({ html });
+      await Share.share({ message: text, title: `Ticket ${table.name}` });
     } catch {}
   }
 
