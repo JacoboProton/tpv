@@ -23,7 +23,7 @@ function confirmPay(floor: Floor, tableId: string): Promise<boolean> {
     .filter(o => o.tableId === tableId)
     .flatMap(o => o.items as OrderItem[]);
   const unsent = items.filter(i => !i.sent);
-  const pending = items.filter(i => i.sent && !i.ready);
+  const pending = items.filter(i => i.sent && !i.ready && !i.served);
   const parts: string[] = [];
   if (unsent.length > 0) parts.push(`${unsent.length} sin enviar a cocina`);
   if (pending.length > 0) parts.push(`${pending.length} en preparación`);

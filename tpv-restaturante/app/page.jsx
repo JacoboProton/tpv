@@ -1211,7 +1211,7 @@ export default function App() {
 
     // Warn if there are items not sent or still pending in kitchen
     const unsentItems = order.items.filter(i => !i.sent && !i.voided);
-    const pendingItems = order.items.filter(i => i.sent && !i.ready && !i.voided);
+    const pendingItems = order.items.filter(i => i.sent && !i.ready && !i.voided && !i.served);
     if (unsentItems.length > 0 || pendingItems.length > 0) {
       const parts = [];
       if (unsentItems.length > 0) parts.push(`${unsentItems.length} artículo(s) sin enviar a cocina`);
