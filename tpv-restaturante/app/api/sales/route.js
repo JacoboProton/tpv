@@ -87,6 +87,17 @@ export async function POST(req) {
     const s = await req.json();
     const tenantId = getTenantId(req);
 
+    // Assign sequential ticket number (yearly counter)
+    const year = new Date(Number(s.closedAt || Date.now())).getFullYear();
+    const seqRow = await sql`
+      SELECT COALESCE(MAX(ticket_number), 0) + 1 AS next_num
+      FROM sales
+      WHERE ticket_number IS NOT NULL
+        AND closed_at >= ${new Date(year, 0, 1).getTime()}
+        AND closed_at < ${new Date(year + 1, 0, 1).getTime()}
+    `;
+    const ticketNumber = seqRow[0].next_num;
+
     // If this sale has a Stripe PaymentIntent, check if a stub sale already exists
     // (created by the webhook before addSale was called). If so, upgrade the stub.
     if (s.paymentIntentId) {
@@ -108,23 +119,13 @@ export async function POST(req) {
             invoice_address = ${s.invoiceAddress ?? ''}, invoice_email = ${s.invoiceEmail ?? ''},
             invoice_number = ${s.invoiceNumber ?? ''}, invoice_created = ${s.invoiceCreated ?? false},
             invoice_created_at = ${s.invoiceCreatedAt ?? null},
-            stripe_confirmed = true
+            stripe_confirmed = true,
+            ticket_number = ${ticketNumber}
           WHERE id = ${stub[0].id}
         `;
-        return NextResponse.json({ ok: true, upgradedStub: true });
+        return NextResponse.json({ ok: true, upgradedStub: true, ticketNumber });
       }
     }
-
-    // Assign sequential ticket number (yearly counter)
-    const year = new Date(Number(s.closedAt || Date.now())).getFullYear();
-    const seqRow = await sql`
-      SELECT COALESCE(MAX(ticket_number), 0) + 1 AS next_num
-      FROM sales
-      WHERE ticket_number IS NOT NULL
-        AND closed_at >= ${new Date(year, 0, 1).getTime()}
-        AND closed_at < ${new Date(year + 1, 0, 1).getTime()}
-    `;
-    const ticketNumber = seqRow[0].next_num;
 
     await sql`
       INSERT INTO sales (

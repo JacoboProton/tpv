@@ -1725,6 +1725,7 @@ export default function App() {
   </div>
   <div class="c" style="font-size:9px;margin-bottom:2px">${date}</div>
   <div class="c" style="font-size:9px;margin-bottom:4px">Mesa: ${tableName} · Camarero: ${employeeName}${order.label ? ` · Comanda ${order.label}` : ''}</div>
+  <div class="c b" style="font-size:11px;margin-bottom:4px;color:#c4a04a">${selectedTable?.orderId ? `Ticket #${String(selectedTable.orderId).slice(-6).toUpperCase()}` : ''}</div>
   <div class="d"></div>
   ${items.map(row).join('')}
   <div class="d"></div>
@@ -1913,7 +1914,7 @@ export default function App() {
           ${companyAddress ? `${companyAddress}<br>` : ''}
           ${companyPhone ? `Tel: ${companyPhone}` : ''}
         </div>
-        <div class="numero">${sale.invoiceNumber || sale.id} ${sale.ticketNumber ? `· Ticket #${sale.ticketNumber}` : ''}</div>
+        <div class="numero">${sale.invoiceNumber || sale.id} · Ticket #${sale.ticketNumber || '-'}</div>
         <div class="info">${new Date(sale.closedAt).toLocaleDateString('es-ES', { day:'2-digit', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' })}</div>
       </div>
       <div class="client-box">
