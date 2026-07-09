@@ -1,3 +1,4 @@
+import * as Print from 'expo-print';
 import { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, PermissionsAndroid, Platform,
@@ -442,6 +443,32 @@ export default function MesaScreen() {
     await persistFloor(f);
   }
 
+  async function printTicket() {
+    if (!floor) return;
+    const t = floor.tables.find(t => t.id === tableId);
+    const items = Object.values(floor.orders)
+      .filter(o => o.tableId === tableId)
+      .flatMap(o => o.items);
+    const total = items.reduce((s, i) => s + i.price * i.qty, 0);
+    const date = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const itemsHtml = items.map(i =>
+      `<tr><td style="padding:2px 0">${i.name}</td><td style="text-align:center;width:30px">${i.qty}</td><td style="text-align:right;width:60px">${(i.price * i.qty).toFixed(2)}€</td></tr>`
+    ).join('');
+    const html = `<html><body style="font-family:monospace;font-size:10px;padding:4mm;width:80mm">
+      <div style="text-align:center;font-weight:bold;font-size:14px;margin-bottom:4px">LA COMANDA</div>
+      <div style="text-align:center;font-size:9px;color:#555;margin-bottom:4px">Mesa: ${t?.name || ''} · ${date}</div>
+      <hr style="border-top:1px dashed #999">
+      <table style="width:100%">${itemsHtml}</table>
+      <hr style="border-top:1px dashed #999">
+      <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:12px">
+        <span>TOTAL</span><span>${total.toFixed(2)}€</span>
+      </div>
+    </body></html>`;
+    try {
+      await Print.printAsync({ html });
+    } catch {}
+  }
+
   async function persistFloor(f: Floor) {
     setSaving(true);
     try {
@@ -631,6 +658,10 @@ export default function MesaScreen() {
               <PaymentButton floor={floor} tableId={tableId} persistFloor={persistFloor} disabled={saving} />
             </StripeProvider>
             <NfcPaymentButton floor={floor} tableId={tableId} persistFloor={persistFloor} disabled={saving} />
+            <TouchableOpacity onPress={printTicket} style={styles.printBtn}>
+              <Ionicons name="print" size={16} color={C.cream} />
+              <Text style={{ fontSize: 10, color: C.cream }}>Imprimir</Text>
+            </TouchableOpacity>
           </>
         )}
         <TouchableOpacity
@@ -748,4 +779,8 @@ const styles = StyleSheet.create({
     alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6,
   },
   nfcBtnText: { color: C.base, fontWeight: '700', fontSize: 13 },
+  printBtn: {
+    flex: 1, paddingVertical: 12, backgroundColor: C.surfaceLight, borderRadius: 8,
+    alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 4,
+  },
 });
