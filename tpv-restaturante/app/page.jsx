@@ -1692,7 +1692,7 @@ export default function App() {
     ${companyCif ? `CIF: ${companyCif}<br>` : ''}${companyAddress ? `${companyAddress}<br>` : ''}${companyPhone ? `Tel: ${companyPhone}<br>` : ''}
   </div>
   <div class="c" style="font-size:9px;margin-bottom:2px">${date}</div>
-  <div class="c" style="font-size:9px;margin-bottom:4px">Mesa: ${tableName} · Camarero: ${employeeName}</div>
+  <div class="c" style="font-size:9px;margin-bottom:4px">Mesa: ${tableName} · Camarero: ${employeeName}${order.label ? ` · Comanda ${order.label}` : ''}</div>
   <div class="d"></div>
   ${items.map(row).join('')}
   <div class="d"></div>
@@ -1881,7 +1881,7 @@ export default function App() {
           ${companyAddress ? `${companyAddress}<br>` : ''}
           ${companyPhone ? `Tel: ${companyPhone}` : ''}
         </div>
-        <div class="numero">${sale.invoiceNumber || sale.id}</div>
+        <div class="numero">${sale.invoiceNumber || sale.id} ${sale.ticketNumber ? `· Ticket #${sale.ticketNumber}` : ''}</div>
         <div class="info">${new Date(sale.closedAt).toLocaleDateString('es-ES', { day:'2-digit', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' })}</div>
       </div>
       <div class="client-box">
