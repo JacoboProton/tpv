@@ -4,7 +4,7 @@ import { euros, round2, clone } from './constants';
 
 export default function PedidosView({ sales, onRefund, onConfirmBizum, onPrintInvoice, onDownloadPdf, onSendInvoiceEmail, colors: C }) {
   const [query, setQuery] = useState('');
-  const [dateFilter, setDateFilter] = useState('today');
+  const [dateFilter, setDateFilter] = useState('week');
   const [selectedSale, setSelectedSale] = useState(null);
   const [refundMode, setRefundMode] = useState('items');
   const [checked, setChecked] = useState({});
@@ -124,7 +124,7 @@ export default function PedidosView({ sales, onRefund, onConfirmBizum, onPrintIn
                   <div className="flex items-center gap-2 flex-wrap">
                     <span style={{ color: C.cream }} className="text-sm font-medium">{sale.tableName}</span>
                     <span style={{ color: C.muted }} className="text-[10px] font-mono">
-                      #{sale.ticketNumber}
+                      #{sale.ticketNumber || '-'}
                     </span>
                     <span style={{ color: C.muted }} className="text-[10px]">
                       {new Date(sale.closedAt).toLocaleString('es-ES', { hour: '2-digit', minute: '2-digit' })}

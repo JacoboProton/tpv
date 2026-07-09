@@ -436,15 +436,21 @@ export default function App() {
       const sale = salesQueue.current[0];
       let ok = false;
       let lastErr = '';
+      let ticketNumber = null;
       try {
         const res = await addSale(sale);
         ok = res && res.ok;
+        if (res && res.ticketNumber) ticketNumber = res.ticketNumber;
         if (!ok) lastErr = 'respuesta vacía';
       } catch (e) {
         lastErr = e && e.message ? e.message : String(e);
         console.warn('addSale error:', lastErr);
       }
       if (ok) {
+        if (ticketNumber) {
+          setSales(prev => prev.map(s => s.id === sale.id ? { ...s, ticketNumber } : s));
+          cacheSet('sales', null);  // invalidate cache so next poll gets fresh data
+        }
         salesQueue.current.shift();
       } else {
         showToast(`Error venta: ${lastErr}. Reintentando...`);
