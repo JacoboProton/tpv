@@ -345,6 +345,8 @@ export default function App() {
                 showToast('Sesión cerrada en otro terminal');
                 logout();
               });
+              setMenuMode('app');
+              setView('salon');
             } else {
               localStorage.removeItem('tpv:current_user');
             }
