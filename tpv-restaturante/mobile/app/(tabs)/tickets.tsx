@@ -131,7 +131,7 @@ export default function TicketsScreen() {
                 </View>
                 <View style={styles.ticketItems}>
                   {items.map((i: Record<string, unknown>) => (
-                    <Text key={i.id} style={styles.ticketItem}>{i.qty}x {i.name}</Text>
+                    <Text key={i.id as string} style={styles.ticketItem}>{String(i.qty)}x {String(i.name)}</Text>
                   ))}
                   {extra > 0 && <Text style={styles.ticketMore}>+{extra} más</Text>}
                 </View>
