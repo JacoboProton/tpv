@@ -5,10 +5,27 @@ import { Ionicons } from '@expo/vector-icons';
 import { C } from '../../lib/theme';
 import { fetchSales } from '../../lib/api';
 
+const RANGES = [
+  { key: 'today', label: 'Hoy' },
+  { key: 'week', label: 'Semana' },
+  { key: 'month', label: 'Mes' },
+  { key: 'all', label: 'Todo' },
+];
+
+function getCutoff(range: string): number {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  if (range === 'today') return d.getTime();
+  if (range === 'week') { d.setDate(d.getDate() - 7); return d.getTime(); }
+  if (range === 'month') { d.setMonth(d.getMonth() - 1); return d.getTime(); }
+  return 0;
+}
+
 export default function TicketsScreen() {
   const [sales, setSales] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
+  const [range, setRange] = useState('week');
+  const [filterMethod, setFilterMethod] = useState('all');
 
   const loadTickets = useCallback(async () => {
     setLoading(true);
@@ -26,15 +43,18 @@ export default function TicketsScreen() {
     loadTickets();
   }, [loadTickets]));
 
-  const todayStr = new Date().toDateString();
-  const todaySales = sales.filter(s => {
-    if (!s.closedAt) return false;
-    return new Date(s.closedAt).toDateString() === todayStr;
-  });
+  const cutoff = getCutoff(range);
 
-  const filtered = filter === 'all' ? todaySales : todaySales.filter(s =>
-    (s.paymentMethod || '').toLowerCase() === filter
-  );
+  const filtered = sales.filter(s => {
+    if (!s.closedAt) return false;
+    const t = Number(s.closedAt) || new Date(s.closedAt).getTime();
+    if (cutoff > 0 && t < cutoff) return false;
+    if (filterMethod !== 'all') {
+      const m = (s.paymentMethod || '').toLowerCase();
+      if (m !== filterMethod) return false;
+    }
+    return true;
+  });
 
   const totalAmount = filtered.reduce((sum, s) => sum + (s.total || 0), 0);
 
@@ -49,18 +69,32 @@ export default function TicketsScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Tickets de Hoy</Text>
+        <Text style={styles.title}>Tickets</Text>
         <Text style={styles.count}>{filtered.length} tickets — {totalAmount.toFixed(2)}€</Text>
+      </View>
+
+      <View style={styles.filterRow}>
+        {RANGES.map(r => (
+          <TouchableOpacity
+            key={r.key}
+            style={[styles.filterBtn, range === r.key && styles.filterBtnActive]}
+            onPress={() => setRange(r.key)}
+          >
+            <Text style={[styles.filterText, range === r.key && styles.filterTextActive]}>
+              {r.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       <View style={styles.filterRow}>
         {['all', 'efectivo', 'tarjeta', 'bizum', 'fiado'].map(m => (
           <TouchableOpacity
             key={m}
-            style={[styles.filterBtn, filter === m && styles.filterBtnActive]}
-            onPress={() => setFilter(m)}
+            style={[styles.filterBtn, filterMethod === m && styles.filterBtnActive]}
+            onPress={() => setFilterMethod(m)}
           >
-            <Text style={[styles.filterText, filter === m && styles.filterTextActive]}>
+            <Text style={[styles.filterText, filterMethod === m && styles.filterTextActive]}>
               {m === 'all' ? 'Todos' : m.charAt(0).toUpperCase() + m.slice(1)}
             </Text>
           </TouchableOpacity>
@@ -71,7 +105,7 @@ export default function TicketsScreen() {
         {filtered.length === 0 ? (
           <View style={styles.empty}>
             <Ionicons name="receipt-outline" size={40} color={C.muted} />
-            <Text style={styles.emptyText}>No hay tickets hoy</Text>
+            <Text style={styles.emptyText}>No hay tickets en este período</Text>
           </View>
         ) : (
           filtered.map(s => {
