@@ -122,7 +122,7 @@ export default function TicketsScreen() {
                   <Text style={styles.ticketTime}>
                     {fecha} · {hora}
                   </Text>
-                  <Text style={styles.ticketTotal}>{s.total?.toFixed(2)}€</Text>
+                  <Text style={styles.ticketTotal}>{Number(s.total ?? 0).toFixed(2)}€</Text>
                 </View>
                 <View style={styles.ticketBody}>
                   <Text style={styles.ticketTable}>{s.tableName || '—'}</Text>
@@ -130,9 +130,14 @@ export default function TicketsScreen() {
                   <Text style={styles.ticketMethod}>{s.paymentMethod || '—'}</Text>
                 </View>
                 <View style={styles.ticketItems}>
-                  {items.map((i: Record<string, unknown>) => (
-                    <Text key={i.id as string} style={styles.ticketItem}>{String(i.qty)}x {String(i.name)}</Text>
-                  ))}
+                  {(items || []).filter(Boolean).map(function renderItem(i: any) {
+                    const itemId = typeof i?.id === 'string' ? i.id : Math.random();
+                    const qty = i?.qty != null ? i.qty : '';
+                    const name = i?.name != null ? i.name : '';
+                    return (
+                      <Text key={itemId} style={styles.ticketItem}>{String(qty)}x {String(name)}</Text>
+                    );
+                  })}
                   {extra > 0 && <Text style={styles.ticketMore}>+{extra} más</Text>}
                 </View>
               </View>
