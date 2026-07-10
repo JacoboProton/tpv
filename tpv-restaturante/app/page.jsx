@@ -22,7 +22,7 @@ import {
 } from '../lib/api';
 import { onNetworkChange, enqueueMutation, getMutations, cacheGet, cacheSet } from '../lib/offline';
 import { connectRealtime, broadcastFloorUpdate, broadcastReadyNotification, disconnectRealtime } from '../lib/realtime';
-import { sessionLogin, sessionLogout, startKeepalive } from '../lib/session';
+import { sessionLogin, sessionKeepalive, sessionLogout, startKeepalive } from '../lib/session';
 import { escposOpenDrawer, printESCPOS, isPrinterConnected } from '../lib/thermal-printer';
 import { fetchSettings, saveSettings, fetchOffers, saveOffers, fetchCombos, saveCombos, saveMealMenus, savePriceRules } from '../lib/api';
 import { ALLERGENS } from '../components/constants';
@@ -332,6 +332,30 @@ export default function App() {
         setEmployees(emps);
       }
 
+      // Auto-login: restore session from localStorage
+      const storedUserId = localStorage.getItem('tpv:current_user');
+      if (storedUserId && !currentUser) {
+        const emp = (emps || employees).find(e => e.id === storedUserId);
+        if (emp) {
+          try {
+            const data = await sessionKeepalive(emp.id);
+            if (data.ok) {
+              setCurrentUser(emp);
+              window.__keepaliveCleanup = startKeepalive(emp.id, () => {
+                showToast('Sesión cerrada en otro terminal');
+                logout();
+              });
+            } else {
+              localStorage.removeItem('tpv:current_user');
+            }
+          } catch {
+            localStorage.removeItem('tpv:current_user');
+          }
+        } else {
+          localStorage.removeItem('tpv:current_user');
+        }
+      }
+
       const salesFromApi = Array.isArray(sls) ? sls : [];
       if (Array.isArray(preFetchCache) && preFetchCache.length > 0) {
         const apiIds = new Set(salesFromApi.map(s => s.id));
@@ -541,6 +565,7 @@ export default function App() {
         if (window.__keepaliveCleanup) window.__keepaliveCleanup();
 
         setCurrentUser(emp);
+        try { localStorage.setItem('tpv:current_user', emp.id); } catch {}
         setLoginSelected(null);
         setPinInput('');
 
@@ -589,7 +614,7 @@ export default function App() {
       sessionLogout(currentUser.id).catch(() => {});
     }
     if (window.__keepaliveCleanup) window.__keepaliveCleanup();
-    setCurrentUser(null); setLoginSelected(null); setPinInput('');
+    setCurrentUser(null); try { localStorage.removeItem('tpv:current_user'); } catch {} setLoginSelected(null); setPinInput('');
     setSelectedTableId(null); setView('salon'); setMenuMode('menu');
   }
 
