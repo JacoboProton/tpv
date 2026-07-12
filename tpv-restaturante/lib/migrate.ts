@@ -1325,6 +1325,16 @@ async function m001_up() {
     try { await sql`ALTER TABLE "${sql.unsafe(table)}" ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'default'`; } catch (e) { console.warn('tenant_id recheck:', table, (e as Error).message); }
   }
 
+  // Ensure tenant_id on gestoria tables
+  const gestoriaTables = ['gestoria_settings', 'gestoria_documents', 'gestoria_document_lines', 'gestoria_payrolls', 'gestoria_tax_models', 'gestoria_authorization'];
+  for (const table of gestoriaTables) {
+    try { await sql`ALTER TABLE "${sql.unsafe(table)}" ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'default'`; } catch (e) { console.warn('tenant_id gestoria skip:', table, (e as Error).message); }
+  }
+  try { await sql`ALTER TABLE gestoria_settings DROP CONSTRAINT IF EXISTS gestoria_settings_pkey`; } catch {}
+  try { await sql`ALTER TABLE gestoria_settings ADD PRIMARY KEY (tenant_id, key)`; } catch (e) { console.warn('gestoria_settings PK skip:', (e as Error).message); }
+  try { await sql`ALTER TABLE gestoria_tax_models DROP CONSTRAINT IF EXISTS gestoria_tax_models_model_code_year_quarter_key`; } catch {}
+  try { await sql`ALTER TABLE gestoria_tax_models ADD UNIQUE (tenant_id, model_code, year, quarter)`; } catch (e) { console.warn('gestoria_tax_models unique skip:', (e as Error).message); }
+
   // Composite unique constraints for tables with non-standard PKs
   try { await sql`ALTER TABLE settings DROP CONSTRAINT IF EXISTS settings_pkey`; } catch {}
   try { await sql`ALTER TABLE settings ADD PRIMARY KEY (tenant_id, key)`; } catch (e) { console.warn('settings PK skip:', (e as Error).message); }

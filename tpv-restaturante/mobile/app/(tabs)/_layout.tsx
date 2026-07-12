@@ -39,6 +39,13 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="fiados"
+        options={{
+          title: 'Fiados',
+          tabBarIcon: ({ color, size }) => <TabIcon name="cash-outline" color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
         name="perfil"
         options={{
           title: 'Perfil',

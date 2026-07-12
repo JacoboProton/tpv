@@ -58,6 +58,11 @@ function TableCard({
       <View style={styles.tableHeader}>
         <View style={[styles.statusDot, { backgroundColor: bgColor }]} />
         <Text style={styles.tableName}>{table.name}</Text>
+        {table.isFiado && (
+          <View style={[styles.miniBadge, { backgroundColor: C.wine + '30' }]}>
+            <Text style={{ color: C.wineLight, fontSize: 8, fontWeight: '700' }}>FIADO</Text>
+          </View>
+        )}
         {hasReadyItems && (
           <View style={styles.readyIndicator}>
             <Text style={styles.readyIndicatorText}>🛎️ listo</Text>
@@ -423,6 +428,12 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '700',
     color: '#fff',
+  },
+  miniBadge: {
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+    marginLeft: 2,
   },
   retryBtn: { marginTop: 12, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: C.surface, borderRadius: 8 },
   retryText: { color: C.brass, fontWeight: '600' },

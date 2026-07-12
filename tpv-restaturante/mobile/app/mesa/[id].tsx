@@ -721,7 +721,6 @@ export default function MesaScreen() {
             if (!await confirmPay(floor, tableId)) return;
             const f = JSON.parse(JSON.stringify(floor)) as Floor;
             const t = f.tables.find(t => t.id === tableId);
-            // Guardar venta en efectivo ANTES de borrar los pedidos
             const saleId = generateId();
             const allOrderItems = Object.values(f.orders)
               .filter(o => o.tableId === tableId)
@@ -748,6 +747,41 @@ export default function MesaScreen() {
           }}
         >
           <Text style={styles.payBtnText}>Efectivo</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.fiadoBtn, allItems.length === 0 && { opacity: 0.4 }]}
+          onPress={async () => {
+            if (!floor) return;
+            if (!await confirmPay(floor, tableId)) return;
+            const f = JSON.parse(JSON.stringify(floor)) as Floor;
+            const t = f.tables.find(t => t.id === tableId);
+            const saleId = generateId();
+            const allOrderItems = Object.values(f.orders)
+              .filter(o => o.tableId === tableId)
+              .flatMap(o => o.items.map(i => ({ id: i.id, productId: i.productId, name: i.name, qty: i.qty, price: i.price })));
+            const total = allOrderItems.reduce((s, i) => s + i.price * i.qty, 0);
+            if (t) { t.isFiado = true; t.status = 'libre'; t.orderIds = []; t.orderId = null; }
+            for (const oid of Object.keys(f.orders)) {
+              if (f.orders[oid].tableId === tableId) delete f.orders[oid];
+            }
+            await addSale({
+              id: saleId, tableId, tableName: t?.name || tableId,
+              items: allOrderItems, subtotal: total, discount: 0, discountAmount: 0,
+              total, tip: 0, totalWithTip: total,
+              payments: [{ method: 'fiado', amount: total }],
+              paymentMethod: 'Fiado', isFiado: true, isDebtPayment: false,
+              employeeId: null, employeeName: user?.name || 'Camarero',
+              closedAt: Date.now(),
+            });
+            setFloor(f);
+            syncFloor(f);
+            await persistFloor(f);
+            Alert.alert('✅ Fiado registrado', `Total: ${total.toFixed(2)}€ — pendiente de cobro`);
+            router.back();
+          }}
+        >
+          <Ionicons name="cash" size={16} color={C.base} />
+          <Text style={styles.fiadoBtnText}>Fiado</Text>
         </TouchableOpacity>
       </View>
 
@@ -847,4 +881,9 @@ const styles = StyleSheet.create({
     flex: 1, paddingVertical: 12, backgroundColor: C.surfaceLight, borderRadius: 8,
     alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 4,
   },
+  fiadoBtn: {
+    flex: 1, paddingVertical: 12, backgroundColor: C.wine, borderRadius: 8,
+    alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6,
+  },
+  fiadoBtnText: { color: C.base, fontWeight: '700', fontSize: 13 },
 });
