@@ -2,15 +2,14 @@
 
 import { useState } from 'react';
 import { Banknote, CreditCard, Smartphone, Clock, X, CheckCircle2, Printer, Check, Trash2 } from 'lucide-react';
-import { euros, round2 } from './constants';
+import { euros, round2, PAYMENT_METHODS } from './constants';
 import StripeModal from './StripeModal';
 
-const PAYMENT_METHODS = [
-  { id: 'efectivo', label: 'Efectivo', icon: Banknote, color: '#7a9a7c' },
-  { id: 'tarjeta',  label: 'Tarjeta',  icon: CreditCard, color: '#c4a04a' },
-  { id: 'bizum',    label: 'Bizum',    icon: Smartphone, color: '#6b9bf8' },
-  { id: 'fiado',    label: 'Fiado',    icon: Clock, color: '#b05e5e' },
-];
+const PAYMENT_METHODS_UI = PAYMENT_METHODS.map(m => ({
+  ...m,
+  icon: { efectivo: Banknote, tarjeta: CreditCard, bizum: Smartphone, fiado: Clock }[m.id],
+  color: { efectivo: '#7a9a7c', tarjeta: '#c4a04a', bizum: '#6b9bf8', fiado: '#b05e5e' }[m.id],
+}));
 
 export default function PaymentModal({
   selectedTable,
@@ -171,7 +170,7 @@ export default function PaymentModal({
           {paymentSplits.length > 0 && (
             <div className="flex flex-col gap-3 mb-4">
               {paymentSplits.map(sp => {
-                const meta = PAYMENT_METHODS.find(m => m.id === sp.method);
+                const meta = PAYMENT_METHODS_UI.find(m => m.id === sp.method);
                 const Icon = meta.icon;
                 const isFiado = sp.method === 'fiado';
                 const splitItemIds = new Set(sp.itemIds || []);
@@ -233,7 +232,7 @@ export default function PaymentModal({
 
           {/* Botones de método */}
           <div className="grid grid-cols-2 gap-2.5 mb-5">
-            {PAYMENT_METHODS.map(m => {
+            {PAYMENT_METHODS_UI.map(m => {
               const Icon = m.icon;
               const isFiadoAlready = paymentSplits.some(p => p.method === 'fiado');
               const hasThisMethod = paymentSplits.some(p => p.method === m.id);

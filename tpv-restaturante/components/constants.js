@@ -39,7 +39,7 @@ export const THEMES = {
 
 export let C = THEMES.dark;
 
-export function setTheme(mode) {
+export function setGlobalTheme(mode) {
   C = THEMES[mode];
 }
 
@@ -71,10 +71,10 @@ export const TICKET_PRINT_STYLE = {
 export const COURSES = ['Entrantes', 'Principales', 'Postres'];
 
 export const PAYMENT_METHODS = [
-  { id: 'efectivo', label: 'Efectivo', icon: null },
-  { id: 'tarjeta', label: 'Tarjeta', icon: null },
-  { id: 'bizum',   label: 'Bizum',   icon: null },
-  { id: 'fiado',   label: 'Fiado',   icon: null },
+  { id: 'efectivo', label: 'Efectivo' },
+  { id: 'tarjeta',  label: 'Tarjeta' },
+  { id: 'bizum',    label: 'Bizum' },
+  { id: 'fiado',    label: 'Fiado' },
 ];
 
 export function euros(n) {

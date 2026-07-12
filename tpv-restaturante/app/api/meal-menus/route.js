@@ -1,18 +1,21 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../lib/db';
+import { getTenantId } from '../../../lib/tenant';
 
-export async function GET() {
+export async function GET(req) {
   try {
-    const menus = await sql`SELECT * FROM meal_menus ORDER BY name`;
-    const courses = await sql`SELECT * FROM meal_menu_courses ORDER BY sort_order`;
+    const tenantId = getTenantId(req);
+    const menus = await sql`SELECT * FROM meal_menus WHERE tenant_id = ${tenantId} ORDER BY name`;
+    const courses = await sql`SELECT * FROM meal_menu_courses WHERE tenant_id = ${tenantId} ORDER BY sort_order`;
     const items = await sql`
       SELECT mmci.id, mmci.course_id, mmci.product_id, mmci.surcharge::float AS surcharge, mmci.sort_order,
         p.name AS product_name, p.price::float AS product_price
       FROM meal_menu_course_items mmci
       JOIN products p ON p.id = mmci.product_id
+      WHERE mmci.tenant_id = ${tenantId}
       ORDER BY mmci.sort_order
     `;
-    const schedules = await sql`SELECT * FROM meal_menu_schedules ORDER BY day_of_week, start_time`;
+    const schedules = await sql`SELECT * FROM meal_menu_schedules WHERE tenant_id = ${tenantId} ORDER BY day_of_week, start_time`;
 
     const itemsByCourse = {};
     for (const item of items) {
@@ -48,32 +51,33 @@ export async function GET() {
 
 export async function PUT(req) {
   try {
+    const tenantId = getTenantId(req);
     const menus = await req.json();
-    await sql`DELETE FROM meal_menu_course_items`;
-    await sql`DELETE FROM meal_menu_courses`;
-    await sql`DELETE FROM meal_menu_schedules`;
-    await sql`DELETE FROM meal_menus`;
+    await sql`DELETE FROM meal_menu_course_items WHERE tenant_id = ${tenantId}`;
+    await sql`DELETE FROM meal_menu_courses WHERE tenant_id = ${tenantId}`;
+    await sql`DELETE FROM meal_menu_schedules WHERE tenant_id = ${tenantId}`;
+    await sql`DELETE FROM meal_menus WHERE tenant_id = ${tenantId}`;
 
     for (const m of menus) {
       await sql`
-        INSERT INTO meal_menus (id, name, description, price, image, includes_pan, includes_bebida, includes_cafe, active, created_at, extras)
+        INSERT INTO meal_menus (id, name, description, price, image, includes_pan, includes_bebida, includes_cafe, active, created_at, extras, tenant_id)
         VALUES (${m.id}, ${m.name}, ${m.description || ''}, ${m.price}, ${m.image || null},
           ${m.includes_pan ?? false}, ${m.includes_bebida ?? false}, ${m.includes_cafe ?? false},
-          ${m.active ?? true}, ${Date.now()}, ${JSON.stringify(m.extras || [])})
+          ${m.active ?? true}, ${Date.now()}, ${JSON.stringify(m.extras || [])}, ${tenantId})
       `;
       if (m.courses) {
         for (let ci = 0; ci < m.courses.length; ci++) {
           const course = m.courses[ci];
           await sql`
-            INSERT INTO meal_menu_courses (id, menu_id, name, sort_order)
-            VALUES (${course.id}, ${m.id}, ${course.name}, ${ci})
+            INSERT INTO meal_menu_courses (id, menu_id, name, sort_order, tenant_id)
+            VALUES (${course.id}, ${m.id}, ${course.name}, ${ci}, ${tenantId})
           `;
           if (course.items) {
             for (let ii = 0; ii < course.items.length; ii++) {
               const item = course.items[ii];
               await sql`
-                INSERT INTO meal_menu_course_items (id, course_id, product_id, surcharge, sort_order)
-                VALUES (${item.id}, ${course.id}, ${item.product_id}, ${item.surcharge ?? 0}, ${ii})
+                INSERT INTO meal_menu_course_items (id, course_id, product_id, surcharge, sort_order, tenant_id)
+                VALUES (${item.id}, ${course.id}, ${item.product_id}, ${item.surcharge ?? 0}, ${ii}, ${tenantId})
               `;
             }
           }
@@ -82,8 +86,8 @@ export async function PUT(req) {
       if (m.schedules) {
         for (const s of m.schedules) {
           await sql`
-            INSERT INTO meal_menu_schedules (id, menu_id, day_of_week, start_time, end_time)
-            VALUES (${s.id}, ${m.id}, ${s.day_of_week}, ${s.start_time}, ${s.end_time})
+            INSERT INTO meal_menu_schedules (id, menu_id, day_of_week, start_time, end_time, tenant_id)
+            VALUES (${s.id}, ${m.id}, ${s.day_of_week}, ${s.start_time}, ${s.end_time}, ${tenantId})
           `;
         }
       }

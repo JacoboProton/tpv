@@ -1,9 +1,15 @@
+import iconv from 'iconv-lite';
 import { describe, it, expect } from 'vitest';
 import {
   escposInit, escposCenter, escposLeft, escposBold, escposDoubleHeight,
   escposCut, escposLine, escposText, escposSeparator, escposOpenDrawer,
   generateTicketData, webUsbSupported
 } from '../lib/thermal-printer';
+
+function decodeWin(u8) {
+  const buf = Buffer.from(u8.buffer, u8.byteOffset, u8.byteLength);
+  return iconv.decode(buf, 'windows-1252');
+}
 
 describe('ESC/POS commands', () => {
   it('init produces ESC @', () => {
@@ -48,15 +54,12 @@ describe('ESC/POS commands', () => {
   });
 
   it('text encoder produces text + newline', () => {
-    const result = escposText('Hola');
-    const decoder = new TextDecoder();
-    expect(decoder.decode(result)).toBe('Hola\n');
+    expect(decodeWin(escposText('Hola'))).toBe('Hola\n');
   });
 
   it('separator produces repeated char', () => {
-    const decoder = new TextDecoder();
-    expect(decoder.decode(escposSeparator('-', 8))).toBe('--------\n');
-    expect(decoder.decode(escposSeparator('=', 4))).toBe('====\n');
+    expect(decodeWin(escposSeparator('-', 8))).toBe('--------\n');
+    expect(decodeWin(escposSeparator('=', 4))).toBe('====\n');
   });
 });
 
@@ -79,19 +82,15 @@ describe('generateTicketData', () => {
   });
 
   it('includes restaurant name', () => {
-    const result = generateTicketData(sample);
-    const decoder = new TextDecoder();
-    expect(decoder.decode(result)).toContain('TEST BAR');
+    expect(decodeWin(generateTicketData(sample))).toContain('TEST BAR');
   });
 
   it('includes table name', () => {
-    const decoder = new TextDecoder();
-    expect(decoder.decode(generateTicketData(sample))).toContain('Mesa 3');
+    expect(decodeWin(generateTicketData(sample))).toContain('Mesa 3');
   });
 
   it('includes item names and prices', () => {
-    const decoder = new TextDecoder();
-    const text = decoder.decode(generateTicketData(sample));
+    const text = decodeWin(generateTicketData(sample));
     expect(text).toContain('Café solo');
     expect(text).toContain('Tortilla');
     expect(text).toContain('1.50');
@@ -99,23 +98,19 @@ describe('generateTicketData', () => {
   });
 
   it('includes modifiers', () => {
-    const decoder = new TextDecoder();
-    expect(decoder.decode(generateTicketData(sample))).toContain('Con cebolla');
+    expect(decodeWin(generateTicketData(sample))).toContain('Con cebolla');
   });
 
   it('includes total', () => {
-    const decoder = new TextDecoder();
-    expect(decoder.decode(generateTicketData(sample))).toContain('11.00');
+    expect(decodeWin(generateTicketData(sample))).toContain('11.00');
   });
 
   it('includes tip when present', () => {
-    const decoder = new TextDecoder();
-    expect(decoder.decode(generateTicketData(sample))).toContain('Propina');
+    expect(decodeWin(generateTicketData(sample))).toContain('Propina');
   });
 
   it('includes Verifactu number', () => {
-    const decoder = new TextDecoder();
-    expect(decoder.decode(generateTicketData(sample))).toContain('VERI-2025-000042');
+    expect(decodeWin(generateTicketData(sample))).toContain('VERI-2025-000042');
   });
 
   it('starts with ESC @ (init)', () => {
@@ -142,8 +137,7 @@ describe('generateTicketData', () => {
       ...sample,
       totals: { total: 10.00, discount: 20, discountAmount: 2.00, tip: 0 },
     };
-    const decoder = new TextDecoder();
-    expect(decoder.decode(generateTicketData(withDiscount))).toContain('Dto: 20%');
+    expect(decodeWin(generateTicketData(withDiscount))).toContain('Dto: 20%');
   });
 });
 

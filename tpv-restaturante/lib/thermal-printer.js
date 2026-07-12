@@ -1,3 +1,5 @@
+import iconv from 'iconv-lite';
+
 export function escposInit() {
   return new Uint8Array([0x1b, 0x40]); // ESC @
 }
@@ -27,13 +29,18 @@ export function escposLine(n = 1) {
 }
 
 export function escposText(text, encoding = 'windows-1252') {
-  const encoder = new TextEncoder(encoding);
-  return encoder.encode(text + '\n');
+  const buf = iconv.encode(text + '\n', encoding);
+  return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
 }
 
 export function escposSeparator(char = '-', width = 32) {
   const line = char.repeat(width) + '\n';
   return new TextEncoder().encode(line);
+}
+
+function encodeWin(text) {
+  const buf = iconv.encode(text, 'windows-1252');
+  return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
 }
 
 export function generateTicketData({ restaurant, table, items, totals, date }) {
@@ -45,46 +52,46 @@ export function generateTicketData({ restaurant, table, items, totals, date }) {
   add(escposCenter());
   add(escposDoubleHeight(true));
   add(escposBold(true));
-  add(new TextEncoder().encode((restaurant || 'LA COMANDA') + '\n'));
+  add(encodeWin((restaurant || 'LA COMANDA') + '\n'));
   add(escposBold(false));
   add(escposDoubleHeight(false));
   add(escposCenter());
-  add(new TextEncoder().encode('CIF: ' + (restaurant?.cif || '78406450W') + '\n'));
-  add(new TextEncoder().encode(date ? date : new Date().toLocaleString('es-ES') + '\n\n'));
+  add(encodeWin('CIF: ' + (restaurant?.cif || '78406450W') + '\n'));
+  add(encodeWin(date ? date : new Date().toLocaleString('es-ES') + '\n\n'));
   add(escposLeft());
 
-  add(new TextEncoder().encode('Mesa: ' + (table || '') + '\n'));
+  add(encodeWin('Mesa: ' + (table || '') + '\n'));
   add(escposSeparator('-'));
 
   items.forEach(item => {
     add(escposBold(true));
-    add(new TextEncoder().encode(item.name + '\n'));
+    add(encodeWin(item.name + '\n'));
     add(escposBold(false));
     if (item.modifiers && item.modifiers.length > 0) {
       item.modifiers.forEach(m => {
-        add(new TextEncoder().encode('  + ' + m.optionName + '\n'));
+        add(encodeWin('  + ' + m.optionName + '\n'));
       });
     }
-    add(new TextEncoder().encode('   ' + item.qty + ' x ' + item.price.toFixed(2) + '€'));
-    add(new TextEncoder().encode('   ' + (item.qty * item.price).toFixed(2) + '€\n'));
+    add(encodeWin('   ' + item.qty + ' x ' + item.price.toFixed(2) + '€'));
+    add(encodeWin('   ' + (item.qty * item.price).toFixed(2) + '€\n'));
   });
 
   add(escposSeparator('='));
   add(escposBold(true));
-  add(new TextEncoder().encode('TOTAL: ' + totals.total.toFixed(2) + '€\n'));
+  add(encodeWin('TOTAL: ' + totals.total.toFixed(2) + '€\n'));
   add(escposBold(false));
 
   if (totals.discount > 0) {
-    add(new TextEncoder().encode('Dto: ' + totals.discount + '%  -' + totals.discountAmount.toFixed(2) + '€\n'));
+    add(encodeWin('Dto: ' + totals.discount + '%  -' + totals.discountAmount.toFixed(2) + '€\n'));
   }
   if (totals.tip > 0) {
-    add(new TextEncoder().encode('Propina: +' + totals.tip.toFixed(2) + '€\n'));
+    add(encodeWin('Propina: +' + totals.tip.toFixed(2) + '€\n'));
   }
 
   add(escposSeparator('-'));
   add(escposCenter());
-  add(new TextEncoder().encode('Gracias por su visita\n'));
-  add(new TextEncoder().encode('Verifactu: ' + (totals.verifactuNum || '—') + '\n'));
+  add(encodeWin('Gracias por su visita\n'));
+  add(encodeWin('Verifactu: ' + (totals.verifactuNum || '—') + '\n'));
   add(escposLine(3));
   add(escposCut());
 

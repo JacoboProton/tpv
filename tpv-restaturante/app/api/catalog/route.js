@@ -176,6 +176,9 @@ export async function PATCH(req) {
     const { action, data } = await req.json();
     const tenantId = getTenantId(req);
 
+    const PRODUCT_FIELDS = ['name', 'price', 'description', 'show_tpv', 'show_qr', 'agotado', 'course', 'ubicacion', 'carousel_sort', 'sort_order'];
+    const CATEGORY_FIELDS = ['name', 'show_tpv', 'show_qr', 'sort_order'];
+
     if (action === 'reorder-categories') {
       for (const cat of data) {
         await sql`UPDATE categories SET sort_order = ${cat.sort_order} WHERE id = ${cat.id} AND tenant_id = ${tenantId}`;
@@ -185,19 +188,55 @@ export async function PATCH(req) {
 
     if (action === 'toggle-product') {
       const { id, field, value } = data;
-      await sql`UPDATE products SET ${sql(field)} = ${value} WHERE id = ${id} AND tenant_id = ${tenantId}`;
+      let setClause;
+      switch (field) {
+        case 'name': setClause = sql`name = ${value}`; break;
+        case 'price': setClause = sql`price = ${value}`; break;
+        case 'description': setClause = sql`description = ${value}`; break;
+        case 'show_tpv': setClause = sql`show_tpv = ${value}`; break;
+        case 'show_qr': setClause = sql`show_qr = ${value}`; break;
+        case 'agotado': setClause = sql`agotado = ${value}`; break;
+        case 'course': setClause = sql`course = ${value}`; break;
+        case 'ubicacion': setClause = sql`ubicacion = ${value}`; break;
+        case 'carousel_sort': setClause = sql`carousel_sort = ${value}`; break;
+        case 'sort_order': setClause = sql`sort_order = ${value}`; break;
+        default: return NextResponse.json({ error: 'Campo no permitido' }, { status: 400 });
+      }
+      await sql`UPDATE products SET ${setClause} WHERE id = ${id} AND tenant_id = ${tenantId}`;
       return NextResponse.json({ ok: true });
     }
 
     if (action === 'toggle-category') {
       const { id, field, value } = data;
-      await sql`UPDATE categories SET ${sql(field)} = ${value} WHERE id = ${id} AND tenant_id = ${tenantId}`;
+      let setClause;
+      switch (field) {
+        case 'name': setClause = sql`name = ${value}`; break;
+        case 'show_tpv': setClause = sql`show_tpv = ${value}`; break;
+        case 'show_qr': setClause = sql`show_qr = ${value}`; break;
+        case 'sort_order': setClause = sql`sort_order = ${value}`; break;
+        default: return NextResponse.json({ error: 'Campo no permitido' }, { status: 400 });
+      }
+      await sql`UPDATE categories SET ${setClause} WHERE id = ${id} AND tenant_id = ${tenantId}`;
       return NextResponse.json({ ok: true });
     }
 
     if (action === 'update-product') {
       const { id, field, value } = data;
-      await sql`UPDATE products SET ${sql(field)} = ${value} WHERE id = ${id} AND tenant_id = ${tenantId}`;
+      let setClause;
+      switch (field) {
+        case 'name': setClause = sql`name = ${value}`; break;
+        case 'price': setClause = sql`price = ${value}`; break;
+        case 'description': setClause = sql`description = ${value}`; break;
+        case 'show_tpv': setClause = sql`show_tpv = ${value}`; break;
+        case 'show_qr': setClause = sql`show_qr = ${value}`; break;
+        case 'agotado': setClause = sql`agotado = ${value}`; break;
+        case 'course': setClause = sql`course = ${value}`; break;
+        case 'ubicacion': setClause = sql`ubicacion = ${value}`; break;
+        case 'carousel_sort': setClause = sql`carousel_sort = ${value}`; break;
+        case 'sort_order': setClause = sql`sort_order = ${value}`; break;
+        default: return NextResponse.json({ error: 'Campo no permitido' }, { status: 400 });
+      }
+      await sql`UPDATE products SET ${setClause} WHERE id = ${id} AND tenant_id = ${tenantId}`;
       return NextResponse.json({ ok: true });
     }
 

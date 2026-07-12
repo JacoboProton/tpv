@@ -3,11 +3,13 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { C } from '../../lib/theme';
 import { setGlobalUser, globalUser } from '../_layout';
+import { sessionLogout } from '../../lib/session';
 
 export default function PerfilScreen() {
   const user = globalUser;
 
   function handleLogout() {
+    if (user?.id) sessionLogout(user.id);
     setGlobalUser(null);
     router.replace('/');
   }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { euros, round2, clone, seedCatalog, seedFloor, seedEmployees, getDailyMenu, THEMES, setTheme, KEYS, ALLERGENS, C } from '../components/constants';
+import { euros, round2, clone, seedCatalog, seedFloor, seedEmployees, getDailyMenu, THEMES, setGlobalTheme, KEYS, ALLERGENS, C } from '../components/constants';
 
 describe('euros', () => {
   it('formats numbers as euros', () => {
@@ -76,13 +76,13 @@ describe('THEMES', () => {
   });
 });
 
-describe('setTheme', () => {
+describe('setGlobalTheme', () => {
   it('switches C reference', () => {
     const original = C;
-    setTheme('light');
+    setGlobalTheme('light');
     expect(C).not.toBe(original);
     expect(C.base).toBe(THEMES.light.base);
-    setTheme('dark');
+    setGlobalTheme('dark');
     expect(C.base).toBe(THEMES.dark.base);
   });
 });

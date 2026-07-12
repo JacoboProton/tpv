@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../lib/db';
+import { getTenantId } from '../../../lib/tenant';
 
-export async function GET() {
+export async function GET(req) {
   try {
-    const rows = await sql`SELECT * FROM suppliers ORDER BY name`;
+    const tenantId = getTenantId(req);
+    const rows = await sql`SELECT * FROM suppliers WHERE tenant_id = ${tenantId} ORDER BY name`;
     return NextResponse.json(rows.map(r => ({
       id: r.id, name: r.name, contact: r.contact, phone: r.phone,
       email: r.email, nif: r.nif, address: r.address, paymentTerms: r.payment_terms || '',
@@ -16,6 +18,7 @@ export async function GET() {
 
 export async function POST(req) {
   try {
+    const tenantId = getTenantId(req);
     const body = await req.json();
     if (body.action === 'save') {
       const { id, name, contact, phone, email, nif, address, paymentTerms, notes, active } = body;
@@ -23,12 +26,12 @@ export async function POST(req) {
         await sql`UPDATE suppliers SET name=${name}, contact=${contact || ''}, phone=${phone || ''},
           email=${email || ''}, nif=${nif || ''}, address=${address || ''},
           payment_terms=${paymentTerms || ''}, notes=${notes || ''},
-          active=${active !== false} WHERE id=${id}`;
+          active=${active !== false} WHERE id=${id} AND tenant_id = ${tenantId}`;
       } else {
         const newId = 'sup_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
-        await sql`INSERT INTO suppliers (id, name, contact, phone, email, nif, address, payment_terms, notes, active, created_at)
+        await sql`INSERT INTO suppliers (id, name, contact, phone, email, nif, address, payment_terms, notes, active, created_at, tenant_id)
           VALUES (${newId}, ${name}, ${contact || ''}, ${phone || ''}, ${email || ''}, ${nif || ''},
-          ${address || ''}, ${paymentTerms || ''}, ${notes || ''}, ${active !== false}, ${Date.now()})`;
+          ${address || ''}, ${paymentTerms || ''}, ${notes || ''}, ${active !== false}, ${Date.now()}, ${tenantId})`;
         return NextResponse.json({ ok: true, id: newId });
       }
       return NextResponse.json({ ok: true });

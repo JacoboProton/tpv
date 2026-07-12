@@ -1370,9 +1370,9 @@ export default function ComandaDrawer({
               <button onClick={() => setPersonalPinInput('')}
                 style={{ background: C.surfaceLight, border: `1px solid ${C.line}`, color: C.muted }}
                 className="rounded-lg py-3 text-lg font-mono hover:opacity-80">C</button>
-              <button onClick={() => {
+              <button onClick={async () => {
                 if (personalPinInput.length < 4) return;
-                const ok = onApplyPersonalDiscount(selectedOrder?.id, personalPinInput);
+                const ok = await onApplyPersonalDiscount(selectedOrder?.id, personalPinInput);
                 if (ok) setShowPersonalPIN(false);
               }}
                 disabled={personalPinInput.length < 4}

@@ -1,7 +1,6 @@
 export interface Employee {
   id: string;
   name: string;
-  pin: string;
   role: 'admin' | 'camarero';
   personalDiscountEnabled: boolean;
   monthlyLimit: number;

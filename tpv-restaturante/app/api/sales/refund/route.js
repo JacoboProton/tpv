@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 import { sql } from '../../../../lib/db';
 import { logPayment } from '../../../../lib/payment-logger';
+import { getTenantId } from '../../../../lib/tenant';
 
 function getStripe() {
   if (!process.env.STRIPE_SECRET_KEY) return null;
@@ -9,13 +10,14 @@ function getStripe() {
 
 export async function PUT(req) {
   try {
+    const tenantId = getTenantId(req);
     const { saleId, refund } = await req.json();
     if (!saleId || !refund) {
       return Response.json({ error: 'saleId and refund required' }, { status: 400 });
     }
 
     const sale = await sql`
-      SELECT payment_intent_id, refunds FROM sales WHERE id = ${saleId} LIMIT 1
+      SELECT payment_intent_id, refunds FROM sales WHERE id = ${saleId} AND tenant_id = ${tenantId} LIMIT 1
     `;
     if (sale.length === 0) {
       return Response.json({ error: 'Sale not found' }, { status: 404 });
@@ -48,7 +50,7 @@ export async function PUT(req) {
     }
 
     const updated = [...currentRefunds, { ...refund, stripeRefundId }];
-    await sql`UPDATE sales SET refunds = ${JSON.stringify(updated)} WHERE id = ${saleId}`;
+    await sql`UPDATE sales SET refunds = ${JSON.stringify(updated)} WHERE id = ${saleId} AND tenant_id = ${tenantId}`;
 
     return Response.json({ ok: true, refunds: updated, stripeRefundId });
   } catch (e) {

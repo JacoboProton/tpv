@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../../lib/db';
+import { getTenantId } from '../../../../lib/tenant';
 import * as XLSX from 'xlsx';
 
 export async function GET(req) {
   try {
+    const tenantId = getTenantId(req);
     const { searchParams } = new URL(req.url);
     const year = parseInt(searchParams.get('year')) || new Date().getFullYear();
     const from = `${year}-01-01`;
@@ -11,7 +13,7 @@ export async function GET(req) {
 
     const sales = await sql`
       SELECT id, table_name, items, total_with_tip, payment_method, closed_at, employee_name, discount, tip
-      FROM sales WHERE closed_at >= ${new Date(from).getTime()} AND closed_at < ${new Date(to + 'T23:59:59').getTime()}
+      FROM sales WHERE tenant_id = ${tenantId} AND closed_at >= ${new Date(from).getTime()} AND closed_at < ${new Date(to + 'T23:59:59').getTime()}
       ORDER BY closed_at
     `;
 

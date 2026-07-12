@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../lib/db';
+import { getTenantId } from '../../../lib/tenant';
 
 // POST /api/access-logs → registra una entrada
 export async function POST(req) {
   try {
+    const tenantId = getTenantId(req);
     const { employeeId, employeeName, role, entryPoint } = await req.json();
     await sql`
-      INSERT INTO access_logs (employee_id, employee_name, role, entry_point, logged_at)
-      VALUES (${employeeId}, ${employeeName}, ${role}, ${entryPoint}, ${Date.now()})
+      INSERT INTO access_logs (employee_id, employee_name, role, entry_point, logged_at, tenant_id)
+      VALUES (${employeeId}, ${employeeName}, ${role}, ${entryPoint}, ${Date.now()}, ${tenantId})
     `;
     return NextResponse.json({ ok: true });
   } catch (err) {
@@ -19,6 +21,7 @@ export async function POST(req) {
 // GET /api/access-logs → devuelve los registros (más recientes primero)
 export async function GET(req) {
   try {
+    const tenantId = getTenantId(req);
     const { searchParams } = new URL(req.url);
     const limit = Math.min(parseInt(searchParams.get('limit') ?? '200'), 500);
     const offset = Math.max(parseInt(searchParams.get('offset') ?? '0'), 0);
@@ -28,10 +31,11 @@ export async function GET(req) {
         SELECT id, employee_id AS "employeeId", employee_name AS "employeeName",
                role, entry_point AS "entryPoint", logged_at AS "loggedAt"
         FROM access_logs
+        WHERE tenant_id = ${tenantId}
         ORDER BY logged_at DESC
         LIMIT ${limit} OFFSET ${offset}
       `,
-      sql`SELECT COUNT(*)::int AS total FROM access_logs`,
+      sql`SELECT COUNT(*)::int AS total FROM access_logs WHERE tenant_id = ${tenantId}`,
     ]);
 
     return NextResponse.json({

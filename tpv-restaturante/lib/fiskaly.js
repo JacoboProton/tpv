@@ -10,12 +10,42 @@ const API_SECRET = process.env.FISKALY_API_SECRET;
 const TAXPAYER_NIF = process.env.FISKALY_TAXPAYER_NIF;
 const TERRITORY = process.env.FISKALY_TERRITORY || 'CANARY_ISLANDS';
 
-let tokenCache = { bearer: null, expiresAt: 0 };
+let tokenCache = null;
+const TOKEN_CONFIG_KEY = 'fiskaly_saved_token';
+
+async function loadTokenFromDb() {
+  try {
+    const rows = await sql`
+      SELECT value FROM fiskaly_config WHERE key = ${TOKEN_CONFIG_KEY}
+    `;
+    if (rows.length > 0) return JSON.parse(rows[0].value);
+  } catch {}
+  return null;
+}
+
+async function saveTokenToDb(token) {
+  try {
+    await sql`
+      INSERT INTO fiskaly_config (key, value, updated_at)
+      VALUES (${TOKEN_CONFIG_KEY}, ${JSON.stringify(token)}, ${Date.now()})
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = ${Date.now()}
+    `;
+  } catch {}
+}
 
 async function getAccessToken() {
-  if (tokenCache.bearer && Date.now() < tokenCache.expiresAt) {
+  if (tokenCache && Date.now() < tokenCache.expiresAt) {
     return tokenCache.bearer;
   }
+
+  if (!tokenCache) {
+    const saved = await loadTokenFromDb();
+    if (saved && Date.now() < saved.expiresAt) {
+      tokenCache = saved;
+      return saved.bearer;
+    }
+  }
+
   const res = await fetch(`${BASE_URL}/auth`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -29,7 +59,9 @@ async function getAccessToken() {
   }
   const data = await res.json();
   const t = data.content.access_token;
-  tokenCache = { bearer: t.bearer, expiresAt: t.expires_at * 1000 };
+  const newCache = { bearer: t.bearer, expiresAt: t.expires_at * 1000 };
+  tokenCache = newCache;
+  saveTokenToDb(newCache);
   return t.bearer;
 }
 

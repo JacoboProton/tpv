@@ -11,9 +11,10 @@ export default function KDSPage() {
   const [paired, setPaired] = useState(null);
   const [floor, setFloor] = useState(null);
   const [catalog, setCatalog] = useState(null);
+  const tenantId = typeof window !== 'undefined' ? (localStorage.getItem('kds_tenant_id') || 'default') : 'default';
 
   useEffect(() => {
-    const ch = connectRealtime();
+    const ch = connectRealtime(tenantId);
     if (ch) {
       ch.on('broadcast', { event: 'floor:updated' }, ({ payload }) => {
         setFloor(payload.floor);
@@ -91,7 +92,7 @@ export default function KDSPage() {
         const order = next.orders[action.orderId];
         const item = order?.items?.find(i => i.id === action.itemId);
         const table = next.tables?.find(t => t.id === order?.tableId);
-        if (item) broadcastReadyNotification(table?.name || order?.tableId, [item.name], order?.employeeName);
+        if (item) broadcastReadyNotification(table?.name || order?.tableId, [item.name], order?.employeeName, tenantId);
       }
       persist(next);
     }}
@@ -106,8 +107,9 @@ export default function KDSPage() {
 
   async function persist(flr) {
     try {
-      await fetch('/api/floor', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(flr) });
-      broadcastFloorUpdate(flr);
+      const h = { 'Content-Type': 'application/json', 'x-tenant-id': tenantId };
+      await fetch('/api/floor', { method: 'PUT', headers: h, body: JSON.stringify(flr) });
+      broadcastFloorUpdate(flr, tenantId);
     } catch {}
   }
 }

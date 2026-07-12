@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../lib/db';
+import { getTenantId } from '../../../lib/tenant';
 
-export async function GET() {
+export async function GET(req) {
   try {
-    const recipes = await sql`SELECT * FROM recipes ORDER BY product_name`;
+    const tenantId = getTenantId(req);
+    const recipes = await sql`SELECT * FROM recipes WHERE tenant_id = ${tenantId} ORDER BY product_name`;
     const result = [];
     for (const r of recipes) {
       const ingredients = await sql`
-        SELECT * FROM recipe_ingredients WHERE recipe_id = ${r.id} ORDER BY id
+        SELECT * FROM recipe_ingredients WHERE recipe_id = ${r.id} AND tenant_id = ${tenantId} ORDER BY id
       `;
       result.push({
         id: r.id,
@@ -35,6 +37,7 @@ export async function GET() {
 
 export async function POST(req) {
   try {
+    const tenantId = getTenantId(req);
     const body = await req.json();
     const { action } = body;
 
@@ -45,7 +48,7 @@ export async function POST(req) {
         return NextResponse.json({ error: 'Producto e ingredientes son requeridos' }, { status: 400 });
       }
 
-      let recipe = (await sql`SELECT * FROM recipes WHERE product_id = ${productId} LIMIT 1`)[0];
+      let recipe = (await sql`SELECT * FROM recipes WHERE product_id = ${productId} AND tenant_id = ${tenantId} LIMIT 1`)[0];
       const recipeId = recipe?.id || 'rec_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
       const yieldQtyVal = parseFloat(yieldQty || 1);
 
@@ -60,7 +63,7 @@ export async function POST(req) {
 
         const latestBatch = await sql`
           SELECT cost_per_unit FROM product_batches
-          WHERE product_id = ${ing.ingredientId} AND status = 'active'
+          WHERE product_id = ${ing.ingredientId} AND status = 'active' AND tenant_id = ${tenantId}
           ORDER BY received_at DESC LIMIT 1
         `;
         const currentCost = latestBatch.length > 0 ? parseFloat(latestBatch[0].cost_per_unit) : iCostPerUnit;
@@ -81,20 +84,20 @@ export async function POST(req) {
       if (recipe) {
         await sql`
           UPDATE recipes SET product_name = ${productName}, cost_per_unit = ${costPerUnit}, yield_qty = ${yieldQtyVal}, updated_at = ${Date.now()}
-          WHERE id = ${recipe.id}
+          WHERE id = ${recipe.id} AND tenant_id = ${tenantId}
         `;
-        await sql`DELETE FROM recipe_ingredients WHERE recipe_id = ${recipe.id}`;
+        await sql`DELETE FROM recipe_ingredients WHERE recipe_id = ${recipe.id} AND tenant_id = ${tenantId}`;
       } else {
         await sql`
-          INSERT INTO recipes (id, product_id, product_name, cost_per_unit, yield_qty, updated_at)
-          VALUES (${recipeId}, ${productId}, ${productName}, ${costPerUnit}, ${yieldQtyVal}, ${Date.now()})
+          INSERT INTO recipes (id, product_id, product_name, cost_per_unit, yield_qty, updated_at, tenant_id)
+          VALUES (${recipeId}, ${productId}, ${productName}, ${costPerUnit}, ${yieldQtyVal}, ${Date.now()}, ${tenantId})
         `;
       }
 
       for (const ing of processedIngredients) {
         await sql`
-          INSERT INTO recipe_ingredients (recipe_id, ingredient_id, ingredient_name, quantity, unit, cost_per_unit, total_cost)
-          VALUES (${recipe.id || recipeId}, ${ing.ingredientId}, ${ing.ingredientName}, ${ing.quantity}, ${ing.unit}, ${ing.costPerUnit}, ${ing.totalCost})
+          INSERT INTO recipe_ingredients (recipe_id, ingredient_id, ingredient_name, quantity, unit, cost_per_unit, total_cost, tenant_id)
+          VALUES (${recipe.id || recipeId}, ${ing.ingredientId}, ${ing.ingredientName}, ${ing.quantity}, ${ing.unit}, ${ing.costPerUnit}, ${ing.totalCost}, ${tenantId})
         `;
       }
 
@@ -103,7 +106,7 @@ export async function POST(req) {
 
     if (action === 'delete') {
       const { id } = body;
-      await sql`DELETE FROM recipes WHERE id = ${id}`;
+      await sql`DELETE FROM recipes WHERE id = ${id} AND tenant_id = ${tenantId}`;
       return NextResponse.json({ ok: true });
     }
 

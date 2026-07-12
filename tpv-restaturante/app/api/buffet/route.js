@@ -1,12 +1,14 @@
 import { sql } from '../../../lib/db';
+import { getTenantId } from '../../../lib/tenant';
 
 export async function GET(req) {
   try {
+    const tenantId = getTenantId(req);
     const url = new URL(req.url);
     const scope = url.searchParams.get('scope') || 'sessions';
 
     if (scope === 'config') {
-      const [config] = await sql`SELECT * FROM buffet_config WHERE id = 'default'`;
+      const [config] = await sql`SELECT * FROM buffet_config WHERE id = 'default' AND tenant_id = ${tenantId}`;
       return Response.json(config || null);
     }
 
@@ -14,10 +16,10 @@ export async function GET(req) {
       const tableId = url.searchParams.get('tableId');
       if (!tableId) return Response.json(null);
       const [session] = await sql`
-        SELECT * FROM buffet_sessions WHERE table_id = ${tableId} AND status = 'active'
+        SELECT * FROM buffet_sessions WHERE table_id = ${tableId} AND status = 'active' AND tenant_id = ${tenantId}
       `;
       if (!session) return Response.json(null);
-      const [cfg] = await sql`SELECT * FROM buffet_config WHERE id = 'default'`;
+      const [cfg] = await sql`SELECT * FROM buffet_config WHERE id = 'default' AND tenant_id = ${tenantId}`;
       return Response.json({ session, config: cfg || null });
     }
 
@@ -25,18 +27,18 @@ export async function GET(req) {
       const sessionId = url.searchParams.get('sessionId');
       if (!sessionId) return Response.json([]);
       const rounds = await sql`
-        SELECT * FROM buffet_rounds WHERE session_id = ${sessionId} ORDER BY round_number DESC
+        SELECT * FROM buffet_rounds WHERE session_id = ${sessionId} AND tenant_id = ${tenantId} ORDER BY round_number DESC
       `;
       return Response.json(rounds);
     }
 
     const sessions = await sql`
       SELECT * FROM buffet_sessions
-      WHERE status = 'active'
+      WHERE status = 'active' AND tenant_id = ${tenantId}
       ORDER BY started_at DESC
     `;
 
-    const config = await sql`SELECT * FROM buffet_config WHERE id = 'default'`;
+    const config = await sql`SELECT * FROM buffet_config WHERE id = 'default' AND tenant_id = ${tenantId}`;
     return Response.json({ sessions, config: config[0] || null });
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 });
@@ -45,6 +47,7 @@ export async function GET(req) {
 
 export async function POST(req) {
   try {
+    const tenantId = getTenantId(req);
     const body = await req.json();
     const { action } = body;
 
@@ -54,13 +57,13 @@ export async function POST(req) {
 
       const [existing] = await sql`
         SELECT id FROM buffet_sessions
-        WHERE table_id = ${tableId} AND status = 'active'
+        WHERE table_id = ${tableId} AND status = 'active' AND tenant_id = ${tenantId}
       `;
       if (existing) {
         return Response.json({ error: 'La mesa ya tiene una sesión de buffet activa' }, { status: 409 });
       }
 
-      const [cfg] = await sql`SELECT * FROM buffet_config WHERE id = 'default'`;
+      const [cfg] = await sql`SELECT * FROM buffet_config WHERE id = 'default' AND tenant_id = ${tenantId}`;
 
       if (!cfg?.enabled) {
         return Response.json({ error: 'El buffet no está habilitado' }, { status: 400 });
@@ -86,17 +89,17 @@ export async function POST(req) {
       }
 
       await sql`
-        INSERT INTO orders (id, table_id, items, created_at, employee_name, source)
-        VALUES (${orderId}, ${tableId}, ${JSON.stringify(orderItems)}, ${startedAt}, ${employeeName || 'Buffet'}, 'buffet')
+        INSERT INTO orders (id, table_id, items, created_at, employee_name, source, tenant_id)
+        VALUES (${orderId}, ${tableId}, ${JSON.stringify(orderItems)}, ${startedAt}, ${employeeName || 'Buffet'}, 'buffet', ${tenantId})
       `;
 
-      await sql`UPDATE tables SET status = 'ocupada', order_id = ${orderId}, order_ids = ${JSON.stringify([orderId])} WHERE id = ${tableId}`;
+      await sql`UPDATE tables SET status = 'ocupada', order_id = ${orderId}, order_ids = ${JSON.stringify([orderId])} WHERE id = ${tableId} AND tenant_id = ${tenantId}`;
 
       await sql`
         INSERT INTO buffet_sessions (id, table_id, table_name, adult_count, child_count, senior_count,
-          started_at, cover_price_snapshot, child_price_snapshot, senior_price_snapshot, round, status, order_id)
+          started_at, cover_price_snapshot, child_price_snapshot, senior_price_snapshot, round, status, order_id, tenant_id)
         VALUES (${id}, ${tableId}, ${tableName}, ${adults || 1}, ${children || 0}, ${seniors || 0},
-          ${startedAt}, ${cfg.cover_price}, ${cfg.child_price}, ${cfg.senior_price}, 0, 'active', ${orderId})
+          ${startedAt}, ${cfg.cover_price}, ${cfg.child_price}, ${cfg.senior_price}, 0, 'active', ${orderId}, ${tenantId})
       `;
 
       return Response.json({ id, startedAt, orderId });
@@ -107,14 +110,14 @@ export async function POST(req) {
       const minutes = body.minutes || 5;
       const pausedUntil = Date.now() + minutes * 60000;
 
-      await sql`UPDATE buffet_config SET paused_until = ${pausedUntil}, updated_at = ${Date.now()} WHERE id = 'default'`;
+      await sql`UPDATE buffet_config SET paused_until = ${pausedUntil}, updated_at = ${Date.now()} WHERE id = 'default' AND tenant_id = ${tenantId}`;
 
       return Response.json({ pausedUntil });
     }
 
     // ===== RESUME =====
     if (action === 'resume') {
-      await sql`UPDATE buffet_config SET paused_until = 0, updated_at = ${Date.now()} WHERE id = 'default'`;
+      await sql`UPDATE buffet_config SET paused_until = 0, updated_at = ${Date.now()} WHERE id = 'default' AND tenant_id = ${tenantId}`;
       return Response.json({ ok: true });
     }
 
@@ -122,7 +125,7 @@ export async function POST(req) {
     if (action === 'close') {
       const { sessionId, adults, children, seniors, employeeName } = body;
 
-      const [session] = await sql`SELECT * FROM buffet_sessions WHERE id = ${sessionId}`;
+      const [session] = await sql`SELECT * FROM buffet_sessions WHERE id = ${sessionId} AND tenant_id = ${tenantId}`;
       if (!session) return Response.json({ error: 'Sesión no encontrada' }, { status: 404 });
 
       const a = adults ?? session.adult_count;
@@ -134,7 +137,7 @@ export async function POST(req) {
 
       // Update the TPV order with actual guest counts for billing
       if (session.order_id) {
-        const [existingOrder] = await sql`SELECT * FROM orders WHERE id = ${session.order_id}`;
+        const [existingOrder] = await sql`SELECT * FROM orders WHERE id = ${session.order_id} AND tenant_id = ${tenantId}`;
         if (existingOrder) {
           let items = existingOrder.items || [];
           items = items.filter(i => i.productId !== 'buffet_cover' && i.productId !== 'buffet_child' && i.productId !== 'buffet_senior');
@@ -144,7 +147,7 @@ export async function POST(req) {
           if (Number(session.waste_amount) > 0) {
             items.push({ id: 'wst_' + Date.now(), productId: 'buffet_waste', name: 'Desperdicio buffet', price: Number(session.waste_amount), qty: 1, sent: true, ready: true, sentAt: Date.now(), notes: '', modifiers: [], course: 'buffet' });
           }
-          await sql`UPDATE orders SET items = ${JSON.stringify(items)} WHERE id = ${session.order_id}`;
+          await sql`UPDATE orders SET items = ${JSON.stringify(items)} WHERE id = ${session.order_id} AND tenant_id = ${tenantId}`;
         }
       }
 
@@ -153,10 +156,10 @@ export async function POST(req) {
         SET status = 'closed', closed_at = ${Date.now()}, closed_by = ${employeeName || null},
           adult_count = ${a}, child_count = ${c}, senior_count = ${s},
           estimated_total = ${estimated}
-        WHERE id = ${sessionId}
+        WHERE id = ${sessionId} AND tenant_id = ${tenantId}
       `;
 
-      await sql`UPDATE tables SET status = 'cuenta' WHERE id = ${session.table_id}`;
+      await sql`UPDATE tables SET status = 'cuenta' WHERE id = ${session.table_id} AND tenant_id = ${tenantId}`;
 
       return Response.json({ estimated });
     }
@@ -165,20 +168,20 @@ export async function POST(req) {
     if (action === 'void') {
       const { sessionId, reason, employeeName } = body;
 
-      const [session] = await sql`SELECT * FROM buffet_sessions WHERE id = ${sessionId}`;
+      const [session] = await sql`SELECT * FROM buffet_sessions WHERE id = ${sessionId} AND tenant_id = ${tenantId}`;
       if (!session) return Response.json({ error: 'Sesión no encontrada' }, { status: 404 });
 
       await sql`
         UPDATE buffet_sessions
         SET status = 'voided', void_reason = ${reason || 'sin motivo'}, voided_by = ${employeeName || null},
           closed_at = ${Date.now()}
-        WHERE id = ${sessionId}
+        WHERE id = ${sessionId} AND tenant_id = ${tenantId}
       `;
 
       if (session.order_id) {
-        await sql`DELETE FROM orders WHERE id = ${session.order_id}`;
+        await sql`DELETE FROM orders WHERE id = ${session.order_id} AND tenant_id = ${tenantId}`;
       }
-      await sql`UPDATE tables SET status = 'libre', order_id = NULL, order_ids = '[]' WHERE id = ${session.table_id}`;
+      await sql`UPDATE tables SET status = 'libre', order_id = NULL, order_ids = '[]' WHERE id = ${session.table_id} AND tenant_id = ${tenantId}`;
 
       return Response.json({ ok: true });
     }
@@ -190,7 +193,7 @@ export async function POST(req) {
       await sql`
         UPDATE buffet_sessions
         SET adult_count = ${adults}, child_count = ${children}, senior_count = ${seniors}
-        WHERE id = ${sessionId}
+        WHERE id = ${sessionId} AND tenant_id = ${tenantId}
       `;
 
       return Response.json({ ok: true });
@@ -204,7 +207,7 @@ export async function POST(req) {
         UPDATE buffet_sessions
         SET override_time_limit = ${timeLimit || 0}, override_cooldown = ${cooldown || 0},
           override_round_cap = ${roundCap || 0}, override_cover_price = ${coverPrice || 0}
-        WHERE id = ${sessionId}
+        WHERE id = ${sessionId} AND tenant_id = ${tenantId}
       `;
 
       return Response.json({ ok: true });
@@ -217,12 +220,12 @@ export async function POST(req) {
       const id = 'bw_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
 
       await sql`
-        INSERT INTO buffet_waste (id, session_id, table_id, product_id, product_name, charge, created_at, employee_id)
-        VALUES (${id}, ${sessionId}, ${tableId}, ${productId}, ${productName}, ${charge}, ${Date.now()}, ${employeeId || null})
+        INSERT INTO buffet_waste (id, session_id, table_id, product_id, product_name, charge, created_at, employee_id, tenant_id)
+        VALUES (${id}, ${sessionId}, ${tableId}, ${productId}, ${productName}, ${charge}, ${Date.now()}, ${employeeId || null}, ${tenantId})
       `;
 
       await sql`
-        UPDATE buffet_sessions SET waste_amount = waste_amount + ${charge} WHERE id = ${sessionId}
+        UPDATE buffet_sessions SET waste_amount = waste_amount + ${charge} WHERE id = ${sessionId} AND tenant_id = ${tenantId}
       `;
 
       return Response.json({ id });
@@ -234,34 +237,34 @@ export async function POST(req) {
 
       if (batchAction === 'close_all') {
         for (const sid of sessionIds) {
-          const [s] = await sql`SELECT * FROM buffet_sessions WHERE id = ${sid}`;
+          const [s] = await sql`SELECT * FROM buffet_sessions WHERE id = ${sid} AND tenant_id = ${tenantId}`;
           if (!s) continue;
           const coverEff = s.override_cover_price > 0 ? s.override_cover_price : s.cover_price_snapshot;
           const est = s.adult_count * Number(coverEff) + s.child_count * Number(s.child_price_snapshot) + s.senior_count * Number(s.senior_price_snapshot) + Number(s.waste_amount);
           if (s.order_id) {
-            const [o] = await sql`SELECT * FROM orders WHERE id = ${s.order_id}`;
+            const [o] = await sql`SELECT * FROM orders WHERE id = ${s.order_id} AND tenant_id = ${tenantId}`;
             if (o) {
               let items = o.items.filter(i => i.productId !== 'buffet_cover' && i.productId !== 'buffet_child' && i.productId !== 'buffet_senior');
               items.push({ id: 'cvr_' + Date.now(), productId: 'buffet_cover', name: `Buffet cubierto ${s.adult_count} adultos`, price: Number(coverEff), qty: s.adult_count, sent: true, ready: true, sentAt: o.created_at, notes: '', modifiers: [], course: 'buffet' });
               if (s.child_count > 0) items.push({ id: 'cvr_' + Date.now() + '_1', productId: 'buffet_child', name: `Buffet ${s.child_count} niños`, price: Number(s.child_price_snapshot), qty: s.child_count, sent: true, ready: true, sentAt: o.created_at, notes: '', modifiers: [], course: 'buffet' });
               if (s.senior_count > 0) items.push({ id: 'cvr_' + Date.now() + '_2', productId: 'buffet_senior', name: `Buffet ${s.senior_count} mayores`, price: Number(s.senior_price_snapshot), qty: s.senior_count, sent: true, ready: true, sentAt: o.created_at, notes: '', modifiers: [], course: 'buffet' });
               if (Number(s.waste_amount) > 0) items.push({ id: 'wst_' + Date.now(), productId: 'buffet_waste', name: 'Desperdicio buffet', price: Number(s.waste_amount), qty: 1, sent: true, ready: true, sentAt: Date.now(), notes: '', modifiers: [], course: 'buffet' });
-              await sql`UPDATE orders SET items = ${JSON.stringify(items)} WHERE id = ${s.order_id}`;
+              await sql`UPDATE orders SET items = ${JSON.stringify(items)} WHERE id = ${s.order_id} AND tenant_id = ${tenantId}`;
             }
           }
           await sql`
             UPDATE buffet_sessions SET status = 'closed', closed_at = ${Date.now()},
               closed_by = ${employeeName || null}, estimated_total = ${est}
-            WHERE id = ${sid}
+            WHERE id = ${sid} AND tenant_id = ${tenantId}
           `;
-          await sql`UPDATE tables SET status = 'cuenta' WHERE id = ${s.table_id}`;
+          await sql`UPDATE tables SET status = 'cuenta' WHERE id = ${s.table_id} AND tenant_id = ${tenantId}`;
         }
         return Response.json({ ok: true });
       }
 
       if (batchAction === 'reset_cooldown') {
         for (const sid of sessionIds) {
-          await sql`UPDATE buffet_sessions SET cooldown_until = 0 WHERE id = ${sid}`;
+          await sql`UPDATE buffet_sessions SET cooldown_until = 0 WHERE id = ${sid} AND tenant_id = ${tenantId}`;
         }
         return Response.json({ ok: true });
       }
@@ -274,11 +277,11 @@ export async function POST(req) {
       const { tableId, items, employeeName } = body;
 
       const [session] = await sql`
-        SELECT * FROM buffet_sessions WHERE table_id = ${tableId} AND status = 'active'
+        SELECT * FROM buffet_sessions WHERE table_id = ${tableId} AND status = 'active' AND tenant_id = ${tenantId}
       `;
       if (!session) return Response.json({ error: 'Esta mesa no tiene una sesión de buffet activa' }, { status: 400 });
 
-      const [cfg] = await sql`SELECT * FROM buffet_config WHERE id = 'default'`;
+      const [cfg] = await sql`SELECT * FROM buffet_config WHERE id = 'default' AND tenant_id = ${tenantId}`;
 
       if (cfg?.paused_until > Date.now()) {
         return Response.json({ error: 'El buffet está en pausa' }, { status: 400 });
@@ -302,13 +305,13 @@ export async function POST(req) {
       const cooldownUntil = Date.now() + cooldownMin * 60000;
 
       await sql`
-        INSERT INTO buffet_rounds (id, session_id, round_number, items, item_count, requested_at, status)
-        VALUES (${roundId}, ${session.id}, ${newRound}, ${JSON.stringify(items)}, ${items.length}, ${Date.now()}, 'pending')
+        INSERT INTO buffet_rounds (id, session_id, round_number, items, item_count, requested_at, status, tenant_id)
+        VALUES (${roundId}, ${session.id}, ${newRound}, ${JSON.stringify(items)}, ${items.length}, ${Date.now()}, 'pending', ${tenantId})
       `;
 
       await sql`
         UPDATE buffet_sessions SET round = ${newRound}, cooldown_until = ${cooldownUntil}
-        WHERE id = ${session.id}
+        WHERE id = ${session.id} AND tenant_id = ${tenantId}
       `;
 
       // Create a regular order so items appear in KDS
@@ -329,8 +332,8 @@ export async function POST(req) {
       }));
 
       await sql`
-        INSERT INTO orders (id, table_id, items, created_at, employee_name, source)
-        VALUES (${orderId}, ${tableId}, ${JSON.stringify(orderItems)}, ${Date.now()}, ${employeeName || 'Buffet'}, 'buffet')
+        INSERT INTO orders (id, table_id, items, created_at, employee_name, source, tenant_id)
+        VALUES (${orderId}, ${tableId}, ${JSON.stringify(orderItems)}, ${Date.now()}, ${employeeName || 'Buffet'}, 'buffet', ${tenantId})
       `;
 
       return Response.json({ roundId, orderId, round: newRound, cooldownUntil });
@@ -340,10 +343,10 @@ export async function POST(req) {
     if (action === 'deliver_round') {
       const { roundId } = body;
 
-      const [round] = await sql`SELECT * FROM buffet_rounds WHERE id = ${roundId}`;
+      const [round] = await sql`SELECT * FROM buffet_rounds WHERE id = ${roundId} AND tenant_id = ${tenantId}`;
       if (!round) return Response.json({ error: 'Ronda no encontrada' }, { status: 404 });
 
-      await sql`UPDATE buffet_rounds SET status = 'delivered', delivered_at = ${Date.now()} WHERE id = ${roundId}`;
+      await sql`UPDATE buffet_rounds SET status = 'delivered', delivered_at = ${Date.now()} WHERE id = ${roundId} AND tenant_id = ${tenantId}`;
 
       return Response.json({ ok: true });
     }
@@ -351,11 +354,11 @@ export async function POST(req) {
     // ===== REMIND / CALL CUSTOMER =====
     if (action === 'call_customer') {
       const { sessionId } = body;
-      const [session] = await sql`SELECT * FROM buffet_sessions WHERE id = ${sessionId}`;
+      const [session] = await sql`SELECT * FROM buffet_sessions WHERE id = ${sessionId} AND tenant_id = ${tenantId}`;
       if (!session) return Response.json({ error: 'Sesión no encontrada' }, { status: 404 });
 
       const [qrOrder] = await sql`
-        SELECT customer_name FROM qr_orders WHERE table_id = ${session.table_id} ORDER BY created_at DESC LIMIT 1
+        SELECT customer_name FROM qr_orders WHERE table_id = ${session.table_id} AND tenant_id = ${tenantId} ORDER BY created_at DESC LIMIT 1
       `;
 
       return Response.json({ ok: true, customerName: qrOrder?.customer_name || null });
@@ -378,7 +381,7 @@ export async function POST(req) {
           senior_min_age = ${seniorMinAge ?? 65},
           staff_opens_table = ${staffOpensTable ?? true},
           updated_at = ${Date.now()}
-        WHERE id = 'default'
+        WHERE id = 'default' AND tenant_id = ${tenantId}
       `;
 
       return Response.json({ ok: true });

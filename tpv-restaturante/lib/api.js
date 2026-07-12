@@ -13,6 +13,10 @@ function apiHeaders(headers = {}) {
   headers['Content-Type'] = 'application/json';
   if (TPV_API_KEY) headers['x-tpv-key'] = TPV_API_KEY;
   headers['x-tenant-id'] = getTenantId();
+  if (typeof window !== 'undefined') {
+    if (window.__employeeRole) headers['x-employee-role'] = window.__employeeRole;
+    if (window.__employeeId) headers['x-employee-id'] = window.__employeeId;
+  }
   return headers;
 }
 
@@ -61,12 +65,44 @@ export function setLastFloor(floor) {
   lastFloor = floor ? JSON.parse(JSON.stringify(floor)) : null;
 }
 
+function stableKeyOrder(a, b) {
+  if (a === b) return true;
+  if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+  const ka = Object.keys(a);
+  const kb = Object.keys(b);
+  if (ka.length !== kb.length) return false;
+  ka.sort();
+  kb.sort();
+  for (let i = 0; i < ka.length; i++) {
+    if (ka[i] !== kb[i]) return false;
+  }
+  for (const k of ka) {
+    if (typeof a[k] === 'object' && typeof b[k] === 'object') {
+      if (Array.isArray(a[k]) && Array.isArray(b[k])) {
+        if (a[k].length !== b[k].length) return false;
+        for (let i = 0; i < a[k].length; i++) {
+          if (typeof a[k][i] === 'object' || typeof b[k][i] === 'object') {
+            if (!stableKeyOrder(a[k][i], b[k][i])) return false;
+          } else if (a[k][i] !== b[k][i]) {
+            return false;
+          }
+        }
+      } else if (!stableKeyOrder(a[k], b[k])) {
+        return false;
+      }
+    } else if (a[k] !== b[k]) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function computeFloorDiff(last, next) {
   if (!last || !last.tables || !next || !next.tables) {
     return { isFullSync: true };
   }
   if (last.tables.length !== next.tables.length || 
-      JSON.stringify(last.zones) !== JSON.stringify(next.zones) || 
+      !stableKeyOrder(last.zones, next.zones) || 
       last.background !== next.background) {
     return { isFullSync: true };
   }
@@ -88,8 +124,8 @@ function computeFloorDiff(last, next) {
     }
     if (prev.status !== t.status ||
         prev.orderId !== t.orderId ||
-        JSON.stringify(prev.orderIds) !== JSON.stringify(t.orderIds) ||
-        JSON.stringify(prev.reserved) !== JSON.stringify(t.reserved) ||
+        !stableKeyOrder(prev.orderIds, t.orderIds) ||
+        !stableKeyOrder(prev.reserved, t.reserved) ||
         prev.reserved_for !== t.reserved_for ||
         prev.isFiado !== t.isFiado) {
       updatedTables.push(t);
@@ -103,7 +139,7 @@ function computeFloorDiff(last, next) {
 
   for (const [oid, o] of Object.entries(nextOrders)) {
     const prev = lastOrders[oid];
-    if (!prev || JSON.stringify(prev) !== JSON.stringify(o)) {
+    if (!prev || !stableKeyOrder(prev, o)) {
       updatedOrders[oid] = o;
     }
   }

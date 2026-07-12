@@ -1,17 +1,19 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../lib/db';
+import { getTenantId } from '../../../lib/tenant';
 
 export async function GET(req) {
   try {
+    const tenantId = getTenantId(req);
     const { searchParams } = new URL(req.url);
     const productId = searchParams.get('productId');
     const status = searchParams.get('status');
 
-    let query = sql`SELECT * FROM productions`;
+    let query = sql`SELECT * FROM productions WHERE tenant_id = ${tenantId}`;
     const conds = [];
     if (productId) conds.push(sql`product_id = ${productId}`);
     if (status) conds.push(sql`status = ${status}`);
-    if (conds.length > 0) query = sql`${query} WHERE ${conds.reduce((a, c) => sql`${a} AND ${c}`)}`;
+    if (conds.length > 0) query = sql`${query} AND ${conds.reduce((a, c) => sql`${a} AND ${c}`)}`;
     query = sql`${query} ORDER BY produced_at DESC, created_at DESC LIMIT 100`;
 
     const rows = await query;
@@ -19,10 +21,10 @@ export async function GET(req) {
 
     for (const r of rows) {
       const ingredients = await sql`
-        SELECT * FROM production_ingredients WHERE production_id = ${r.id} ORDER BY id
+        SELECT * FROM production_ingredients WHERE production_id = ${r.id} AND tenant_id = ${tenantId} ORDER BY id
       `;
       const recipe = await sql`
-        SELECT * FROM recipes WHERE product_id = ${r.product_id} LIMIT 1
+        SELECT * FROM recipes WHERE product_id = ${r.product_id} AND tenant_id = ${tenantId} LIMIT 1
       `;
       result.push({
         id: r.id,
@@ -61,6 +63,7 @@ export async function GET(req) {
 
 export async function POST(req) {
   try {
+    const tenantId = getTenantId(req);
     const body = await req.json();
     const { action } = body;
 
@@ -71,7 +74,7 @@ export async function POST(req) {
         return NextResponse.json({ error: 'Producto y cantidad son requeridos' }, { status: 400 });
       }
 
-      const recipe = (await sql`SELECT * FROM recipes WHERE product_id = ${productId} LIMIT 1`)[0];
+      const recipe = (await sql`SELECT * FROM recipes WHERE product_id = ${productId} AND tenant_id = ${tenantId} LIMIT 1`)[0];
       if (!recipe) {
         return NextResponse.json({ error: 'El producto no tiene una receta asignada' }, { status: 400 });
       }
@@ -82,7 +85,7 @@ export async function POST(req) {
       const prodLocation = location || 'Cocina';
 
       const recipeIngredients = await sql`
-        SELECT * FROM recipe_ingredients WHERE recipe_id = ${recipe.id} ORDER BY id
+        SELECT * FROM recipe_ingredients WHERE recipe_id = ${recipe.id} AND tenant_id = ${tenantId} ORDER BY id
       `;
 
       const consumed = [];
@@ -94,7 +97,7 @@ export async function POST(req) {
 
         const latestBatch = await sql`
           SELECT cost_per_unit FROM product_batches
-          WHERE product_id = ${ing.ingredient_id} AND status = 'active'
+          WHERE product_id = ${ing.ingredient_id} AND status = 'active' AND tenant_id = ${tenantId}
           ORDER BY received_at DESC LIMIT 1
         `;
         const currentCostPerUnit = latestBatch.length > 0
@@ -105,7 +108,7 @@ export async function POST(req) {
         suggestedCost += ingTotal;
 
         const stockRows = await sql`
-          SELECT * FROM product_stock WHERE product_id = ${ing.ingredient_id} ORDER BY location
+          SELECT * FROM product_stock WHERE product_id = ${ing.ingredient_id} AND tenant_id = ${tenantId} ORDER BY location
         `;
         let remaining = scaledQty;
         for (const sr of stockRows) {
@@ -115,11 +118,11 @@ export async function POST(req) {
           if (deduct <= 0) continue;
           const newStock = available - deduct;
           await sql`
-            UPDATE product_stock SET stock = ${newStock} WHERE product_id = ${ing.ingredient_id} AND location = ${sr.location}
+            UPDATE product_stock SET stock = ${newStock} WHERE product_id = ${ing.ingredient_id} AND location = ${sr.location} AND tenant_id = ${tenantId}
           `;
           await sql`
-            INSERT INTO stock_log (product_id, product_name, old_stock, new_stock, change_amount, reason, reference, employee_name, created_at)
-            VALUES (${ing.ingredient_id}, ${ing.ingredient_name}, ${available}, ${newStock}, ${-deduct}, 'producción', ${'Prod:' + productName}, ${body.createdBy || 'sistema'}, ${Date.now()})
+            INSERT INTO stock_log (product_id, product_name, old_stock, new_stock, change_amount, reason, reference, employee_name, created_at, tenant_id)
+            VALUES (${ing.ingredient_id}, ${ing.ingredient_name}, ${available}, ${newStock}, ${-deduct}, 'producción', ${'Prod:' + productName}, ${body.createdBy || 'sistema'}, ${Date.now()}, ${tenantId})
           `;
           remaining -= deduct;
         }
@@ -139,11 +142,11 @@ export async function POST(req) {
 
       if (errors.length > 0) {
         // Revert stock changes
-        for (const c of consumed) {
-          const reverted = await sql`
-            SELECT * FROM stock_log WHERE product_id = ${c.ingredientId} AND reason = 'producción' AND reference = ${'Prod:' + productName}
-            ORDER BY id DESC
-          `;
+      for (const c of consumed) {
+        const reverted = await sql`
+          SELECT * FROM stock_log WHERE product_id = ${c.ingredientId} AND reason = 'producción' AND reference = ${'Prod:' + productName} AND tenant_id = ${tenantId}
+          ORDER BY id DESC
+        `;
           for (const log of reverted) {
             const oldStock = parseFloat(log.old_stock);
             const newStock = parseFloat(log.new_stock);
@@ -158,36 +161,36 @@ export async function POST(req) {
       const id = 'prod_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
 
       await sql`
-        INSERT INTO productions (id, product_id, product_name, quantity, cost_per_unit, total_cost, location, batch_number, expiry_date, notes, status, produced_at, created_at)
-        VALUES (${id}, ${productId}, ${productName}, ${qty}, ${finalCostPerUnit}, ${totalCost}, ${prodLocation}, ${batchNumber || ''}, ${expiryDate || ''}, ${notes || ''}, 'active', ${producedAt || Date.now()}, ${Date.now()})
+        INSERT INTO productions (id, product_id, product_name, quantity, cost_per_unit, total_cost, location, batch_number, expiry_date, notes, status, produced_at, created_at, tenant_id)
+        VALUES (${id}, ${productId}, ${productName}, ${qty}, ${finalCostPerUnit}, ${totalCost}, ${prodLocation}, ${batchNumber || ''}, ${expiryDate || ''}, ${notes || ''}, 'active', ${producedAt || Date.now()}, ${Date.now()}, ${tenantId})
       `;
 
       for (const c of consumed) {
         await sql`
-          INSERT INTO production_ingredients (production_id, ingredient_id, ingredient_name, quantity, cost_per_unit, total_cost)
-          VALUES (${id}, ${c.ingredientId}, ${c.ingredientName}, ${c.quantity}, ${c.costPerUnit}, ${c.totalCost})
+          INSERT INTO production_ingredients (production_id, ingredient_id, ingredient_name, quantity, cost_per_unit, total_cost, tenant_id)
+          VALUES (${id}, ${c.ingredientId}, ${c.ingredientName}, ${c.quantity}, ${c.costPerUnit}, ${c.totalCost}, ${tenantId})
         `;
       }
 
       const batchId = 'batch_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
       await sql`
-        INSERT INTO product_batches (id, product_id, batch_number, quantity, remaining_quantity, location, cost_per_unit, expiry_date, received_at, status, active)
-        VALUES (${batchId}, ${productId}, ${batchNumber || id}, ${qty}, ${qty}, ${prodLocation}, ${finalCostPerUnit}, ${expiryDate || null}, ${Date.now()}, 'active', true)
+        INSERT INTO product_batches (id, product_id, batch_number, quantity, remaining_quantity, location, cost_per_unit, expiry_date, received_at, status, active, tenant_id)
+        VALUES (${batchId}, ${productId}, ${batchNumber || id}, ${qty}, ${qty}, ${prodLocation}, ${finalCostPerUnit}, ${expiryDate || null}, ${Date.now()}, 'active', true, ${tenantId})
       `;
 
       const existingStock = await sql`
-        SELECT * FROM product_stock WHERE product_id = ${productId} AND location = ${prodLocation}
+        SELECT * FROM product_stock WHERE product_id = ${productId} AND location = ${prodLocation} AND tenant_id = ${tenantId}
       `;
       if (existingStock.length > 0) {
         const newStock = parseFloat(existingStock[0].stock) + qty;
-        await sql`UPDATE product_stock SET stock = ${newStock} WHERE product_id = ${productId} AND location = ${prodLocation}`;
+        await sql`UPDATE product_stock SET stock = ${newStock} WHERE product_id = ${productId} AND location = ${prodLocation} AND tenant_id = ${tenantId}`;
       } else {
-        await sql`INSERT INTO product_stock (product_id, location, stock, low_stock) VALUES (${productId}, ${prodLocation}, ${qty}, 5)`;
+        await sql`INSERT INTO product_stock (product_id, location, stock, low_stock, tenant_id) VALUES (${productId}, ${prodLocation}, ${qty}, 5, ${tenantId})`;
       }
 
       await sql`
-        INSERT INTO stock_log (product_id, product_name, old_stock, new_stock, change_amount, reason, reference, employee_name, created_at)
-        VALUES (${productId}, ${productName}, ${parseFloat(existingStock[0]?.stock || 0)}, ${parseFloat(existingStock[0]?.stock || 0) + qty}, ${qty}, 'producción', ${'Prod:' + productName}, ${body.createdBy || 'sistema'}, ${Date.now()})
+        INSERT INTO stock_log (product_id, product_name, old_stock, new_stock, change_amount, reason, reference, employee_name, created_at, tenant_id)
+        VALUES (${productId}, ${productName}, ${parseFloat(existingStock[0]?.stock || 0)}, ${parseFloat(existingStock[0]?.stock || 0) + qty}, ${qty}, 'producción', ${'Prod:' + productName}, ${body.createdBy || 'sistema'}, ${Date.now()}, ${tenantId})
       `;
 
       return NextResponse.json({ ok: true, id, suggestedCost: suggestedCost / qty });
@@ -195,7 +198,7 @@ export async function POST(req) {
 
     if (action === 'void') {
       const { id, reason, anuladoBy } = body;
-      const prod = (await sql`SELECT * FROM productions WHERE id = ${id}`)[0];
+      const prod = (await sql`SELECT * FROM productions WHERE id = ${id} AND tenant_id = ${tenantId}`)[0];
       if (!prod) {
         return NextResponse.json({ error: 'Producción no encontrada' }, { status: 404 });
       }
@@ -207,7 +210,7 @@ export async function POST(req) {
       const prodLocation = prod.location || 'Cocina';
 
       const ingredients = await sql`
-        SELECT * FROM production_ingredients WHERE production_id = ${id} ORDER BY id
+        SELECT * FROM production_ingredients WHERE production_id = ${id} AND tenant_id = ${tenantId} ORDER BY id
       `;
 
       // Revert ingredients: add back to product_stock
@@ -216,48 +219,48 @@ export async function POST(req) {
 
         // Add back to Almacén by default (where ingredients typically live)
         const existingStock = await sql`
-          SELECT * FROM product_stock WHERE product_id = ${ing.ingredient_id} AND location = 'Almacén'
+          SELECT * FROM product_stock WHERE product_id = ${ing.ingredient_id} AND location = 'Almacén' AND tenant_id = ${tenantId}
         `;
         if (existingStock.length > 0) {
           const newStock = parseFloat(existingStock[0].stock) + ingQty;
           await sql`
-            UPDATE product_stock SET stock = ${newStock} WHERE product_id = ${ing.ingredient_id} AND location = 'Almacén'
+            UPDATE product_stock SET stock = ${newStock} WHERE product_id = ${ing.ingredient_id} AND location = 'Almacén' AND tenant_id = ${tenantId}
           `;
         } else {
-          await sql`INSERT INTO product_stock (product_id, location, stock, low_stock) VALUES (${ing.ingredient_id}, 'Almacén', ${ingQty}, 5)`;
+          await sql`INSERT INTO product_stock (product_id, location, stock, low_stock, tenant_id) VALUES (${ing.ingredient_id}, 'Almacén', ${ingQty}, 5, ${tenantId})`;
         }
 
         await sql`
-          INSERT INTO stock_log (product_id, product_name, old_stock, new_stock, change_amount, reason, reference, employee_name, created_at)
-          VALUES (${ing.ingredient_id}, ${ing.ingredient_name}, ${parseFloat(existingStock[0]?.stock || 0)}, ${parseFloat(existingStock[0]?.stock || 0) + ingQty}, ${ingQty}, 'producción_anulada', ${'Reverse:Prod:' + prod.product_name}, ${anuladoBy || 'sistema'}, ${Date.now()})
+          INSERT INTO stock_log (product_id, product_name, old_stock, new_stock, change_amount, reason, reference, employee_name, created_at, tenant_id)
+          VALUES (${ing.ingredient_id}, ${ing.ingredient_name}, ${parseFloat(existingStock[0]?.stock || 0)}, ${parseFloat(existingStock[0]?.stock || 0) + ingQty}, ${ingQty}, 'producción_anulada', ${'Reverse:Prod:' + prod.product_name}, ${anuladoBy || 'sistema'}, ${Date.now()}, ${tenantId})
         `;
       }
 
       // Remove the elaborado from product_stock
       const prodStock = await sql`
-        SELECT * FROM product_stock WHERE product_id = ${prod.product_id} AND location = ${prodLocation}
+        SELECT * FROM product_stock WHERE product_id = ${prod.product_id} AND location = ${prodLocation} AND tenant_id = ${tenantId}
       `;
       if (prodStock.length > 0) {
         const remaining = Math.max(0, parseFloat(prodStock[0].stock) - qty);
         await sql`
-          UPDATE product_stock SET stock = ${remaining} WHERE product_id = ${prod.product_id} AND location = ${prodLocation}
+          UPDATE product_stock SET stock = ${remaining} WHERE product_id = ${prod.product_id} AND location = ${prodLocation} AND tenant_id = ${tenantId}
         `;
       }
 
       await sql`
-        INSERT INTO stock_log (product_id, product_name, old_stock, new_stock, change_amount, reason, reference, employee_name, created_at)
-        VALUES (${prod.product_id}, ${prod.product_name}, ${parseFloat(prodStock[0]?.stock || 0)}, ${Math.max(0, parseFloat(prodStock[0]?.stock || 0) - qty)}, ${-qty}, 'producción_anulada', ${'Reverse:Prod:' + prod.product_name}, ${anuladoBy || 'sistema'}, ${Date.now()})
+        INSERT INTO stock_log (product_id, product_name, old_stock, new_stock, change_amount, reason, reference, employee_name, created_at, tenant_id)
+        VALUES (${prod.product_id}, ${prod.product_name}, ${parseFloat(prodStock[0]?.stock || 0)}, ${Math.max(0, parseFloat(prodStock[0]?.stock || 0) - qty)}, ${-qty}, 'producción_anulada', ${'Reverse:Prod:' + prod.product_name}, ${anuladoBy || 'sistema'}, ${Date.now()}, ${tenantId})
       `;
 
       // Mark batches as depleted
       await sql`
         UPDATE product_batches SET status = 'depleted', remaining_quantity = 0
-        WHERE product_id = ${prod.product_id} AND batch_number = ${prod.batch_number || id} AND status = 'active'
+        WHERE product_id = ${prod.product_id} AND batch_number = ${prod.batch_number || id} AND status = 'active' AND tenant_id = ${tenantId}
       `;
 
       await sql`
         UPDATE productions SET status = 'anulado', anulado_reason = ${reason || ''}, anulado_by = ${anuladoBy || ''}, anulado_at = ${Date.now()}
-        WHERE id = ${id}
+        WHERE id = ${id} AND tenant_id = ${tenantId}
       `;
 
       return NextResponse.json({ ok: true });

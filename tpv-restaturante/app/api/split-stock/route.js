@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../lib/db';
+import { getTenantId } from '../../../lib/tenant';
 
 const SPLIT = {
   Bebidas:    { loc: 'Bar',    keep: 25 },
@@ -8,9 +9,10 @@ const SPLIT = {
   Postres:     { loc: 'Cocina', keep: 6 },
 };
 
-export async function POST() {
+export async function POST(req) {
+  const tenantId = getTenantId(req);
   try {
-    const products = await sql`SELECT id, name, category, ubicacion FROM products`;
+    const products = await sql`SELECT id, name, category, ubicacion FROM products WHERE tenant_id = ${tenantId}`;
     let moved = [];
     for (const p of products) {
       const s = SPLIT[p.category];
@@ -19,7 +21,7 @@ export async function POST() {
       const keep = s.keep;
 
       // Stock actual del producto (de todas las ubicaciones)
-      const stockRows = await sql`SELECT location, stock, low_stock FROM product_stock WHERE product_id = ${p.id}`;
+      const stockRows = await sql`SELECT location, stock, low_stock FROM product_stock WHERE product_id = ${p.id} AND tenant_id = ${tenantId}`;
       const totalStock = stockRows.reduce((sum, r) => sum + r.stock, 0);
       if (totalStock === 0) continue;
 
@@ -32,25 +34,25 @@ export async function POST() {
 
       // Actualizar o insertar serving location
       if (servingRow) {
-        await sql`UPDATE product_stock SET stock = ${servingStock}, low_stock = ${servingRow.low_stock} WHERE product_id = ${p.id} AND location = ${servingLoc}`;
+        await sql`UPDATE product_stock SET stock = ${servingStock}, low_stock = ${servingRow.low_stock} WHERE product_id = ${p.id} AND location = ${servingLoc} AND tenant_id = ${tenantId}`;
       } else if (servingStock > 0) {
-        await sql`INSERT INTO product_stock (product_id, location, stock, low_stock) VALUES (${p.id}, ${servingLoc}, ${servingStock}, 5)`;
+        await sql`INSERT INTO product_stock (product_id, tenant_id, location, stock, low_stock) VALUES (${p.id}, ${tenantId}, ${servingLoc}, ${servingStock}, 5)`;
       }
 
       // Actualizar o insertar Almacén
       if (almacenStock > 0) {
         const lowStock = almacenRow ? almacenRow.low_stock : 20;
         if (almacenRow) {
-          await sql`UPDATE product_stock SET stock = ${almacenStock}, low_stock = ${lowStock} WHERE product_id = ${p.id} AND location = 'Almacén'`;
+          await sql`UPDATE product_stock SET stock = ${almacenStock}, low_stock = ${lowStock} WHERE product_id = ${p.id} AND location = 'Almacén' AND tenant_id = ${tenantId}`;
         } else {
-          await sql`INSERT INTO product_stock (product_id, location, stock, low_stock) VALUES (${p.id}, 'Almacén', ${almacenStock}, 20)`;
+          await sql`INSERT INTO product_stock (product_id, tenant_id, location, stock, low_stock) VALUES (${p.id}, ${tenantId}, 'Almacén', ${almacenStock}, 20)`;
         }
       }
 
       // Limpiar otras ubicaciones que no sean servingLoc ni Almacén
       for (const r of stockRows) {
         if (r.location !== servingLoc && r.location !== 'Almacén') {
-          await sql`DELETE FROM product_stock WHERE product_id = ${p.id} AND location = ${r.location}`;
+          await sql`DELETE FROM product_stock WHERE product_id = ${p.id} AND location = ${r.location} AND tenant_id = ${tenantId}`;
         }
       }
 

@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../lib/db';
+import { getTenantId } from '../../../lib/tenant';
 
 export async function GET(req) {
   try {
+    const tenantId = getTenantId(req);
     const { searchParams } = new URL(req.url);
     const employeeId = searchParams.get('employeeId');
     const date = searchParams.get('date') || new Date().toISOString().slice(0, 10);
@@ -11,7 +13,7 @@ export async function GET(req) {
 
     // Period query (for RegistroHorario)
     if (from || to) {
-      let q = sql`SELECT * FROM clockin_logs WHERE 1=1`;
+      let q = sql`SELECT * FROM clockin_logs WHERE tenant_id = ${tenantId}`;
       const conds = [];
       if (employeeId) conds.push(sql`employee_id = ${employeeId}`);
       if (from) conds.push(sql`clockin_date >= ${from}`);
@@ -34,7 +36,7 @@ export async function GET(req) {
 
     const rows = await sql`
       SELECT * FROM clockin_logs
-      WHERE employee_id = ${employeeId} AND clockin_date = ${date}
+      WHERE employee_id = ${employeeId} AND clockin_date = ${date} AND tenant_id = ${tenantId}
       ORDER BY created_at ASC
     `;
 
@@ -98,19 +100,20 @@ export async function GET(req) {
 
 export async function POST(req) {
   try {
+    const tenantId = getTenantId(req);
     const body = await req.json();
     const today = new Date().toISOString().slice(0, 10);
 
     // Check PIN if provided
     if (body.pin) {
-      const emp = await sql`SELECT id FROM employees WHERE id = ${body.employeeId} AND pin = ${body.pin}`;
+      const emp = await sql`SELECT id FROM employees WHERE id = ${body.employeeId} AND pin = ${body.pin} AND tenant_id = ${tenantId}`;
       if (emp.length === 0) return NextResponse.json({ error: 'PIN incorrecto' }, { status: 403 });
     }
 
     let action = body.action;
     if (!action) {
       const last = await sql`
-        SELECT action FROM clockin_logs WHERE employee_id = ${body.employeeId} AND clockin_date = ${today}
+        SELECT action FROM clockin_logs WHERE employee_id = ${body.employeeId} AND clockin_date = ${today} AND tenant_id = ${tenantId}
         ORDER BY created_at DESC LIMIT 1
       `;
       if (last.length === 0) action = 'entrada';
@@ -120,8 +123,8 @@ export async function POST(req) {
     }
 
     await sql`
-      INSERT INTO clockin_logs (employee_id, employee_name, action, method, clockin_date, created_at)
-      VALUES (${body.employeeId}, ${body.employeeName || ''}, ${action}, ${body.method || 'tpc'}, ${today}, ${Date.now()})
+      INSERT INTO clockin_logs (employee_id, employee_name, action, method, clockin_date, created_at, tenant_id)
+      VALUES (${body.employeeId}, ${body.employeeName || ''}, ${action}, ${body.method || 'tpc'}, ${today}, ${Date.now()}, ${tenantId})
     `;
 
     return NextResponse.json({ ok: true, action });
@@ -132,6 +135,7 @@ export async function POST(req) {
 
 export async function PUT(req) {
   try {
+    const tenantId = getTenantId(req);
     const body = await req.json();
     const { action: putAction } = body;
 
@@ -141,7 +145,7 @@ export async function PUT(req) {
       await sql`
         UPDATE clockin_logs SET created_at=${createdAt}, action=${newAction},
           edited=true, edited_by=${body.editedBy || ''}, edit_reason=${body.editReason || ''}
-        WHERE id=${id}
+        WHERE id=${id} AND tenant_id = ${tenantId}
       `;
       return NextResponse.json({ ok: true });
     }
@@ -154,10 +158,10 @@ export async function PUT(req) {
 
       const openLogs = await sql`
         SELECT DISTINCT employee_id, employee_name FROM clockin_logs
-        WHERE clockin_date = ${targetDate} AND action = 'entrada'
+        WHERE clockin_date = ${targetDate} AND action = 'entrada' AND tenant_id = ${tenantId}
         AND employee_id NOT IN (
           SELECT employee_id FROM clockin_logs
-          WHERE clockin_date = ${targetDate} AND action = 'salida'
+          WHERE clockin_date = ${targetDate} AND action = 'salida' AND tenant_id = ${tenantId}
         )
       `;
 
@@ -165,8 +169,8 @@ export async function PUT(req) {
         const [h, m] = endTime.split(':').map(Number);
         const closeAt = new Date(targetDate + 'T' + endTime);
         await sql`
-          INSERT INTO clockin_logs (employee_id, employee_name, action, method, clockin_date, created_at, edited, edited_by, edit_reason)
-          VALUES (${emp.employee_id}, ${emp.employee_name}, 'salida', 'auto', ${targetDate}, ${closeAt.getTime()}, true, ${editedBy || ''}, 'Cierre automático — entrada sin salida')
+          INSERT INTO clockin_logs (employee_id, employee_name, action, method, clockin_date, created_at, edited, edited_by, edit_reason, tenant_id)
+          VALUES (${emp.employee_id}, ${emp.employee_name}, 'salida', 'auto', ${targetDate}, ${closeAt.getTime()}, true, ${editedBy || ''}, 'Cierre automático — entrada sin salida', ${tenantId})
         `;
       }
 
@@ -178,8 +182,8 @@ export async function PUT(req) {
       const { id, employeeId, employeeName, requestedAt, requestedAction, reason } = body;
       // Store in a new table or mark the existing record
       await sql`
-        INSERT INTO clockin_corrections (clockin_id, employee_id, employee_name, requested_action, reason, status, created_at)
-        VALUES (${id || 0}, ${employeeId}, ${employeeName || ''}, ${requestedAction || ''}, ${reason || ''}, 'pending', ${Date.now()})
+        INSERT INTO clockin_corrections (clockin_id, employee_id, employee_name, requested_action, reason, status, created_at, tenant_id)
+        VALUES (${id || 0}, ${employeeId}, ${employeeName || ''}, ${requestedAction || ''}, ${reason || ''}, 'pending', ${Date.now()}, ${tenantId})
       `;
       return NextResponse.json({ ok: true });
     }
@@ -187,7 +191,7 @@ export async function PUT(req) {
     // Approve/reject correction request
     if (putAction === 'resolve-correction') {
       const { correctionId, status, resolvedBy } = body;
-      await sql`UPDATE clockin_corrections SET status=${status}, resolved_by=${resolvedBy || ''} WHERE id=${correctionId}`;
+      await sql`UPDATE clockin_corrections SET status=${status}, resolved_by=${resolvedBy || ''} WHERE id=${correctionId} AND tenant_id = ${tenantId}`;
       return NextResponse.json({ ok: true });
     }
 

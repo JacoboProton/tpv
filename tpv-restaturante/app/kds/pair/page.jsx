@@ -45,6 +45,7 @@ export default function KDSPairPage() {
       const data = await res.json();
       if (data.ok) {
         localStorage.setItem('kds_device_id', data.deviceId);
+        localStorage.setItem('kds_tenant_id', data.tenantId || 'default');
         localStorage.setItem('kds_paired', 'true');
         setStatus('success');
         setMessage('Pantalla emparejada correctamente');

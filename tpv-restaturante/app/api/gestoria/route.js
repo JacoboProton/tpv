@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../lib/db';
+import { getTenantId } from '../../../lib/tenant';
 import { validateRequest, ConfirmSchema } from '../../../lib/gestoriaSchemas';
 
 function makeId() { return 'g_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8); }
 
-async function getOperationsData() {
+async function getOperationsData(tenantId) {
   const docs = await sql`
     SELECT d.provider_nif, d.provider_name, d.file_name, d.type,
       COALESCE(json_agg(json_build_object(
@@ -12,7 +13,7 @@ async function getOperationsData() {
       )) FILTER (WHERE l.id IS NOT NULL), '[]') as lines
     FROM gestoria_documents d
     LEFT JOIN gestoria_document_lines l ON l.document_id = d.id
-    WHERE d.confirmed = true
+    WHERE d.confirmed = true AND d.tenant_id = ${tenantId}
     GROUP BY d.id
   `;
 
@@ -45,16 +46,17 @@ async function getOperationsData() {
 // GET
 export async function GET(req) {
   try {
+    const tenantId = getTenantId(req);
     const { searchParams } = new URL(req.url);
     const action = searchParams.get('action');
 
     if (action === 'operations') {
-      const data = await getOperationsData();
+      const data = await getOperationsData(tenantId);
       return NextResponse.json(data);
     }
 
     if (action === 'settings') {
-      const rows = await sql`SELECT key, value FROM gestoria_settings`;
+      const rows = await sql`SELECT key, value FROM gestoria_settings WHERE tenant_id = ${tenantId}`;
       const s = {};
       for (const r of rows) s[r.key] = r.value;
       return NextResponse.json(s);
@@ -73,14 +75,14 @@ export async function GET(req) {
         ) as lines
         FROM gestoria_documents d
         LEFT JOIN gestoria_document_lines l ON l.document_id = d.id
-        WHERE d.type = ${type}
+        WHERE d.type = ${type} AND d.tenant_id = ${tenantId}
         GROUP BY d.id ORDER BY d.created_at DESC
       `;
       return NextResponse.json(docs);
     }
 
     if (action === 'payrolls') {
-      const rows = await sql`SELECT * FROM gestoria_payrolls ORDER BY year DESC, month DESC, created_at DESC`;
+      const rows = await sql`SELECT * FROM gestoria_payrolls WHERE tenant_id = ${tenantId} ORDER BY year DESC, month DESC, created_at DESC`;
       const mapped = rows.map(r => ({
         id: r.id, employeeName: r.employee_name, employeeNif: r.employee_nif,
         month: r.month, year: r.year, grossAmount: Number(r.gross_amount),
@@ -93,14 +95,14 @@ export async function GET(req) {
     }
 
     if (action === 'taxmodels') {
-      const rows = await sql`SELECT * FROM gestoria_tax_models ORDER BY year DESC, model_code, quarter`;
+      const rows = await sql`SELECT * FROM gestoria_tax_models WHERE tenant_id = ${tenantId} ORDER BY year DESC, model_code, quarter`;
       return NextResponse.json(rows.map(r => ({
         ...r, data: typeof r.data === 'string' ? JSON.parse(r.data) : r.data,
       })));
     }
 
     if (action === 'authorization') {
-      const rows = await sql`SELECT * FROM gestoria_authorization WHERE id = 1`;
+      const rows = await sql`SELECT * FROM gestoria_authorization WHERE id = 1 AND tenant_id = ${tenantId}`;
       return NextResponse.json(rows[0] || null);
     }
 
@@ -113,6 +115,7 @@ export async function GET(req) {
 // POST — create document, payroll, or calculate tax model
 export async function POST(req) {
   try {
+    const tenantId = getTenantId(req);
     const body = await req.json();
     // Validate request payload using Zod schemas
     try {
@@ -126,16 +129,16 @@ export async function POST(req) {
       const doc = body.document;
       const id = doc.id || makeId();
       await sql`
-        INSERT INTO gestoria_documents (id, type, file_name, provider_name, provider_nif, document_date, confirmed, is_periodic, notes, created_at)
-        VALUES (${id}, ${doc.type}, ${doc.fileName || ''}, ${doc.providerName || ''}, ${doc.providerNif || ''}, ${doc.documentDate || ''}, ${doc.confirmed || false}, ${doc.isPeriodic || false}, ${doc.notes || ''}, ${Date.now()})
+        INSERT INTO gestoria_documents (id, type, file_name, provider_name, provider_nif, document_date, confirmed, is_periodic, notes, created_at, tenant_id)
+        VALUES (${id}, ${doc.type}, ${doc.fileName || ''}, ${doc.providerName || ''}, ${doc.providerNif || ''}, ${doc.documentDate || ''}, ${doc.confirmed || false}, ${doc.isPeriodic || false}, ${doc.notes || ''}, ${Date.now()}, ${tenantId})
       `;
       if (doc.lines && doc.lines.length > 0) {
         for (let i = 0; i < doc.lines.length; i++) {
           const l = doc.lines[i];
           const lid = l.id || makeId();
           await sql`
-            INSERT INTO gestoria_document_lines (id, document_id, description, category, base_amount, vat_rate, vat_amount, withholding, zone, type, sort_order)
-            VALUES (${lid}, ${id}, ${l.description}, ${l.category || ''}, ${l.baseAmount}, ${l.vatRate}, ${l.vatAmount}, ${l.withholding || 0}, ${l.zone || 'spain'}, ${l.type || 'good'}, ${i})
+            INSERT INTO gestoria_document_lines (id, document_id, description, category, base_amount, vat_rate, vat_amount, withholding, zone, type, sort_order, tenant_id)
+            VALUES (${lid}, ${id}, ${l.description}, ${l.category || ''}, ${l.baseAmount}, ${l.vatRate}, ${l.vatAmount}, ${l.withholding || 0}, ${l.zone || 'spain'}, ${l.type || 'good'}, ${i}, ${tenantId})
           `;
         }
       }
@@ -146,8 +149,8 @@ export async function POST(req) {
       const p = body.payroll;
       const id = p.id || makeId();
       await sql`
-        INSERT INTO gestoria_payrolls (id, employee_name, employee_nif, month, year, gross_amount, irpf_withholding, social_security_worker, social_security_company, net_amount, notes, created_at)
-        VALUES (${id}, ${p.employeeName}, ${p.employeeNif}, ${p.month}, ${p.year}, ${p.grossAmount}, ${p.irpfWithholding}, ${p.ssWorker}, ${p.ssCompany}, ${p.netAmount}, ${p.notes || ''}, ${Date.now()})
+        INSERT INTO gestoria_payrolls (id, employee_name, employee_nif, month, year, gross_amount, irpf_withholding, social_security_worker, social_security_company, net_amount, notes, created_at, tenant_id)
+        VALUES (${id}, ${p.employeeName}, ${p.employeeNif}, ${p.month}, ${p.year}, ${p.grossAmount}, ${p.irpfWithholding}, ${p.ssWorker}, ${p.ssCompany}, ${p.netAmount}, ${p.notes || ''}, ${Date.now()}, ${tenantId})
         ON CONFLICT (id) DO UPDATE SET
           employee_name = EXCLUDED.employee_name, employee_nif = EXCLUDED.employee_nif,
           month = EXCLUDED.month, year = EXCLUDED.year,
@@ -161,21 +164,21 @@ export async function POST(req) {
 
     if (action === 'calculate') {
       const { modelCode, year, quarter } = body;
-      const data = await calculateTaxModelDraft(modelCode, year, quarter);
+      const data = await calculateTaxModelDraft(modelCode, year, quarter, tenantId);
       const existing = await sql`
-        SELECT id FROM gestoria_tax_models WHERE model_code = ${modelCode} AND year = ${year} AND quarter = ${quarter}
+        SELECT id FROM gestoria_tax_models WHERE model_code = ${modelCode} AND year = ${year} AND quarter = ${quarter} AND tenant_id = ${tenantId}
       `;
       if (existing.length > 0) {
         await sql`
           UPDATE gestoria_tax_models SET data = ${JSON.stringify(data)}, updated_at = ${Date.now()}, status = 'draft'
-          WHERE id = ${existing[0].id}
+          WHERE id = ${existing[0].id} AND tenant_id = ${tenantId}
         `;
         return NextResponse.json({ ok: true, id: existing[0].id, data });
       } else {
         const id = makeId();
         await sql`
-          INSERT INTO gestoria_tax_models (id, model_code, year, quarter, status, data, due_date, created_at, updated_at)
-          VALUES (${id}, ${modelCode}, ${year}, ${quarter}, 'draft', ${JSON.stringify(data)}, ${getDueDate(modelCode, year, quarter)}, ${Date.now()}, ${Date.now()})
+          INSERT INTO gestoria_tax_models (id, model_code, year, quarter, status, data, due_date, created_at, updated_at, tenant_id)
+          VALUES (${id}, ${modelCode}, ${year}, ${quarter}, 'draft', ${JSON.stringify(data)}, ${getDueDate(modelCode, year, quarter)}, ${Date.now()}, ${Date.now()}, ${tenantId})
         `;
         return NextResponse.json({ ok: true, id, data });
       }
@@ -190,6 +193,7 @@ export async function POST(req) {
 // PUT — settings, confirm, status, authorization
 export async function PUT(req) {
   try {
+    const tenantId = getTenantId(req);
     const body = await req.json();
     // Validate request payload using Zod schemas
     try {
@@ -201,32 +205,32 @@ export async function PUT(req) {
 
     if (action === 'settings') {
       for (const [key, value] of Object.entries(body.settings)) {
-        await sql`INSERT INTO gestoria_settings (key, value) VALUES (${key}, ${String(value)}) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`;
+        await sql`INSERT INTO gestoria_settings (key, value, tenant_id) VALUES (${key}, ${String(value)}, ${tenantId}) ON CONFLICT (key, tenant_id) DO UPDATE SET value = EXCLUDED.value`;
       }
       return NextResponse.json({ ok: true });
     }
 
     if (action === 'confirm') {
-      await sql`UPDATE gestoria_documents SET confirmed = NOT confirmed WHERE id = ${body.id}`;
+      await sql`UPDATE gestoria_documents SET confirmed = NOT confirmed WHERE id = ${body.id} AND tenant_id = ${tenantId}`;
       return NextResponse.json({ ok: true });
     }
 
     if (action === 'status') {
-      await sql`UPDATE gestoria_tax_models SET status = ${body.status}, updated_at = ${Date.now()} WHERE id = ${body.id}`;
+      await sql`UPDATE gestoria_tax_models SET status = ${body.status}, updated_at = ${Date.now()} WHERE id = ${body.id} AND tenant_id = ${tenantId}`;
       return NextResponse.json({ ok: true });
     }
 
     if (action === 'authorization') {
       const { name, nif, signedAt, socialRed, revoke } = body;
       if (revoke) {
-        await sql`UPDATE gestoria_authorization SET revoked = true, revoked_at = ${Date.now()} WHERE id = 1`;
+        await sql`UPDATE gestoria_authorization SET revoked = true, revoked_at = ${Date.now()} WHERE id = 1 AND tenant_id = ${tenantId}`;
       } else {
         await sql`
           UPDATE gestoria_authorization SET
             accountant_name = ${name || ''}, accountant_nif = ${nif || ''},
             signed_at = ${signedAt || Date.now()}, social_security_red = ${socialRed || false},
             revoked = false, revoked_at = NULL
-          WHERE id = 1
+          WHERE id = 1 AND tenant_id = ${tenantId}
         `;
       }
       return NextResponse.json({ ok: true });
@@ -241,6 +245,7 @@ export async function PUT(req) {
 // DELETE
 export async function DELETE(req) {
   try {
+    const tenantId = getTenantId(req);
     const body = await req.json();
     // Validate request payload for delete actions
     try {
@@ -250,11 +255,11 @@ export async function DELETE(req) {
     }
     const { action, id } = body;
     if (action === 'document') {
-      await sql`DELETE FROM gestoria_documents WHERE id = ${id}`;
+      await sql`DELETE FROM gestoria_documents WHERE id = ${id} AND tenant_id = ${tenantId}`;
       return NextResponse.json({ ok: true });
     }
     if (action === 'payroll') {
-      await sql`DELETE FROM gestoria_payrolls WHERE id = ${id}`;
+      await sql`DELETE FROM gestoria_payrolls WHERE id = ${id} AND tenant_id = ${tenantId}`;
       return NextResponse.json({ ok: true });
     }
     return NextResponse.json({ error: 'unknown action' }, { status: 400 });
@@ -273,17 +278,17 @@ function getDueDate(modelCode, year, quarter) {
   return `${y}-${dd}`;
 }
 
-async function calculateTaxModelDraft(modelCode, year, quarter) {
+async function calculateTaxModelDraft(modelCode, year, quarter, tenantId) {
   const qStart = quarterStartDate(year, quarter);
   const qEnd = quarterEndDate(year, quarter);
 
   // Fetch sales in period
   const sales = await sql`
-    SELECT * FROM sales WHERE closed_at >= ${qStart} AND closed_at <= ${qEnd} ORDER BY closed_at
+    SELECT * FROM sales WHERE closed_at >= ${qStart} AND closed_at <= ${qEnd} AND tenant_id = ${tenantId} ORDER BY closed_at
   `;
   const confirmedDocs = await sql`
     SELECT d.*, (SELECT json_agg(l.*) FROM gestoria_document_lines l WHERE l.document_id = d.id) as lines
-    FROM gestoria_documents d WHERE d.confirmed = true AND d.created_at >= ${qStart} AND d.created_at <= ${qEnd}
+    FROM gestoria_documents d WHERE d.confirmed = true AND d.tenant_id = ${tenantId} AND d.created_at >= ${qStart} AND d.created_at <= ${qEnd}
   `;
 
   const salesTotal = sales.reduce((s, r) => s + Number(r.total || 0), 0);
@@ -299,7 +304,7 @@ async function calculateTaxModelDraft(modelCode, year, quarter) {
 
   // Get payrolls in period
   const payrolls = await sql`
-    SELECT * FROM gestoria_payrolls WHERE year = ${year} AND (
+    SELECT * FROM gestoria_payrolls WHERE tenant_id = ${tenantId} AND year = ${year} AND (
       (${quarter} = 1 AND month >= 1 AND month <= 3) OR
       (${quarter} = 2 AND month >= 4 AND month <= 6) OR
       (${quarter} = 3 AND month >= 7 AND month <= 9) OR
@@ -398,10 +403,10 @@ async function calculateTaxModelDraft(modelCode, year, quarter) {
       return { operaciones: Object.values(providers), nota: 'Solo operaciones > 3.005,06€' };
     }
     case '390': {
-      const q1 = await calculateTaxModelDraft('303', year, 1);
-      const q2 = await calculateTaxModelDraft('303', year, 2);
-      const q3 = await calculateTaxModelDraft('303', year, 3);
-      const q4 = await calculateTaxModelDraft('303', year, 4);
+      const q1 = await calculateTaxModelDraft('303', year, 1, tenantId);
+      const q2 = await calculateTaxModelDraft('303', year, 2, tenantId);
+      const q3 = await calculateTaxModelDraft('303', year, 3, tenantId);
+      const q4 = await calculateTaxModelDraft('303', year, 4, tenantId);
       return {
         anual: true,
         base_imponible: round2(Number(q1.casilla_01 || 0) + Number(q2.casilla_01 || 0) + Number(q3.casilla_01 || 0) + Number(q4.casilla_01 || 0)),

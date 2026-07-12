@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import {
   LayoutGrid, ChefHat, Package, BarChart3, AlertTriangle,
   LogOut, Users, ShieldCheck, Sun, Moon, ClipboardList, WifiOff, Printer, Settings, Percent, Truck, Euro, Star, Undo2, FileText, Monitor, Calendar, Bell, Clock, Loader2,
@@ -31,44 +32,45 @@ import { playKitchenAlert, showKitchenNotification, requestNotificationPermissio
 import MenuPrincipal        from '../components/MenuPrincipal';
 import LoginScreen          from '../components/LoginScreen';
 import SalonView            from '../components/SalonView';
-import FloorEditor          from '../components/FloorEditor';
-import CocinaView           from '../components/CocinaView';
-import InventarioView       from '../components/InventarioView';
-import AlmacenMenuView      from '../components/AlmacenMenuView';
-import AlmacenDetalleView   from '../components/AlmacenDetalleView';
-import InformesView         from '../components/InformesView';
-import EmpleadosView        from '../components/EmpleadosView';
 import ComandaDrawer        from '../components/ComandaDrawer';
 import PaymentModal         from '../components/PaymentModal';
-import ComandasAbiertasView from '../components/ComandasAbiertasView';
 import ModifierSelector     from '../components/ModifierSelector';
-import OfertasPanel         from '../components/OfertasPanel';
-import CombosPanel          from '../components/CombosPanel';
-import MenusDelDiaPanel     from '../components/MenusDelDiaPanel';
-import PreciosPanel         from '../components/PreciosPanel';
-import CarruselPanel         from '../components/CarruselPanel';
-import CartasView           from '../components/CartasView';
-import DeliveryView         from '../components/DeliveryView';
 import CommandPalette       from '../components/CommandPalette';
-import PedidosView          from '../components/PedidosView';
-import BarraView            from '../components/BarraView';
-import FiadosView           from '../components/FiadosView';
-import GestoriaView          from '../components/GestoriaView';
-import KDSView               from '../components/KDSView';
-import PairingPanel           from '../components/PairingPanel';
-import AuditView              from '../components/AuditView';
-import PaymentsView           from '../components/PaymentsView';
-import ReservasView            from '../components/ReservasView';
-import WaitlistView              from '../components/WaitlistView';
-import BuffetKioskView           from '../components/BuffetKioskView';
-import OnlineOrdersView            from '../components/OnlineOrdersView';
-import TurnosView                  from '../components/TurnosView';
-import RegistroHorarioView         from '../components/RegistroHorarioView';
-import SolicitudesView             from '../components/SolicitudesView';
-import PedidosCompraView           from '../components/PedidosCompraView';
-import AlbaranesView               from '../components/AlbaranesView';
-import ProduccionView              from '../components/ProduccionView';
-import TicketsView                 from '../components/TicketsView';
+
+const FloorEditor          = dynamic(() => import('../components/FloorEditor'), { ssr: false });
+const CocinaView           = dynamic(() => import('../components/CocinaView'), { ssr: false });
+const InventarioView       = dynamic(() => import('../components/InventarioView'), { ssr: false });
+const AlmacenMenuView      = dynamic(() => import('../components/AlmacenMenuView'), { ssr: false });
+const AlmacenDetalleView   = dynamic(() => import('../components/AlmacenDetalleView'), { ssr: false });
+const InformesView         = dynamic(() => import('../components/InformesView'), { ssr: false });
+const EmpleadosView        = dynamic(() => import('../components/EmpleadosView'), { ssr: false });
+const ComandasAbiertasView = dynamic(() => import('../components/ComandasAbiertasView'), { ssr: false });
+const OfertasPanel         = dynamic(() => import('../components/OfertasPanel'), { ssr: false });
+const CombosPanel          = dynamic(() => import('../components/CombosPanel'), { ssr: false });
+const MenusDelDiaPanel     = dynamic(() => import('../components/MenusDelDiaPanel'), { ssr: false });
+const PreciosPanel         = dynamic(() => import('../components/PreciosPanel'), { ssr: false });
+const CarruselPanel        = dynamic(() => import('../components/CarruselPanel'), { ssr: false });
+const CartasView           = dynamic(() => import('../components/CartasView'), { ssr: false });
+const DeliveryView         = dynamic(() => import('../components/DeliveryView'), { ssr: false });
+const PedidosView          = dynamic(() => import('../components/PedidosView'), { ssr: false });
+const BarraView            = dynamic(() => import('../components/BarraView'), { ssr: false });
+const FiadosView           = dynamic(() => import('../components/FiadosView'), { ssr: false });
+const GestoriaView         = dynamic(() => import('../components/GestoriaView'), { ssr: false });
+const KDSView              = dynamic(() => import('../components/KDSView'), { ssr: false });
+const PairingPanel         = dynamic(() => import('../components/PairingPanel'), { ssr: false });
+const AuditView            = dynamic(() => import('../components/AuditView'), { ssr: false });
+const PaymentsView         = dynamic(() => import('../components/PaymentsView'), { ssr: false });
+const ReservasView         = dynamic(() => import('../components/ReservasView'), { ssr: false });
+const WaitlistView         = dynamic(() => import('../components/WaitlistView'), { ssr: false });
+const BuffetKioskView      = dynamic(() => import('../components/BuffetKioskView'), { ssr: false });
+const OnlineOrdersView     = dynamic(() => import('../components/OnlineOrdersView'), { ssr: false });
+const TurnosView           = dynamic(() => import('../components/TurnosView'), { ssr: false });
+const RegistroHorarioView  = dynamic(() => import('../components/RegistroHorarioView'), { ssr: false });
+const SolicitudesView      = dynamic(() => import('../components/SolicitudesView'), { ssr: false });
+const PedidosCompraView    = dynamic(() => import('../components/PedidosCompraView'), { ssr: false });
+const AlbaranesView        = dynamic(() => import('../components/AlbaranesView'), { ssr: false });
+const ProduccionView       = dynamic(() => import('../components/ProduccionView'), { ssr: false });
+const TicketsView          = dynamic(() => import('../components/TicketsView'), { ssr: false });
 
 export default function App() {
   // ---------- Tema claro/oscuro ----------
@@ -161,7 +163,7 @@ export default function App() {
   const salesHashRef = useRef('');
   useEffect(() => {
     requestNotificationPermission();
-    const ch = connectRealtime();
+    const ch = connectRealtime(tenantId);
     if (ch) {
       ch.on('broadcast', { event: 'floor:updated' }, ({ payload }) => {
         setFloor(payload.floor);
@@ -183,7 +185,7 @@ export default function App() {
         const h = JSON.stringify(data);
         if (h !== floorHashRef.current) { floorHashRef.current = h; setFloor(data); }
       } catch {}
-    }, 4000);
+    }, 10000);
     const ivSales = setInterval(async () => {
       try {
         const data = await fetchSales();
@@ -191,7 +193,7 @@ export default function App() {
         const h = JSON.stringify(data);
         if (h !== salesHashRef.current) { salesHashRef.current = h; setSales(data); }
       } catch {}
-    }, 5000);
+    }, 15000);
     return () => { disconnectRealtime(); clearInterval(iv); clearInterval(ivSales); };
   }, [tenantId]);
 
@@ -341,6 +343,7 @@ export default function App() {
             const data = await sessionKeepalive(emp.id);
             if (data.ok) {
               setCurrentUser(emp);
+              try { window.__employeeRole = emp.role; window.__employeeId = emp.id; } catch {}
               window.__keepaliveCleanup = startKeepalive(emp.id, () => {
                 showToast('Sesión cerrada en otro terminal');
                 logout();
@@ -421,7 +424,7 @@ export default function App() {
     return () => { unsub(); clearInterval(interval); };
   }, [processMutations]);
 
-  // Poll QR calls
+  // Poll QR calls (reduced frequency)
   useEffect(() => {
     async function pollCalls() {
       try {
@@ -430,7 +433,7 @@ export default function App() {
       } catch {}
     }
     pollCalls();
-    const interval = setInterval(pollCalls, 5000);
+    const interval = setInterval(pollCalls, 15000);
     return () => clearInterval(interval);
   }, []);
 
@@ -446,7 +449,7 @@ export default function App() {
   async function persistFloor(next) {
     setFloor(next);
     if (trainingMode) return;
-    try { await saveFloor(next); broadcastFloorUpdate(next); }
+    try { await saveFloor(next); broadcastFloorUpdate(next, tenantId); }
     catch {
       enqueueMutation('/api/floor', JSON.stringify(next));
       showToast('Sin conexión — la sala se guardará cuando vuelva la red');
@@ -547,8 +550,16 @@ export default function App() {
     const next = pinInput + d;
     setPinInput(next);
     if (next.length === 4) {
-      if (loginSelected.pin === next) {
-        const emp = loginSelected;
+      setPinInput('');
+      try {
+        const res = await fetch('/api/employees', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'verify', pin: next }),
+        });
+        if (!res.ok) { showToast('PIN incorrecto'); return; }
+        const emp = await res.json();
+        if (!emp || !emp.id) { showToast('PIN incorrecto'); return; }
 
         // Check session for non-admin users
         if (emp.role !== 'admin') {
@@ -567,7 +578,7 @@ export default function App() {
         if (window.__keepaliveCleanup) window.__keepaliveCleanup();
 
         setCurrentUser(emp);
-        try { localStorage.setItem('tpv:current_user', emp.id); } catch {}
+        try { localStorage.setItem('tpv:current_user', emp.id); window.__employeeRole = emp.role; window.__employeeId = emp.id; } catch {}
         setLoginSelected(null);
         setPinInput('');
 
@@ -603,9 +614,8 @@ export default function App() {
           entryPoint,
         }).catch(err => console.warn('No se pudo registrar la entrada:', err));
 
-      } else {
-        showToast('PIN incorrecto');
-        setTimeout(() => setPinInput(''), 300);
+      } catch (e) {
+        showToast('Error de conexión');
       }
     }
   }
@@ -616,7 +626,7 @@ export default function App() {
       sessionLogout(currentUser.id).catch(() => {});
     }
     if (window.__keepaliveCleanup) window.__keepaliveCleanup();
-    setCurrentUser(null); try { localStorage.removeItem('tpv:current_user'); } catch {} setLoginSelected(null); setPinInput('');
+    setCurrentUser(null); try { localStorage.removeItem('tpv:current_user'); window.__employeeRole = ''; window.__employeeId = ''; } catch {} setLoginSelected(null); setPinInput('');
     setSelectedTableId(null); setView('salon'); setMenuMode('menu');
   }
 
@@ -744,7 +754,7 @@ export default function App() {
     persistFloor(next);
     const table = next.tables.find(t => t.id === order.tableId);
     const names = [...new Set(readyItems.map(i => i.name))];
-    broadcastReadyNotification(table?.name || order.tableId, names, order.employeeName);
+    broadcastReadyNotification(table?.name || order.tableId, names, order.employeeName, tenantId);
   }
 
   // ----- KDS (Kitchen Display System) -----
@@ -909,9 +919,14 @@ export default function App() {
     return round2(totalDiscount);
   }
 
-  function applyPersonalDiscount(orderId, employeePin) {
-    const emp = employees.find(e => e.pin === employeePin);
-    if (!emp) { showToast('PIN incorrecto'); return false; }
+  async function applyPersonalDiscount(orderId, employeePin) {
+    const r = await fetch('/api/employees', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-tpv-key': API_KEY },
+      body: JSON.stringify({ action: 'verify', pin: employeePin }),
+    });
+    if (!r.ok) { showToast('PIN incorrecto'); return false; }
+    const emp = await r.json();
     if (!emp.personalDiscountEnabled) { showToast(`${emp.name} no tiene activado el descuento de personal`); return false; }
 
     const next = clone(floor);
@@ -2027,7 +2042,7 @@ export default function App() {
     const sale = next.find(s => s.id === saleId);
     if (!sale) return;
     if (!sale.refunds) sale.refunds = [];
-    const refundWithEmployee = { ...refund, employeeName: globalUser?.name || '—' };
+    const refundWithEmployee = { ...refund, employeeName: currentUser?.name || '—' };
     sale.refunds.push(refundWithEmployee);
     setSales(next);
     // Persist + Stripe refund
@@ -2835,9 +2850,15 @@ export default function App() {
               <button onClick={() => setDrawerPinInput('')}
                 style={{ background: C.surfaceLight, border: `1px solid ${C.line}`, color: C.muted }}
                 className="rounded-lg py-3 text-lg font-mono hover:opacity-80">C</button>
-              <button onClick={() => {
-                const admin = employees.find(e => e.role === 'admin' && e.pin === drawerPinInput);
-                if (!admin) { showToast('PIN de administrador incorrecto'); setDrawerPinInput(''); return; }
+              <button onClick={async () => {
+                const r = await fetch('/api/employees', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'x-tpv-key': API_KEY },
+                  body: JSON.stringify({ action: 'verify', pin: drawerPinInput }),
+                });
+                if (!r.ok) { showToast('PIN de administrador incorrecto'); setDrawerPinInput(''); return; }
+                const admin = await r.json();
+                if (admin.role !== 'admin') { showToast('PIN de administrador incorrecto'); setDrawerPinInput(''); return; }
                 openDrawer(); setShowDrawerPIN(false);
               }}
                 disabled={drawerPinInput.length < 4}

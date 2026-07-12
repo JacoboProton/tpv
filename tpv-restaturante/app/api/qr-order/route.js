@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../lib/db';
+import { getTenantId } from '../../../lib/tenant';
 
 function makeId(prefix = 'qo') { return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 
 export async function POST(req) {
   try {
+    const tenantId = getTenantId(req);
     const body = await req.json();
 
     if (body.action === 'status') {
-      const rows = await sql`SELECT * FROM qr_orders WHERE id = ${body.orderId}`;
+      const rows = await sql`SELECT * FROM qr_orders WHERE id = ${body.orderId} AND tenant_id = ${tenantId}`;
       if (rows.length === 0) return NextResponse.json({ error: 'not_found' }, { status: 404 });
       const r = rows[0];
       return NextResponse.json({
@@ -46,15 +48,15 @@ export async function POST(req) {
     // For dine-in, write to orders table so TPV picks it up
     if (tableId && modality === 'dinein') {
       await sql`
-        INSERT INTO orders (id, table_id, items, created_at, employee_name)
-        VALUES (${tpvOrderId}, ${tableId}, ${JSON.stringify(orderItems)}, ${now}, ${empName})
+        INSERT INTO orders (id, table_id, items, created_at, employee_name, tenant_id)
+        VALUES (${tpvOrderId}, ${tableId}, ${JSON.stringify(orderItems)}, ${now}, ${empName}, ${tenantId})
       `;
-      const table = await sql`SELECT order_ids FROM tables WHERE id = ${tableId}`;
+      const table = await sql`SELECT order_ids FROM tables WHERE id = ${tableId} AND tenant_id = ${tenantId}`;
       const existingIds = table[0]?.order_ids || [];
       const newIds = [...existingIds.filter(x => x), tpvOrderId];
       await sql`
         UPDATE tables SET status = 'ocupada', order_id = ${tpvOrderId}, order_ids = ${JSON.stringify(newIds)}
-        WHERE id = ${tableId}
+        WHERE id = ${tableId} AND tenant_id = ${tenantId}
       `;
     }
 
@@ -63,14 +65,14 @@ export async function POST(req) {
     await sql`
       INSERT INTO qr_orders (id, table_id, items, order_status, modality, amount, delivery_cost,
         customer_name, customer_phone, customer_email, notes, address, address_lat, address_lng,
-        zone_id, scheduled_at, accepted, created_at, updated_at)
+        zone_id, scheduled_at, accepted, created_at, updated_at, tenant_id)
       VALUES (${orderId}, ${qrTableId}, ${JSON.stringify(orderItems)},
         ${body.paymentRequired ? 'paid' : 'pending'},
         ${modality || 'dinein'}, ${amount || 0}, ${deliveryCost || 0},
         ${customerName || ''}, ${customerPhone || ''}, ${customerEmail || ''},
         ${notes || ''}, ${address || ''}, ${addressLat || null}, ${addressLng || null},
         ${zoneId || ''}, ${scheduledAt || null},
-        ${body.autoAccept !== false}, ${now}, ${now})
+        ${body.autoAccept !== false}, ${now}, ${now}, ${tenantId})
     `;
 
     // Create delivery order entry for pickup/delivery
@@ -78,10 +80,10 @@ export async function POST(req) {
       const delId = 'del_' + Date.now();
       await sql`
         INSERT INTO delivery_orders (id, order_id, table_id, customer_name, customer_phone, address,
-          address_lat, address_lng, notes, items, status, created_at, estimated_at)
+          address_lat, address_lng, notes, items, status, created_at, estimated_at, tenant_id)
         VALUES (${delId}, ${orderId}, ${qrTableId}, ${customerName || ''}, ${customerPhone || ''},
           ${address || ''}, ${addressLat || null}, ${addressLng || null},
-          ${notes || ''}, ${JSON.stringify(orderItems)}, 'pending', ${now}, ${scheduledAt || null})
+          ${notes || ''}, ${JSON.stringify(orderItems)}, 'pending', ${now}, ${scheduledAt || null}, ${tenantId})
       `;
     }
 
@@ -96,10 +98,11 @@ export async function POST(req) {
 
 export async function GET(req) {
   try {
+    const tenantId = getTenantId(req);
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     if (id) {
-      const rows = await sql`SELECT * FROM qr_orders WHERE id = ${id}`;
+      const rows = await sql`SELECT * FROM qr_orders WHERE id = ${id} AND tenant_id = ${tenantId}`;
       if (rows.length === 0) return NextResponse.json({ error: 'not_found' }, { status: 404 });
       const r = rows[0];
       return NextResponse.json({
@@ -115,7 +118,7 @@ export async function GET(req) {
     const tableId = searchParams.get('tableId');
     if (tableId) {
       const rows = await sql`
-        SELECT * FROM qr_orders WHERE table_id = ${tableId} AND order_status != 'cancelled'
+        SELECT * FROM qr_orders WHERE table_id = ${tableId} AND order_status != 'cancelled' AND tenant_id = ${tenantId}
         ORDER BY created_at DESC LIMIT 20
       `;
       return NextResponse.json(rows.map(r => ({
@@ -127,7 +130,7 @@ export async function GET(req) {
     const modality = searchParams.get('modality');
     if (modality) {
       const rows = await sql`
-        SELECT * FROM qr_orders WHERE modality = ${modality} ORDER BY created_at DESC LIMIT 50
+        SELECT * FROM qr_orders WHERE modality = ${modality} AND tenant_id = ${tenantId} ORDER BY created_at DESC LIMIT 50
       `;
       return NextResponse.json(rows.map(r => ({
         id: r.id, modality: r.modality, orderStatus: r.order_status,
@@ -137,7 +140,7 @@ export async function GET(req) {
     }
     // List all recent orders
     const allRows = await sql`
-      SELECT * FROM qr_orders ORDER BY created_at DESC LIMIT 100
+      SELECT * FROM qr_orders WHERE tenant_id = ${tenantId} ORDER BY created_at DESC LIMIT 100
     `;
     return NextResponse.json(allRows.map(r => ({
       id: r.id, tableId: r.table_id, modality: r.modality, orderStatus: r.order_status,
@@ -154,21 +157,22 @@ export async function GET(req) {
 
 export async function PUT(req) {
   try {
+    const tenantId = getTenantId(req);
     const body = await req.json();
     const { action, id } = body;
 
     if (action === 'status') {
-      await sql`UPDATE qr_orders SET order_status = ${body.status}, updated_at = ${Date.now()} WHERE id = ${id}`;
+      await sql`UPDATE qr_orders SET order_status = ${body.status}, updated_at = ${Date.now()} WHERE id = ${id} AND tenant_id = ${tenantId}`;
       return NextResponse.json({ ok: true });
     }
 
     if (action === 'accept') {
-      await sql`UPDATE qr_orders SET accepted = true, order_status = 'confirmed', updated_at = ${Date.now()} WHERE id = ${id}`;
+      await sql`UPDATE qr_orders SET accepted = true, order_status = 'confirmed', updated_at = ${Date.now()} WHERE id = ${id} AND tenant_id = ${tenantId}`;
       return NextResponse.json({ ok: true });
     }
 
     if (action === 'update_items') {
-      await sql`UPDATE qr_orders SET items = ${JSON.stringify(body.items)}, updated_at = ${Date.now()} WHERE id = ${id}`;
+      await sql`UPDATE qr_orders SET items = ${JSON.stringify(body.items)}, updated_at = ${Date.now()} WHERE id = ${id} AND tenant_id = ${tenantId}`;
       return NextResponse.json({ ok: true });
     }
 

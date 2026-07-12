@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../lib/db';
+import { getTenantId } from '../../../lib/tenant';
 
 const NEW_PRODUCTS = [
   { id: 'p17', name: 'Café solo',         category: 'Bebidas',    price: 1.8,  stock: 50, lowStock: 10, ubicacion: 'Bar',     discount: 0, course: '', allergens: [],      image: '/uploads/cafe-solo.svg' },
@@ -18,15 +19,16 @@ const NEW_PRODUCTS = [
   { id: 'p30', name: 'Helado vainilla',   category: 'Postres',    price: 3.5,  stock: 18, lowStock: 5,  ubicacion: 'Almacén', discount: 0, course: 'Postres', allergens: ['lacteos'],   image: '/uploads/helado-vainilla.svg' },
 ];
 
-export async function POST() {
+export async function POST(req) {
   try {
+    const tenantId = getTenantId(req);
     let added = 0;
     for (const p of NEW_PRODUCTS) {
-      const existing = await sql`SELECT id FROM products WHERE id = ${p.id}`;
+      const existing = await sql`SELECT id FROM products WHERE id = ${p.id} AND tenant_id = ${tenantId}`;
       if (existing.length === 0) {
         await sql`
-          INSERT INTO products (id, name, category, price, stock, low_stock, ubicacion, discount, course, allergens, image)
-          VALUES (${p.id}, ${p.name}, ${p.category}, ${p.price}, ${p.stock}, ${p.lowStock}, ${p.ubicacion}, ${p.discount}, ${p.course}, ${p.allergens}, ${p.image})
+          INSERT INTO products (id, name, category, price, stock, low_stock, ubicacion, discount, course, allergens, image, tenant_id)
+          VALUES (${p.id}, ${p.name}, ${p.category}, ${p.price}, ${p.stock}, ${p.lowStock}, ${p.ubicacion}, ${p.discount}, ${p.course}, ${p.allergens}, ${p.image}, ${tenantId})
         `;
         added++;
       }

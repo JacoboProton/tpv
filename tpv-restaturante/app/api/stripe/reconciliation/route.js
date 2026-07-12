@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { sql } from '../../../../lib/db';
+import { getTenantId } from '../../../../lib/tenant';
 
 function getStripe() {
   if (!process.env.STRIPE_SECRET_KEY) return null;
@@ -10,6 +11,7 @@ function getStripe() {
 // GET /api/stripe/reconciliation?days=90
 export async function GET(req) {
   try {
+    const tenantId = getTenantId(req);
     const stripe = getStripe();
     if (!stripe) {
       return NextResponse.json({ error: 'Stripe no configurado' }, { status: 500 });
@@ -43,6 +45,7 @@ export async function GET(req) {
              dispute_status, dispute_data
       FROM sales
       WHERE payment_intent_id != '' AND payment_intent_id IS NOT NULL
+        AND tenant_id = ${tenantId}
     `;
 
     const saleMap = new Map();

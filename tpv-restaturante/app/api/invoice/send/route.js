@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../../lib/db';
+import { getTenantId } from '../../../../lib/tenant';
 
 // POST /api/invoice/send
 // body: { saleId, pdfBase64, filename, to? }
 export async function POST(req) {
   try {
+    const tenantId = getTenantId(req);
     const { saleId, pdfBase64, filename, to } = await req.json();
 
     if (!saleId || !pdfBase64) {
@@ -13,7 +15,7 @@ export async function POST(req) {
 
     let email = to;
     if (!email) {
-      const rows = await sql`SELECT invoice_email FROM sales WHERE id = ${saleId} LIMIT 1`;
+      const rows = await sql`SELECT invoice_email FROM sales WHERE id = ${saleId} AND tenant_id = ${tenantId} LIMIT 1`;
       if (rows.length === 0) return NextResponse.json({ error: 'Venta no encontrada' }, { status: 404 });
       email = rows[0].invoice_email;
     }

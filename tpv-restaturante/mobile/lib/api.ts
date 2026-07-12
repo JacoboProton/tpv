@@ -3,12 +3,19 @@ import { API_URL, TPV_API_KEY } from './config';
 import type { Employee, Floor, Product, Category } from './types';
 
 let _tenantId = 'default';
+let _employeeId = '';
+let _employeeRole = '';
 export function setTenantId(id: string) { _tenantId = id; }
+export function getTenantId() { return _tenantId; }
+export function setEmployeeSession(id: string, role: string) { _employeeId = id; _employeeRole = role; }
+export function clearEmployeeSession() { _employeeId = ''; _employeeRole = ''; }
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_URL}/api${path}`;
   const headers: Record<string, string> = { 'Content-Type': 'application/json', 'x-tenant-id': _tenantId };
   if (TPV_API_KEY) headers['x-tpv-key'] = TPV_API_KEY;
+  if (_employeeId) headers['x-employee-id'] = _employeeId;
+  if (_employeeRole) headers['x-employee-role'] = _employeeRole;
   const res = await fetch(url, {
     headers: { ...headers, ...options.headers as Record<string, string> },
     ...options,
@@ -163,19 +170,50 @@ export async function addSale(sale: Record<string, unknown>): Promise<{ ok: bool
   } catch {}
   // Try API POST
   try {
-    return await apiFetch<{ ok: boolean }>('/sales', {
+    const result = await apiFetch<{ ok: boolean }>('/sales', {
       method: 'POST',
       body: JSON.stringify(sale),
     });
+    return result;
   } catch (e) {
     console.warn('addSale API error:', e);
+    // Queue for retry
+    try {
+      const pending = JSON.parse(await AsyncStorage.getItem('tpv:sales_pending') || '[]');
+      pending.push({ sale, timestamp: Date.now() });
+      await AsyncStorage.setItem('tpv:sales_pending', JSON.stringify(pending));
+    } catch {}
+    setTimeout(() => processPendingSales(), 5000);
     return null;
   }
+}
+
+export async function processPendingSales(): Promise<void> {
+  try {
+    const raw = await AsyncStorage.getItem('tpv:sales_pending');
+    if (!raw) return;
+    const pending = JSON.parse(raw);
+    if (pending.length === 0) return;
+    const remaining: typeof pending = [];
+    for (const item of pending) {
+      try {
+        await apiFetch<{ ok: boolean }>('/sales', {
+          method: 'POST',
+          body: JSON.stringify(item.sale),
+        });
+      } catch {
+        remaining.push(item);
+      }
+    }
+    await AsyncStorage.setItem('tpv:sales_pending', JSON.stringify(remaining));
+  } catch {}
 }
 
 export async function fetchSales(): Promise<Record<string, unknown>[]> {
   try {
     const data = await apiFetch<Record<string, unknown>[]>('/sales');
+    // Trigger retry of pending sales — online again
+    processPendingSales();
     // Merge with local cache so recently-saved sales appear immediately
     const cached = await AsyncStorage.getItem('tpv:sales');
     const local = cached ? JSON.parse(cached) : [];

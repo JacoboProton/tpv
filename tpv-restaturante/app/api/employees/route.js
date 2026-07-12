@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../lib/db';
 import { getTenantId } from '../../../lib/tenant';
+import bcrypt from 'bcryptjs';
 
 export async function GET(req) {
   try {
@@ -9,7 +10,7 @@ export async function GET(req) {
       SELECT * FROM employees WHERE tenant_id = ${tenantId} ORDER BY role DESC, name
     `;
     return NextResponse.json(rows.map(r => ({
-      id: r.id, name: r.name, pin: r.pin, role: r.role,
+      id: r.id, name: r.name, role: r.role,
       personalDiscountEnabled: r.personal_discount_enabled,
       monthlyLimit: Number(r.monthly_limit || 0),
       monthlyUsed: Number(r.monthly_used || 0),
@@ -18,6 +19,7 @@ export async function GET(req) {
       workPct: Number(r.work_pct || 100), dni: r.dni,
       notes: r.notes, whatsappCode: r.whatsapp_code,
       whatsappLinked: r.whatsapp_linked, createdAt: r.created_at,
+      hasPin: !!r.pin_hash,
     })));
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -31,17 +33,17 @@ export async function PUT(req) {
     const queries = [];
     for (const e of employees) {
       queries.push(sql`
-        INSERT INTO employees (tenant_id, id, name, pin, role, position, work_type, work_pct, dni, notes,
+        INSERT INTO employees (tenant_id, id, name, pin, pin_hash, role, position, work_type, work_pct, dni, notes,
           personal_discount_enabled, monthly_limit, monthly_used, monthly_used_month,
           whatsapp_code, whatsapp_linked, created_at)
-        VALUES (${tenantId}, ${e.id}, ${e.name}, ${e.pin || ''}, ${e.role || 'camarero'}, ${e.position || ''},
+        VALUES (${tenantId}, ${e.id}, ${e.name}, '', ${e.pin ? bcrypt.hashSync(e.pin, 10) : (e.pin_hash || '')}, ${e.role || 'camarero'}, ${e.position || ''},
           ${e.workType || ''}, ${e.workPct || 100}, ${e.dni || ''}, ${e.notes || ''},
           ${e.personalDiscountEnabled || false}, ${e.monthlyLimit || 0}, ${e.monthlyUsed || 0},
           ${e.monthlyUsedMonth || ''}, ${e.whatsappCode || ''}, ${e.whatsappLinked || false},
           ${e.createdAt || Date.now()})
         ON CONFLICT (id) DO UPDATE SET
           tenant_id = EXCLUDED.tenant_id,
-          name = EXCLUDED.name, pin = EXCLUDED.pin, role = EXCLUDED.role,
+          name = EXCLUDED.name, pin = '', pin_hash = EXCLUDED.pin_hash, role = EXCLUDED.role,
           position = EXCLUDED.position, work_type = EXCLUDED.work_type,
           work_pct = EXCLUDED.work_pct, dni = EXCLUDED.dni, notes = EXCLUDED.notes,
           personal_discount_enabled = EXCLUDED.personal_discount_enabled,
@@ -86,17 +88,17 @@ export async function POST(req) {
     if (action === 'verify') {
       const { pin } = body;
       if (!pin) return NextResponse.json({ error: 'PIN requerido' }, { status: 400 });
-      const emp = await sql`
-        SELECT * FROM employees WHERE tenant_id = ${tenantId} AND pin = ${pin}
+      const emps = await sql`
+        SELECT * FROM employees WHERE tenant_id = ${tenantId}
       `;
-      if (emp.length === 0) return NextResponse.json({ error: 'PIN inválido' }, { status: 401 });
-      const r = emp[0];
+      const emp = emps.find(r => bcrypt.compareSync(pin, r.pin_hash));
+      if (!emp) return NextResponse.json({ error: 'PIN inválido' }, { status: 401 });
       return NextResponse.json({
-        id: r.id, name: r.name, pin: r.pin, role: r.role,
-        personalDiscountEnabled: r.personal_discount_enabled,
-        monthlyLimit: Number(r.monthly_limit || 0),
-        monthlyUsed: Number(r.monthly_used || 0),
-        monthlyUsedMonth: r.monthly_used_month,
+        id: emp.id, name: emp.name, role: emp.role,
+        personalDiscountEnabled: emp.personal_discount_enabled,
+        monthlyLimit: Number(emp.monthly_limit || 0),
+        monthlyUsed: Number(emp.monthly_used || 0),
+        monthlyUsedMonth: emp.monthly_used_month,
       });
     }
 

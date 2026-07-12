@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../lib/db';
+import { getTenantId } from '../../../lib/tenant';
 
 export async function GET(req) {
   try {
+    const tenantId = getTenantId(req);
     const { searchParams } = new URL(req.url);
     const category = searchParams.get('category');
     const recipeStatus = searchParams.get('recipeStatus'); // 'with', 'without', 'all'
@@ -13,7 +15,7 @@ export async function GET(req) {
     let productsQuery = sql`
       SELECT p.id, p.name, p.category, p.price::float AS price, p.type, p.active
       FROM products p
-      WHERE p.active = true
+      WHERE p.active = true AND p.tenant_id = ${tenantId}
     `;
     if (category) {
       productsQuery = sql`${productsQuery} AND p.category = ${category}`;
@@ -25,6 +27,7 @@ export async function GET(req) {
     const recipes = await sql`
       SELECT r.product_id, r.cost_per_unit::float AS cost_per_unit
       FROM recipes r
+      WHERE r.tenant_id = ${tenantId}
     `;
     const recipeCostMap = {};
     for (const r of recipes) {
@@ -36,6 +39,7 @@ export async function GET(req) {
       SELECT r.product_id, COUNT(ri.id) AS ingredient_count
       FROM recipes r
       LEFT JOIN recipe_ingredients ri ON r.id = ri.recipe_id
+      WHERE r.tenant_id = ${tenantId}
       GROUP BY r.product_id
     `;
     const ingredientCountMap = {};

@@ -1,18 +1,20 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../../lib/db';
+import { getTenantId } from '../../../../lib/tenant';
 import { computeHash } from '../../../../lib/verifactu';
 
 const NIF_EMISOR = process.env.FISKALY_TAXPAYER_NIF || 'B12345678';
 
 export async function POST(req) {
   try {
+    const tenantId = getTenantId(req);
     const { saleId } = await req.json();
     if (!saleId) {
       return NextResponse.json({ error: 'saleId es requerido' }, { status: 400 });
     }
 
     const rows = await sql`
-      SELECT * FROM verifactu_registros WHERE sale_id = ${saleId} LIMIT 1
+      SELECT * FROM verifactu_registros WHERE sale_id = ${saleId} AND tenant_id = ${tenantId} LIMIT 1
     `;
     if (rows.length === 0) {
       return NextResponse.json({ error: 'Registro no encontrado' }, { status: 404 });

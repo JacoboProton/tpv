@@ -8,7 +8,8 @@ import { startKeepalive, sessionLogout } from '../lib/session';
 import { API_URL, TPV_API_KEY } from '../lib/config';
 import { C } from '../lib/theme';
 import type { Employee, Floor } from '../lib/types';
-import { setLastFloor } from '../lib/api';
+import { setLastFloor, setEmployeeSession, clearEmployeeSession, processPendingSales } from '../lib/api';
+import { getTenantId } from '../lib/api';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -25,12 +26,13 @@ export default function RootLayout() {
   globalFloor = floor;
   setGlobalFloor = setFloor;
   globalUser = user;
-  setGlobalUser = setUser;
+  setGlobalUser = (u) => { setUser(u); if (u) setEmployeeSession(u.id, u.role); else clearEmployeeSession(); };
 
   useEffect(() => {
     const ch = connectRealtime(
       (f) => { setFloor(f); setLastFloor(f); },
       (data) => showReadyNotification(data),
+      getTenantId(),
     );
     setReady(true);
     return () => { disconnectRealtime(); };
@@ -46,6 +48,12 @@ export default function RootLayout() {
     });
     return () => cleanup();
   }, [user?.id]);
+
+  // Periodic retry of pending sales
+  useEffect(() => {
+    const iv = setInterval(() => processPendingSales(), 30000);
+    return () => clearInterval(iv);
+  }, []);
 
   if (!ready) {
     return (

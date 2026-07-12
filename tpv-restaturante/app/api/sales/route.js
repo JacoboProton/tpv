@@ -12,33 +12,31 @@ export async function GET(req) {
     const year = searchParams.get('year');
     const ticketNumber = searchParams.get('ticketNumber');
 
-    let query = sql`SELECT * FROM sales WHERE 1=1`;
-    const conditions = [];
+    const baseClauses = [];
+    if (tenantId !== 'all') baseClauses.push(sql`tenant_id = ${tenantId}`);
+    let base = baseClauses.length > 0
+      ? sql`SELECT * FROM sales WHERE ${baseClauses.reduce((a, c) => sql`${a} AND ${c}`)}`
+      : sql`SELECT * FROM sales`;
+    const conds = [];
 
-    if (tenantId !== 'all') conditions.push(`tenant_id = '${tenantId}'`);
-
-    // If searching by ticket number, ignore other filters
     if (ticketNumber) {
-      conditions.push(`ticket_number = ${parseInt(ticketNumber, 10)}`);
+      conds.push(sql`ticket_number = ${parseInt(ticketNumber, 10)}`);
     } else {
       if (year) {
         const y = parseInt(year, 10);
         const start = new Date(y, 0, 1).getTime();
         const end = new Date(y + 1, 0, 1).getTime();
-        conditions.push(`closed_at >= ${start}`);
-        conditions.push(`closed_at < ${end}`);
+        conds.push(sql`closed_at >= ${start}`);
+        conds.push(sql`closed_at < ${end}`);
       } else {
-        if (from) conditions.push(`closed_at >= ${BigInt(from)}`);
-        if (to) conditions.push(`closed_at <= ${BigInt(to)}`);
+        if (from) conds.push(sql`closed_at >= ${BigInt(from)}`);
+        if (to) conds.push(sql`closed_at <= ${BigInt(to)}`);
       }
     }
 
-    if (conditions.length > 0) {
-      query = sql`${query} AND ${sql.unsafe(conditions.join(' AND '))}`;
-    }
-    query = sql`${query} ORDER BY closed_at DESC`;
-
-    const rows = await query;
+    if (conds.length > 0) base = sql`${base} AND ${conds.reduce((a, c) => sql`${a} AND ${c}`)}`;
+    base = sql`${base} ORDER BY closed_at DESC`;
+    const rows = await base;
 
     // Fetch Verifactu status for all returned sales
     const saleIds = rows.map(r => r.id);
@@ -87,16 +85,15 @@ export async function POST(req) {
     const s = await req.json();
     const tenantId = getTenantId(req);
 
-    // Assign sequential ticket number (yearly counter)
+    // Assign sequential ticket number atomically per tenant+year
     const year = new Date(Number(s.closedAt || Date.now())).getFullYear();
-    const seqRow = await sql`
-      SELECT COALESCE(MAX(ticket_number), 0) + 1 AS next_num
-      FROM sales
-      WHERE ticket_number IS NOT NULL
-        AND closed_at >= ${new Date(year, 0, 1).getTime()}
-        AND closed_at < ${new Date(year + 1, 0, 1).getTime()}
+    const result = await sql`
+      INSERT INTO ticket_counters (tenant_id, year, counter)
+      VALUES (${tenantId}, ${year}, 1)
+      ON CONFLICT (tenant_id, year) DO UPDATE SET counter = ticket_counters.counter + 1
+      RETURNING counter
     `;
-    const ticketNumber = seqRow[0].next_num;
+    const ticketNumber = result[0].counter;
 
     // If this sale has a Stripe PaymentIntent, check if a stub sale already exists
     // (created by the webhook before addSale was called). If so, upgrade the stub.

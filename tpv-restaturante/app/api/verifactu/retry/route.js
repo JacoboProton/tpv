@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../../lib/db';
+import { getTenantId } from '../../../../lib/tenant';
 import { registerSaleInFiskaly } from '../../../../lib/fiskaly';
 import { generateRegistroFactura, formatFecha } from '../../../../lib/verifactu';
 
 // POST /api/verifactu/retry
 // Retries Fiskaly registration for all 'simulado' records
-export async function POST() {
+export async function POST(req) {
   try {
+    const tenantId = getTenantId(req);
     const simulados = await sql`
-      SELECT * FROM verifactu_registros WHERE estado = 'simulado' ORDER BY id ASC
+      SELECT * FROM verifactu_registros WHERE estado = 'simulado' AND tenant_id = ${tenantId} ORDER BY id ASC
     `;
 
     if (simulados.length === 0) {
@@ -25,7 +27,7 @@ export async function POST() {
       try {
         // Fetch the original sale
         const sales = await sql`
-          SELECT * FROM sales WHERE id = ${reg.sale_id} LIMIT 1
+          SELECT * FROM sales WHERE id = ${reg.sale_id} AND tenant_id = ${tenantId} LIMIT 1
         `;
         if (sales.length === 0) {
           results.push({ saleId: reg.sale_id, success: false, error: 'Venta no encontrada' });
@@ -60,7 +62,7 @@ export async function POST() {
             huella = ${localResult.hash},
             xml_registro = ${localResult.xml},
             fecha_hora_firma = ${localResult.fechaHoraFirma}
-          WHERE id = ${reg.id}
+          WHERE id = ${reg.id} AND tenant_id = ${tenantId}
         `;
 
         results.push({

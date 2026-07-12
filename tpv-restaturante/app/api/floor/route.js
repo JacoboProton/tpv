@@ -40,7 +40,7 @@ export async function PUT(req) {
 
     // Fetch full floor state via helper and broadcast
     const fullFloor = await fetchFullFloor(tenantId);
-    await broadcastFloorUpdateServer(fullFloor).catch(() => {});
+    await broadcastFloorUpdateServer(fullFloor, tenantId).catch(() => {});
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -85,7 +85,7 @@ export async function PATCH(req) {
 
     // Re-fetch full floor state and broadcast
     const fullFloor = await fetchFullFloor(tenantId);
-    await broadcastFloorUpdateServer(fullFloor).catch(() => {});
+    await broadcastFloorUpdateServer(fullFloor, tenantId).catch(() => {});
 
     return NextResponse.json({ ok: true });
   } catch (err) {

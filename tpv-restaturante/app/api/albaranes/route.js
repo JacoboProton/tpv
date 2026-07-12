@@ -1,28 +1,30 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../lib/db';
+import { getTenantId } from '../../../lib/tenant';
 
 export async function GET(req) {
   try {
+    const tenantId = getTenantId(req);
     const { searchParams } = new URL(req.url);
     const supplierId = searchParams.get('supplierId');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const status = searchParams.get('status');
 
-    let query = sql`SELECT * FROM albaranes`;
+    let query = sql`SELECT * FROM albaranes WHERE tenant_id = ${tenantId}`;
     const conds = [];
     if (supplierId) conds.push(sql`supplier_id = ${supplierId}`);
     if (startDate) conds.push(sql`delivery_date >= ${startDate}`);
     if (endDate) conds.push(sql`delivery_date <= ${endDate}`);
     if (status) conds.push(sql`status = ${status}`);
-    if (conds.length > 0) query = sql`${query} WHERE ${conds.reduce((a, c) => sql`${a} AND ${c}`)}`;
+    if (conds.length > 0) query = sql`${query} AND ${conds.reduce((a, c) => sql`${a} AND ${c}`)}`;
     query = sql`${query} ORDER BY delivery_date DESC, created_at DESC LIMIT 200`;
 
     const albaranes = await query;
     const result = [];
 
     for (const a of albaranes) {
-      const lines = await sql`SELECT * FROM albaran_lines WHERE albaran_id = ${a.id} ORDER BY id`;
+      const lines = await sql`SELECT * FROM albaran_lines WHERE albaran_id = ${a.id} AND tenant_id = ${tenantId} ORDER BY id`;
       result.push({
         id: a.id,
         supplierId: a.supplier_id,
@@ -76,6 +78,7 @@ export async function GET(req) {
 
 export async function POST(req) {
   try {
+    const tenantId = getTenantId(req);
     const body = await req.json();
     const { action } = body;
 
@@ -126,14 +129,14 @@ export async function POST(req) {
       const totalAmount = afterHeaderDiscount + recargoAmount + portesAmountVal + totalIva;
       
       await sql`
-        INSERT INTO albaranes (id, supplier_id, supplier_name, albaran_number, delivery_date, invoice_number, notes, total_amount, total_net, total_iva, header_discount_pct, header_discount_amount, recargo_equivalencia_pct, recargo_amount, portes_amount, status, received_by, linked_purchase_order_id, created_at)
-        VALUES (${id}, ${supplierId}, ${supplierName}, ${albaranNumber}, ${deliveryDate}, ${invoiceNumber || ''}, ${notes || ''}, ${totalAmount}, ${totalNet}, ${totalIva}, ${headerDiscountPctVal}, ${headerDiscountAmount}, ${recargoEquivalenciaPctVal}, ${recargoAmount}, ${portesAmountVal}, 'draft', ${receivedBy || ''}, ${linkedPurchaseOrderId || ''}, ${Date.now()})
+        INSERT INTO albaranes (id, supplier_id, supplier_name, albaran_number, delivery_date, invoice_number, notes, total_amount, total_net, total_iva, header_discount_pct, header_discount_amount, recargo_equivalencia_pct, recargo_amount, portes_amount, status, received_by, linked_purchase_order_id, created_at, tenant_id)
+        VALUES (${id}, ${supplierId}, ${supplierName}, ${albaranNumber}, ${deliveryDate}, ${invoiceNumber || ''}, ${notes || ''}, ${totalAmount}, ${totalNet}, ${totalIva}, ${headerDiscountPctVal}, ${headerDiscountAmount}, ${recargoEquivalenciaPctVal}, ${recargoAmount}, ${portesAmountVal}, 'draft', ${receivedBy || ''}, ${linkedPurchaseOrderId || ''}, ${Date.now()}, ${tenantId})
       `;
       
       for (const line of processedLines) {
         await sql`
-          INSERT INTO albaran_lines (albaran_id, product_id, product_name, quantity, pack_size, price_per_pack, price_per_unit, supplier_sku, iva_pct, line_discount_pct, line_discount_amount, subtotal, iva_amount, total_line, batch_number, expiry_date, location)
-          VALUES (${id}, ${line.productId}, ${line.productName}, ${line.quantity}, ${line.packSize}, ${line.pricePerPack}, ${line.pricePerUnit}, ${line.supplierSku || ''}, ${line.ivaPct || 0}, ${line.lineDiscountPct || 0}, ${line.lineDiscountAmount}, ${line.subtotal}, ${line.ivaAmount}, ${line.totalLine}, ${line.batchNumber || ''}, ${line.expiryDate || ''}, ${line.location || 'Almacén'})
+          INSERT INTO albaran_lines (albaran_id, product_id, product_name, quantity, pack_size, price_per_pack, price_per_unit, supplier_sku, iva_pct, line_discount_pct, line_discount_amount, subtotal, iva_amount, total_line, batch_number, expiry_date, location, tenant_id)
+          VALUES (${id}, ${line.productId}, ${line.productName}, ${line.quantity}, ${line.packSize}, ${line.pricePerPack}, ${line.pricePerUnit}, ${line.supplierSku || ''}, ${line.ivaPct || 0}, ${line.lineDiscountPct || 0}, ${line.lineDiscountAmount}, ${line.subtotal}, ${line.ivaAmount}, ${line.totalLine}, ${line.batchNumber || ''}, ${line.expiryDate || ''}, ${line.location || 'Almacén'}, ${tenantId})
         `;
       }
       
@@ -143,7 +146,7 @@ export async function POST(req) {
     if (action === 'update') {
       const { id, supplierId, supplierName, albaranNumber, deliveryDate, invoiceNumber, notes, lines, receivedBy, headerDiscountPct, recargoEquivalenciaPct, portesAmount } = body;
       
-      const existing = (await sql`SELECT status FROM albaranes WHERE id = ${id}`)[0];
+      const existing = (await sql`SELECT status FROM albaranes WHERE id = ${id} AND tenant_id = ${tenantId}`)[0];
       if (existing?.status === 'confirmed') {
         return NextResponse.json({ error: 'No se puede editar un albarán confirmado. Anúlalo primero.' }, { status: 400 });
       }
@@ -197,14 +200,14 @@ export async function POST(req) {
             header_discount_pct = ${headerDiscountPctVal}, header_discount_amount = ${headerDiscountAmount},
             recargo_equivalencia_pct = ${recargoEquivalenciaPctVal}, recargo_amount = ${recargoAmount},
             portes_amount = ${portesAmountVal}, received_by = ${receivedBy || ''}, updated_at = ${Date.now()}
-        WHERE id = ${id}
+        WHERE id = ${id} AND tenant_id = ${tenantId}
       `;
       
-      await sql`DELETE FROM albaran_lines WHERE albaran_id = ${id}`;
+      await sql`DELETE FROM albaran_lines WHERE albaran_id = ${id} AND tenant_id = ${tenantId}`;
       for (const line of processedLines) {
         await sql`
-          INSERT INTO albaran_lines (albaran_id, product_id, product_name, quantity, pack_size, price_per_pack, price_per_unit, supplier_sku, iva_pct, line_discount_pct, line_discount_amount, subtotal, iva_amount, total_line, batch_number, expiry_date, location)
-          VALUES (${id}, ${line.productId}, ${line.productName}, ${line.quantity}, ${line.packSize}, ${line.pricePerPack}, ${line.pricePerUnit}, ${line.supplierSku || ''}, ${line.ivaPct || 0}, ${line.lineDiscountPct || 0}, ${line.lineDiscountAmount}, ${line.subtotal}, ${line.ivaAmount}, ${line.totalLine}, ${line.batchNumber || ''}, ${line.expiryDate || ''}, ${line.location || 'Almacén'})
+          INSERT INTO albaran_lines (albaran_id, product_id, product_name, quantity, pack_size, price_per_pack, price_per_unit, supplier_sku, iva_pct, line_discount_pct, line_discount_amount, subtotal, iva_amount, total_line, batch_number, expiry_date, location, tenant_id)
+          VALUES (${id}, ${line.productId}, ${line.productName}, ${line.quantity}, ${line.packSize}, ${line.pricePerPack}, ${line.pricePerUnit}, ${line.supplierSku || ''}, ${line.ivaPct || 0}, ${line.lineDiscountPct || 0}, ${line.lineDiscountAmount}, ${line.subtotal}, ${line.ivaAmount}, ${line.totalLine}, ${line.batchNumber || ''}, ${line.expiryDate || ''}, ${line.location || 'Almacén'}, ${tenantId})
         `;
       }
       
@@ -213,17 +216,17 @@ export async function POST(req) {
 
     if (action === 'delete') {
       const { id } = body;
-      const existing = (await sql`SELECT status FROM albaranes WHERE id = ${id}`)[0];
+      const existing = (await sql`SELECT status FROM albaranes WHERE id = ${id} AND tenant_id = ${tenantId}`)[0];
       if (existing?.status !== 'draft') {
         return NextResponse.json({ error: 'Solo se pueden eliminar albaranes en borrador. Usa Anular para confirmados.' }, { status: 400 });
       }
-      await sql`DELETE FROM albaranes WHERE id = ${id}`;
+      await sql`DELETE FROM albaranes WHERE id = ${id} AND tenant_id = ${tenantId}`;
       return NextResponse.json({ ok: true });
     }
 
     if (action === 'void') {
       const { id, reason, anuladoBy } = body;
-      const albaran = (await sql`SELECT * FROM albaranes WHERE id = ${id}`)[0];
+      const albaran = (await sql`SELECT * FROM albaranes WHERE id = ${id} AND tenant_id = ${tenantId}`)[0];
       if (!albaran) {
         return NextResponse.json({ error: 'Albarán no encontrado' }, { status: 404 });
       }
@@ -233,53 +236,53 @@ export async function POST(req) {
       }
       
       if (albaran.status === 'confirmed') {
-        const lines = await sql`SELECT * FROM albaran_lines WHERE albaran_id = ${id}`;
+        const lines = await sql`SELECT * FROM albaran_lines WHERE albaran_id = ${id} AND tenant_id = ${tenantId}`;
         
         for (const line of lines) {
           const quantity = parseFloat(line.quantity) * parseFloat(line.pack_size || 1);
-          const existingStock = await sql`SELECT * FROM product_stock WHERE product_id = ${line.product_id}`;
+          const existingStock = await sql`SELECT * FROM product_stock WHERE product_id = ${line.product_id} AND tenant_id = ${tenantId}`;
           
           for (const stock of existingStock) {
             const newStock = Math.max(0, parseFloat(stock.stock) - quantity);
             await sql`
-              UPDATE product_stock SET stock = ${newStock} WHERE product_id = ${line.product_id} AND location = ${stock.location}
+              UPDATE product_stock SET stock = ${newStock} WHERE product_id = ${line.product_id} AND location = ${stock.location} AND tenant_id = ${tenantId}
             `;
             
             await sql`
-              INSERT INTO stock_log (product_id, product_name, old_stock, new_stock, change_amount, reason, reference, employee_name, created_at)
-              VALUES (${line.product_id}, ${line.product_name}, ${stock.stock}, ${newStock}, ${newStock - stock.stock}, 'devolución', 'Reverse:Albarán: ' || ${albaran.albaran_number}, ${anuladoBy || 'sistema'}, ${Date.now()})
+              INSERT INTO stock_log (product_id, product_name, old_stock, new_stock, change_amount, reason, reference, employee_name, created_at, tenant_id)
+              VALUES (${line.product_id}, ${line.product_name}, ${stock.stock}, ${newStock}, ${newStock - stock.stock}, 'devolución', 'Reverse:Albarán: ' || ${albaran.albaran_number}, ${anuladoBy || 'sistema'}, ${Date.now()}, ${tenantId})
             `;
           }
           
           await sql`
             UPDATE product_batches SET status = 'depleted', remaining_quantity = 0
-            WHERE albaran_id = ${id} AND product_id = ${line.product_id} AND status = 'active'
+            WHERE albaran_id = ${id} AND product_id = ${line.product_id} AND status = 'active' AND tenant_id = ${tenantId}
           `;
         }
         
         if (albaran.linked_purchase_order_id) {
-          const poLines = await sql`SELECT * FROM purchase_order_lines WHERE order_id = ${albaran.linked_purchase_order_id}`;
+          const poLines = await sql`SELECT * FROM purchase_order_lines WHERE order_id = ${albaran.linked_purchase_order_id} AND tenant_id = ${tenantId}`;
           for (const poLine of poLines) {
             const albLine = lines.find(l => l.product_id === poLine.product_id);
             if (albLine) {
               const receivedQty = parseFloat(poLine.received_qty || 0) - (parseFloat(albLine.quantity) * parseFloat(albLine.pack_size || 1));
               await sql`
-                UPDATE purchase_order_lines SET received_qty = ${Math.max(0, receivedQty)} WHERE id = ${poLine.id}
+                UPDATE purchase_order_lines SET received_qty = ${Math.max(0, receivedQty)} WHERE id = ${poLine.id} AND tenant_id = ${tenantId}
               `;
             }
           }
           
-          const allPoLines = await sql`SELECT * FROM purchase_order_lines WHERE order_id = ${albaran.linked_purchase_order_id}`;
+          const allPoLines = await sql`SELECT * FROM purchase_order_lines WHERE order_id = ${albaran.linked_purchase_order_id} AND tenant_id = ${tenantId}`;
           const allReceived = allPoLines.every(l => parseFloat(l.received_qty) >= parseFloat(l.quantity));
           const anyReceived = allPoLines.some(l => parseFloat(l.received_qty) > 0);
           const newStatus = allReceived ? 'received' : anyReceived ? 'partial' : 'sent';
-          await sql`UPDATE purchase_orders SET status = ${newStatus} WHERE id = ${albaran.linked_purchase_order_id}`;
+          await sql`UPDATE purchase_orders SET status = ${newStatus} WHERE id = ${albaran.linked_purchase_order_id} AND tenant_id = ${tenantId}`;
         }
       }
       
       await sql`
         UPDATE albaranes SET status = 'anulado', anulado_by = ${anuladoBy || ''}, anulado_at = ${Date.now()}, anulado_reason = ${reason || ''}, updated_at = ${Date.now()}
-        WHERE id = ${id}
+        WHERE id = ${id} AND tenant_id = ${tenantId}
       `;
       
       return NextResponse.json({ ok: true });
@@ -288,7 +291,7 @@ export async function POST(req) {
     if (action === 'confirm') {
       const { id, batches } = body;
       
-      const albaran = (await sql`SELECT * FROM albaranes WHERE id = ${id}`)[0];
+      const albaran = (await sql`SELECT * FROM albaranes WHERE id = ${id} AND tenant_id = ${tenantId}`)[0];
       if (!albaran) {
         return NextResponse.json({ error: 'Albarán no encontrado' }, { status: 404 });
       }
@@ -297,7 +300,7 @@ export async function POST(req) {
         return NextResponse.json({ error: 'Solo se pueden confirmar albaranes en borrador' }, { status: 400 });
       }
       
-      const lines = await sql`SELECT * FROM albaran_lines WHERE albaran_id = ${id}`;
+      const lines = await sql`SELECT * FROM albaran_lines WHERE albaran_id = ${id} AND tenant_id = ${tenantId}`;
       
       for (const line of lines) {
         const batchData = batches?.find(b => b.productId === line.product_id);
@@ -309,50 +312,50 @@ export async function POST(req) {
         
         const batchId = 'batch_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
         await sql`
-          INSERT INTO product_batches (id, product_id, albaran_id, batch_number, quantity, remaining_quantity, location, cost_per_unit, expiry_date, received_at, status, active)
-          VALUES (${batchId}, ${line.product_id}, ${id}, ${batchNumber}, ${quantity}, ${quantity}, ${location}, ${netCostPerUnit}, ${expiryDate}, ${Date.now()}, 'active', true)
+          INSERT INTO product_batches (id, product_id, albaran_id, batch_number, quantity, remaining_quantity, location, cost_per_unit, expiry_date, received_at, status, active, tenant_id)
+          VALUES (${batchId}, ${line.product_id}, ${id}, ${batchNumber}, ${quantity}, ${quantity}, ${location}, ${netCostPerUnit}, ${expiryDate}, ${Date.now()}, 'active', true, ${tenantId})
         `;
         
-        const existingStock = await sql`SELECT * FROM product_stock WHERE product_id = ${line.product_id} AND location = ${location}`;
+        const existingStock = await sql`SELECT * FROM product_stock WHERE product_id = ${line.product_id} AND location = ${location} AND tenant_id = ${tenantId}`;
         if (existingStock.length > 0) {
           const newStock = parseFloat(existingStock[0].stock) + quantity;
-          await sql`UPDATE product_stock SET stock = ${newStock} WHERE product_id = ${line.product_id} AND location = ${location}`;
+          await sql`UPDATE product_stock SET stock = ${newStock} WHERE product_id = ${line.product_id} AND location = ${location} AND tenant_id = ${tenantId}`;
         } else {
-          await sql`INSERT INTO product_stock (product_id, location, stock, low_stock) VALUES (${line.product_id}, ${location}, ${quantity}, 5)`;
+          await sql`INSERT INTO product_stock (product_id, location, stock, low_stock, tenant_id) VALUES (${line.product_id}, ${location}, ${quantity}, 5, ${tenantId})`;
         }
         
         await sql`
-          INSERT INTO stock_log (product_id, product_name, old_stock, new_stock, change_amount, reason, reference, employee_name, created_at)
-          VALUES (${line.product_id}, ${line.product_name}, ${parseFloat(existingStock[0]?.stock || 0)}, ${parseFloat(existingStock[0]?.stock || 0) + quantity}, ${quantity}, 'compra', 'Albarán: ' || ${albaran.albaran_number}, ${albaran.received_by || 'sistema'}, ${Date.now()})
+          INSERT INTO stock_log (product_id, product_name, old_stock, new_stock, change_amount, reason, reference, employee_name, created_at, tenant_id)
+          VALUES (${line.product_id}, ${line.product_name}, ${parseFloat(existingStock[0]?.stock || 0)}, ${parseFloat(existingStock[0]?.stock || 0) + quantity}, ${quantity}, 'compra', 'Albarán: ' || ${albaran.albaran_number}, ${albaran.received_by || 'sistema'}, ${Date.now()}, ${tenantId})
         `;
         
-        const catalog = await sql`SELECT sc.id FROM supplier_catalog sc WHERE sc.supplier_id = ${albaran.supplier_id} AND sc.product_id = ${line.product_id} LIMIT 1`;
+        const catalog = await sql`SELECT sc.id FROM supplier_catalog sc WHERE sc.supplier_id = ${albaran.supplier_id} AND sc.product_id = ${line.product_id} AND sc.tenant_id = ${tenantId} LIMIT 1`;
         if (catalog.length > 0) {
           await sql`
-            INSERT INTO supplier_price_history (catalog_id, supplier_id, product_id, pack_price, pack_size, price_per_unit, source, created_at)
-            VALUES (${catalog[0].id}, ${albaran.supplier_id}, ${line.product_id}, ${line.price_per_pack}, ${line.pack_size}, ${netCostPerUnit}, 'albaran', ${Date.now()})
+            INSERT INTO supplier_price_history (catalog_id, supplier_id, product_id, pack_price, pack_size, price_per_unit, source, created_at, tenant_id)
+            VALUES (${catalog[0].id}, ${albaran.supplier_id}, ${line.product_id}, ${line.price_per_pack}, ${line.pack_size}, ${netCostPerUnit}, 'albaran', ${Date.now()}, ${tenantId})
           `;
         }
       }
       
       if (albaran.linked_purchase_order_id) {
-        const poLines = await sql`SELECT * FROM purchase_order_lines WHERE order_id = ${albaran.linked_purchase_order_id}`;
+        const poLines = await sql`SELECT * FROM purchase_order_lines WHERE order_id = ${albaran.linked_purchase_order_id} AND tenant_id = ${tenantId}`;
         for (const poLine of poLines) {
           const albLine = lines.find(l => l.product_id === poLine.product_id);
           if (albLine) {
             const receivedQty = parseFloat(poLine.received_qty || 0) + (parseFloat(albLine.quantity) * parseFloat(albLine.pack_size || 1));
-            await sql`UPDATE purchase_order_lines SET received_qty = ${receivedQty} WHERE id = ${poLine.id}`;
+            await sql`UPDATE purchase_order_lines SET received_qty = ${receivedQty} WHERE id = ${poLine.id} AND tenant_id = ${tenantId}`;
           }
         }
         
-        const allPoLines = await sql`SELECT * FROM purchase_order_lines WHERE order_id = ${albaran.linked_purchase_order_id}`;
+        const allPoLines = await sql`SELECT * FROM purchase_order_lines WHERE order_id = ${albaran.linked_purchase_order_id} AND tenant_id = ${tenantId}`;
         const allReceived = allPoLines.every(l => parseFloat(l.received_qty) >= parseFloat(l.quantity));
         const anyReceived = allPoLines.some(l => parseFloat(l.received_qty) > 0);
         const newStatus = allReceived ? 'received' : anyReceived ? 'partial' : 'sent';
-        await sql`UPDATE purchase_orders SET status = ${newStatus} WHERE id = ${albaran.linked_purchase_order_id}`;
+        await sql`UPDATE purchase_orders SET status = ${newStatus} WHERE id = ${albaran.linked_purchase_order_id} AND tenant_id = ${tenantId}`;
       }
       
-      await sql`UPDATE albaranes SET status = 'confirmed', updated_at = ${Date.now()} WHERE id = ${id}`;
+      await sql`UPDATE albaranes SET status = 'confirmed', updated_at = ${Date.now()} WHERE id = ${id} AND tenant_id = ${tenantId}`;
       
       return NextResponse.json({ ok: true, message: 'Albarán confirmado correctamente' });
     }

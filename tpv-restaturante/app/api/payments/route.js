@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../lib/db';
-
-function getTenantId(req) {
-  return req.headers.get('x-tenant-id') || 'default';
-}
+import { getTenantId } from '../../../lib/tenant';
 
 // GET /api/payments?from=...&to=...&method=...&employee=...&minAmount=...&maxAmount=...
 export async function GET(req) {
@@ -18,29 +15,26 @@ export async function GET(req) {
     const maxAmount = searchParams.get('maxAmount');
     const status = searchParams.get('status');
 
-    let query = sql`SELECT * FROM sales WHERE tenant_id = ${tenantId}`;
-    const conditions = [];
+    let base = sql`SELECT * FROM sales WHERE tenant_id = ${tenantId}`;
+    const conds = [];
 
-    if (from) conditions.push(`closed_at >= ${BigInt(from)}`);
-    if (to) conditions.push(`closed_at <= ${BigInt(to)}`);
-    if (method) conditions.push(`payment_method ILIKE '%' || ${method} || '%'`);
-    if (employee) conditions.push(`employee_name ILIKE '%' || ${employee} || '%'`);
-    if (minAmount) conditions.push(`total_with_tip >= ${parseFloat(minAmount)}`);
-    if (maxAmount) conditions.push(`total_with_tip <= ${parseFloat(maxAmount)}`);
+    if (from) conds.push(sql`closed_at >= ${BigInt(from)}`);
+    if (to) conds.push(sql`closed_at <= ${BigInt(to)}`);
+    if (method) conds.push(sql`payment_method ILIKE ${'%' + method + '%'}`);
+    if (employee) conds.push(sql`employee_name ILIKE ${'%' + employee + '%'}`);
+    if (minAmount) conds.push(sql`total_with_tip >= ${parseFloat(minAmount)}`);
+    if (maxAmount) conds.push(sql`total_with_tip <= ${parseFloat(maxAmount)}`);
     if (status) {
-      if (status === 'disputed') conditions.push(`dispute_status != '' AND dispute_status != 'dispute_won'`);
-      else if (status === 'unconfirmed') conditions.push(`stripe_confirmed = false AND payment_intent_id != ''`);
-      else if (status === 'refunded') conditions.push(`refunds != '[]'::jsonb AND refunds IS NOT NULL`);
-      else if (status === 'stripe') conditions.push(`payment_intent_id != ''`);
-      else if (status === 'fiado') conditions.push(`is_fiado = true`);
+      if (status === 'disputed') conds.push(sql`dispute_status != '' AND dispute_status != 'dispute_won'`);
+      else if (status === 'unconfirmed') conds.push(sql`stripe_confirmed = false AND payment_intent_id != ''`);
+      else if (status === 'refunded') conds.push(sql`refunds != '[]'::jsonb AND refunds IS NOT NULL`);
+      else if (status === 'stripe') conds.push(sql`payment_intent_id != ''`);
+      else if (status === 'fiado') conds.push(sql`is_fiado = true`);
     }
 
-    if (conditions.length > 0) {
-      query = sql`${query} AND ${sql.unsafe(conditions.join(' AND '))}`;
-    }
-    query = sql`${query} ORDER BY closed_at DESC LIMIT 500`;
-
-    const rows = await query;
+    if (conds.length > 0) base = sql`${base} AND ${conds.reduce((a, c) => sql`${a} AND ${c}`)}`;
+    base = sql`${base} ORDER BY closed_at DESC LIMIT 500`;
+    const rows = await base;
 
     // Flat payment log: one entry per sale with extracted data
     const totalByMethod = {};

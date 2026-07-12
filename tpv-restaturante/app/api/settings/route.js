@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../lib/db';
 import { getTenantId } from '../../../lib/tenant';
+import { invalidateSettingsCache } from '../../../lib/settings-cache';
 
 export async function GET(req) {
   try {
@@ -25,6 +26,7 @@ export async function PUT(req) {
         ON CONFLICT (key) DO UPDATE SET tenant_id = EXCLUDED.tenant_id, value = EXCLUDED.value
       `;
     }
+    invalidateSettingsCache();
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });

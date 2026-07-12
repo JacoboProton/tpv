@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../../lib/db';
+import { verifyWebhookSignature } from '../../../../lib/verify-webhook';
+import { getTenantId } from '../../../../lib/tenant';
 
 function normalizeGlovoProducts(products) {
   if (!products || !Array.isArray(products)) return [];
@@ -24,7 +26,15 @@ export async function GET(req) {
 
 export async function POST(req) {
   try {
-    const body = await req.json();
+    const tenantId = getTenantId(req);
+    const rawBody = await req.text();
+    const signature = req.headers.get('x-glovo-signature') || '';
+    const valid = verifyWebhookSignature(rawBody, signature, 'GLOVO_WEBHOOK_SECRET', 'hex');
+    if (!valid) {
+      return NextResponse.json({ error: 'Firma inválida' }, { status: 401 });
+    }
+
+    const body = JSON.parse(rawBody);
     console.log('[Glovo webhook] Order received:', body.order_id || body.id);
 
     const orderId = body.order_id || body.id || 'g_' + Date.now();
@@ -40,9 +50,9 @@ export async function POST(req) {
     const now = Date.now();
 
     await sql`
-      INSERT INTO delivery_orders (id, customer_name, customer_phone, address, address_lat, address_lng,
+      INSERT INTO delivery_orders (tenant_id, id, customer_name, customer_phone, address, address_lat, address_lng,
         notes, items, status, source, platform_order_id, created_at)
-      VALUES (${delId}, ${customer.name || ''}, ${customer.phone || customer.phone_number || ''},
+      VALUES (${tenantId}, ${delId}, ${customer.name || ''}, ${customer.phone || customer.phone_number || ''},
         ${address}, ${lat}, ${lng},
         ${body.notes || body.comment || ''}, ${JSON.stringify(products)},
         'pending', 'glovo', ${String(orderId)}, ${now})

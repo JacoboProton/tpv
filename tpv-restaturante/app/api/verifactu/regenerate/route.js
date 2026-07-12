@@ -1,13 +1,36 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../../lib/db';
+import { getTenantId } from '../../../../lib/tenant';
+import { requireAdminPin } from '../../../../lib/rbac';
 import { registerSaleInFiskaly } from '../../../../lib/fiskaly';
 import { generateRegistroFactura, formatFecha } from '../../../../lib/verifactu';
 
 export async function POST(req) {
   try {
+    const body = await req.json();
+    const adminCheck = await requireAdminPin(req, body.adminPin);
+    if (!adminCheck.authorized) {
+      return NextResponse.json({ error: adminCheck.error }, { status: adminCheck.status });
+    }
+
+    const tenantId = getTenantId(req);
+
+    // 1a. Backup existing verifactu registros before deleting
+    const existingRegs = await sql`
+      SELECT * FROM verifactu_registros WHERE tenant_id = ${tenantId}
+    `;
+    if (existingRegs.length > 0) {
+      const backupId = 'backup_verifactu_' + Date.now();
+      await sql`
+        INSERT INTO backups (id, data, created_at)
+        VALUES (${backupId}, ${JSON.stringify(existingRegs)}, ${Date.now()})
+        ON CONFLICT (id) DO NOTHING
+      `;
+    }
+
     // 1. Obtener todas las ventas
     const sales = await sql`
-      SELECT * FROM sales ORDER BY closed_at ASC
+      SELECT * FROM sales WHERE tenant_id = ${tenantId} ORDER BY closed_at ASC
     `;
 
     if (sales.length === 0) {
@@ -15,7 +38,7 @@ export async function POST(req) {
     }
 
     // 2. Borrar todos los registros Verifactu existentes
-    await sql`DELETE FROM verifactu_registros`;
+    await sql`DELETE FROM verifactu_registros WHERE tenant_id = ${tenantId}`;
 
     // 3. Registrar cada venta de nuevo con el NIF correcto
     const results = [];
@@ -96,13 +119,13 @@ export async function POST(req) {
           INSERT INTO verifactu_registros
             (sale_id, num_serie, fecha_expedicion, importe_total, base_imponible,
              cuota_iva, huella_anterior, huella, xml_registro, qr_url, estado, created_at,
-             fiskaly_invoice_id, verification_url, fecha_hora_firma, payment_intent_id)
+             fiskaly_invoice_id, verification_url, fecha_hora_firma, payment_intent_id, tenant_id)
           VALUES (
             ${sale.id}, ${numSerie}, ${fechaExpedicion},
             ${importeTotal}, ${baseImponible}, ${cuotaIva},
             ${previousHash}, ${hash}, ${xml}, ${qrUrl || ''}, ${estado}, ${now},
             ${fiskalyInvoiceId}, ${verificationUrl}, ${fechaHoraFirma},
-            ${sale.payment_intent_id ?? ''}
+            ${sale.payment_intent_id ?? ''}, ${tenantId}
           )
           RETURNING *
         `;

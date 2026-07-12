@@ -1,7 +1,10 @@
 import { sql } from './db';
 import { formatHora } from './verifactu';
 
-export async function runMigrations() {
+// ===== Migration registry =====
+const MIGRATIONS = [];
+
+async function m001_up() {
   // ===== MULTI-TENANT =====
   await sql`
     CREATE TABLE IF NOT EXISTS tenants (
@@ -165,6 +168,19 @@ export async function runMigrations() {
   await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS monthly_limit NUMERIC(10,2) DEFAULT 0`;
   await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS monthly_used NUMERIC(10,2) DEFAULT 0`;
   await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS monthly_used_month TEXT DEFAULT ''`;
+  await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS pin_hash TEXT DEFAULT ''`;
+
+  // Hash existing plain-text PINs into pin_hash (one-time migration)
+  const { default: bcrypt } = await import('bcryptjs');
+  const unpinned = await sql`SELECT id, pin FROM employees WHERE pin != '' AND (pin_hash IS NULL OR pin_hash = '')`;
+  for (const row of unpinned) {
+    const hash = bcrypt.hashSync(row.pin, 10);
+    await sql`UPDATE employees SET pin_hash = ${hash} WHERE id = ${row.id}`;
+  }
+  // Clear plain-text pin column for rows that already have pin_hash set
+  await sql`UPDATE employees SET pin = '' WHERE pin_hash != '' AND pin != ''`;
+  // Ensure pin has a default value (empty string, since we no longer store plain-text)
+  await sql`ALTER TABLE employees ALTER COLUMN pin SET DEFAULT ''`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS access_logs (
@@ -1107,7 +1123,7 @@ export async function runMigrations() {
     consolidateBySupplier: 'true',
   };
   for (const [k, v] of Object.entries(autoDefaults)) {
-    await sql`INSERT INTO auto_order_settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`;
+    await sql`INSERT INTO auto_order_settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
   }
 
   const clockinKeys = {
@@ -1298,7 +1314,7 @@ export async function runMigrations() {
   try { await sql`ALTER TABLE sessions ADD CONSTRAINT unique_session UNIQUE (tenant_id, employee_id, device_id)`; } catch (e) { console.warn('sessions unique skip:', e.message); }
 
   // Ensure tenant_id exists on all core tables (re-check for tables created after the ALTER loop above)
-  const postCreateTables = ['employees', 'tables', 'orders', 'products', 'categories', 'offers', 'combos', 'settings', 'meal_menu_courses', 'meal_menu_course_items', 'meal_menu_schedules'];
+  const postCreateTables = ['employees', 'tables', 'orders', 'products', 'categories', 'offers', 'combos', 'settings', 'meal_menu_courses', 'meal_menu_course_items', 'meal_menu_schedules', 'modifier_options', 'product_modifiers', 'kds_pairings', 'kds_audit_log', 'qr_calls', 'delivery_tracking', 'webhook_events'];
   for (const table of postCreateTables) {
     try { await sql`ALTER TABLE "${sql.unsafe(table)}" ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'default'`; } catch (e) { console.warn('tenant_id recheck:', table, e.message); }
   }
@@ -1308,7 +1324,7 @@ export async function runMigrations() {
   try { await sql`ALTER TABLE settings ADD PRIMARY KEY (tenant_id, key)`; } catch (e) { console.warn('settings PK skip:', e.message); }
 
   // Convert PKs to composite (tenant_id, id) for tables that use ON CONFLICT
-  const compositePkTables = ['tables', 'orders', 'products', 'employees', 'offers', 'combos', 'categories'];
+  const compositePkTables = ['tables', 'orders', 'products', 'employees', 'offers', 'combos', 'categories', 'kds_pairings', 'qr_calls'];
   for (const table of compositePkTables) {
     try {
       await sql`ALTER TABLE "${sql.unsafe(table)}" DROP CONSTRAINT IF EXISTS ${sql.unsafe('"' + table + '_pkey"')}`;
@@ -1354,6 +1370,60 @@ export async function runMigrations() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_webhook_events_status ON webhook_events(status)`;
+
+  return { ok: true };
+}
+MIGRATIONS.push({ name: 'm001_initial_schema', description: 'Initial schema: all core tables, columns, indexes, seed data', up: m001_up });
+
+async function m002_up() {
+  await sql`
+    CREATE TABLE IF NOT EXISTS ticket_counters (
+      tenant_id TEXT NOT NULL,
+      year INTEGER NOT NULL,
+      counter INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (tenant_id, year)
+    )
+  `;
+}
+MIGRATIONS.push({ name: 'm002_ticket_counters', description: 'Atomic ticket counter per tenant+year', up: m002_up });
+
+export async function runMigrations() {
+  await sql`
+    CREATE TABLE IF NOT EXISTS _migrations (
+      name TEXT PRIMARY KEY,
+      description TEXT NOT NULL DEFAULT '',
+      applied_at BIGINT NOT NULL,
+      duration_ms INTEGER NOT NULL DEFAULT 0,
+      checksum TEXT NOT NULL DEFAULT '',
+      failed BOOLEAN NOT NULL DEFAULT false,
+      error TEXT DEFAULT ''
+    )
+  `;
+
+  const applied = new Set(
+    (await sql`SELECT name FROM _migrations WHERE NOT failed`).map(r => r.name)
+  );
+
+  for (const m of MIGRATIONS) {
+    if (applied.has(m.name)) continue;
+    const start = Date.now();
+    try {
+      await m.up();
+      await sql`
+        INSERT INTO _migrations (name, description, applied_at, duration_ms)
+        VALUES (${m.name}, ${m.description}, ${Date.now()}, ${Date.now() - start})
+        ON CONFLICT (name) DO UPDATE SET duration_ms = EXCLUDED.duration_ms
+      `;
+    } catch (e) {
+      console.error(`Migration ${m.name} failed:`, e);
+      await sql`
+        INSERT INTO _migrations (name, description, applied_at, duration_ms, failed, error)
+        VALUES (${m.name}, ${m.description}, ${Date.now()}, ${Date.now() - start}, true, ${e.message.slice(0, 500)})
+        ON CONFLICT (name) DO UPDATE SET failed = true, error = ${e.message.slice(0, 500)}
+      `;
+      throw e;
+    }
+  }
 
   return { ok: true };
 }

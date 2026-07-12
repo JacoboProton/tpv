@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../../lib/db';
+import { getTenantId } from '../../../../lib/tenant';
 
 function parseItems(raw) {
   if (!raw) return [];
@@ -12,11 +13,12 @@ function calcAmount(items) {
   return items.reduce((s, i) => s + (parseFloat(i.price) || 0) * (i.qty || 1), 0);
 }
 
-export async function GET() {
+export async function GET(req) {
   try {
+    const tenantId = getTenantId(req);
     const [qrOrders, delOrders] = await Promise.all([
-      sql`SELECT * FROM qr_orders ORDER BY created_at DESC LIMIT 100`,
-      sql`SELECT * FROM delivery_orders WHERE source != 'manual' ORDER BY created_at DESC LIMIT 100`,
+      sql`SELECT * FROM qr_orders WHERE tenant_id = ${tenantId} ORDER BY created_at DESC LIMIT 100`,
+      sql`SELECT * FROM delivery_orders WHERE source != 'manual' AND tenant_id = ${tenantId} ORDER BY created_at DESC LIMIT 100`,
     ]);
 
     const mappedQR = qrOrders.map(r => ({

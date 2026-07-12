@@ -9,6 +9,7 @@ let channel: any = null;
 export function connectRealtime(
   onFloorUpdate: (floor: Floor) => void,
   onReadyNotification?: (data: { tableName: string; itemNames: string[]; waiterName?: string }) => void,
+  tenantId?: string,
 ) {
   if (!SUPABASE_URL || !SUPABASE_KEY) return null;
 
@@ -18,7 +19,7 @@ export function connectRealtime(
     params: { apikey: SUPABASE_KEY },
   });
 
-  channel = client.channel('floor-sync');
+  channel = client.channel(`floor-sync:${tenantId || 'default'}`);
   channel.on('broadcast', { event: 'floor:updated' }, ({ payload }: any) => {
     onFloorUpdate(payload.floor);
   });
@@ -43,7 +44,7 @@ export function showReadyNotification(data: { tableName: string; itemNames: stri
   Alert.alert('🍽️ Plato listo', msg);
 }
 
-export function broadcastFloorUpdate(floor: Floor) {
+export function broadcastFloorUpdate(floor: Floor, _tenantId?: string) {
   if (!channel) return;
   channel.send({
     type: 'broadcast',

@@ -7,19 +7,17 @@ import {
 import {
   BarChart3, Banknote, CreditCard, Smartphone, Clock, Download, Printer, LogIn, ShieldCheck, User, Save,
 } from 'lucide-react';
-import { euros, round2 } from './constants';
+import { euros, round2, PAYMENT_METHODS } from './constants';
 import { fetchAccessLogs, fetchBackup, fetchStockLog, fetchTurns, fetchClosures, saveClosure } from '../lib/api';
 import VerifactuPanel from './VerifactuPanel';
 import FoodCostView from './FoodCostView';
 
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
-const PAYMENT_METHODS = [
-  { id: 'efectivo', label: 'Efectivo', icon: Banknote },
-  { id: 'tarjeta',  label: 'Tarjeta',  icon: CreditCard },
-  { id: 'bizum',    label: 'Bizum',    icon: Smartphone },
-  { id: 'fiado',    label: 'Fiado',    icon: Clock },
-];
+const PAYMENT_METHODS_UI = PAYMENT_METHODS.map(m => ({
+  ...m,
+  icon: { efectivo: Banknote, tarjeta: CreditCard, bizum: Smartphone, fiado: Clock }[m.id],
+}));
 
 // ---------- Vista contenedor ----------
 export default function InformesView({ sales, colors: C }) {
@@ -229,7 +227,7 @@ function ExtractoTab({ sales, colors: C }) {
         <div style={{ background: C.surface, border: `1px solid ${C.line}` }} className="rounded-xl p-4 mb-5">
           <p style={{ color: C.muted }} className="text-xs uppercase mb-3">Por método de pago — {year}</p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {PAYMENT_METHODS.map(m => {
+            {PAYMENT_METHODS_UI.map(m => {
               const total = yearMethods[m.id] || 0;
               const Icon = m.icon;
               return (
@@ -331,7 +329,7 @@ function ResumenTab({ sales, colors: C }) {
       <div style={{ background: C.surface, border: `1px solid ${C.line}` }} className="rounded-xl p-4 mb-6">
         <p style={{ color: C.muted }} className="text-xs uppercase tracking-wide mb-3">Ingresos por método — hoy</p>
         <div className="grid grid-cols-3 gap-3">
-          {PAYMENT_METHODS.map(m => {
+          {PAYMENT_METHODS_UI.map(m => {
             const Icon = m.icon;
             const total = todaySales.reduce((sum, s) => {
               const payments = s.payments?.length ? s.payments : [{ method: s.paymentMethod, amount: s.total }];

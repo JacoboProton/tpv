@@ -1,26 +1,28 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../lib/db';
+import { getTenantId } from '../../../lib/tenant';
 
-export async function GET() {
+export async function GET(req) {
   try {
+    const tenantId = getTenantId(req);
     const [categories, products, tables, orders, sales, employees, accessLogs, stockLog, cancelledOrders, offers, settings, modifiers, productStock, deliveryRunners, deliveryOrders, deliveryTracking] =
       await Promise.all([
-        sql`SELECT * FROM categories ORDER BY name`,
-        sql`SELECT * FROM products ORDER BY name`,
-        sql`SELECT * FROM tables ORDER BY id`,
-        sql`SELECT * FROM orders ORDER BY id`,
-        sql`SELECT * FROM sales ORDER BY id`,
-        sql`SELECT * FROM employees ORDER BY id`,
-        sql`SELECT * FROM access_logs ORDER BY id`,
-        sql`SELECT * FROM stock_log ORDER BY id`,
-        sql`SELECT * FROM cancelled_orders ORDER BY id`,
-        sql`SELECT * FROM offers ORDER BY id`,
-        sql`SELECT * FROM settings ORDER BY key`,
-        sql`SELECT * FROM modifier_groups ORDER BY id`,
-        sql`SELECT * FROM product_stock ORDER BY product_id, location`,
-        sql`SELECT * FROM delivery_runners ORDER BY id`,
-        sql`SELECT * FROM delivery_orders ORDER BY id`,
-        sql`SELECT * FROM delivery_tracking ORDER BY id`,
+        sql`SELECT * FROM categories WHERE tenant_id = ${tenantId} ORDER BY name`,
+        sql`SELECT * FROM products WHERE tenant_id = ${tenantId} ORDER BY name`,
+        sql`SELECT * FROM tables WHERE tenant_id = ${tenantId} ORDER BY id`,
+        sql`SELECT * FROM orders WHERE tenant_id = ${tenantId} ORDER BY id`,
+        sql`SELECT * FROM sales WHERE tenant_id = ${tenantId} ORDER BY id`,
+        sql`SELECT * FROM employees WHERE tenant_id = ${tenantId} ORDER BY id`,
+        sql`SELECT * FROM access_logs WHERE tenant_id = ${tenantId} ORDER BY id`,
+        sql`SELECT * FROM stock_log WHERE tenant_id = ${tenantId} ORDER BY id`,
+        sql`SELECT * FROM cancelled_orders WHERE tenant_id = ${tenantId} ORDER BY id`,
+        sql`SELECT * FROM offers WHERE tenant_id = ${tenantId} ORDER BY id`,
+        sql`SELECT * FROM settings WHERE tenant_id = ${tenantId} ORDER BY key`,
+        sql`SELECT * FROM modifier_groups WHERE tenant_id = ${tenantId} ORDER BY id`,
+        sql`SELECT * FROM product_stock WHERE tenant_id = ${tenantId} ORDER BY product_id, location`,
+        sql`SELECT * FROM delivery_runners WHERE tenant_id = ${tenantId} ORDER BY id`,
+        sql`SELECT * FROM delivery_orders WHERE tenant_id = ${tenantId} ORDER BY id`,
+        sql`SELECT * FROM delivery_tracking WHERE tenant_id = ${tenantId} ORDER BY id`,
       ]);
 
     const data = {

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../../lib/db';
+import { getTenantId } from '../../../../lib/tenant';
 
 function parseJSON(val, fallback) {
   if (!val) return fallback;
@@ -14,6 +15,7 @@ function addMinutes(timeStr, mins) {
 
 export async function GET(req) {
   try {
+    const tenantId = getTenantId(req);
     const { searchParams } = new URL(req.url);
     const date = searchParams.get('date');
     const pax = parseInt(searchParams.get('pax') || '2', 10);
@@ -21,9 +23,9 @@ export async function GET(req) {
     if (!date) return NextResponse.json({ error: 'date required' }, { status: 400 });
 
     const [settingsRows, tables, existing] = await Promise.all([
-      sql`SELECT key, value FROM settings`,
-      sql`SELECT id, name, seats, type FROM tables WHERE type IN ('mesa','barra')`,
-      sql`SELECT * FROM reservations WHERE date = ${date} AND status NOT IN ('cancelada','noshow')`,
+      sql`SELECT key, value FROM settings WHERE tenant_id = ${tenantId}`,
+      sql`SELECT id, name, seats, type FROM tables WHERE type IN ('mesa','barra') AND tenant_id = ${tenantId}`,
+      sql`SELECT * FROM reservations WHERE date = ${date} AND status NOT IN ('cancelada','noshow') AND tenant_id = ${tenantId}`,
     ]);
 
     const settings = Object.fromEntries(settingsRows.map(r => [r.key, r.value]));

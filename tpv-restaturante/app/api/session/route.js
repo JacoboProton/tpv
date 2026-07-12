@@ -1,13 +1,10 @@
 import { NextResponse } from 'next/server';
 import { sql } from '../../../lib/db';
-
-function tenantId(req) {
-  return req.headers.get('x-tenant-id') || req.headers.get('x-tenant_id') || 'default';
-}
+import { getTenantId } from '../../../lib/tenant';
 
 export async function POST(req) {
   try {
-    const tid = tenantId(req);
+    const tid = getTenantId(req);
     const body = await req.json();
     const { action, employeeId, employeeRole, deviceId } = body;
 

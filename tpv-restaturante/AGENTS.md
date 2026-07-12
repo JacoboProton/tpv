@@ -46,7 +46,7 @@ Test: `npx vitest run __tests__/constants.test.js`
 - **No comments in code** unless necessary for clarity — let the code speak.
 - **React inline styles** must use camelCase (`overflowY`, not `overflow-y`). Tailwind classes preferred for layout.
 - **`<img>` instead of `<Image>`** — `@next/next/no-img-element` is explicitly disabled in the ESLint config.
-- **Colors** come from a mutable `C` object (`components/constants.js:40-44`), swapped via `setTheme('dark'|'light')`. Always use `C.cream`, `C.muted`, `C.brass` etc. Never hardcode hex.
+- **Colors** come from a mutable `C` object (`components/constants.js:40-44`), swapped via `setGlobalTheme('dark'|'light')`. Always use `C.cream`, `C.muted`, `C.brass` etc. Never hardcode hex.
 - **`seedFloor()`** layout: 9 mesas (left, 4-column grid), 6 barras (center), 4 delivery (right). Migration in `page.jsx` auto-upgrades old floors.
 - **`clone()`** from `constants.js` for deep-copying state before mutation.
 - **Floors** have `tables[]` with `type: 'mesa'|'barra'|'llevar'|'domicilio'`, `status`, `orderId`, `orderIds[]`.

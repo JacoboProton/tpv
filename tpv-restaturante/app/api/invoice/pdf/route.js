@@ -2,14 +2,16 @@ import { NextResponse } from 'next/server';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import { sql } from '../../../../lib/db';
+import { getTenantId } from '../../../../lib/tenant';
+import { getCachedSettings, setCachedSettings } from '../../../../lib/settings-cache';
 
-// Settings cache
-let settingsCache = null;
-async function getSettings() {
-  if (settingsCache) return settingsCache;
-  const rows = await sql`SELECT key, value FROM settings`;
-  settingsCache = Object.fromEntries(rows.map(r => [r.key, r.value]));
-  return settingsCache;
+async function getSettings(tenantId) {
+  const cached = getCachedSettings();
+  if (cached) return cached;
+  const rows = await sql`SELECT key, value FROM settings WHERE tenant_id = ${tenantId}`;
+  const settings = Object.fromEntries(rows.map(r => [r.key, r.value]));
+  setCachedSettings(settings);
+  return settings;
 }
 
 const FONT = 'Helvetica';
@@ -22,12 +24,13 @@ function loadFont(doc) {
 // body: { saleId } or { sale }
 export async function POST(req) {
   try {
+    const tenantId = getTenantId(req);
     const { saleId, sale: inlineSale } = await req.json();
     let sale;
     if (inlineSale) {
       sale = inlineSale;
     } else if (saleId) {
-      const rows = await sql`SELECT * FROM sales WHERE id = ${saleId} LIMIT 1`;
+      const rows = await sql`SELECT * FROM sales WHERE id = ${saleId} AND tenant_id = ${tenantId} LIMIT 1`;
       if (rows.length === 0) return NextResponse.json({ error: 'Venta no encontrada' }, { status: 404 });
       const r = rows[0];
       sale = {
@@ -44,7 +47,7 @@ export async function POST(req) {
       return NextResponse.json({ error: 'saleId o sale requerido' }, { status: 400 });
     }
 
-    const settings = await getSettings();
+    const settings = await getSettings(tenantId);
     const cif = settings?.companyCif || '';
     const address = settings?.companyAddress || '';
     const phone = settings?.companyPhone || '';

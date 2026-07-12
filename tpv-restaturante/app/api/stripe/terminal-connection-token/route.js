@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { sql } from '../../../../lib/db';
+import { getTenantId } from '../../../../lib/tenant';
 import { rateLimit } from '../../../../lib/rate-limit';
 
 function getStripe() {
@@ -12,10 +13,10 @@ function env(key, fallback) {
   return process.env[key] || fallback;
 }
 
-async function getOrCreateLocation(stripe) {
+async function getOrCreateLocation(stripe, tenantId) {
   // Persistir en BD en lugar de memoria volátil
   try {
-    const rows = await sql`SELECT value FROM settings WHERE key = 'stripe_terminal_location_id' LIMIT 1`;
+    const rows = await sql`SELECT value FROM settings WHERE key = 'stripe_terminal_location_id' AND tenant_id = ${tenantId} LIMIT 1`;
     if (rows.length > 0 && rows[0].value) {
       return rows[0].value;
     }
@@ -27,7 +28,7 @@ async function getOrCreateLocation(stripe) {
   const existing = await stripe.terminal.locations.list({ limit: 1 });
   if (existing.data.length > 0) {
     const id = existing.data[0].id;
-    try { await sql`INSERT INTO settings (key, value) VALUES ('stripe_terminal_location_id', ${id}) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`; } catch {}
+    try { await sql`INSERT INTO settings (key, value, tenant_id) VALUES ('stripe_terminal_location_id', ${id}, ${tenantId}) ON CONFLICT (key, tenant_id) DO UPDATE SET value = EXCLUDED.value`; } catch {}
     if (typeof globalThis !== 'undefined') globalThis.__stripeLocationId = id;
     return id;
   }
@@ -41,7 +42,7 @@ async function getOrCreateLocation(stripe) {
       postal_code: env('STRIPE_LOCATION_POSTAL_CODE', '28001'),
     },
   });
-  try { await sql`INSERT INTO settings (key, value) VALUES ('stripe_terminal_location_id', ${loc.id}) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`; } catch {}
+  try { await sql`INSERT INTO settings (key, value, tenant_id) VALUES ('stripe_terminal_location_id', ${loc.id}, ${tenantId}) ON CONFLICT (key, tenant_id) DO UPDATE SET value = EXCLUDED.value`; } catch {}
   if (typeof globalThis !== 'undefined') globalThis.__stripeLocationId = loc.id;
   return loc.id;
 }
@@ -61,7 +62,8 @@ export async function POST(req) {
     if (!stripe) {
       return NextResponse.json({ error: 'Stripe no configurado' }, { status: 500 });
     }
-    const locationId = await getOrCreateLocation(stripe);
+    const tenantId = getTenantId(req);
+    const locationId = await getOrCreateLocation(stripe, tenantId);
     const ct = await stripe.terminal.connectionTokens.create({});
     return NextResponse.json({ connectionToken: ct.secret, locationId });
   } catch (err) {

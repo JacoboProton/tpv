@@ -38,7 +38,8 @@ async function markFailed(eventId, eventData, errorMessage) {
 }
 
 async function handlePaymentIntentSucceeded(pi) {
-  const { tableId, qrOrderId, source } = pi.metadata || {};
+  const { tableId, qrOrderId, source, tenantId } = pi.metadata || {};
+  const tid = tenantId || 'default';
 
   console.log(`[Stripe Webhook] payment_intent.succeeded: ${pi.id} (${(pi.amount / 100).toFixed(2)}€) mesa=${tableId} source=${source}`);
 
@@ -46,15 +47,15 @@ async function handlePaymentIntentSucceeded(pi) {
     await sql`
       UPDATE qr_orders
       SET order_status = 'paid', payment_intent_id = ${pi.id}, updated_at = ${Date.now()}
-      WHERE id = ${qrOrderId} AND order_status = 'pending'
+      WHERE id = ${qrOrderId} AND order_status = 'pending' AND tenant_id = ${tid}
     `;
   } else if (tableId) {
     const existing = await sql`
-      SELECT id FROM sales WHERE payment_intent_id = ${pi.id} LIMIT 1
+      SELECT id FROM sales WHERE payment_intent_id = ${pi.id} AND tenant_id = ${tid} LIMIT 1
     `;
     if (existing.length === 0) {
       await sql`
-        INSERT INTO sales (id, table_id, table_name, items, subtotal, discount, discount_amount, total, tip, tip_method, total_with_tip, payment_intent_id, employee_name, closed_at, payment_method, invoice_nif, invoice_name, invoice_address, invoice_number)
+        INSERT INTO sales (id, table_id, table_name, items, subtotal, discount, discount_amount, total, tip, tip_method, total_with_tip, payment_intent_id, employee_name, closed_at, payment_method, invoice_nif, invoice_name, invoice_address, invoice_number, tenant_id)
         VALUES (
           'stub_' || ${pi.id},
           ${tableId},
@@ -67,13 +68,13 @@ async function handlePaymentIntentSucceeded(pi) {
           ${pi.metadata?.employeeName || ''},
           ${Date.now()},
           'tarjeta',
-          '', '', '', ''
+          '', '', '', '', ${tid}
         )
         ON CONFLICT (id) DO NOTHING
       `;
     } else {
       await sql`
-        UPDATE sales SET stripe_confirmed = true WHERE payment_intent_id = ${pi.id}
+        UPDATE sales SET stripe_confirmed = true WHERE payment_intent_id = ${pi.id} AND tenant_id = ${tid}
       `;
     }
   }
@@ -86,6 +87,8 @@ async function handlePaymentIntentFailed(failed) {
 async function handleChargeDisputeCreated(dispute) {
   const piId = dispute.payment_intent?.id || dispute.charge?.payment_intent;
   const amount = dispute.amount;
+  const metadata = dispute.metadata || {};
+  const tid = metadata.tenantId || 'default';
   console.error(`[Stripe Webhook] ⚠️ CHARGEBACK CREADO: dispute=${dispute.id} pi=${piId} amount=${(amount / 100).toFixed(2)}€ reason=${dispute.reason}`);
 
   if (piId) {
@@ -101,7 +104,7 @@ async function handleChargeDisputeCreated(dispute) {
           evidence_due_by: dispute.evidence_details?.due_by,
           created: Date.now(),
         })}
-      WHERE payment_intent_id = ${piId}
+      WHERE payment_intent_id = ${piId} AND tenant_id = ${tid}
     `;
   }
 
@@ -120,6 +123,8 @@ async function handleChargeDisputeCreated(dispute) {
 async function handleChargeDisputeClosed(dispute) {
   const piId = dispute.payment_intent?.id || dispute.charge?.payment_intent;
   const closedStatus = dispute.status;
+  const metadata = dispute.metadata || {};
+  const tid = metadata.tenantId || 'default';
   console.error(`[Stripe Webhook] ⚠️ CHARGEBACK ${closedStatus === 'won' ? 'GANADO' : 'PERDIDO'}: dispute=${dispute.id} pi=${piId} status=${closedStatus}`);
 
   if (piId) {
@@ -134,7 +139,7 @@ async function handleChargeDisputeClosed(dispute) {
           currency: dispute.currency,
           closed: Date.now(),
         })}
-      WHERE payment_intent_id = ${piId}
+      WHERE payment_intent_id = ${piId} AND tenant_id = ${tid}
     `;
   }
 

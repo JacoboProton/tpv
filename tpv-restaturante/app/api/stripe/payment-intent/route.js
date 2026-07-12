@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { rateLimit } from '../../../../lib/rate-limit';
 import { logPayment } from '../../../../lib/payment-logger';
+import { getTenantId } from '../../../../lib/tenant';
 
 function getStripe() {
   if (!process.env.STRIPE_SECRET_KEY) return null;
@@ -33,6 +34,7 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Stripe no configurado' }, { status: 500 });
     }
 
+    const tenantId = getTenantId(req);
     const { amount, tableId, tableName, employeeName, idempotencyKey } = await req.json();
 
     if (!amount || amount <= 0) {
@@ -57,6 +59,7 @@ export async function POST(req) {
         tableId:      tableId      ?? '',
         tableName:    tableName    ?? '',
         employeeName: employeeName ?? '',
+        tenantId,
         source:       'la-comanda-tpv',
         env:          process.env.VERCEL_ENV || 'development',
         max_amount:   String(MAX_PAYMENT_AMOUNT),
