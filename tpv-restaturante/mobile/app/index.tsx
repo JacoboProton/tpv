@@ -6,9 +6,10 @@ import { sessionLogin } from '../lib/session';
 import type { Employee } from '../lib/types';
 import { C } from '../lib/theme';
 import { classifyError } from '../lib/errors';
-import { setGlobalUser } from './_layout';
+import { useAppContext } from '../lib/store';
 
 export default function LoginScreen() {
+  const { setUser } = useAppContext();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selected, setSelected] = useState<Employee | null>(null);
   const [pin, setPin] = useState('');
@@ -62,7 +63,7 @@ export default function LoginScreen() {
         }
       } catch {}
 
-      setGlobalUser(user);
+      setUser(user);
       router.replace('/(tabs)/saloon');
     } catch {
       setPin('');

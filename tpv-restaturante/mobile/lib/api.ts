@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL, TPV_API_KEY } from './config';
-import type { Employee, Floor, Product, Category } from './types';
+import type { Employee, Floor, Product, Category, ModifierGroup, Sale, GestoriaDocument, GestoriaPayroll, GestoriaTaxModel, GestoriaAuthorization, GestoriaOperationsResponse } from './types';
 
 let _tenantId = 'default';
 let _employeeId = '';
@@ -28,10 +28,16 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
 }
 
 export async function verifyPin(pin: string): Promise<Employee> {
+  const pinHash = await sha256(pin);
   return apiFetch('/employees', {
     method: 'POST',
-    body: JSON.stringify({ action: 'verify', pin }),
+    body: JSON.stringify({ action: 'verify', pin, pinHash }),
   });
+}
+
+async function sha256(s: string): Promise<string> {
+  const { digestStringAsync, CryptoDigestAlgorithm } = await import('expo-crypto');
+  return digestStringAsync(CryptoDigestAlgorithm.SHA256, s);
 }
 
 let lastFloor: Floor | null = null;
@@ -136,6 +142,14 @@ export async function fetchCatalog(): Promise<{ categories: Category[]; products
   return apiFetch('/catalog');
 }
 
+export async function fetchModifiers(): Promise<{ groups: ModifierGroup[]; productModifiers: Record<string, string[]> }> {
+  return apiFetch('/modifiers');
+}
+
+export async function fetchSettings(): Promise<Record<string, string>> {
+  return apiFetch('/settings');
+}
+
 export async function fetchEmployees(): Promise<Employee[]> {
   return apiFetch('/employees');
 }
@@ -209,16 +223,17 @@ export async function processPendingSales(): Promise<void> {
   } catch {}
 }
 
-export async function fetchSales(): Promise<Record<string, unknown>[]> {
+export async function fetchSales(): Promise<Sale[]> {
   try {
-    const data = await apiFetch<Record<string, unknown>[]>('/sales');
+    const data = await apiFetch<Sale[]>('/sales');
     // Trigger retry of pending sales — online again
     processPendingSales();
     // Merge with local cache so recently-saved sales appear immediately
     const cached = await AsyncStorage.getItem('tpv:sales');
     const local = cached ? JSON.parse(cached) : [];
     const ids = new Set(data.map(s => s.id));
-    const merged = [...data, ...local.filter(s => !ids.has(s.id))];
+    const merged = [...data, ...local.filter(s => !ids.has(s.id))]
+      .sort((a, b) => (b.closedAt || 0) - (a.closedAt || 0));
     await AsyncStorage.setItem('tpv:sales', JSON.stringify(merged));
     return merged;
   } catch {
@@ -227,19 +242,62 @@ export async function fetchSales(): Promise<Record<string, unknown>[]> {
   }
 }
 
-export interface GestoriaOperationEntry {
-  nif: string;
-  name: string;
-  base: number;
-  operacion: string;
-}
-
-export interface GestoriaOperationsResponse {
-  entregas_intra: GestoriaOperationEntry[];
-  adquisiciones_intra: GestoriaOperationEntry[];
-  total_operaciones: number;
-}
-
 export async function fetchGestoriaOperations(): Promise<GestoriaOperationsResponse> {
   return apiFetch<GestoriaOperationsResponse>('/gestoria?action=operations');
+}
+
+export async function fetchGestoriaSettings(): Promise<Record<string, string>> {
+  return apiFetch('/gestoria?action=settings');
+}
+
+export async function saveGestoriaSettings(settings: Record<string, string>): Promise<{ ok: boolean }> {
+  return apiFetch('/gestoria', { method: 'PUT', body: JSON.stringify({ action: 'settings', settings }) });
+}
+
+export async function fetchGestoriaDocuments(type: string): Promise<GestoriaDocument[]> {
+  return apiFetch(`/gestoria?action=documents&type=${type}`);
+}
+
+export async function saveGestoriaDocument(doc: Record<string, unknown>): Promise<{ ok: boolean }> {
+  return apiFetch('/gestoria', { method: 'POST', body: JSON.stringify({ action: 'document', document: doc }) });
+}
+
+export async function deleteGestoriaDocument(id: string): Promise<{ ok: boolean }> {
+  return apiFetch('/gestoria', { method: 'DELETE', body: JSON.stringify({ action: 'document', id }) });
+}
+
+export async function confirmGestoriaDocument(id: string): Promise<{ ok: boolean }> {
+  return apiFetch('/gestoria', { method: 'PUT', body: JSON.stringify({ action: 'confirm', id }) });
+}
+
+export async function fetchGestoriaPayrolls(): Promise<GestoriaPayroll[]> {
+  return apiFetch('/gestoria?action=payrolls');
+}
+
+export async function saveGestoriaPayroll(payroll: Record<string, unknown>): Promise<{ ok: boolean }> {
+  return apiFetch('/gestoria', { method: 'POST', body: JSON.stringify({ action: 'payroll', payroll }) });
+}
+
+export async function deleteGestoriaPayroll(id: string): Promise<{ ok: boolean }> {
+  return apiFetch('/gestoria', { method: 'DELETE', body: JSON.stringify({ action: 'payroll', id }) });
+}
+
+export async function fetchGestoriaTaxModels(): Promise<GestoriaTaxModel[]> {
+  return apiFetch('/gestoria?action=taxmodels');
+}
+
+export async function calculateGestoriaTaxModel(modelCode: string, year: number, quarter: number): Promise<{ data: Record<string, unknown> }> {
+  return apiFetch('/gestoria', { method: 'POST', body: JSON.stringify({ action: 'calculate', modelCode, year, quarter }) });
+}
+
+export async function updateTaxModelStatus(id: string, status: string): Promise<{ ok: boolean }> {
+  return apiFetch('/gestoria', { method: 'PUT', body: JSON.stringify({ action: 'status', id, status }) });
+}
+
+export async function fetchGestoriaAuthorization(): Promise<GestoriaAuthorization | null> {
+  return apiFetch('/gestoria?action=authorization');
+}
+
+export async function saveGestoriaAuthorization(data: Record<string, unknown>): Promise<{ ok: boolean }> {
+  return apiFetch('/gestoria', { method: 'PUT', body: JSON.stringify({ action: 'authorization', ...data }) });
 }

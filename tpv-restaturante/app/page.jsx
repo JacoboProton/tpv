@@ -26,8 +26,14 @@ import { connectRealtime, broadcastFloorUpdate, broadcastReadyNotification, disc
 import { sessionLogin, sessionKeepalive, sessionLogout, startKeepalive } from '../lib/session';
 import { escposOpenDrawer, printESCPOS, isPrinterConnected } from '../lib/thermal-printer';
 import { fetchSettings, saveSettings, fetchOffers, saveOffers, fetchCombos, saveCombos, saveMealMenus, savePriceRules } from '../lib/api';
+import { buildTicketHtml, printTicketHtml } from '../lib/ticket-template';
 import { ALLERGENS } from '../components/constants';
 import { playKitchenAlert, showKitchenNotification, requestNotificationPermission, playBeep } from '../lib/sound';
+
+async function sha256(s) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
 import MenuPrincipal        from '../components/MenuPrincipal';
 import LoginScreen          from '../components/LoginScreen';
@@ -555,7 +561,7 @@ export default function App() {
         const res = await fetch('/api/employees', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'verify', pin: next }),
+          body: JSON.stringify({ action: 'verify', pin: next, pinHash: await sha256(next) }),
         });
         if (!res.ok) { showToast('PIN incorrecto'); return; }
         const emp = await res.json();
@@ -923,7 +929,7 @@ export default function App() {
     const r = await fetch('/api/employees', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-tpv-key': API_KEY },
-      body: JSON.stringify({ action: 'verify', pin: employeePin }),
+      body: JSON.stringify({ action: 'verify', pin: employeePin, pinHash: await sha256(employeePin) }),
     });
     if (!r.ok) { showToast('PIN incorrecto'); return false; }
     const emp = await r.json();
@@ -1724,78 +1730,26 @@ export default function App() {
     const baseImponible = round2(totalConIgic / 1.07);
     const cuotaIgic = round2(totalConIgic - baseImponible);
     const totalWithTip = totalConIgic + tipAmount;
-    const date = new Date().toLocaleString('es-ES');
     const { restaurantName, companyCif, companyAddress, companyPhone, logoUrl, footerText, ticketWidth } = ticketSettings;
-    const employeeName = currentUser?.name || '';
-    const tableName = selectedTable?.name || '';
-
-    function row(item) {
-      const mods = item.modifiers?.length
-        ? `<div style="font-size:9px;color:#555;padding-left:4px">${item.modifiers.map(m => `+ ${m.optionName}`).join('<br>')}</div>`
-        : '';
-      const product = catalog?.products?.find(p => p.id === item.productId);
-      const itemAllergens = product?.allergens || [];
-      const aIcons = itemAllergens.map(aid => {
-        const a = ALLERGENS.find(x => x.id === aid);
-        return a ? `<span style="font-size:8px;color:#888;margin-right:2px">[${a.abbr}]</span>` : '';
-      }).join('');
-      return `<div style="margin-bottom:5px">
-        <div style="font-weight:bold;font-size:10px">${item.name} ${aIcons}</div>
-        ${mods}
-        <div class="r" style="font-size:9px">
-          <span>${item.qty} x ${item.price.toFixed(2)}€</span>
-          <span>${(item.qty * item.price).toFixed(2)}€</span>
-        </div>
-      </div>`;
-    }
-
-    const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8">
-<style>
-  @page { margin:0; size:${ticketWidth} auto; }
-  body { width:${ticketWidth}; padding:2mm 3mm; font-family:'Courier New',monospace; font-size:10px; line-height:1.35; color:#222; background:#fff; }
-  .c { text-align:center; }
-  .b { font-weight:bold; }
-  .d { border-top:1px dashed #999; margin:5px 0; }
-  .ds { border-top:1px solid #999; margin:5px 0; }
-  .r { display:flex; justify-content:space-between; }
-</style></head><body>
-  ${logoUrl ? `<div class="c"><img src="${logoUrl}" style="max-width:60%;max-height:40px;margin-bottom:4px" /></div>` : ''}
-  <div class="c b" style="font-size:14px;margin-bottom:2px">${restaurantName}</div>
-  <div class="c" style="font-size:9px;margin-bottom:4px;color:#555">
-    ${companyCif ? `CIF: ${companyCif}<br>` : ''}${companyAddress ? `${companyAddress}<br>` : ''}${companyPhone ? `Tel: ${companyPhone}<br>` : ''}
-  </div>
-  <div class="c" style="font-size:9px;margin-bottom:2px">${date}</div>
-  <div class="c" style="font-size:9px;margin-bottom:4px">Mesa: ${tableName} · Camarero: ${employeeName}${order.label ? ` · Comanda ${order.label}` : ''}</div>
-  <div class="c b" style="font-size:11px;margin-bottom:4px;color:#c4a04a">${selectedTable?.orderId ? `Ticket #${String(selectedTable.orderId).slice(-6).toUpperCase()}` : ''}</div>
-  <div class="d"></div>
-  ${items.map(row).join('')}
-  <div class="d"></div>
-  <div class="r" style="font-size:9px"><span>Subtotal</span><span>${euros(subtotal)}</span></div>
-  ${orderDiscount > 0 ? `<div class="r" style="font-size:9px;color:#777"><span>Dto. ${orderDiscount}%</span><span>-${euros(discountAmount)}</span></div>` : ''}
-  <div class="r" style="font-size:9px;color:#555"><span>Base Imponible</span><span>${euros(baseImponible)}</span></div>
-  <div class="r" style="font-size:9px;color:#555"><span>IGIC 7%</span><span>${euros(cuotaIgic)}</span></div>
-  <div class="r b" style="font-size:11px">
-    <span>Total</span><span>${euros(totalConIgic)}</span>
-  </div>
-  ${tipAmount > 0 ? `<div class="r" style="font-size:9px;color:#777"><span>Propina · NO fiscal${tipMethod === 'efectivo' ? ' (efectivo)' : ' (tarjeta)'}</span><span>+${euros(tipAmount)}</span></div>` : ''}
-  <div class="ds"></div>
-  <div class="r b" style="font-size:13px;padding-top:2px">
-    <span>TOTAL A PAGAR</span><span>${euros(totalWithTip)}</span>
-  </div>
-  <div class="d"></div>
-  <div class="c" style="font-size:9px;margin-top:4px;color:#555">${footerText}</div>
-</body></html>`;
-
+    const html = buildTicketHtml({
+      items, subtotal, discountAmount, totalConIgic, baseImponible, cuotaIgic,
+      tip: tipAmount, tipMethod, totalWithTip,
+      restaurantName, companyCif, companyAddress, companyPhone, logoUrl, footerText, ticketWidth,
+      tableName: selectedTable?.name || '',
+      employeeName: currentUser?.name || '',
+      ticketLabel: order.label ? `Comanda ${order.label}` : '',
+      ticketNumber: selectedTable?.orderId ? String(selectedTable.orderId).slice(-6).toUpperCase() : '',
+      date: new Date().toLocaleString('es-ES'),
+      catalog, allergensList: ALLERGENS,
+    });
     const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:0;height:0;border:none';
     document.body.appendChild(iframe);
-    iframe.contentWindow.document.open();
-    iframe.contentWindow.document.write(html);
-    iframe.contentWindow.document.close();
-    iframe.contentWindow.focus();
-    iframe.contentWindow.print();
-    setTimeout(() => document.body.removeChild(iframe), 1000);
+    const w = iframe.contentWindow;
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    setTimeout(() => { w.focus(); w.print(); setTimeout(() => document.body.removeChild(iframe), 1000); }, 300);
   }
 
   // ---------- Catalogo ----------
@@ -2854,7 +2808,7 @@ export default function App() {
                 const r = await fetch('/api/employees', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'x-tpv-key': API_KEY },
-                  body: JSON.stringify({ action: 'verify', pin: drawerPinInput }),
+                  body: JSON.stringify({ action: 'verify', pin: drawerPinInput, pinHash: await sha256(drawerPinInput) }),
                 });
                 if (!r.ok) { showToast('PIN de administrador incorrecto'); setDrawerPinInput(''); return; }
                 const admin = await r.json();

@@ -53,7 +53,17 @@ Test: `npx vitest run __tests__/constants.test.js`
 - **Products** have `agotado` (boolean), `show_tpv`, `show_qr`, `course`, `ubicacion`, `allergens[]`.
 - **Thermal printing** via `window.print()` with `#thermal-ticket` CSS or WebUSB ESC/POS from `lib/thermal-printer.js`.
 - **Verifactu** (AEAT) uses Fiskaly REST API (no SDK) — `lib/verifactu.js` + `lib/fiskaly.js`.
-- **Stripe** payments implemented (optional) via `lib/api.js` `createPaymentIntent`.
+- **Stripe** payments — two channels on `getStripe()` (returns `null` if `STRIPE_SECRET_KEY` missing).
+
+## Stripe Payments
+
+- **Two channels**: Online (card) via `StripeModal.jsx` + `POST /api/stripe/payment-intent` con `automatic_payment_methods` y `card.request_extended_authorization`. Terminal (NFC) via app móvil + `POST /api/stripe/terminal-payment-intent` con `payment_method_types: ['card_present']`.
+- **`getStripe()`** (lazy singleton): devuelve `null` si falta `STRIPE_SECRET_KEY`. El SDK se instancia con `stripe-v17.7`.
+- **Online flow**: (1) `StripeModal.jsx` carga `@stripe/stripe-js` con `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` solo si empieza por `pk_`. (2) `useEffect` → `POST /api/stripe/payment-intent` con `{amount, tableId, tableName, employeeName}`. (3) Ruta valida `amount <= 9999.99 EUR`, rate-limit 10 req/60s por IP, genera `idempotencyKey` de `tableId+amount+floor(Date.now()/5min)` (o usa uno del cliente), crea PI con `metadata: {tableId, tableName, employeeName, source: 'la-comanda-tpv', env, max_amount}`. (4) `clientSecret` → `Elements` + `StripePaymentForm` con `PaymentElement` (layout tabs, card primero). (5) `stripe.confirmPayment({elements, redirect: 'if_required'})`. Si `paymentIntent.status === 'succeeded'`, llama `onSuccess(paymentIntent)`.
+- **Terminal (NFC)**: `POST /api/stripe/terminal-connection-token` genera connection token, resuelve `locationId` (caché en settings BD → `globalThis.__stripeLocationId` → lista `terminal.locations` limit 1 → crea con `STRIPE_LOCATION_*` env vars).
+- **Webhook** (`/api/stripe/webhook`): verifica `stripe-signature` con `STRIPE_WEBHOOK_SECRET`, `stripe.webhooks.constructEvent(rawBody, sig, secret)`. Idempotencia vía `webhook_events(event_id PK, type, status, body, error, ...)`. `ensureEventTracked()` inserta `ON CONFLICT` que reabre si `failed`, skip si `processed/processing`. Eventos: `payment_intent.succeeded`, `payment_intent.payment_failed`, `charge.dispute.*`. `handlePaymentIntentSucceeded`: si `metadata.qrOrderId` → `qr_orders.order_status='paid'`; si `metadata.tableId` → inserta venta 'stub' (`id='stub_'+pi.id`) si no existe, o marca `stripe_confirmed=true`. Disputas actualizan `sales.dispute_status` y `dispute_data` JSONB, log en `payment_logs`.
+- **Reconciliation** (`/api/stripe/reconciliation?days=N`): lista PIs desde Stripe (max 5 páginas x 100), filtra por `metadata.source`. Compara con `sales` que tienen `payment_intent_id`. Devuelve: `orphans` (PI en Stripe sin venta en BD), `mismatches` (descuadres >1 céntimo), `refundMismatches` (devoluciones Stripe no registradas en `sales.refunds[].stripeRefundId`), `disputed` (disputas activas/perdidas), `salesNotInStripe` (ventas con PI no encontradas en Stripe).
+- **Logging** (`lib/payment-logger.js`): tabla `payment_logs(event_id, payment_intent_id, operation, amount_cents, currency, status, table_id, table_name, employee_name, source, error, stripe_response slice 2000, created_at)`. Todos los endpoints Stripe logean (creación, webhook, error). Nunca rompe flujo (catch silencioso).
 
 ## Scroll gotchas
 

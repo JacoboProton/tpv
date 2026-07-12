@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 import { sql } from '../../../lib/db';
 import { getTenantId } from '../../../lib/tenant';
 import bcrypt from 'bcryptjs';
+import { createHash } from 'crypto';
+
+function sha256(s) {
+  return createHash('sha256').update(s, 'utf8').digest('hex');
+}
 
 export async function GET(req) {
   try {
@@ -36,7 +41,7 @@ export async function PUT(req) {
         INSERT INTO employees (tenant_id, id, name, pin, pin_hash, role, position, work_type, work_pct, dni, notes,
           personal_discount_enabled, monthly_limit, monthly_used, monthly_used_month,
           whatsapp_code, whatsapp_linked, created_at)
-        VALUES (${tenantId}, ${e.id}, ${e.name}, '', ${e.pin ? bcrypt.hashSync(e.pin, 10) : (e.pin_hash || '')}, ${e.role || 'camarero'}, ${e.position || ''},
+        VALUES (${tenantId}, ${e.id}, ${e.name}, '', ${e.pin ? bcrypt.hashSync(sha256(e.pin), 10) : (e.pin_hash || '')}, ${e.role || 'camarero'}, ${e.position || ''},
           ${e.workType || ''}, ${e.workPct || 100}, ${e.dni || ''}, ${e.notes || ''},
           ${e.personalDiscountEnabled || false}, ${e.monthlyLimit || 0}, ${e.monthlyUsed || 0},
           ${e.monthlyUsedMonth || ''}, ${e.whatsappCode || ''}, ${e.whatsappLinked || false},
@@ -86,12 +91,21 @@ export async function POST(req) {
     }
 
     if (action === 'verify') {
-      const { pin } = body;
-      if (!pin) return NextResponse.json({ error: 'PIN requerido' }, { status: 400 });
+      const { pin, pinHash } = body;
+      if (!pin && !pinHash) return NextResponse.json({ error: 'PIN requerido' }, { status: 400 });
       const emps = await sql`
         SELECT * FROM employees WHERE tenant_id = ${tenantId}
       `;
-      const emp = emps.find(r => bcrypt.compareSync(pin, r.pin_hash));
+      const emp = emps.find(r => {
+        if (pinHash && bcrypt.compareSync(pinHash, r.pin_hash)) return true;
+        if (pin && bcrypt.compareSync(pin, r.pin_hash)) {
+          // Legacy hash — migrate to new format (async, no await needed)
+          const newHash = bcrypt.hashSync(sha256(pin), 10);
+          sql`UPDATE employees SET pin_hash = ${newHash} WHERE id = ${r.id}`.catch(() => {});
+          return true;
+        }
+        return false;
+      });
       if (!emp) return NextResponse.json({ error: 'PIN inválido' }, { status: 401 });
       return NextResponse.json({
         id: emp.id, name: emp.name, role: emp.role,

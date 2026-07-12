@@ -2,15 +2,17 @@ import { useState, useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, PermissionsAndroid, Platform, Share } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { fetchFloor, saveFloor, fetchCatalog, createPaymentIntent, createTerminalPaymentIntent, fetchTerminalConfig, addSale } from '../../lib/api';
+import { fetchFloor, saveFloor, fetchCatalog, fetchModifiers, fetchSettings, createPaymentIntent, createTerminalPaymentIntent, fetchTerminalConfig, addSale } from '../../lib/api';
 import { broadcastFloorUpdate } from '../../lib/realtime';
 import { STRIPE_PK, STRIPE_SIMULATED } from '../../lib/config';
-import { globalFloor, setGlobalFloor, globalUser } from '../_layout';
+import { useAppContext } from '../../lib/store';
 import { StripeProvider, useStripe } from '@stripe/stripe-react-native';
 import { useStripeTerminal } from '@stripe/stripe-terminal-react-native';
+import type { Floor, Table, Order, OrderItem, Product, Category, ModifierGroup, ModifierSelection } from '../../lib/types';
 import { C } from '../../lib/theme';
 import { classifyError } from '../../lib/errors';
-import type { Floor, Table, Order, OrderItem, Product, Category } from '../../lib/types';
+import { buildTicketHtml } from '../../lib/ticket-template';
+import ModifierSelector from '../../components/ModifierSelector';
 
 function generateId() {
   return Math.random().toString(36).slice(2, 10);
@@ -38,9 +40,10 @@ function confirmPay(floor: Floor, tableId: string): Promise<boolean> {
   });
 }
 
-function PaymentButton({ floor, tableId, persistFloor, disabled }: {
-  floor: Floor; tableId: string; persistFloor: (f: Floor) => Promise<void>; disabled: boolean;
+function PaymentButton({ floor, tableId, persistFloor, disabled, userName }: {
+  floor: Floor; tableId: string; persistFloor: (f: Floor) => Promise<void>; disabled: boolean; userName: string;
 }) {
+  const { setFloor: setCtxFloor } = useAppContext();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const [loading, setLoading] = useState(false);
 
@@ -51,7 +54,7 @@ function PaymentButton({ floor, tableId, persistFloor, disabled }: {
       const t = floor.tables.find(t => t.id === tableId);
       const total = Object.values(floor.orders).reduce((s, o) =>
         s + o.items.reduce((s2, i) => s2 + i.price * i.qty, 0), 0);
-      const { clientSecret } = await createPaymentIntent(total, tableId, t?.name || tableId, globalUser?.name || 'Camarero');
+      const { clientSecret } = await createPaymentIntent(total, tableId, t?.name || tableId, userName);
       const { error } = await initPaymentSheet({ paymentIntentClientSecret: clientSecret, merchantDisplayName: 'La Comanda' });
       if (error) { Alert.alert('Error', error.message); return; }
       const { error: presentError } = await presentPaymentSheet();
@@ -74,7 +77,7 @@ function PaymentButton({ floor, tableId, persistFloor, disabled }: {
           total, tip: 0, totalWithTip: total,
           payments: [{ method: 'card', amount: total }],
           paymentMethod: 'Tarjeta', isFiado: false, isDebtPayment: false,
-          employeeId: null, employeeName: globalUser?.name || 'Camarero',
+          employeeId: null, employeeName: userName,
           closedAt: Date.now(),
         });
       } catch (e) {
@@ -84,7 +87,7 @@ function PaymentButton({ floor, tableId, persistFloor, disabled }: {
       for (const oid of Object.keys(f.orders)) {
         if (f.orders[oid].tableId === tableId) delete f.orders[oid];
       }
-      setGlobalFloor(f);
+      setCtxFloor(f);
       await persistFloor(f);
       Alert.alert('✅ Pagado', `Total: ${total.toFixed(2)}€`);
       router.back();
@@ -108,9 +111,10 @@ function PaymentButton({ floor, tableId, persistFloor, disabled }: {
   );
 }
 
-function NfcPaymentButton({ floor, tableId, persistFloor, disabled }: {
-  floor: Floor; tableId: string; persistFloor: (f: Floor) => Promise<void>; disabled: boolean;
+function NfcPaymentButton({ floor, tableId, persistFloor, disabled, userName }: {
+  floor: Floor; tableId: string; persistFloor: (f: Floor) => Promise<void>; disabled: boolean; userName: string;
 }) {
+  const { setFloor: setCtxFloor } = useAppContext();
   const { initialize, isInitialized, easyConnect, disconnectReader, retrievePaymentIntent, collectPaymentMethod, processPaymentIntent, connectionStatus } = useStripeTerminal();
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState('');
@@ -164,7 +168,7 @@ function NfcPaymentButton({ floor, tableId, persistFloor, disabled }: {
       const totalCents = Math.round(total * 100);
 
       setStep('Creando pago...');
-      const { clientSecret } = await createTerminalPaymentIntent(totalCents, tableId, t?.name || tableId, globalUser?.name || 'Camarero');
+      const { clientSecret } = await createTerminalPaymentIntent(totalCents, tableId, t?.name || tableId, userName);
 
       setStep('Acerca tarjeta/iPhone al móvil...');
       const { paymentIntent, error: retrieveErr } = await retrievePaymentIntent(clientSecret);
@@ -201,14 +205,14 @@ function NfcPaymentButton({ floor, tableId, persistFloor, disabled }: {
           total, tip: 0, totalWithTip: total,
           payments: [{ method: 'card', amount: total }],
           paymentMethod: 'Tarjeta (NFC)', isFiado: false, isDebtPayment: false,
-          employeeId: null, employeeName: globalUser?.name || 'Camarero',
+          employeeId: null, employeeName: userName,
           closedAt: Date.now(),
         });
       } catch (e) {
         console.warn('Error al guardar venta NFC:', e);
       }
 
-      setGlobalFloor(f);
+      setCtxFloor(f);
       await persistFloor(f);
       Alert.alert('✅ Pagado con NFC', `Total: ${total.toFixed(2)}€`);
       router.back();
@@ -244,31 +248,34 @@ function NfcPaymentButton({ floor, tableId, persistFloor, disabled }: {
 
 export default function MesaScreen() {
   const { id: tableId } = useLocalSearchParams<{ id: string }>();
-  const [floor, setFloor] = useState<Floor | null>(globalFloor);
+  const { floor: ctxFloor, setFloor: setCtxFloor, user } = useAppContext();
+  const [floor, setFloor] = useState<Floor | null>(ctxFloor);
   const [catalog, setCatalog] = useState<{ categories: Category[]; products: Product[] } | null>(null);
+  const [modifierData, setModifierData] = useState<{ groups: ModifierGroup[]; productModifiers: Record<string, string[]> } | null>(null);
   const [activeCategory, setActiveCategory] = useState('Todos');
-  const [showModifiers, setShowModifiers] = useState<Product | null>(null);
-  const [modifierSelection, setModifierSelection] = useState<string[]>([]);
+  const [modifyProduct, setModifyProduct] = useState<{ product: Product; groups: ModifierGroup[] } | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadData();
   }, []);
 
-  // Poll globalFloor every 3s for Realtime updates from KDS
+  // Reactivo: cuando ctxFloor cambia via Realtime, actualiza el estado local
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (globalFloor && globalFloor !== floor) setFloor(globalFloor);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [floor]);
+    if (ctxFloor && ctxFloor !== floor) setFloor(ctxFloor);
+  }, [ctxFloor]);
+
+  function syncFloor(f: Floor) {
+    setFloor(f);
+    setCtxFloor(f);
+  }
 
   async function loadData() {
     try {
-      const [f, cat] = await Promise.all([fetchFloor(), fetchCatalog()]);
-      setFloor(f);
-      setGlobalFloor(f);
+      const [f, cat, mods] = await Promise.all([fetchFloor(), fetchCatalog(), fetchModifiers()]);
+      syncFloor(f);
       setCatalog(cat);
+      if (mods) setModifierData(mods);
     } catch (e: unknown) {
       const { title, message } = classifyError(e);
       Alert.alert(title, message || 'No se pudieron cargar los datos');
@@ -298,7 +305,23 @@ export default function MesaScreen() {
     return allItems.filter(i => i.productId === productId).reduce((sum, i) => sum + i.qty, 0);
   }
 
-  async function addToOrder(product: Product) {
+  function getModifierGroupsForProduct(productId: string): ModifierGroup[] {
+    if (!modifierData) return [];
+    const groupIds = modifierData.productModifiers[productId] || [];
+    return modifierData.groups.filter(g => groupIds.includes(g.id));
+  }
+
+  function addToOrder(product: Product) {
+    if (!floor || !table) return;
+    const groups = getModifierGroupsForProduct(product.id);
+    if (groups.length > 0) {
+      setModifyProduct({ product, groups });
+      return;
+    }
+    doAddItem(product, [], 0);
+  }
+
+  function doAddItem(product: Product, modifiers: ModifierSelection[], extraPrice: number) {
     if (!floor || !table) return;
     const f = JSON.parse(JSON.stringify(floor)) as Floor;
     const t = f.tables.find(t => t.id === tableId)!;
@@ -310,7 +333,7 @@ export default function MesaScreen() {
       const oid = generateId();
       order = {
         id: oid, tableId, items: [], createdAt: Date.now(),
-        employeeName: globalUser?.name || 'Camarero',
+        employeeName: user?.name || 'Camarero',
       };
       f.orders[oid] = order;
       t.orderIds = [oid];
@@ -318,20 +341,25 @@ export default function MesaScreen() {
       t.status = 'ocupado';
     }
 
-    const existing = order.items.find(i => i.productId === product.id && (!i.modifiers || i.modifiers.length === 0));
-    if (existing && !showModifiers) {
+    const modKey = JSON.stringify(modifiers);
+    const existing = order.items.find(i =>
+      i.productId === product.id && !i.sent &&
+      JSON.stringify(i.modifiers || []) === modKey
+    );
+    if (existing) {
       existing.qty += 1;
     } else {
       order.items.push({
         id: generateId(), productId: product.id, name: product.name,
-        price: product.price, qty: 1, course: product.course || '',
+        price: product.price + extraPrice, qty: 1, course: product.course || '',
         ubicacion: product.ubicacion || 'Bar',
+        modifiers: modifiers.length > 0 ? modifiers : undefined,
       });
     }
 
     setFloor(f);
-    setGlobalFloor(f);
-    await persistFloor(f);
+    syncFloor(f);
+    persistFloor(f);
   }
 
   async function updateItemQty(itemId: string, delta: number) {
@@ -366,7 +394,7 @@ export default function MesaScreen() {
     }
 
     setFloor(f);
-    setGlobalFloor(f);
+    syncFloor(f);
     await persistFloor(f);
   }
 
@@ -383,7 +411,7 @@ export default function MesaScreen() {
     }
 
     setFloor(f);
-    setGlobalFloor(f);
+    syncFloor(f);
     await persistFloor(f);
   }
 
@@ -402,7 +430,7 @@ export default function MesaScreen() {
     }
 
     setFloor(f);
-    setGlobalFloor(f);
+    syncFloor(f);
     await persistFloor(f);
     const label = ubicacionFilter === 'Bar' ? 'barra' : ubicacionFilter === 'Cocina' ? 'cocina' : 'cocina/barra';
     Alert.alert('Enviado', `${count} producto(s) enviado(s) a ${label}`);
@@ -418,7 +446,7 @@ export default function MesaScreen() {
       });
     }
     setFloor(f);
-    setGlobalFloor(f);
+    syncFloor(f);
     await persistFloor(f);
     if (count) Alert.alert('Enviado', `${course} enviado (${count} producto(s))`);
   }
@@ -430,38 +458,49 @@ export default function MesaScreen() {
       const item = order.items.find(i => i.id === itemId);
       if (item) {
         item.delivered = true;
-        item.servedBy = globalUser?.name || 'Camarero';
+        item.servedBy = user?.name || 'Camarero';
         item.servedAt = Date.now();
         break;
       }
     }
     setFloor(f);
-    setGlobalFloor(f);
+    syncFloor(f);
     await persistFloor(f);
   }
 
   async function printTicket() {
-    if (!floor || !table) return;
+    if (!floor || !table || !catalog) return;
     const items = Object.values(floor.orders)
       .filter(o => o.tableId === tableId)
       .flatMap(o => o.items);
     const total = items.reduce((s, i) => s + i.price * i.qty, 0);
+    const subtotal = total;
     const date = new Date();
     const dateStr = `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')}/${date.getFullYear()} ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
-    const rows = items.map(i =>
-      `<tr><td style="padding:2px 0">${i.name}</td><td style="text-align:center;width:30px">${i.qty}</td><td style="text-align:right;width:60px">${(i.price * i.qty).toFixed(2)}€</td></tr>`
-    ).join('');
-    const html = `<html><body style="font-family:monospace;font-size:10px;padding:4mm;width:80mm">
-      <div style="text-align:center;font-weight:bold;font-size:14px;margin-bottom:4px">LA COMANDA</div>
-      <div style="text-align:center;font-size:9px;color:#555;margin-bottom:4px">${table.name} · ${dateStr}</div>
-      <hr style="border-top:1px dashed #999">
-      <table style="width:100%">${rows}</table>
-      <hr style="border-top:1px dashed #999">
-      <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:12px">
-        <span>TOTAL</span><span>${total.toFixed(2)}€</span>
-      </div>
-    </body></html>`;
-    // Try expo-print (native print dialog), fallback to Share
+
+    let settings: Record<string, string> = {};
+    try { settings = await fetchSettings(); } catch {}
+
+    const html = buildTicketHtml({
+      restaurantName: settings.restaurantName,
+      companyCif: settings.companyCif,
+      companyAddress: settings.companyAddress,
+      companyPhone: settings.companyPhone,
+      logoUrl: settings.logoUrl,
+      footerText: settings.footerText,
+      ticketWidth: settings.ticketWidth || '80mm',
+      tableName: table.name,
+      employeeName: user?.name,
+      date: dateStr,
+      items,
+      catalogProducts: catalog.products,
+      subtotal,
+      discountAmount: 0,
+      tip: 0,
+      total,
+      totalWithTip: total,
+    });
+
     try {
       const Print = require('expo-print');
       await Print.printAsync({ html });
@@ -539,6 +578,9 @@ export default function MesaScreen() {
                       </TouchableOpacity>
                       <Text style={styles.itemName}>{item.name}</Text>
                     </View>
+                    {item.modifiers && item.modifiers.length > 0 && (
+                      <Text style={styles.itemMods}>{item.modifiers.map(m => m.optionName).join(', ')}</Text>
+                    )}
                     <Text style={styles.itemPrice}>{(item.price * item.qty).toFixed(2)}€</Text>
                   </View>
                   <View style={styles.orderItemActions}>
@@ -663,9 +705,9 @@ export default function MesaScreen() {
         {floor && allItems.length > 0 && (
           <>
             <StripeProvider publishableKey={STRIPE_PK}>
-              <PaymentButton floor={floor} tableId={tableId} persistFloor={persistFloor} disabled={saving} />
+              <PaymentButton floor={floor} tableId={tableId} persistFloor={persistFloor} disabled={saving} userName={user?.name || 'Camarero'} />
             </StripeProvider>
-            <NfcPaymentButton floor={floor} tableId={tableId} persistFloor={persistFloor} disabled={saving} />
+            <NfcPaymentButton floor={floor} tableId={tableId} persistFloor={persistFloor} disabled={saving} userName={user?.name || 'Camarero'} />
             <TouchableOpacity onPress={printTicket} style={styles.printBtn}>
               <Ionicons name="print" size={16} color={C.cream} />
               <Text style={{ fontSize: 10, color: C.cream }}>Imprimir</Text>
@@ -689,18 +731,18 @@ export default function MesaScreen() {
             for (const oid of Object.keys(f.orders)) {
               if (f.orders[oid].tableId === tableId) delete f.orders[oid];
             }
-            addSale({
+            await addSale({
               id: saleId, tableId, tableName: t?.name || tableId,
               items: allOrderItems, subtotal: total, discount: 0, discountAmount: 0,
               total, tip: 0, totalWithTip: total,
               payments: [{ method: 'efectivo', amount: total }],
               paymentMethod: 'Efectivo', isFiado: false, isDebtPayment: false,
-              employeeId: null, employeeName: globalUser?.name || 'Camarero',
+              employeeId: null, employeeName: user?.name || 'Camarero',
               closedAt: Date.now(),
             });
             setFloor(f);
-            setGlobalFloor(f);
-            persistFloor(f);
+            syncFloor(f);
+            await persistFloor(f);
             Alert.alert('✅ Pagado', `Total: ${total.toFixed(2)}€`);
             router.back();
           }}
@@ -708,6 +750,19 @@ export default function MesaScreen() {
           <Text style={styles.payBtnText}>Efectivo</Text>
         </TouchableOpacity>
       </View>
+
+      <ModifierSelector
+        visible={modifyProduct !== null}
+        groups={modifyProduct?.groups || []}
+        onConfirm={(mods) => {
+          if (!modifyProduct) return;
+          const p = modifyProduct.product;
+          const extra = mods.reduce((s, m) => s + m.priceDelta, 0);
+          doAddItem(p, mods, extra);
+          setModifyProduct(null);
+        }}
+        onCancel={() => setModifyProduct(null)}
+      />
     </View>
   );
 }
@@ -736,6 +791,7 @@ const styles = StyleSheet.create({
   itemQty: { fontSize: 13, fontWeight: '700', color: C.cream, minWidth: 20, textAlign: 'center' },
   itemName: { fontSize: 13, color: C.cream, flex: 1 },
   itemPrice: { fontSize: 11, color: C.muted, marginTop: 2 },
+  itemMods: { fontSize: 10, color: C.muted, marginTop: 1, paddingLeft: 56 },
   orderItemActions: { marginLeft: 8 },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   sentBadge: { backgroundColor: C.brass },

@@ -4,6 +4,7 @@ import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { C } from '../../lib/theme';
 import { fetchSales } from '../../lib/api';
+import type { Sale } from '../../lib/types';
 
 const RANGES = [
   { key: 'today', label: 'Hoy' },
@@ -22,7 +23,7 @@ function getCutoff(range: string): number {
 }
 
 export default function TicketsScreen() {
-  const [sales, setSales] = useState<Record<string, unknown>[]>([]);
+  const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState('week');
   const [filterMethod, setFilterMethod] = useState('all');
@@ -130,12 +131,10 @@ export default function TicketsScreen() {
                   <Text style={styles.ticketMethod}>{s.paymentMethod || '—'}</Text>
                 </View>
                 <View style={styles.ticketItems}>
-                  {(items || []).filter(Boolean).map(function renderItem(i: any) {
-                    const itemId = typeof i?.id === 'string' ? i.id : Math.random();
-                    const qty = i?.qty != null ? i.qty : '';
-                    const name = i?.name != null ? i.name : '';
+                  {(items || []).filter(Boolean).map(i => {
+                    const itemId = i?.id || Math.random();
                     return (
-                      <Text key={itemId} style={styles.ticketItem}>{String(qty)}x {String(name)}</Text>
+                      <Text key={String(itemId)} style={styles.ticketItem}>{String(i?.qty ?? '')}x {String(i?.name ?? '')}</Text>
                     );
                   })}
                   {extra > 0 && <Text style={styles.ticketMore}>+{extra} más</Text>}

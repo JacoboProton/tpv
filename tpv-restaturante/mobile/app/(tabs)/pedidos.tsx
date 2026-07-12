@@ -2,15 +2,16 @@ import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { C } from '../../lib/theme';
-import { globalFloor } from '../_layout';
+import { useAppContext } from '../../lib/store';
 import type { Floor } from '../../lib/types';
 
 export default function PedidosScreen() {
-  const [floor, setFloor] = useState<Floor | null>(globalFloor);
+  const { floor: ctxFloor } = useAppContext();
+  const [floor, setFloor] = useState<Floor | null>(ctxFloor);
 
   useEffect(() => {
-    if (globalFloor) setFloor(globalFloor);
-  }, [globalFloor]);
+    if (ctxFloor) setFloor(ctxFloor);
+  }, [ctxFloor]);
 
   const pendingOrders = Object.values(floor?.orders || {}).filter(o =>
     o.items.some(i => i.sent && !i.delivered)
@@ -81,7 +82,7 @@ export default function PedidosScreen() {
                     </View>
                   )}
                   {item.modifiers && item.modifiers.length > 0 && (
-                    <Text style={styles.itemMods}>{item.modifiers.join(', ')}</Text>
+                    <Text style={styles.itemMods}>{item.modifiers.map(m => m.optionName).join(', ')}</Text>
                   )}
                 </View>
               ))}

@@ -2,15 +2,19 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { C } from '../../lib/theme';
-import { setGlobalUser, globalUser } from '../_layout';
+import { useAppContext } from '../../lib/store';
 import { sessionLogout } from '../../lib/session';
+import { clearEmployeeSession } from '../../lib/api';
 
 export default function PerfilScreen() {
-  const user = globalUser;
+  const { user, setUser } = useAppContext();
 
-  function handleLogout() {
-    if (user?.id) sessionLogout(user.id);
-    setGlobalUser(null);
+  async function handleLogout() {
+    if (user?.id) {
+      await sessionLogout(user.id).catch(() => {});
+      clearEmployeeSession();
+    }
+    setUser(null);
     router.replace('/');
   }
 

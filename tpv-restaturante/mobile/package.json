@@ -6,7 +6,12 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "format": "prettier --write '**/*.{ts,tsx,json}'",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
@@ -19,6 +24,7 @@
     "expo-asset": "~56.0.18",
     "expo-build-properties": "~56.0.21",
     "expo-constants": "~56.0.20",
+    "expo-crypto": "~56.0.4",
     "expo-dev-client": "~56.0.22",
     "expo-font": "~56.0.7",
     "expo-linking": "~56.0.15",
@@ -35,8 +41,17 @@
     "react-native-web": "^0.21.2"
   },
   "devDependencies": {
+    "@testing-library/jest-native": "^5.4.3",
+    "@testing-library/react-native": "^13.3.3",
+    "@types/node": "^20.19.43",
     "@types/react": "~19.2.14",
-    "typescript": "~6.0.3"
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "^57.0.0",
+    "eslint-config-prettier": "^10.1.8",
+    "jsdom": "^29.1.1",
+    "prettier": "^3.9.5",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.10"
   },
   "private": true
 }

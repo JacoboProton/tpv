@@ -4,6 +4,48 @@ import { getTenantId } from '../../../lib/tenant';
 
 function makeId() { return 'wl_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 
+async function getSettings(tenantId) {
+  const rows = await sql`SELECT key, value FROM settings WHERE key LIKE 'waitlist%' AND tenant_id = ${tenantId}`;
+  const s = {};
+  for (const r of rows) s[r.key] = r.value;
+  return s;
+}
+
+async function sendTwilioSms(accountSid, authToken, from, to, body) {
+  const cred = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+  const params = new URLSearchParams({ To: to, From: from, Body: body });
+  const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
+    method: 'POST',
+    headers: { Authorization: `Basic ${cred}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params,
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    console.error('[Twilio] Error:', res.status, text);
+  }
+}
+
+async function sendNotifications(entry, settings, tenantId) {
+  const sid = settings.waitlistTwilioSid;
+  const token = settings.waitlistTwilioToken;
+  const twilioPhone = settings.waitlistTwilioPhone;
+  const twilioWhatsApp = settings.waitlistTwilioWhatsApp;
+  if (!sid || !token) return;
+  if (!entry.phone) return;
+
+  const name = entry.name || 'Cliente';
+  const rows = await sql`SELECT value FROM settings WHERE key = 'restaurantName' AND tenant_id = ${tenantId} LIMIT 1`;
+  const restaurant = rows[0]?.value || 'Restaurante';
+  const msg = `¡${name}, su mesa en ${restaurant} está lista! Por favor, acérquese al mostrador.`;
+
+  if (settings.waitlistSmsEnabled === 'true' && twilioPhone) {
+    sendTwilioSms(sid, token, twilioPhone, entry.phone, msg).catch(() => {});
+  }
+  if (settings.waitlistWhatsAppEnabled === 'true' && twilioWhatsApp) {
+    sendTwilioSms(sid, token, `whatsapp:${twilioWhatsApp}`, `whatsapp:${entry.phone}`, msg).catch(() => {});
+  }
+}
+
 export async function GET(req) {
   try {
     const tenantId = getTenantId(req);
@@ -42,10 +84,15 @@ export async function POST(req) {
 
     if (action === 'call') {
       const { id } = body;
+      const entry = (await sql`SELECT name, phone FROM waitlist WHERE id = ${id} AND tenant_id = ${tenantId} LIMIT 1`)[0];
       await sql`
         UPDATE waitlist SET status = 'called', called_count = called_count + 1, called_at = ${Date.now()}, updated_at = ${Date.now()}
         WHERE id = ${id} AND tenant_id = ${tenantId}
       `;
+      if (entry) {
+        const settings = await getSettings(tenantId);
+        sendNotifications({ name: entry.name, phone: entry.phone }, settings, tenantId).catch(() => {});
+      }
       return NextResponse.json({ ok: true });
     }
 

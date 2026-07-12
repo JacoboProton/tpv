@@ -32,10 +32,17 @@ export async function POST(req) {
   try {
     const tenantId = getTenantId(req);
     const body = await req.json();
+
+    let tableName = body.tableName || '';
+    if ((!tableName || tableName === body.tableId) && body.tableId) {
+      const tbl = await sql`SELECT name FROM tables WHERE id = ${body.tableId} AND tenant_id = ${tenantId} LIMIT 1`;
+      tableName = tbl[0]?.name || tableName;
+    }
+
     const id = 'call_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     await sql`
       INSERT INTO qr_calls (id, table_id, table_name, zone, acknowledged, created_at, tenant_id)
-      VALUES (${id}, ${body.tableId}, ${body.tableName || ''}, ${body.zone || ''}, false, ${Date.now()}, ${tenantId})
+      VALUES (${id}, ${body.tableId}, ${tableName}, ${body.zone || ''}, false, ${Date.now()}, ${tenantId})
     `;
     callsCache[tenantId] = [];
     cacheTime[tenantId] = 0;

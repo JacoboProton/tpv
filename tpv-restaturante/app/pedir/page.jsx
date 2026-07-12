@@ -116,7 +116,12 @@ export default function OnlineOrderingPage() {
 
   // Find zone from address
   function findZone(addr) {
-    return zones.find(z => z.active !== false);
+    if (!addr || !zones?.length) return null;
+    const lower = addr.toLowerCase();
+    const matched = zones.find(z =>
+      z.active !== false && lower.includes(z.name.toLowerCase())
+    );
+    return matched || zones.find(z => z.active !== false) || null;
   }
 
   async function handlePlaceOrder() {

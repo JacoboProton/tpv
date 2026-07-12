@@ -3,6 +3,7 @@ import { RealtimeClient } from '@supabase/supabase-js';
 let client = null;
 let channel = null;
 let unsub = null;
+const clientChannels = {};
 
 let serverClient = null;
 const serverChannels = {};
@@ -23,25 +24,46 @@ function getServerClient() {
   return serverClient;
 }
 
-export function connectRealtime(tenantId) {
-  if (channel) return channel;
+function getClientInstance() {
+  if (client) return client;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   const endpoint = getRealtimeUrl();
   if (!endpoint || !key) return null;
-
-  const tid = tenantId || 'default';
-  client = new RealtimeClient(endpoint, {
-    params: { apikey: key },
-  });
-  channel = client.channel(`floor-sync:${tid}`);
-  channel.subscribe();
+  client = new RealtimeClient(endpoint, { params: { apikey: key } });
   client.connect();
+  return client;
+}
+
+function getClientChannel(tenantId) {
+  const tid = tenantId || 'default';
+  if (clientChannels[tid]) return clientChannels[tid];
+  const c = getClientInstance();
+  if (!c) return null;
+  const ch = c.channel(`floor-sync:${tid}`);
+  ch.subscribe();
+  clientChannels[tid] = ch;
+  return ch;
+}
+
+export function connectRealtime(tenantId) {
+  if (channel) return channel;
+  const tid = tenantId || 'default';
+  const c = getClientInstance();
+  if (!c) return null;
+
+  if (!clientChannels[tid]) {
+    const ch = c.channel(`floor-sync:${tid}`);
+    ch.subscribe();
+    clientChannels[tid] = ch;
+  }
+  channel = clientChannels[tid];
   return channel;
 }
 
 export function broadcastFloorUpdate(floor, tenantId) {
-  if (!channel) return;
-  channel.send({
+  const ch = getClientChannel(tenantId);
+  if (!ch) return;
+  ch.send({
     type: 'broadcast',
     event: 'floor:updated',
     payload: { floor },
@@ -76,8 +98,9 @@ export async function broadcastFloorUpdateServer(floor, tenantId) {
 }
 
 export function broadcastReadyNotification(tableName, itemNames, waiterName, tenantId) {
-  if (!channel) return;
-  channel.send({
+  const ch = getClientChannel(tenantId);
+  if (!ch) return;
+  ch.send({
     type: 'broadcast',
     event: 'ready:notification',
     payload: { tableName, itemNames, waiterName, time: Date.now() },
@@ -85,14 +108,16 @@ export function broadcastReadyNotification(tableName, itemNames, waiterName, ten
 }
 
 export function disconnectRealtime() {
-  if (channel) {
-    channel.unsubscribe();
-    channel = null;
+  for (const ch of Object.values(clientChannels)) {
+    ch.unsubscribe();
   }
+  Object.keys(clientChannels).forEach(k => delete clientChannels[k]);
   if (client) {
     client.disconnect();
     client = null;
   }
+  channel = null;
+  unsub = null;
   for (const ch of Object.values(serverChannels)) {
     ch.unsubscribe();
   }

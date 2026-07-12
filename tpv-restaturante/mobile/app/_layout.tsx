@@ -3,30 +3,19 @@ import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { useEffect, useState } from 'react';
 import { StripeTerminalProvider } from '@stripe/stripe-terminal-react-native';
+import { AppProvider, useAppContext } from '../lib/store';
 import { connectRealtime, disconnectRealtime, showReadyNotification } from '../lib/realtime';
-import { startKeepalive, sessionLogout } from '../lib/session';
+import { startKeepalive } from '../lib/session';
 import { API_URL, TPV_API_KEY } from '../lib/config';
 import { C } from '../lib/theme';
-import type { Employee, Floor } from '../lib/types';
-import { setLastFloor, setEmployeeSession, clearEmployeeSession, processPendingSales } from '../lib/api';
+import { setLastFloor, processPendingSales } from '../lib/api';
 import { getTenantId } from '../lib/api';
 
 export { ErrorBoundary } from 'expo-router';
 
-export let globalFloor: Floor | null = null;
-export let setGlobalFloor: (f: Floor | null) => void = () => {};
-export let globalUser: Employee | null = null;
-export let setGlobalUser: (u: Employee | null) => void = () => {};
-
-export default function RootLayout() {
-  const [floor, setFloor] = useState<Floor | null>(null);
-  const [user, setUser] = useState<Employee | null>(null);
+function LayoutContent() {
+  const { floor: _, setFloor, user, setUser } = useAppContext();
   const [ready, setReady] = useState(false);
-
-  globalFloor = floor;
-  setGlobalFloor = setFloor;
-  globalUser = user;
-  setGlobalUser = (u) => { setUser(u); if (u) setEmployeeSession(u.id, u.role); else clearEmployeeSession(); };
 
   useEffect(() => {
     const ch = connectRealtime(
@@ -36,21 +25,21 @@ export default function RootLayout() {
     );
     setReady(true);
     return () => { disconnectRealtime(); };
-  }, []);
+  }, [setFloor]);
 
   // Keepalive + session invalidation detection
   useEffect(() => {
     if (!user) return;
     const cleanup = startKeepalive(user.id, () => {
       Alert.alert('Sesión cerrada', 'Tu sesión fue cerrada porque otro terminal inició sesión con tu usuario.');
-      setGlobalUser(null);
       setUser(null);
     });
     return () => cleanup();
-  }, [user?.id]);
+  }, [user, setUser]);
 
-  // Periodic retry of pending sales
+  // Retry pending sales on startup, then every 30s
   useEffect(() => {
+    processPendingSales();
     const iv = setInterval(() => processPendingSales(), 30000);
     return () => clearInterval(iv);
   }, []);
@@ -68,7 +57,7 @@ export default function RootLayout() {
       tokenProvider={async () => {
         const res = await fetch(`${API_URL}/api/stripe/terminal-connection-token`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-tpv-key': TPV_API_KEY },
+          headers: { 'Content-Type': 'application/json', 'x-tpv-key': TPV_API_KEY, 'x-tenant-id': getTenantId() },
         });
         const d = await res.json();
         if (!res.ok) throw new Error(d.error || 'Error al conectar con Stripe');
@@ -98,6 +87,14 @@ export default function RootLayout() {
         </Stack>
       </View>
     </StripeTerminalProvider>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <AppProvider>
+      <LayoutContent />
+    </AppProvider>
   );
 }
 

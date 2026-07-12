@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { fetchFloor, saveFloor, addSale } from '../../lib/api';
 import { C } from '../../lib/theme';
 import { classifyError } from '../../lib/errors';
-import { globalFloor, setGlobalFloor, globalUser } from '../_layout';
+import { useAppContext } from '../../lib/store';
 import { broadcastFloorUpdate } from '../../lib/realtime';
 import type { Floor, Table } from '../../lib/types';
 
@@ -77,25 +77,30 @@ function TableCard({
 }
 
 export default function SaloonScreen() {
-  const [floor, setFloor] = useState<Floor | null>(globalFloor);
+  const { floor: ctxFloor, setFloor: setCtxFloor, user } = useAppContext();
+  const [floor, setFloor] = useState<Floor | null>(ctxFloor);
   const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(!globalFloor);
+  const [loading, setLoading] = useState(!ctxFloor);
   const [activeZone, setActiveZone] = useState('Todos');
 
   useEffect(() => {
-    if (!globalFloor) loadFloor();
+    if (!ctxFloor) loadFloor();
   }, []);
 
-  // Sync from global realtime updates
+  // Sync from context realtime updates
   useEffect(() => {
-    if (globalFloor) setFloor(globalFloor);
-  }, [globalFloor]);
+    if (ctxFloor && ctxFloor !== floor) setFloor(ctxFloor);
+  }, [ctxFloor]);
+
+  function syncFloor(f: Floor) {
+    setFloor(f);
+    setCtxFloor(f);
+  }
 
   async function loadFloor() {
     try {
       const f = await fetchFloor();
-      setFloor(f);
-      setGlobalFloor(f);
+      syncFloor(f);
     } catch (e) {
       console.error('Error loading floor', e);
     } finally {
@@ -116,8 +121,7 @@ export default function SaloonScreen() {
     const t = f.tables.find(x => x.id === table.id);
     if (t) {
       t.status = 'cuenta';
-      setFloor(f);
-      setGlobalFloor(f);
+      syncFloor(f);
       try {
         await saveFloor(f);
         broadcastFloorUpdate(f);
@@ -189,15 +193,14 @@ export default function SaloonScreen() {
         isFiado: false,
         isDebtPayment: false,
         employeeId: null,
-        employeeName: globalUser?.name || 'Camarero',
+        employeeName: user?.name || 'Camarero',
         closedAt: Date.now(),
       });
     } catch (e) {
       console.warn('Error saving quick cash sale:', e);
     }
 
-    setFloor(f);
-    setGlobalFloor(f);
+    syncFloor(f);
     try {
       await saveFloor(f);
       broadcastFloorUpdate(f);
