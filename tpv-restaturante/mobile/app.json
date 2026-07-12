@@ -50,10 +50,10 @@
       "typedRoutes": true
     },
     "extra": {
-      "apiUrl": "https://tpv-sigma.vercel.app",
-      "supabaseUrl": "https://usrdtucgeogytnxyivoy.supabase.co",
-      "supabaseKey": "sb_publishable_yOlWsu92RrtMllJMcKyV_Q_Nr12lm5h",
-      "stripePk": "pk_test_51TU91h5ff9CDRTTdOpqVS5bZEMUA4rStbQoQStq1lN2FkD2iB8YjDXV2QUzoGpTd957ncWfaybL2HS18N0OB2Ol500R3lHjspP",
+      "apiUrl": "",
+      "supabaseUrl": "",
+      "supabaseKey": "",
+      "stripePk": "",
       "stripeSimulated": false,
       "router": {},
       "eas": {

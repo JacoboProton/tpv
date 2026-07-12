@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL, TPV_API_KEY } from './config';
-import type { Employee, Floor, Product, Category, ModifierGroup, Sale, GestoriaDocument, GestoriaPayroll, GestoriaTaxModel, GestoriaAuthorization, GestoriaOperationsResponse } from './types';
+import type { Employee, Floor, Product, Category, ModifierGroup, Sale, GestoriaDocument, GestoriaPayroll, GestoriaTaxModel, GestoriaAuthorization, GestoriaOperationsResponse, Table, Order } from './types';
+import { logError, logWarn, logInfo, logDebug } from './logger';
 
 let _tenantId = 'default';
 let _employeeId = '';
@@ -56,7 +57,7 @@ function computeFloorDiff(last: Floor | null, next: Floor) {
     return { isFullSync: true };
   }
 
-  const updatedTables: any[] = [];
+  const updatedTables: Table[] = [];
   const deletedTableIds: string[] = [];
   const lastTablesMap = new Map(last.tables.map(t => [t.id, t]));
   
@@ -75,13 +76,12 @@ function computeFloorDiff(last: Floor | null, next: Floor) {
         prev.orderId !== t.orderId ||
         JSON.stringify(prev.orderIds) !== JSON.stringify(t.orderIds) ||
         JSON.stringify(prev.reserved) !== JSON.stringify(t.reserved) ||
-        prev.reserved_for !== t.reserved_for ||
         prev.isFiado !== t.isFiado) {
       updatedTables.push(t);
     }
   }
 
-  const updatedOrders: Record<string, any> = {};
+  const updatedOrders: Record<string, Order> = {};
   const deletedOrderIds: string[] = [];
   const lastOrders = last.orders || {};
   const nextOrders = next.orders || {};
@@ -181,22 +181,29 @@ export async function addSale(sale: Record<string, unknown>): Promise<{ ok: bool
     const sales = cached ? JSON.parse(cached) : [];
     sales.push(sale);
     await AsyncStorage.setItem('tpv:sales', JSON.stringify(sales));
-  } catch {}
+    logDebug('Sale cached locally', { saleId: sale.id, tableName: sale.tableName });
+  } catch (e) {
+    logError('Failed to cache sale locally', { error: e, saleId: sale.id });
+  }
   // Try API POST
   try {
     const result = await apiFetch<{ ok: boolean }>('/sales', {
       method: 'POST',
       body: JSON.stringify(sale),
     });
+    logInfo('Sale successfully synced to server', { saleId: sale.id });
     return result;
   } catch (e) {
-    console.warn('addSale API error:', e);
+    logWarn('addSale API error, queuing for retry', { error: e, saleId: sale.id });
     // Queue for retry
     try {
       const pending = JSON.parse(await AsyncStorage.getItem('tpv:sales_pending') || '[]');
       pending.push({ sale, timestamp: Date.now() });
       await AsyncStorage.setItem('tpv:sales_pending', JSON.stringify(pending));
-    } catch {}
+      logInfo('Sale queued for retry', { saleId: sale.id, pendingCount: pending.length });
+    } catch (e) {
+      logError('Failed to queue sale for retry', { error: e, saleId: sale.id });
+    }
     setTimeout(() => processPendingSales(), 5000);
     return null;
   }
@@ -208,6 +215,9 @@ export async function processPendingSales(): Promise<void> {
     if (!raw) return;
     const pending = JSON.parse(raw);
     if (pending.length === 0) return;
+    
+    logInfo('Processing pending sales', { count: pending.length });
+    
     const remaining: typeof pending = [];
     for (const item of pending) {
       try {
@@ -215,12 +225,22 @@ export async function processPendingSales(): Promise<void> {
           method: 'POST',
           body: JSON.stringify(item.sale),
         });
-      } catch {
+        logDebug('Pending sale synced successfully', { saleId: item.sale.id });
+      } catch (e) {
+        logWarn('Failed to sync pending sale, keeping in queue', { error: e, saleId: item.sale.id });
         remaining.push(item);
       }
     }
     await AsyncStorage.setItem('tpv:sales_pending', JSON.stringify(remaining));
-  } catch {}
+    
+    if (remaining.length > 0) {
+      logWarn('Some sales could not be synced', { remainingCount: remaining.length });
+    } else {
+      logInfo('All pending sales synced successfully');
+    }
+  } catch (e) {
+    logError('Error processing pending sales', { error: e });
+  }
 }
 
 export async function fetchSales(): Promise<Sale[]> {
@@ -235,10 +255,14 @@ export async function fetchSales(): Promise<Sale[]> {
     const merged = [...data, ...local.filter(s => !ids.has(s.id))]
       .sort((a, b) => (b.closedAt || 0) - (a.closedAt || 0));
     await AsyncStorage.setItem('tpv:sales', JSON.stringify(merged));
+    logInfo('Sales fetched and merged with cache', { serverCount: data.length, localCount: local.length, mergedCount: merged.length });
     return merged;
-  } catch {
+  } catch (e) {
+    logWarn('Failed to fetch sales from server, using cache', { error: e });
     const cached = await AsyncStorage.getItem('tpv:sales');
-    return cached ? JSON.parse(cached) : [];
+    const local = cached ? JSON.parse(cached) : [];
+    logInfo('Returning cached sales', { count: local.length });
+    return local;
   }
 }
 

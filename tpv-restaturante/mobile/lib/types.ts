@@ -99,7 +99,13 @@ export interface Table {
   radius: number;
   seats: number;
   zone: string;
-  reserved: any;
+  reserved: {
+    for?: string;
+    until?: number;
+    name?: string;
+    pax?: number;
+    notes?: string;
+  } | null;
   isFiado: boolean;
   shape: string;
   rotation: number;
@@ -117,7 +123,7 @@ export interface Floor {
   tables: Table[];
   orders: Record<string, Order>;
   zones: Zone[];
-  background: any;
+  background: string | null;
 }
 
 export interface SaleItem {
@@ -157,7 +163,13 @@ export interface Sale {
   invoiceNumber?: string;
   invoiceCreated?: boolean;
   invoiceCreatedAt?: number | null;
-  refunds?: any[];
+  refunds?: {
+    id: string;
+    amount: number;
+    reason?: string;
+    createdAt: number;
+    stripeRefundId?: string;
+  }[];
   paymentIntentId?: string;
   stripeConfirmed?: boolean;
   disputeStatus?: string;

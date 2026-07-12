@@ -354,7 +354,7 @@ function DocumentsTab({ type, title, docs, onDataChange, C: _C }: {
   const confirmedCount = docs.filter(d => d.confirmed).length;
   const totalBase = docs.reduce((s, d) => {
     const lines = typeof d.lines === 'string' ? JSON.parse(d.lines) : (d.lines || []);
-    return s + lines.reduce((sl: number, l: any) => sl + Number(l.baseAmount || l.base_amount || 0), 0);
+    return s + lines.reduce((sl: number, l: { baseAmount?: number; base_amount?: number }) => sl + Number(l.baseAmount || l.base_amount || 0), 0);
   }, 0);
 
   return (
@@ -517,10 +517,20 @@ function DocumentForm({ type, onSave, C: _C }: {
 function DocumentCard({ doc, type: _type, onDelete, onToggleConfirm, C: _C }: {
   doc: GestoriaDocument; type: string; onDelete: () => void; onToggleConfirm: () => void; C: typeof C;
 }) {
+  type DocumentLine = {
+    description: string;
+    baseAmount?: number;
+    base_amount?: number;
+    vatAmount?: number;
+    vat_amount?: number;
+    zone?: string;
+    type?: string;
+  };
+  
   const lines = typeof doc.lines === 'string' ? JSON.parse(doc.lines) : (doc.lines || []);
-  const totalBase = lines.reduce((s: number, l: any) => s + Number(l.baseAmount || l.base_amount || 0), 0);
-  const totalVat = lines.reduce((s: number, l: any) => s + Number(l.vatAmount || l.vat_amount || 0), 0);
-  const hasEu = lines.some((l: any) => (l.zone || 'spain') !== 'spain');
+  const totalBase = lines.reduce((s: number, l: DocumentLine) => s + Number(l.baseAmount || l.base_amount || 0), 0);
+  const totalVat = lines.reduce((s: number, l: DocumentLine) => s + Number(l.vatAmount || l.vat_amount || 0), 0);
+  const hasEu = lines.some((l: DocumentLine) => (l.zone || 'spain') !== 'spain');
 
   return (
     <View style={[styles.docCard, { backgroundColor: _C.surfaceLight, borderColor: doc.confirmed ? C.sage : C.line }]}>
@@ -547,7 +557,7 @@ function DocumentCard({ doc, type: _type, onDelete, onToggleConfirm, C: _C }: {
           <Text style={{ color: _C.brassLight, fontSize: 13, marginTop: 4 }}>
             {fmt(totalBase)} · IVA: {fmt(totalVat)}
           </Text>
-          {lines.map((l: any, i: number) => (
+          {lines.map((l: DocumentLine, i: number) => (
             <Text key={i} style={{ color: _C.muted, fontSize: 10 }}>
               {l.description} — {ZONE_LABELS[l.zone || 'spain']} ({TYPE_LABELS[l.type || 'good']})
             </Text>

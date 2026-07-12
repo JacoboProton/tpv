@@ -7,6 +7,7 @@ import type { Employee } from '../lib/types';
 import { C } from '../lib/theme';
 import { classifyError } from '../lib/errors';
 import { useAppContext } from '../lib/store';
+import { logError, logWarn, logInfo, logDebug } from '../lib/logger';
 
 export default function LoginScreen() {
   const { setUser } = useAppContext();
@@ -61,7 +62,9 @@ export default function LoginScreen() {
           if (!force) { setVerifying(false); setPin(''); return; }
           await sessionLogin(user.id, user.role, true);
         }
-      } catch {}
+      } catch (e) {
+        logWarn('Session check failed during login (non-critical)', { error: e, userId: user.id });
+      }
 
       setUser(user);
       router.replace('/(tabs)/saloon');
