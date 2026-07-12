@@ -5,6 +5,27 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 import { X, AlertTriangle, WifiOff } from 'lucide-react';
 import StripePaymentForm from './StripePaymentForm';
+import type { PaymentIntent } from '@stripe/stripe-js';
+import { type Theme } from './constants';
+
+interface StripeModalTable {
+  id: string;
+  name: string;
+}
+
+interface StripeModalUser {
+  name?: string;
+}
+
+interface StripeModalProps {
+  amount: number;
+  finalTotal: number;
+  selectedTable: StripeModalTable | null;
+  currentUser: StripeModalUser | null;
+  onSuccess: (paymentIntent: PaymentIntent) => void;
+  onCancel: () => void;
+  colors: Theme;
+}
 
 const pk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 const stripePromise = pk && pk.startsWith('pk_') ? loadStripe(pk) : null;
@@ -14,14 +35,13 @@ export default function StripeModal({
   finalTotal,
   selectedTable,
   currentUser,
-  onSuccess,   // (paymentIntent) => void
+  onSuccess,
   onCancel,
   colors: C,
-}) {
-  const [clientSecret, setClientSecret] = useState(null);
-  const [loadError,    setLoadError]    = useState(null);
+}: StripeModalProps) {
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Crear el PaymentIntent al montar el modal
   useEffect(() => {
     async function createIntent() {
       try {
@@ -39,16 +59,15 @@ export default function StripeModal({
         if (!res.ok) throw new Error(data.error ?? 'Error al crear el pago');
         setClientSecret(data.clientSecret);
       } catch (err) {
-        setLoadError(err.message);
+        setLoadError((err as Error).message);
       }
     }
     createIntent();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Apariencia de Stripe Elements adaptada a los colores del TPV
   const appearance = {
-    theme: 'night',
+    theme: 'night' as const,
     variables: {
       colorPrimary:        C.brassLight,
       colorBackground:     C.surfaceLight,

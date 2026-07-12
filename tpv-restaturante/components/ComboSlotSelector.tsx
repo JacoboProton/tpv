@@ -2,13 +2,59 @@
 
 import { useState, useMemo } from 'react';
 import { X, Check } from 'lucide-react';
-import { euros } from './constants';
+import { euros, type Theme } from './constants';
 
-export default function ComboSlotSelector({ combo, catalog, colors: C, onConfirm, onClose }) {
-  const [selections, setSelections] = useState({});
+interface ComboSlotItem {
+  id: string;
+  product_id: string;
+  surcharge: number;
+}
 
-  function toggleProduct(slotId, productId) {
-    const slot = combo.slots.find(s => s.id === slotId);
+interface ComboSlot {
+  id: string;
+  name: string;
+  minChoices: number;
+  maxChoices: number;
+  items: ComboSlotItem[];
+}
+
+interface ComboSlotCombo {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  slots?: ComboSlot[];
+}
+
+interface ComboSlotProduct {
+  id: string;
+  name: string;
+  price: number;
+}
+
+interface ComboSlotCatalog {
+  products: ComboSlotProduct[];
+}
+
+interface ComboSlotSelection {
+  slotName: string;
+  productId: string;
+  surcharge: number;
+}
+
+interface ComboSlotSelectorProps {
+  combo: ComboSlotCombo;
+  catalog: ComboSlotCatalog;
+  colors: Theme;
+  onConfirm: (selections: ComboSlotSelection[]) => void;
+  onClose: () => void;
+}
+
+export default function ComboSlotSelector({ combo, catalog, colors: C, onConfirm, onClose }: ComboSlotSelectorProps) {
+  const [selections, setSelections] = useState<Record<string, string[]>>({});
+
+  function toggleProduct(slotId: string, productId: string) {
+    const slot = combo.slots?.find(s => s.id === slotId);
     if (!slot) return;
     const current = selections[slotId] || [];
     if (current.includes(productId)) {
@@ -21,7 +67,7 @@ export default function ComboSlotSelector({ combo, catalog, colors: C, onConfirm
 
   const { totalSurcharge, totalIndPrice } = useMemo(() => {
     let surcharge = 0, indPrice = 0;
-    for (const slot of (combo.slots || [])) {
+    for (const slot of (combo.slots ?? [])) {
       const chosen = selections[slot.id] || [];
       for (const pid of chosen) {
         const item = slot.items.find(i => i.product_id === pid);
@@ -34,16 +80,17 @@ export default function ComboSlotSelector({ combo, catalog, colors: C, onConfirm
   }, [selections, combo.slots, catalog.products]);
 
   function canConfirm() {
-    for (const slot of (combo.slots || [])) {
+    if (!combo.slots || combo.slots.length === 0) return false;
+    for (const slot of combo.slots) {
       const count = (selections[slot.id] || []).length;
       if (count < slot.minChoices) return false;
     }
-    return combo.slots && combo.slots.length > 0;
+    return true;
   }
 
   function handleConfirm() {
-    const chosenItems = [];
-    for (const slot of (combo.slots || [])) {
+    const chosenItems: ComboSlotSelection[] = [];
+    for (const slot of (combo.slots ?? [])) {
       const chosen = selections[slot.id] || [];
       for (const pid of chosen) {
         const item = slot.items.find(i => i.product_id === pid);

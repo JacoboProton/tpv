@@ -1,14 +1,76 @@
 "use client";
 
-import { useState } from 'react';
-import { Banknote, CreditCard, Smartphone, Clock, X, CheckCircle2, Printer, Check, Trash2 } from 'lucide-react';
-import { euros, round2, PAYMENT_METHODS } from './constants';
+import { useState, type ComponentType } from 'react';
+import { Banknote, CreditCard, Smartphone, Clock, X, CheckCircle2, Printer, Check, Trash2, type LucideProps } from 'lucide-react';
+import { euros, round2, PAYMENT_METHODS, type Theme } from './constants';
 import StripeModal from './StripeModal';
+
+interface PaymentSplit {
+  id: string;
+  method: string;
+  amount: number;
+  itemIds?: string[];
+}
+
+interface SplitOrderItem {
+  id: string;
+  name: string;
+  price: number;
+  qty: number;
+}
+
+interface PaymentTable {
+  id: string;
+  name: string;
+}
+
+interface CurrentUser {
+  id?: string;
+  name?: string;
+}
+
+interface StripePaymentIntent {
+  id: string;
+  status: string;
+}
+
+interface PaymentModalProps {
+  selectedTable: PaymentTable | null;
+  currentUser: CurrentUser | null;
+  finalTotal: number;
+  orderDiscount: number;
+  tipAmount: number;
+  setTipAmount: (v: number) => void;
+  tipMethod: string;
+  setTipMethod: (v: string) => void;
+  paymentSplits: PaymentSplit[];
+  remaining: number;
+  canConfirm: boolean;
+  onAddSplit: (method: string) => void;
+  onUpdateSplitAmount: (id: string, value: string) => void;
+  onRemoveSplit: (id: string) => void;
+  onToggleSplitItem?: (splitId: string, itemId: string) => void;
+  onConfirm: () => void;
+  onStripeSuccess?: (paymentIntent: StripePaymentIntent) => void;
+  onCancel: () => void;
+  onPrint: () => void;
+  showToast: (msg: string) => void;
+  orderItems: SplitOrderItem[];
+  invoiceNif: string;
+  setInvoiceNif: (v: string) => void;
+  invoiceName: string;
+  setInvoiceName: (v: string) => void;
+  invoiceAddress: string;
+  setInvoiceAddress: (v: string) => void;
+  invoiceEmail: string;
+  setInvoiceEmail: (v: string) => void;
+  colors: Theme;
+}
 
 const PAYMENT_METHODS_UI = PAYMENT_METHODS.map(m => ({
   ...m,
-  icon: { efectivo: Banknote, tarjeta: CreditCard, bizum: Smartphone, fiado: Clock }[m.id],
-  color: { efectivo: '#7a9a7c', tarjeta: '#c4a04a', bizum: '#6b9bf8', fiado: '#b05e5e' }[m.id],
+  icon: { efectivo: Banknote, tarjeta: CreditCard, bizum: Smartphone, fiado: Clock }[m.id as 'efectivo' | 'tarjeta' | 'bizum' | 'fiado'] as ComponentType<LucideProps>,
+  color: { efectivo: '#7a9a7c', tarjeta: '#c4a04a', bizum: '#6b9bf8', fiado: '#b05e5e' }[m.id as 'efectivo' | 'tarjeta' | 'bizum' | 'fiado'],
 }));
 
 export default function PaymentModal({
@@ -24,10 +86,9 @@ export default function PaymentModal({
   invoiceNif, setInvoiceNif, invoiceName, setInvoiceName,
   invoiceAddress, setInvoiceAddress, invoiceEmail, setInvoiceEmail,
   colors: C,
-}) {
+}: PaymentModalProps) {
   const [showInvoice, setShowInvoice] = useState(false);
   const [stripeOpen, setStripeOpen] = useState(false);
-  const isCardOnly = paymentSplits.length === 1 && paymentSplits[0].method === 'tarjeta';
   const hasCardSplit = paymentSplits.some(s => s.method === 'tarjeta');
   const hasBizumSplit = paymentSplits.some(s => s.method === 'bizum');
   const hasStripeSplit = hasCardSplit || hasBizumSplit;
@@ -37,7 +98,7 @@ export default function PaymentModal({
     paymentSplits.filter(s => s.method !== 'fiado').flatMap(s => s.itemIds || [])
   );
 
-  function handleStripeSuccess(paymentIntent) {
+  function handleStripeSuccess(paymentIntent: StripePaymentIntent) {
     setStripeOpen(false);
     showToast(`Pago confirmado · ${paymentIntent.id.slice(-6).toUpperCase()}`);
     if (onStripeSuccess) {
@@ -47,7 +108,7 @@ export default function PaymentModal({
     }
   }
 
-  function toggleItem(splitId, itemId) {
+  function toggleItem(splitId: string, itemId: string) {
     if (onToggleSplitItem) onToggleSplitItem(splitId, itemId);
   }
 
@@ -171,7 +232,7 @@ export default function PaymentModal({
             <div className="flex flex-col gap-3 mb-4">
               {paymentSplits.map(sp => {
                 const meta = PAYMENT_METHODS_UI.find(m => m.id === sp.method);
-                const Icon = meta.icon;
+                const Icon = meta!.icon;
                 const isFiado = sp.method === 'fiado';
                 const splitItemIds = new Set(sp.itemIds || []);
                 const itemAmount = (orderItems || [])
@@ -182,8 +243,8 @@ export default function PaymentModal({
                 return (
                   <div key={sp.id} style={{ background: C.surfaceLight }} className="rounded-lg px-3.5 py-2.5">
                     <div className="flex items-center gap-2.5 mb-2">
-                      <Icon className="w-4.5 h-4.5 shrink-0" style={{ color: meta.color }} />
-                      <span className="text-sm flex-1 font-medium">{meta.label}</span>
+                      <Icon className="w-4.5 h-4.5 shrink-0" style={{ color: meta!.color }} />
+                      <span className="text-sm flex-1 font-medium">{meta!.label}</span>
                       {isFiado ? (
                         <span className="font-mono" style={{ color: C.brassLight }}>{euros(sp.amount)}</span>
                       ) : (
@@ -206,9 +267,9 @@ export default function PaymentModal({
                               onClick={() => toggleItem(sp.id, item.id)}
                               disabled={alreadyAssigned}
                               style={{
-                                background: selected ? meta.color : (alreadyAssigned ? 'transparent' : C.surface),
+                                background: selected ? meta!.color : (alreadyAssigned ? 'transparent' : C.surface),
                                 color: selected ? '#fff' : C.muted,
-                                border: `1px solid ${selected ? meta.color : C.line}`,
+                                border: `1px solid ${selected ? meta!.color : C.line}`,
                                 opacity: alreadyAssigned ? 0.3 : 1,
                               }}
                               className="rounded-md px-2 py-1 text-[11px] font-medium disabled:cursor-not-allowed transition-all">
@@ -284,7 +345,7 @@ export default function PaymentModal({
 
       {stripeOpen && (
         <StripeModal
-          amount={cardAmount}
+          amount={stripeAmount}
           finalTotal={finalTotal}
           selectedTable={selectedTable}
           currentUser={currentUser}

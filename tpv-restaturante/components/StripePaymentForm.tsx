@@ -6,30 +6,38 @@ import {
   useStripe,
   useElements,
 } from '@stripe/react-stripe-js';
+import type { PaymentIntent } from '@stripe/stripe-js';
 import { CreditCard, Loader } from 'lucide-react';
-import { euros } from './constants';
+import { euros, type Theme } from './constants';
 
-export default function StripePaymentForm({ amount, finalTotal, onSuccess, onCancel, colors: C }) {
+interface StripePaymentFormProps {
+  amount: number;
+  finalTotal: number;
+  onSuccess: (paymentIntent: PaymentIntent) => void;
+  onCancel: () => void;
+  colors: Theme;
+}
+
+export default function StripePaymentForm({ amount, finalTotal, onSuccess, onCancel, colors: C }: StripePaymentFormProps) {
   const stripe   = useStripe();
   const elements = useElements();
-  const [error,      setError]      = useState(null);
+  const [error,      setError]      = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
 
-  async function handleSubmit(e) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!stripe || !elements) return;
 
     setProcessing(true);
     setError(null);
 
-    // Confirmar el pago sin redirigir (return_url solo si hay 3DS)
     const { error: stripeError, paymentIntent } = await stripe.confirmPayment({
       elements,
       redirect: 'if_required',
     });
 
     if (stripeError) {
-      setError(stripeError.message);
+      setError(stripeError.message ?? 'Error de pago');
       setProcessing(false);
       return;
     }
@@ -62,7 +70,7 @@ export default function StripePaymentForm({ amount, finalTotal, onSuccess, onCan
       >
         <PaymentElement
           options={{
-            layout: 'tabs',
+            layout: 'tabs' as const,
             paymentMethodOrder: ['card'],
           }}
         />

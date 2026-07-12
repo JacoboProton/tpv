@@ -4,9 +4,235 @@ import {
   Plus, Minus, Percent, X, Trash2, AlertTriangle, Check, Package, Tag, Search, Edit3, MoreVertical, ArrowRight,
   GitMerge, BadgePercent,
 } from 'lucide-react';
-import { TICKET_EDGE, euros, ALLERGENS, ALLERGEN_COLORS } from './constants';
+import { TICKET_EDGE, euros, ALLERGENS, ALLERGEN_COLORS, type Theme } from './constants';
 import ComboSlotSelector from './ComboSlotSelector';
 import MenuDelDiaSelector from './MenuDelDiaSelector';
+
+interface CatalogProduct {
+  id: string;
+  name: string;
+  price: number;
+  category: string;
+  course: string;
+  ubicacion: string;
+  allergens: string[];
+  stock: number;
+  discount: number;
+  agotado?: boolean;
+  active?: boolean;
+  carousel_sort?: number | null;
+  image?: string;
+  description?: string;
+  featured?: boolean;
+}
+
+interface CategoryInfo {
+  id: string;
+  name: string;
+}
+
+interface ModifierInfo {
+  optionName: string;
+}
+
+interface OrderItem {
+  id: string;
+  name: string;
+  price: number;
+  category: string;
+  course: string;
+  ubicacion: string;
+  allergens: string[];
+  qty: number;
+  sent: boolean;
+  ready: boolean;
+  notes: string;
+  lineDiscount: number;
+  isCourtesy: boolean;
+  overridePrice: number | null;
+  voided: boolean;
+  voidReason: string;
+  modifiers: ModifierInfo[];
+  isFreeItem: boolean;
+  productId: string;
+  isCombo?: boolean;
+  comboData?: unknown;
+  comboSel?: unknown;
+  isMenu?: boolean;
+  menuData?: unknown;
+  menuSel?: unknown;
+}
+
+interface CustomerInfo {
+  id: string;
+  name: string;
+  phone: string;
+}
+
+interface OrderInfo {
+  id: string;
+  items: OrderItem[];
+  label: string;
+  customer: CustomerInfo | null;
+  personalDiscountApplied: boolean;
+  personalDiscountEmployeeName: string;
+  _mergedLabel: string;
+  closedAt: number;
+  createdAt: number;
+}
+
+interface TableInfo {
+  id: string;
+  name: string;
+  status: string;
+  orderId: string | null;
+  reserved: string | null;
+  isFiado: boolean;
+  type: string;
+  orderIds: string[];
+  reserved_for: string;
+  customers: CustomerInfo[];
+}
+
+interface FloorData {
+  tables: TableInfo[];
+  orders: Record<string, OrderInfo>;
+  customers: CustomerInfo[];
+}
+
+interface HistoryEntry {
+  id: string;
+  label: string;
+  items: OrderItem[];
+  closedAt: number;
+  createdAt: number;
+}
+
+interface ComboSlotGroupItem {
+  id: string;
+  product_id: string;
+  surcharge: number;
+}
+
+interface ComboSlotGroup {
+  id: string;
+  name: string;
+  minChoices: number;
+  maxChoices: number;
+  items: ComboSlotGroupItem[];
+}
+
+interface ComboData {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  category: string;
+  active: boolean;
+  items: { product_id: string; quantity: number }[];
+  slots?: ComboSlotGroup[];
+}
+
+interface MealMenuItem {
+  id: string;
+  product_id: string;
+  surcharge: number;
+}
+
+interface MealCourse {
+  id: string;
+  name: string;
+  items: MealMenuItem[];
+}
+
+interface MealSchedule {
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+}
+
+interface MealExtra {
+  name: string;
+  price: number;
+}
+
+interface MealMenuData {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  active: boolean;
+  includes_pan: boolean;
+  includes_bebida: boolean;
+  includes_cafe: boolean;
+  courses: MealCourse[];
+  schedules: MealSchedule[];
+  extras: MealExtra[];
+}
+
+interface EmployeeInfo {
+  id: string;
+  name: string;
+  pin: string;
+  role: string;
+}
+
+interface TicketSettings {
+  [key: string]: unknown;
+}
+
+interface ComandaDrawerProps {
+  selectedTable: TableInfo;
+  selectedOrder: OrderInfo | null;
+  catalog: { products: CatalogProduct[]; categories: (string | CategoryInfo)[] };
+  activeCategory: string;
+  setActiveCategory: (c: string) => void;
+  orderTotal: number;
+  orderDiscount: number;
+  setOrderDiscount: (d: number) => void;
+  tipAmount: number;
+  finalTotal: number;
+  onClose: () => void;
+  onAddItem: (item: Partial<OrderItem> & { id?: string; name: string; price: number; category: string; course: string; ubicacion: string; allergens: string[] }) => void;
+  onChangeQty: (itemId: string, delta: number) => void;
+  onRemoveItem: (itemId: string) => void;
+  onCancelTable: () => void;
+  onSendToKitchenCourse: (course: string) => void;
+  onSendItemToKitchen: (itemId: string) => void;
+  onToggleCuenta: () => void;
+  onOpenPayment: () => void;
+  onResetTable: () => void;
+  onUpdateNotes: (itemId: string, notes: string) => void;
+  onUpdateItemCourse: (itemId: string, course: string) => void;
+  onEditItemModifiers: (item: OrderItem, product: CatalogProduct) => void;
+  onSetItemDiscount: (itemId: string, pct: number) => void;
+  onRemoveItemDiscount: (itemId: string) => void;
+  onSetItemCourtesy: (itemId: string) => void;
+  onRemoveItemCourtesy: (itemId: string) => void;
+  onSetItemPrice: (itemId: string, price: number | null) => void;
+  onVoidSentItem: (itemId: string, reason: string) => void;
+  onApplyPersonalDiscount: (orderId: string, pin: string) => Promise<boolean>;
+  onRemovePersonalDiscount: (orderId: string) => void;
+  employees: EmployeeInfo[];
+  ticketSettings: TicketSettings;
+  combos: ComboData[];
+  mealMenus: MealMenuData[];
+  floor: FloorData;
+  onMoveTable: (currentId: string, destId: string | null) => void;
+  onMergeTables: (currentId: string, ids: string[]) => void;
+  currentTableId: string;
+  activeTicketId: string;
+  onSwitchTicket: (tableId: string, ticketId: string) => void;
+  onCreateTicket: (tableId: string) => void;
+  onDeleteEmptyTicket: (tableId: string, orderId: string) => void;
+  onRenameTicket: (orderId: string, label: string) => void;
+  onLinkCustomer: (orderId: string | undefined, customer: CustomerInfo | { id: string; name: string; phone: string }) => void;
+  onUnlinkCustomer: (orderId: string) => void;
+  onReopenOrder: (tableId: string, order: HistoryEntry) => void;
+  onVoidTable: () => void;
+  todayHistory: HistoryEntry[];
+  colors: Theme;
+}
 
 export default function ComandaDrawer({
   selectedTable, selectedOrder,
@@ -19,52 +245,51 @@ export default function ComandaDrawer({
   onSetItemDiscount, onRemoveItemDiscount, onSetItemCourtesy, onRemoveItemCourtesy,
   onSetItemPrice, onVoidSentItem,
   onApplyPersonalDiscount, onRemovePersonalDiscount,
-  employees, ticketSettings,
   combos, mealMenus,
   floor, onMoveTable, onMergeTables, currentTableId,
   activeTicketId, onSwitchTicket, onCreateTicket, onDeleteEmptyTicket,
   onRenameTicket, onLinkCustomer, onUnlinkCustomer,
   onReopenOrder, onVoidTable, todayHistory,
   colors: C,
-}) {
+}: ComandaDrawerProps) {
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [discountInput, setDiscountInput] = useState('');
   const [showDiscountModal, setShowDiscountModal] = useState(false);
-  const [editNotesId, setEditNotesId] = useState(null);
+  const [editNotesId, setEditNotesId] = useState<string | null>(null);
   const [notesInput, setNotesInput] = useState('');
-  const [configuringCombo, setConfiguringCombo] = useState(null);
-  const [configuringMenu, setConfiguringMenu] = useState(null);
+  const [configuringCombo, setConfiguringCombo] = useState<ComboData | null>(null);
+  const [configuringMenu, setConfiguringMenu] = useState<MealMenuData | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFreeItemModal, setShowFreeItemModal] = useState(false);
   const [freeItemName, setFreeItemName] = useState('');
   const [freeItemPrice, setFreeItemPrice] = useState(0);
   const [freeItemCourse, setFreeItemCourse] = useState('');
   const [showBulkCourseModal, setShowBulkCourseModal] = useState(false);
-  const [showQtyModal, setShowQtyModal] = useState(null); // { item, value }
+  const [showQtyModal, setShowQtyModal] = useState<{ item: OrderItem } | null>(null);
   const [qtyNumpad, setQtyNumpad] = useState('1');
-  const [actionItemId, setActionItemId] = useState(null); // for inline action menu
+  const [actionItemId, setActionItemId] = useState<string | null>(null);
   const [showTicketMenu, setShowTicketMenu] = useState(false);
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [showMergeModal, setShowMergeModal] = useState(false);
-  const [moveDestId, setMoveDestId] = useState(null);
-  const [mergeSelected, setMergeSelected] = useState([]);
+  const [moveDestId, setMoveDestId] = useState<string | null>(null);
+  const [mergeSelected, setMergeSelected] = useState<string[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [showVoidConfirm, setShowVoidConfirm] = useState(false);
   const [editLabel, setEditLabel] = useState(false);
   const [labelInput, setLabelInput] = useState('');
   const [showCustomerSearch, setShowCustomerSearch] = useState(false);
   const [customerQuery, setCustomerQuery] = useState('');
-  const [customerResults, setCustomerResults] = useState([]);
-  const [showLineDiscount, setShowLineDiscount] = useState(null); // item
-  const [showPriceEdit, setShowPriceEdit] = useState(null); // item
+  const [customerResults, setCustomerResults] = useState<CustomerInfo[]>([]);
+  const [showLineDiscount, setShowLineDiscount] = useState<OrderItem | null>(null);
+  const [showPriceEdit, setShowPriceEdit] = useState<OrderItem | null>(null);
   const [priceNumpad, setPriceNumpad] = useState('');
-  const [showVoidItem, setShowVoidItem] = useState(null);
+  const [showVoidItem, setShowVoidItem] = useState<string | null>(null);
   const [voidReason, setVoidReason] = useState('');
   const [showPersonalPIN, setShowPersonalPIN] = useState(false);
   const [personalPinInput, setPersonalPinInput] = useState('');
 
   const allCourses = useMemo(() => {
-    const s = new Set();
+    const s = new Set<string>();
     (catalog?.products || []).forEach(p => { if (p.course) s.add(p.course); });
     return [...s].sort();
   }, [catalog?.products]);
@@ -86,7 +311,7 @@ export default function ComandaDrawer({
     onCancelTable();
   }
 
-  function handleOpenNotes(item) {
+  function handleOpenNotes(item: OrderItem) {
     setEditNotesId(item.id);
     setNotesInput(item.notes || '');
   }
@@ -127,14 +352,14 @@ export default function ComandaDrawer({
     setQtyNumpad('1');
   }
 
-  function qtyPress(digit) {
+  function qtyPress(digit: number) {
     setQtyNumpad(prev => {
       const next = prev === '1' ? String(digit) : prev + String(digit);
       return Math.min(parseInt(next, 10) || 1, 999).toString();
     });
   }
 
-  function handleBulkCourse(course) {
+  function handleBulkCourse(course: string) {
     if (!selectedOrder) return;
     for (const item of selectedOrder.items) {
       if (!item.sent) {
@@ -173,9 +398,9 @@ export default function ComandaDrawer({
                     onChange={e => setLabelInput(e.target.value)}
                     style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}` }}
                     className="text-xs px-2 py-1 rounded w-40" autoFocus
-                    onKeyDown={e => { if (e.key === 'Enter') { onRenameTicket(selectedOrder?.id, labelInput); setEditLabel(false); } if (e.key === 'Escape') setEditLabel(false); }}
+                    onKeyDown={e => { if (e.key === 'Enter') { onRenameTicket(selectedOrder?.id ?? '', labelInput); setEditLabel(false); } if (e.key === 'Escape') setEditLabel(false); }}
                   />
-                  <button onClick={() => { onRenameTicket(selectedOrder?.id, labelInput); setEditLabel(false); }}
+                  <button onClick={() => { onRenameTicket(selectedOrder?.id ?? '', labelInput); setEditLabel(false); }}
                     style={{ color: C.sage }} className="text-xs">OK</button>
                 </div>
               ) : selectedOrder?.customer && (
@@ -482,9 +707,9 @@ export default function ComandaDrawer({
           <div style={{ borderBottom: `1px solid ${C.line}` }} className="px-4 py-2 flex gap-2">
             <div className="flex-1 relative">
               <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: C.muted }} />
-                  <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                    placeholder="Buscar productos (/)"
-                    data-search-products
+              <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Buscar productos (/)"
+                data-search-products
                 style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}`, paddingLeft: 28 }}
                 className="w-full rounded-lg py-1.5 text-xs outline-none" />
               {searchQuery && (
@@ -958,8 +1183,8 @@ export default function ComandaDrawer({
             {!isDebtOnly && unsentItems.length > 0 && (
               <div className="flex gap-2 flex-wrap">
                 {unsentCourses.length > 0 && unsentCourses.map(course => {
-                  const count = selectedOrder.items.filter(i => !i.sent && i.course === course).length;
-                  const colors = { Entrantes: '#7a9a7c', Principales: '#c4a04a', Postres: '#b05e5e' };
+                  const count = (selectedOrder?.items ?? []).filter(i => !i.sent && i.course === course).length;
+                  const colors: Record<string, string> = { Entrantes: '#7a9a7c', Principales: '#c4a04a', Postres: '#b05e5e' };
                   const color = colors[course] || C.sage;
                   return (
                     <button key={course}
@@ -1108,7 +1333,7 @@ export default function ComandaDrawer({
           combo={configuringCombo}
           catalog={catalog}
           colors={C}
-          onConfirm={(selections) => {
+          onConfirm={(selections: unknown) => {
             onAddItem({
               id: configuringCombo.id,
               name: configuringCombo.name,
@@ -1234,19 +1459,12 @@ export default function ComandaDrawer({
               <button onClick={() => {
                 onLinkCustomer(selectedOrder?.id, { id: 'c_' + Date.now(), name: customerQuery, phone: '' });
                 setShowCustomerSearch(false);
-                // Save to floor customers list
-                const next = clone(floor);
-                if (!next.customers) next.customers = [];
-                if (!next.customers.find(c => c.name === customerQuery)) {
-                  next.customers.push({ id: 'c_' + Date.now(), name: customerQuery, phone: '' });
-                }
-                // can't persistFloor here since floor is owned by parent
                 setShowCustomerSearch(false);
               }}
                 style={{ background: C.sage, color: '#fff' }}
                 className="w-full rounded-lg py-2.5 text-sm font-medium hover:opacity-80"
               >
-                + Crear "{customerQuery}"
+                {'+ Crear "'}{customerQuery}{'"'}
               </button>
             )}
             <button onClick={() => setShowCustomerSearch(false)}
@@ -1372,7 +1590,8 @@ export default function ComandaDrawer({
                 className="rounded-lg py-3 text-lg font-mono hover:opacity-80">C</button>
               <button onClick={async () => {
                 if (personalPinInput.length < 4) return;
-                const ok = await onApplyPersonalDiscount(selectedOrder?.id, personalPinInput);
+                if (!selectedOrder?.id) return;
+                const ok = await onApplyPersonalDiscount(selectedOrder.id, personalPinInput);
                 if (ok) setShowPersonalPIN(false);
               }}
                 disabled={personalPinInput.length < 4}
@@ -1441,7 +1660,7 @@ export default function ComandaDrawer({
           menu={configuringMenu}
           catalog={catalog}
           colors={C}
-          onConfirm={(selections, menu) => {
+          onConfirm={(selections: unknown, menu: MealMenuData) => {
             onAddItem({
               id: menu.id,
               name: menu.name,
@@ -1471,9 +1690,9 @@ export default function ComandaDrawer({
               Trasladar el pedido de <strong style={{ color: C.cream }}>{selectedTable.name}</strong> a otra mesa.
             </p>
             <div className="flex flex-col gap-1.5 max-h-60 overflow-y-auto mb-4">
-        {floor.tables
-          .filter(t => t.id !== currentTableId && t.status === 'libre' && !t.reserved_for)
-          .map(t => (
+              {floor.tables
+                .filter((t: TableInfo) => t.id !== currentTableId && t.status === 'libre' && !t.reserved_for)
+                .map(t => (
                   <button key={t.id} onClick={() => setMoveDestId(t.id)}
                     style={{
                       background: moveDestId === t.id ? C.brass + '30' : C.surfaceLight,
@@ -1486,7 +1705,7 @@ export default function ComandaDrawer({
                     <span style={{ color: C.muted }} className="text-xs">{t.type === 'barra' ? 'Barra' : 'Mesa'}</span>
                   </button>
                 ))}
-              {floor.tables.filter(t => t.id !== currentTableId && t.status === 'libre' && !t.reserved_for).length === 0 && (
+              {floor.tables.filter((t: TableInfo) => t.id !== currentTableId && t.status === 'libre' && !t.reserved_for).length === 0 && (
                 <p style={{ color: C.muted }} className="text-sm text-center py-4">No hay mesas libres disponibles.</p>
               )}
             </div>
@@ -1518,7 +1737,7 @@ export default function ComandaDrawer({
             </p>
             <div className="flex flex-col gap-1.5 max-h-60 overflow-y-auto mb-4">
               {floor.tables
-                .filter(t => t.id !== currentTableId && !t.reserved_for && (t.status === 'ocupada' || t.status === 'cuenta' || t.status === 'unidas'))
+                .filter((t: TableInfo) => t.id !== currentTableId && !t.reserved_for && (t.status === 'ocupada' || t.status === 'cuenta' || t.status === 'unidas'))
                 .map(t => {
                   const sel = mergeSelected.includes(t.id);
                   return (
@@ -1542,7 +1761,7 @@ export default function ComandaDrawer({
                     </button>
                   );
                 })}
-              {floor.tables.filter(t => t.id !== currentTableId && !t.reserved_for && (t.status === 'ocupada' || t.status === 'cuenta' || t.status === 'unidas')).length === 0 && (
+              {floor.tables.filter((t: TableInfo) => t.id !== currentTableId && !t.reserved_for && (t.status === 'ocupada' || t.status === 'cuenta' || t.status === 'unidas')).length === 0 && (
                 <p style={{ color: C.muted }} className="text-sm text-center py-4">No hay otras mesas con pedidos para unir.</p>
               )}
             </div>

@@ -1,4 +1,107 @@
-export const THEMES = {
+export interface Theme {
+  base: string;
+  surface: string;
+  surfaceLight: string;
+  line: string;
+  brass: string;
+  brassLight: string;
+  sage: string;
+  sageLight: string;
+  wine: string;
+  wineLight: string;
+  cream: string;
+  muted: string;
+  headerBg: string;
+  ticketBg: string;
+  ticketText: string;
+  overlay: string;
+}
+
+interface SeedCategory {
+  id: string;
+  name: string;
+}
+
+interface SeedProduct {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  stock: number;
+  lowStock: number;
+  ubicacion: string;
+  discount: number;
+  course: string;
+  allergens: string[];
+  description?: string;
+  image?: string;
+  featured?: boolean;
+}
+
+interface SeedTable {
+  id: string;
+  name: string;
+  status: string;
+  orderId: null;
+  reserved: null;
+  isFiado: boolean;
+  type: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  radius: number;
+  shape: string;
+  rotation: number;
+  seats: number;
+  zone: string;
+  layer: number;
+  color: string;
+}
+
+interface SeedZone {
+  id: string;
+  name: string;
+  color: string;
+}
+
+interface SeedFloor {
+  tables: SeedTable[];
+  orders: Record<string, never>;
+  zones: SeedZone[];
+  background: null;
+}
+
+interface SeedEmployee {
+  id: string;
+  name: string;
+  pin: string;
+  role: string;
+  personalDiscountEnabled: boolean;
+  monthlyLimit: number;
+  monthlyUsed: number;
+  monthlyUsedMonth: string;
+}
+
+interface MenuItem {
+  id: string;
+  name: string;
+  type: string;
+  days: number[];
+  startHour: number;
+  endHour: number;
+  discount: number;
+  items?: string[];
+  productIds?: string[];
+}
+
+interface Allergen {
+  id: string;
+  label: string;
+  abbr: string;
+}
+
+export const THEMES: Record<string, Theme> = {
   dark: {
     base: '#3d424f',
     surface: '#4d5363',
@@ -37,13 +140,13 @@ export const THEMES = {
   },
 };
 
-export let C = THEMES.dark;
+export let C: Theme = THEMES.dark;
 
-export function setGlobalTheme(mode) {
+export function setGlobalTheme(mode: 'dark' | 'light') {
   C = THEMES[mode];
 }
 
-export const KEYS = {
+export const KEYS: Record<string, string> = {
   CATALOG: 'tpv:catalog',
   FLOOR: 'tpv:floor',
   SALES: 'tpv:sales',
@@ -53,14 +156,14 @@ export const KEYS = {
   TURNS: 'tpv:turns',
 };
 
-export const TICKET_EDGE = {
+export const TICKET_EDGE: { height: number; background: string; clipPath: string } = {
   height: 9,
   background: '#e6e1d6',
   clipPath:
     'polygon(0% 9px,4% 0%,8% 9px,12% 0%,16% 9px,20% 0%,24% 9px,28% 0%,32% 9px,36% 0%,40% 9px,44% 0%,48% 9px,52% 0%,56% 9px,60% 0%,64% 9px,68% 0%,72% 9px,76% 0%,80% 9px,84% 0%,88% 9px,92% 0%,96% 9px,100% 0%,100% 100%,0% 100%)',
 };
 
-export const TICKET_PRINT_STYLE = {
+export const TICKET_PRINT_STYLE: Record<string, string> = {
   width: '80mm',
   fontFamily: "'JetBrains Mono', monospace",
   fontSize: '10px',
@@ -68,37 +171,42 @@ export const TICKET_PRINT_STYLE = {
   padding: '2mm 3mm',
 };
 
-export const COURSES = ['Entrantes', 'Principales', 'Postres'];
+export const COURSES: string[] = ['Entrantes', 'Principales', 'Postres'];
 
-export const PAYMENT_METHODS = [
+interface PaymentMethod {
+  id: string;
+  label: string;
+}
+
+export const PAYMENT_METHODS: PaymentMethod[] = [
   { id: 'efectivo', label: 'Efectivo' },
-  { id: 'tarjeta',  label: 'Tarjeta' },
-  { id: 'bizum',    label: 'Bizum' },
-  { id: 'fiado',    label: 'Fiado' },
+  { id: 'tarjeta', label: 'Tarjeta' },
+  { id: 'bizum', label: 'Bizum' },
+  { id: 'fiado', label: 'Fiado' },
 ];
 
-export function euros(n) {
+export function euros(n: number | null | undefined): string {
   return (n || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 }
 
-export function round2(n) {
+export function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
-export function clone(obj) {
+export function clone<T>(obj: T): T {
   return typeof structuredClone === 'function'
     ? structuredClone(obj)
     : JSON.parse(JSON.stringify(obj));
 }
 
-export function seedCatalog() {
-  const categories = [
+export function seedCatalog(): { categories: SeedCategory[]; products: SeedProduct[] } {
+  const categories: SeedCategory[] = [
     { id: 'cat_beb', name: 'Bebidas' },
     { id: 'cat_tap', name: 'Tapas' },
     { id: 'cat_pri', name: 'Principales' },
     { id: 'cat_pos', name: 'Postres' }
   ];
-  const products = [
+  const products: SeedProduct[] = [
     { id: 'p1',  name: 'Caña Selecta',       category: 'Bebidas',    price: 2.2,  stock: 80, lowStock: 15, ubicacion: 'Bar',     discount: 0, course: '', allergens: ['gluten'], image: 'https://images.unsplash.com/photo-1618183479302-1e0aa382c36b?auto=format&w=400&q=80' },
     { id: 'p2',  name: 'Tinto de Verano',    category: 'Bebidas',    price: 3.5,  stock: 40, lowStock: 10, ubicacion: 'Bar',     discount: 0, course: '', allergens: ['sulfitos'], image: 'https://images.unsplash.com/photo-1553361371-9b22f78e8b1d?auto=format&w=400&q=80' },
     { id: 'p3',  name: 'Vermut Casero',      category: 'Bebidas',    price: 3.2,  stock: 25, lowStock: 8,  ubicacion: 'Bar',     discount: 0, course: '', allergens: ['sulfitos'], description: 'Nuestra receta secreta macerada con hierbas de la sierra.' },
@@ -115,7 +223,6 @@ export function seedCatalog() {
     { id: 'p14', name: 'Paella Marinera',   category: 'Principales', price: 13.5, stock: 10, lowStock: 3, ubicacion: 'Cocina',  discount: 0, course: 'Principales', allergens: ['crustaceos', 'moluscos', 'gluten'], description: 'Arroz bomba con marisco fresco del día.', image: 'https://images.pexels.com/photos/26587044/pexels-photo-26587044.jpeg?auto=compress&cs=tinysrgb&w=800&q=80' },
     { id: 'p15', name: 'Tarta de Queso',    category: 'Postres',    price: 4.5,  stock: 14, lowStock: 4,  ubicacion: 'Cocina', discount: 0, course: 'Postres', allergens: ['lacteos', 'huevos', 'gluten'], description: 'Tarta de queso artesana estilo Donostia.' },
     { id: 'p16', name: 'Flan Casero',       category: 'Postres',    price: 3.5,  stock: 16, lowStock: 4,  ubicacion: 'Cocina', discount: 0, course: 'Postres', allergens: ['huevos', 'lacteos'] },
-    // Nuevos productos
     { id: 'p17', name: 'Café solo',         category: 'Bebidas',    price: 1.8,  stock: 50, lowStock: 10, ubicacion: 'Bar',     discount: 0, course: '', allergens: [] },
     { id: 'p18', name: 'Café con leche',    category: 'Bebidas',    price: 2.0,  stock: 50, lowStock: 10, ubicacion: 'Bar',     discount: 0, course: '', allergens: ['lacteos'] },
     { id: 'p19', name: 'Cerveza botellín',  category: 'Bebidas',    price: 2.5,  stock: 60, lowStock: 15, ubicacion: 'Bar',     discount: 0, course: '', allergens: ['gluten'] },
@@ -134,29 +241,29 @@ export function seedCatalog() {
   return { categories, products };
 }
 
-const MENU_ITEMS = [
+const MENU_ITEMS: MenuItem[] = [
   { id: 'm1', name: 'Menú del día (laborables)', type: 'menu_del_dia', days: [1,2,3,4,5], startHour: 13, endHour: 16, items: ['p12', 'p14', 'p15'], discount: 15 },
   { id: 'h1', name: 'Happy Hour Cocktails', type: 'happy_hour', days: [0,1,2,3,4,5,6], startHour: 18, endHour: 23, discount: 30, productIds: ['p2', 'p4'] }
 ];
 
-export function getDailyMenu(date) {
+export function getDailyMenu(date?: Date): MenuItem | undefined {
   const d = date || new Date();
   const dow = d.getDay();
   const hour = d.getHours();
   return MENU_ITEMS.find(m => m.days.includes(dow) && hour >= m.startHour && hour < m.endHour);
 }
 
-export function seedFloor() {
-  const tables = [
+export function seedFloor(): SeedFloor {
+  const tables: SeedTable[] = [
     ...Array.from({ length: 9 }, (_, i) => ({
-      id: `t${i + 1}`, name: `Mesa ${i + 1}`, status: 'libre', orderId: null, reserved: null, isFiado: false, type: 'mesa',
+      id: `t${i + 1}`, name: `Mesa ${i + 1}`, status: 'libre' as const, orderId: null, reserved: null, isFiado: false, type: 'mesa' as const,
       x: 60 + (i % 4) * 140, y: 60 + Math.floor(i / 4) * 140, width: 80, height: 80, radius: 40,
-      shape: 'rect', rotation: 0, seats: 4, zone: 'z1', layer: 0, color: '',
+      shape: 'rect' as const, rotation: 0, seats: 4, zone: 'z1', layer: 0, color: '',
     })),
     ...Array.from({ length: 6 }, (_, i) => ({
-      id: `t${10 + i}`, name: `Barra ${i + 1}`, status: 'libre', orderId: null, reserved: null, isFiado: false, type: 'barra',
+      id: `t${10 + i}`, name: `Barra ${i + 1}`, status: 'libre' as const, orderId: null, reserved: null, isFiado: false, type: 'barra' as const,
       x: 600, y: 60 + i * 80, width: 140, height: 50, radius: 25,
-      shape: 'rect', rotation: 0, seats: 4, zone: 'z3', layer: 0, color: '',
+      shape: 'rect' as const, rotation: 0, seats: 4, zone: 'z3', layer: 0, color: '',
     })),
     { id: 't16', name: 'Para llevar', status: 'libre', orderId: null, reserved: null, isFiado: false, type: 'llevar', x: 810, y: 60, width: 90, height: 50, radius: 25, shape: 'rect', rotation: 0, seats: 0, zone: '', layer: 0, color: '' },
     { id: 't17', name: 'Domicilio', status: 'libre', orderId: null, reserved: null, isFiado: false, type: 'domicilio', x: 810, y: 140, width: 90, height: 50, radius: 25, shape: 'rect', rotation: 0, seats: 0, zone: '', layer: 0, color: '' },
@@ -175,7 +282,7 @@ export function seedFloor() {
   };
 }
 
-export function seedEmployees() {
+export function seedEmployees(): SeedEmployee[] {
   return [
     { id: 'e_admin', name: 'Administrador', pin: '1234', role: 'admin', personalDiscountEnabled: true, monthlyLimit: 80, monthlyUsed: 0, monthlyUsedMonth: '' },
     { id: 'e_1',     name: 'Ana',           pin: '1111', role: 'camarero', personalDiscountEnabled: true, monthlyLimit: 80, monthlyUsed: 0, monthlyUsedMonth: '' },
@@ -183,11 +290,11 @@ export function seedEmployees() {
   ];
 }
 
-export const MODIFIERS = [
+export const MODIFIERS: string[] = [
   'Sin cebolla', 'Sin gluten', 'Poco hecho', 'Bien hecho', 'Sin sal', 'Sin lactosa', 'Extra queso', 'A la plancha', 'Frito', 'Sin ajo',
 ];
 
-export const ALLERGENS = [
+export const ALLERGENS: Allergen[] = [
   { id: 'gluten',      label: 'Gluten',      abbr: 'G' },
   { id: 'crustaceos',  label: 'Crustáceos',  abbr: 'C' },
   { id: 'huevos',      label: 'Huevos',      abbr: 'H' },
@@ -204,7 +311,7 @@ export const ALLERGENS = [
   { id: 'moluscos',    label: 'Moluscos',    abbr: 'Mo' },
 ];
 
-export const ALLERGEN_COLORS = {
+export const ALLERGEN_COLORS: Record<string, string> = {
   gluten: '#c4a04a', crustaceos: '#b05e5e', huevos: '#d4b86a', pescado: '#6b9bf8',
   cacahuetes: '#9c6b3e', soja: '#7a9a7c', lacteos: '#d4c4aa', frutos_secos: '#8a6b4a',
   apio: '#6a9a4a', mostaza: '#c4a04a', sesamo: '#b89850', sulfitos: '#a67a1e',

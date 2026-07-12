@@ -1,35 +1,73 @@
 import { useState, useMemo } from 'react';
 import { Calendar, Users, ClipboardList, QrCode, Search, Pin, PinOff, Download, MapIcon } from 'lucide-react';
-import { clone } from './constants';
+import { clone, type Theme } from './constants';
 import QRCodeModal from './QRCodeModal';
 
-export default function SalonView({ floor, onSelect, persistFloor, colors: C, onEditFloor }) {
-  const [showReservationModal, setShowReservationModal] = useState(null);
+interface SalonTable {
+  id: string;
+  name: string;
+  status: string;
+  type: string;
+  orderId: string | null;
+  isFiado: boolean;
+  reserved: { name: string; time: string; guests: number } | null;
+  reserved_for: string;
+}
+
+interface SalonOrderItem {
+  price: number;
+  qty: number;
+  sent: boolean;
+  ready: boolean;
+  sentAt?: number;
+}
+
+interface SalonOrder {
+  items: SalonOrderItem[];
+}
+
+interface SalonFloor {
+  tables: SalonTable[];
+  orders: Record<string, SalonOrder>;
+}
+
+interface SalonViewProps {
+  floor: SalonFloor;
+  onSelect: (tableId: string) => void;
+  persistFloor: (floor: SalonFloor) => void;
+  colors: Theme;
+  onEditFloor?: () => void;
+}
+
+export default function SalonView({ floor, onSelect, persistFloor, colors: C, onEditFloor }: SalonViewProps) {
+  const [showReservationModal, setShowReservationModal] = useState<string | null>(null);
   const [reservationForm, setReservationForm] = useState({ name: '', time: '', guests: 2 });
-  const [qrTableId, setQrTableId] = useState(null);
+  const [qrTableId, setQrTableId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState('todas');
   const [searchQuery, setSearchQuery] = useState('');
   const [pinned, setPinned] = useState(true);
 
-  function addReservation(tableId) {
+  function addReservation(tableId: string) {
     if (!reservationForm.name || !reservationForm.time) return;
     const nextFloor = clone(floor);
     const table = nextFloor.tables.find(t => t.id === tableId);
-    table.reserved = { name: reservationForm.name, time: reservationForm.time, guests: parseInt(reservationForm.guests) || 2 };
+    if (!table) return;
+    table.reserved = { name: reservationForm.name, time: reservationForm.time, guests: parseInt(reservationForm.guests as unknown as string) || 2 };
     table.status = 'libre';
     persistFloor(nextFloor);
     setShowReservationModal(null);
     setReservationForm({ name: '', time: '', guests: 2 });
   }
 
-  function cancelReservation(tableId) {
+  function cancelReservation(tableId: string) {
     const nextFloor = clone(floor);
     const table = nextFloor.tables.find(t => t.id === tableId);
+    if (!table) return;
     table.reserved = null;
     persistFloor(nextFloor);
   }
 
-  const statusStyle = {
+  const statusStyle: Record<string, { border: string; label: string; dot: string; bg: string }> = {
     libre:     { border: C.line,  label: 'Libre',     dot: C.sageLight, bg: C.surface },
     ocupada:   { border: C.brass, label: 'Ocupada',   dot: C.brassLight, bg: C.surface },
     cuenta:    { border: C.wine,  label: 'Cuenta',    dot: C.wineLight, bg: C.surface },
@@ -330,7 +368,7 @@ export default function SalonView({ floor, onSelect, persistFloor, colors: C, on
                 min="1"
                 max="20"
                 value={reservationForm.guests}
-                onChange={e => setReservationForm({ ...reservationForm, guests: parseInt(e.target.value) || 1 })}
+                onChange={e => setReservationForm({ ...reservationForm, guests: parseInt(e.target.value as unknown as string) || 1 })}
                 style={{ background: C.surfaceLight, color: C.cream, width: 70 }}
                 className="rounded-lg px-2 py-2.5 text-sm text-center"
                 placeholder="Pers."

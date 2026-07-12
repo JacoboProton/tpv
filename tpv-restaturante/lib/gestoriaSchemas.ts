@@ -64,7 +64,7 @@ export const AuthorizationSchema = z.object({
 export const OperationsSchema = z.object({});
 
 
-export function validateRequest(body: any) {
+export function validateRequest(body: Record<string, unknown>) {
   const { action } = body;
   switch (action) {
     case 'document':
