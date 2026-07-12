@@ -1,17 +1,61 @@
+interface TicketItem {
+  name: string;
+  qty: number;
+  price: number;
+  productId?: string;
+  modifiers?: Array<{ optionName?: string; name?: string }>;
+}
+
+interface CatalogProduct {
+  id: string;
+  allergens?: string[];
+}
+
+interface Allergen {
+  id: string;
+  abbr: string;
+}
+
+interface TicketParams {
+  items: TicketItem[];
+  subtotal: number;
+  discountAmount: number;
+  totalConIgic: number;
+  baseImponible: number;
+  cuotaIgic: number;
+  tip?: number;
+  tipMethod?: string;
+  totalWithTip: number;
+  restaurantName?: string;
+  companyCif?: string;
+  companyAddress?: string;
+  companyPhone?: string;
+  logoUrl?: string;
+  footerText?: string;
+  ticketWidth?: string;
+  tableName?: string;
+  employeeName?: string;
+  ticketLabel?: string;
+  ticketNumber?: string | number;
+  date?: string;
+  catalog?: { products?: CatalogProduct[] };
+  allergensList?: Allergen[];
+}
+
 export function buildTicketHtml({
   items, subtotal, discountAmount, totalConIgic, baseImponible, cuotaIgic,
   tip, tipMethod, totalWithTip,
   restaurantName, companyCif, companyAddress, companyPhone, logoUrl, footerText, ticketWidth,
   tableName, employeeName, ticketLabel, ticketNumber, date,
   catalog, allergensList,
-}) {
-  function row(item) {
+}: TicketParams): string {
+  function row(item: TicketItem) {
     const mods = item.modifiers?.length
       ? `<div style="font-size:9px;color:#555;padding-left:4px">${item.modifiers.map(m => `+ ${m.optionName || m.name || ''}`).join('<br>')}</div>`
       : '';
     const aIcons = item.productId && catalog?.products
       ? (catalog.products.find(p => p.id === item.productId)?.allergens || [])
-        .map(aid => {
+        .map((aid: string) => {
           const a = (allergensList || []).find(x => x.id === aid);
           return a ? `<span style="font-size:8px;color:#888;margin-right:2px">[${a.abbr}]</span>` : '';
         }).join('')
@@ -54,7 +98,7 @@ export function buildTicketHtml({
   <div class="r" style="font-size:9px;color:#555"><span>Base Imponible</span><span>${euros(baseImponible)}</span></div>
   <div class="r" style="font-size:9px;color:#555"><span>IGIC 7%</span><span>${euros(cuotaIgic)}</span></div>
   <div class="r b" style="font-size:11px"><span>Total</span><span>${euros(totalConIgic)}</span></div>
-  ${tip > 0 ? `<div class="r" style="font-size:9px;color:#777"><span>Propina · NO fiscal${tipMethod ? ' (' + tipMethod + ')' : ''}</span><span>+${euros(tip)}</span></div>` : ''}
+  ${tip && tip > 0 ? `<div class="r" style="font-size:9px;color:#777"><span>Propina · NO fiscal${tipMethod ? ' (' + tipMethod + ')' : ''}</span><span>+${euros(tip)}</span></div>` : ''}
   <div class="ds"></div>
   <div class="r b" style="font-size:13px;padding-top:2px"><span>TOTAL A PAGAR</span><span>${euros(totalWithTip)}</span></div>
   <div class="d"></div>
@@ -62,17 +106,17 @@ export function buildTicketHtml({
 </body></html>`;
 }
 
-export function printTicketHtml(html) {
+export function printTicketHtml(html: string): void {
   const iframe = document.createElement('iframe');
   iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:0;height:0;border:none';
   document.body.appendChild(iframe);
-  const w = iframe.contentWindow;
+  const w = iframe.contentWindow!;
   w.document.open();
   w.document.write(html);
   w.document.close();
   setTimeout(() => { w.focus(); w.print(); setTimeout(() => document.body.removeChild(iframe), 1000); }, 300);
 }
 
-function euros(n) {
+function euros(n: number): string {
   return Number(n || 0).toFixed(2) + '€';
 }

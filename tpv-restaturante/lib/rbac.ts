@@ -2,7 +2,13 @@ import { sql } from '@/lib/db';
 
 const SESSION_TTL = 12 * 60 * 60 * 1000;
 
-const PERMISSION_MATRIX = [
+interface PermissionRule {
+  path: string;
+  methods: string[];
+  roles: string[];
+}
+
+const PERMISSION_MATRIX: PermissionRule[] = [
   { path: '/api/floor', methods: ['GET', 'PATCH'], roles: ['admin', 'camarero', 'cocina'] },
   { path: '/api/sales', methods: ['POST'], roles: ['admin', 'camarero'] },
   { path: '/api/qr-order', methods: ['GET', 'POST', 'PUT'], roles: ['admin', 'camarero'] },
@@ -11,19 +17,25 @@ const PERMISSION_MATRIX = [
   { path: '/api/keep-alive', methods: ['GET'], roles: ['admin', 'camarero', 'cocina'] },
 ];
 
-export function getRoutePermission(pathname, method) {
+export function getRoutePermission(pathname: string, method: string): string[] | null {
   const match = PERMISSION_MATRIX.find(
     r => pathname.startsWith(r.path) && r.methods.includes(method)
   );
   return match ? match.roles : null;
 }
 
-export function isAdminRoute(pathname) {
+export function isAdminRoute(pathname: string): boolean {
   return pathname.startsWith('/api/') &&
     !PERMISSION_MATRIX.some(r => pathname.startsWith(r.path));
 }
 
-export async function getSessionEmployee(req) {
+interface SessionEmployee {
+  id: string;
+  role: string;
+  tenantId: string;
+}
+
+export async function getSessionEmployee(req: Request): Promise<SessionEmployee | null> {
   try {
     const employeeId = req.headers.get('x-employee-id');
     const deviceId = req.headers.get('x-device-id');
@@ -38,7 +50,7 @@ export async function getSessionEmployee(req) {
         AND device_id = ${deviceId}
         AND active = true
       LIMIT 1
-    `;
+    ` as unknown as Array<{ employee_id: string; role: string; last_seen: string }>;
 
     if (rows.length === 0) return null;
     const session = rows[0];
@@ -57,8 +69,15 @@ export async function getSessionEmployee(req) {
   }
 }
 
-export function requireRole(allowedRoles) {
-  return async (req) => {
+interface AuthResult {
+  authorized: boolean;
+  error?: string;
+  status?: number;
+  employee?: SessionEmployee;
+}
+
+export function requireRole(allowedRoles: string[]) {
+  return async (req: Request): Promise<AuthResult> => {
     const emp = await getSessionEmployee(req);
     if (!emp) {
       return { authorized: false, error: 'Sesión no válida', status: 401 };
@@ -70,15 +89,15 @@ export function requireRole(allowedRoles) {
   };
 }
 
-export async function requireAdminPin(req, adminPin) {
+export async function requireAdminPin(req: Request, adminPin: string | null): Promise<AuthResult> {
   if (!adminPin) return { authorized: false, error: 'PIN de administrador requerido', status: 400 };
   const tenantId = req.headers.get('x-tenant-id') || 'default';
   const rows = await sql`
     SELECT pin_hash FROM employees
     WHERE tenant_id = ${tenantId} AND role = 'admin'
-  `;
-  const { default: bcrypt } = await import('bcryptjs');
-  const match = rows.some(r => bcrypt.compareSync(adminPin, r.pin_hash));
+  ` as unknown as Array<{ pin_hash: string }>;
+  const { compareSync } = await import('bcryptjs');
+  const match = rows.some(r => compareSync(adminPin, r.pin_hash));
   if (!match) return { authorized: false, error: 'PIN de administrador incorrecto', status: 403 };
   return { authorized: true };
 }

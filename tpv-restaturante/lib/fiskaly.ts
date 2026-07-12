@@ -10,30 +10,35 @@ const API_SECRET = process.env.FISKALY_API_SECRET;
 const TAXPAYER_NIF = process.env.FISKALY_TAXPAYER_NIF;
 const TERRITORY = process.env.FISKALY_TERRITORY || 'CANARY_ISLANDS';
 
-let tokenCache = null;
+interface TokenCache {
+  bearer: string;
+  expiresAt: number;
+}
+
+let tokenCache: TokenCache | null = null;
 const TOKEN_CONFIG_KEY = 'fiskaly_saved_token';
 
-async function loadTokenFromDb() {
+async function loadTokenFromDb(): Promise<TokenCache | null> {
   try {
     const rows = await sql`
       SELECT value FROM fiskaly_config WHERE key = ${TOKEN_CONFIG_KEY}
-    `;
+    ` as unknown as Array<{ value: string }>;
     if (rows.length > 0) return JSON.parse(rows[0].value);
-  } catch {}
+  } catch { /* ignore */ }
   return null;
 }
 
-async function saveTokenToDb(token) {
+async function saveTokenToDb(token: TokenCache): Promise<void> {
   try {
     await sql`
       INSERT INTO fiskaly_config (key, value, updated_at)
       VALUES (${TOKEN_CONFIG_KEY}, ${JSON.stringify(token)}, ${Date.now()})
       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = ${Date.now()}
     `;
-  } catch {}
+  } catch { /* ignore */ }
 }
 
-async function getAccessToken() {
+async function getAccessToken(): Promise<string> {
   if (tokenCache && Date.now() < tokenCache.expiresAt) {
     return tokenCache.bearer;
   }
@@ -57,15 +62,15 @@ async function getAccessToken() {
     const err = await res.text();
     throw new Error(`Fiskaly auth failed: ${res.status} ${err}`);
   }
-  const data = await res.json();
+  const data = await res.json() as { content: { access_token: { bearer: string; expires_at: number } } };
   const t = data.content.access_token;
-  const newCache = { bearer: t.bearer, expiresAt: t.expires_at * 1000 };
+  const newCache: TokenCache = { bearer: t.bearer, expiresAt: t.expires_at * 1000 };
   tokenCache = newCache;
   saveTokenToDb(newCache);
   return t.bearer;
 }
 
-async function fiskalyFetch(path, options = {}) {
+async function fiskalyFetch(path: string, options: RequestInit = {}): Promise<unknown> {
   const token = await getAccessToken();
   const url = `${BASE_URL}${path}`;
   const res = await fetch(url, {
@@ -73,7 +78,7 @@ async function fiskalyFetch(path, options = {}) {
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
-      ...options.headers,
+      ...(options.headers as Record<string, string>),
     },
   });
   if (!res.ok) {
@@ -84,7 +89,7 @@ async function fiskalyFetch(path, options = {}) {
   return res.json();
 }
 
-export async function createOrUpdateTaxpayer(legalName) {
+export async function createOrUpdateTaxpayer(legalName?: string): Promise<unknown> {
   return fiskalyFetch('/taxpayer', {
     method: 'PUT',
     body: JSON.stringify({
@@ -101,12 +106,12 @@ export async function createOrUpdateTaxpayer(legalName) {
   });
 }
 
-export async function listSigners() {
-  const data = await fiskalyFetch('/signers', { method: 'GET' });
+export async function listSigners(): Promise<unknown[]> {
+  const data = await fiskalyFetch('/signers', { method: 'GET' }) as { results?: unknown[]; content?: { results?: unknown[] } };
   return data.results || data.content?.results || [];
 }
 
-export async function createSigner() {
+export async function createSigner(): Promise<unknown> {
   const id = randomUUID();
   return fiskalyFetch(`/signers/${id}`, {
     method: 'PUT',
@@ -114,7 +119,7 @@ export async function createSigner() {
   });
 }
 
-export async function generateTaxpayerAgreement() {
+export async function generateTaxpayerAgreement(): Promise<Buffer> {
   const token = await getAccessToken();
   const res = await fetch(`${BASE_URL}/taxpayer/agreement`, {
     method: 'POST',
@@ -132,24 +137,27 @@ export async function generateTaxpayerAgreement() {
   return Buffer.from(buffer);
 }
 
-export async function uploadTaxpayerAgreement(base64Pdf) {
+export async function uploadTaxpayerAgreement(base64Pdf: string): Promise<unknown> {
   return fiskalyFetch('/taxpayer/agreement', {
     method: 'PUT',
     body: JSON.stringify({ content: { signed_agreement: base64Pdf } }),
   });
 }
 
-export async function createClient() {
+export async function createClient(): Promise<unknown> {
   const id = randomUUID();
   return fiskalyFetch(`/clients/${id}`, {
     method: 'PUT',
-    body: JSON.stringify({
-      content: {},
-    }),
+    body: JSON.stringify({ content: {} }),
   });
 }
 
-export async function createInvoice({ clientId, invoiceContent }) {
+interface CreateInvoiceParams {
+  clientId: string;
+  invoiceContent: Record<string, unknown>;
+}
+
+export async function createInvoice({ clientId, invoiceContent }: CreateInvoiceParams): Promise<unknown> {
   const id = randomUUID();
   return fiskalyFetch(`/clients/${clientId}/invoices/${id}`, {
     method: 'PUT',
@@ -162,14 +170,18 @@ export async function createInvoice({ clientId, invoiceContent }) {
   });
 }
 
-export async function getFiskalyConfig() {
-  const rows = await sql`SELECT key, value FROM fiskaly_config`;
-  const cfg = {};
+interface FiskalyConfig {
+  [key: string]: string;
+}
+
+export async function getFiskalyConfig(): Promise<FiskalyConfig> {
+  const rows = await sql`SELECT key, value FROM fiskaly_config` as unknown as Array<{ key: string; value: string }>;
+  const cfg: FiskalyConfig = {};
   for (const r of rows) cfg[r.key] = r.value;
   return cfg;
 }
 
-export async function setupFiskaly(legalName) {
+export async function setupFiskaly(legalName?: string): Promise<unknown> {
   const existing = await getFiskalyConfig();
   if (existing.client_id) {
     return { status: 'already_setup', config: existing };
@@ -177,7 +189,7 @@ export async function setupFiskaly(legalName) {
 
   await createOrUpdateTaxpayer(legalName);
 
-  const c = await createClient();
+  const c = await createClient() as { content?: { id?: string; signer?: { id?: string } }; id?: string };
   const clientId = c.content?.id || c.id;
   if (!clientId) throw new Error('No client ID in response: ' + JSON.stringify(c));
   await sql`INSERT INTO fiskaly_config (key, value, updated_at) VALUES ('client_id', ${clientId}, ${Date.now()})
@@ -195,7 +207,24 @@ export async function setupFiskaly(legalName) {
   };
 }
 
-export async function registerSaleInFiskaly(sale, numSerie) {
+interface SaleItem {
+  productId?: string;
+  name?: string;
+  qty?: number;
+  price?: number;
+}
+
+interface Sale {
+  totalWithTip?: number;
+  total?: number;
+  items?: SaleItem[];
+  closedAt?: number;
+  tableName?: string;
+  id?: string;
+  saleId?: string;
+}
+
+export async function registerSaleInFiskaly(sale: Sale, numSerie?: string): Promise<unknown> {
   const cfg = await getFiskalyConfig();
   if (!cfg.client_id) {
     throw new Error('Fiskaly no configurado. Ejecuta /api/verifactu/setup primero.');
@@ -229,12 +258,11 @@ export async function registerSaleInFiskaly(sale, numSerie) {
     ? `Venta mesa ${sale.tableName}`
     : `Venta TPV ${sale.id || sale.saleId || ''}`;
 
-  const fmtDate = (dt) => {
-    const pad = (n) => String(n).padStart(2, '0');
+  const fmtDate = (dt: Date): string => {
+    const pad = (n: number) => String(n).padStart(2, '0');
     return `${pad(dt.getDate())}-${pad(dt.getMonth() + 1)}-${dt.getFullYear()}`;
   };
 
-  // Si no hay items, crear un item genérico con el total
   if (items.length === 0) {
     const base = totalAmount / 1.07;
     items = [{
@@ -270,13 +298,13 @@ export async function registerSaleInFiskaly(sale, numSerie) {
     })),
   };
 
-  const invRes = await createInvoice({ clientId: cfg.client_id, invoiceContent });
-  const inv = invRes.content || invRes;
+  const invRes = await createInvoice({ clientId: cfg.client_id, invoiceContent }) as Record<string, unknown>;
+  const inv = (invRes.content as Record<string, unknown> | undefined) || invRes;
 
   return {
-    fiskalyInvoiceId: inv.id || invRes.id,
-    verificationUrl: inv.compliance?.url || null,
-    qrUrl: inv.compliance?.url || null,
+    fiskalyInvoiceId: (inv.id || invRes.id) as string | undefined,
+    verificationUrl: ((inv as Record<string, unknown>).compliance as Record<string, unknown> | undefined)?.url as string | null || null,
+    qrUrl: ((inv as Record<string, unknown>).compliance as Record<string, unknown> | undefined)?.url as string | null || null,
     signedInvoice: inv,
   };
 }

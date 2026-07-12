@@ -1,13 +1,18 @@
 import { createHmac } from 'node:crypto';
 
-function timingSafeEqual(a, b) {
+function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
 }
 
-export function verifyWebhookSignature(rawBody, signature, secretEnvVar, encoding = 'base64') {
+export function verifyWebhookSignature(
+  rawBody: string | Buffer,
+  signature: string | null,
+  secretEnvVar: string,
+  encoding: 'base64' | 'hex' = 'base64'
+): boolean {
   const secret = process.env[secretEnvVar];
   if (!secret) {
     console.warn(`[webhook] ${secretEnvVar} no configurado — saltando verificación`);

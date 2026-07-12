@@ -1,4 +1,4 @@
-export function requireRole(req, role) {
+export function requireRole(req: Request, role: string): { error: string; status: number } | null {
   const employeeRole = req.headers.get('x-employee-role');
   if (!employeeRole) {
     return { error: 'Se requiere autenticación de empleado', status: 401 };

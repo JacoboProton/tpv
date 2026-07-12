@@ -1,6 +1,6 @@
 const DEVICE_KEY = 'tpv:device_id';
 
-function getDeviceId() {
+function getDeviceId(): string {
   let id = localStorage.getItem(DEVICE_KEY);
   if (!id) {
     id = 'web_' + Math.random().toString(36).slice(2, 10) + '_' + Date.now();
@@ -9,7 +9,7 @@ function getDeviceId() {
   return id;
 }
 
-export async function sessionLogin(employeeId, employeeRole) {
+export async function sessionLogin(employeeId: string, employeeRole: string): Promise<unknown> {
   const res = await fetch('/api/session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -18,7 +18,7 @@ export async function sessionLogin(employeeId, employeeRole) {
   return res.json();
 }
 
-export async function sessionLogout(employeeId) {
+export async function sessionLogout(employeeId: string): Promise<void> {
   await fetch('/api/session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -26,7 +26,7 @@ export async function sessionLogout(employeeId) {
   }).catch(() => {});
 }
 
-export async function sessionKeepalive(employeeId) {
+export async function sessionKeepalive(employeeId: string): Promise<{ invalidated?: boolean }> {
   const res = await fetch('/api/session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -35,7 +35,7 @@ export async function sessionKeepalive(employeeId) {
   return res.json();
 }
 
-export function startKeepalive(employeeId, onInvalidated) {
+export function startKeepalive(employeeId: string, onInvalidated?: () => void): (() => void) | undefined {
   if (typeof window === 'undefined') return;
   const interval = setInterval(async () => {
     try {
@@ -44,7 +44,7 @@ export function startKeepalive(employeeId, onInvalidated) {
         clearInterval(interval);
         onInvalidated?.();
       }
-    } catch {}
+    } catch { /* keep-alive error, retry next interval */ }
   }, 30000);
   return () => clearInterval(interval);
 }

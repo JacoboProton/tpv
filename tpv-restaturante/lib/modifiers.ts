@@ -1,4 +1,19 @@
-export function seedModifierGroups() {
+interface ModifierOption {
+  id: string;
+  name: string;
+  priceDelta: number;
+  isDefault: boolean;
+}
+
+interface ModifierGroup {
+  id: string;
+  name: string;
+  type: 'single' | 'multiple';
+  required: boolean;
+  options: ModifierOption[];
+}
+
+export function seedModifierGroups(): ModifierGroup[] {
   return [
     {
       id: 'mg1', name: 'Punto de carne', type: 'single', required: false,
@@ -34,7 +49,7 @@ export function seedModifierGroups() {
   ];
 }
 
-export const DEFAULT_PRODUCT_MODIFIERS = {
+export const DEFAULT_PRODUCT_MODIFIERS: Record<string, string[]> = {
   p12: ['mg1', 'mg2', 'mg3', 'mg4'],
   p13: ['mg1', 'mg2'],
   p14: ['mg2'],

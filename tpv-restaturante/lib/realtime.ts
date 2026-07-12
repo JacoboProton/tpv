@@ -1,20 +1,20 @@
-import { RealtimeClient } from '@supabase/supabase-js';
+import { RealtimeClient, RealtimeChannel } from '@supabase/supabase-js';
 
-let client = null;
-let channel = null;
-let unsub = null;
-const clientChannels = {};
+let client: RealtimeClient | null = null;
+let channel: RealtimeChannel | null = null;
+let unsub: (() => void) | null = null;
+const clientChannels: Record<string, RealtimeChannel> = {};
 
-let serverClient = null;
-const serverChannels = {};
+let serverClient: RealtimeClient | null = null;
+const serverChannels: Record<string, RealtimeChannel> = {};
 
-function getRealtimeUrl() {
+function getRealtimeUrl(): string | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!url) return null;
   return url.replace('https://', 'wss://') + '/realtime/v1';
 }
 
-function getServerClient() {
+function getServerClient(): RealtimeClient | null {
   if (serverClient) return serverClient;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   const endpoint = getRealtimeUrl();
@@ -24,7 +24,7 @@ function getServerClient() {
   return serverClient;
 }
 
-function getClientInstance() {
+function getClientInstance(): RealtimeClient | null {
   if (client) return client;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   const endpoint = getRealtimeUrl();
@@ -34,7 +34,7 @@ function getClientInstance() {
   return client;
 }
 
-function getClientChannel(tenantId) {
+function getClientChannel(tenantId?: string): RealtimeChannel | null {
   const tid = tenantId || 'default';
   if (clientChannels[tid]) return clientChannels[tid];
   const c = getClientInstance();
@@ -45,7 +45,7 @@ function getClientChannel(tenantId) {
   return ch;
 }
 
-export function connectRealtime(tenantId) {
+export function connectRealtime(tenantId?: string): RealtimeChannel | null {
   if (channel) return channel;
   const tid = tenantId || 'default';
   const c = getClientInstance();
@@ -60,7 +60,7 @@ export function connectRealtime(tenantId) {
   return channel;
 }
 
-export function broadcastFloorUpdate(floor, tenantId) {
+export function broadcastFloorUpdate(floor: unknown, tenantId?: string): void {
   const ch = getClientChannel(tenantId);
   if (!ch) return;
   ch.send({
@@ -70,15 +70,15 @@ export function broadcastFloorUpdate(floor, tenantId) {
   });
 }
 
-export function onFloorUpdate(callback) {
+export function onFloorUpdate(callback: (floor: unknown) => void): () => void {
   if (!channel) return () => {};
-  unsub = channel.on('broadcast', { event: 'floor:updated' }, ({ payload }) => {
+  unsub = channel.on('broadcast', { event: 'floor:updated' }, ({ payload }: { payload: { floor: unknown } }) => {
     callback(payload.floor);
-  });
+  }) as unknown as () => void;
   return () => { unsub?.(); };
 }
 
-export async function broadcastFloorUpdateServer(floor, tenantId) {
+export async function broadcastFloorUpdateServer(floor: unknown, tenantId?: string): Promise<void> {
   const c = getServerClient();
   if (!c) return;
   const tid = tenantId || 'default';
@@ -87,8 +87,8 @@ export async function broadcastFloorUpdateServer(floor, tenantId) {
   if (!ch) {
     ch = c.channel(`floor-sync:${tid}`);
     serverChannels[tid] = ch;
-    await new Promise(resolve => {
-      ch.subscribe(status => {
+    await new Promise<void>(resolve => {
+      ch.subscribe((status: string) => {
         if (status === 'SUBSCRIBED') resolve();
       });
     });
@@ -97,7 +97,12 @@ export async function broadcastFloorUpdateServer(floor, tenantId) {
   ch.send({ type: 'broadcast', event: 'floor:updated', payload: { floor } });
 }
 
-export function broadcastReadyNotification(tableName, itemNames, waiterName, tenantId) {
+export function broadcastReadyNotification(
+  tableName: string,
+  itemNames: string[],
+  waiterName: string,
+  tenantId?: string
+): void {
   const ch = getClientChannel(tenantId);
   if (!ch) return;
   ch.send({
@@ -107,7 +112,7 @@ export function broadcastReadyNotification(tableName, itemNames, waiterName, ten
   });
 }
 
-export function disconnectRealtime() {
+export function disconnectRealtime(): void {
   for (const ch of Object.values(clientChannels)) {
     ch.unsubscribe();
   }

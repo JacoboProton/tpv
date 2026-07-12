@@ -2,7 +2,13 @@ import { sql } from './db';
 import { formatHora } from './verifactu';
 
 // ===== Migration registry =====
-const MIGRATIONS = [];
+interface Migration {
+  name: string;
+  description: string;
+  up: () => Promise<unknown>;
+}
+
+const MIGRATIONS: Migration[] = [];
 
 async function m001_up() {
   // ===== MULTI-TENANT =====
@@ -44,7 +50,7 @@ async function m001_up() {
     'employees', 'tables', 'orders', 'products', 'categories', 'offers', 'combos',
   ];
   for (const table of coreTables) {
-    try { await sql`ALTER TABLE "${sql.unsafe(table)}" ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'default'`; } catch (e) { console.warn('tenant_id skip:', table, e.message); }
+    try { await sql`ALTER TABLE "${sql.unsafe(table)}" ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'default'`; } catch (e) { console.warn('tenant_id skip:', table, (e as Error).message); }
     try { await sql`CREATE INDEX IF NOT EXISTS ${sql.unsafe('idx_' + table + '_tenant')} ON "${sql.unsafe(table)}"(tenant_id)`; } catch {}
   }
 
@@ -84,7 +90,7 @@ async function m001_up() {
     })) {
       await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
     }
-  } catch (e) { console.warn('settings seed skip:', e.message); }
+  } catch (e) { console.warn('settings seed skip:', (e as Error).message); }
 
   await sql`
     CREATE TABLE IF NOT EXISTS offers (
@@ -100,7 +106,7 @@ async function m001_up() {
     await sql`INSERT INTO offers (id, name, type, days, start_hour, end_hour, discount_pct, product_ids)
       VALUES ('offer_menu', 'Menú del día (laborables)', 'menu', '{1,2,3,4,5}', 13, 16, 15, '{p12,p14}')
       ON CONFLICT (id) DO NOTHING`;
-  } catch (e) { console.warn('offers seed skip:', e.message); }
+  } catch (e) { console.warn('offers seed skip:', (e as Error).message); }
 
   await sql`
     CREATE TABLE IF NOT EXISTS tables (
@@ -171,10 +177,10 @@ async function m001_up() {
   await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS pin_hash TEXT DEFAULT ''`;
 
   // Hash existing plain-text PINs into pin_hash (one-time migration)
-  const { default: bcrypt } = await import('bcryptjs');
-  const unpinned = await sql`SELECT id, pin FROM employees WHERE pin != '' AND (pin_hash IS NULL OR pin_hash = '')`;
+  const { hashSync } = await import('bcryptjs');
+  const unpinned = await sql`SELECT id, pin FROM employees WHERE pin != '' AND (pin_hash IS NULL OR pin_hash = '')` as unknown as Array<{ id: string; pin: string }>;
   for (const row of unpinned) {
-    const hash = bcrypt.hashSync(row.pin, 10);
+    const hash = hashSync(row.pin, 10);
     await sql`UPDATE employees SET pin_hash = ${hash} WHERE id = ${row.id}`;
   }
   // Clear plain-text pin column for rows that already have pin_hash set
@@ -211,7 +217,7 @@ async function m001_up() {
   // Backfill registros viejos sin fecha_hora_firma
   const sinFirma = await sql`
     SELECT id, fecha_expedicion, created_at FROM verifactu_registros WHERE fecha_hora_firma IS NULL
-  `;
+  ` as unknown as Array<{ id: string; fecha_expedicion: string; created_at: string }>;
   for (const r of sinFirma) {
     const fechaHoraFirma = `${r.fecha_expedicion}T${formatHora(Number(r.created_at))}`;
     await sql`UPDATE verifactu_registros SET fecha_hora_firma = ${fechaHoraFirma} WHERE id = ${r.id}`;
@@ -297,9 +303,9 @@ async function m001_up() {
     )
   `;
 
-  const mgCount = await sql`SELECT COUNT(*) as cnt FROM modifier_groups`;
+  const mgCount = await sql`SELECT COUNT(*) as cnt FROM modifier_groups` as unknown as Array<{ cnt: string | number }>;
   if (mgCount[0].cnt === '0' || mgCount[0].cnt === 0) {
-    const { seedModifierGroups, DEFAULT_PRODUCT_MODIFIERS } = await import('./modifiers.js');
+    const { seedModifierGroups, DEFAULT_PRODUCT_MODIFIERS } = await import('./modifiers');
     const groups = seedModifierGroups();
     for (const g of groups) {
       await sql`
@@ -372,7 +378,7 @@ async function m001_up() {
     for (const [k, v] of Object.entries(platformSettings)) {
       await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
     }
-  } catch (e) { console.warn('platform settings seed skip:', e.message); }
+  } catch (e) { console.warn('platform settings seed skip:', (e as Error).message); }
 
   await sql`
     CREATE TABLE IF NOT EXISTS delivery_tracking (
@@ -709,7 +715,7 @@ async function m001_up() {
     for (const [k, v] of Object.entries(reservationKeys)) {
       await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
     }
-  } catch (e) { console.warn('reservation settings seed skip:', e.message); }
+  } catch (e) { console.warn('reservation settings seed skip:', (e as Error).message); }
 
   await sql`
     CREATE TABLE IF NOT EXISTS waitlist (
@@ -747,7 +753,7 @@ async function m001_up() {
     for (const [k, v] of Object.entries(waitlistKeys)) {
       await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
     }
-  } catch (e) { console.warn('waitlist settings seed skip:', e.message); }
+  } catch (e) { console.warn('waitlist settings seed skip:', (e as Error).message); }
 
   await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'tpv'`;
 
@@ -790,7 +796,7 @@ async function m001_up() {
     for (const [k, v] of Object.entries(qrKeys)) {
       await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
     }
-  } catch (e) { console.warn('qr settings seed skip:', e.message); }
+  } catch (e) { console.warn('qr settings seed skip:', (e as Error).message); }
 
   await sql`
     CREATE TABLE IF NOT EXISTS delivery_zones (
@@ -873,7 +879,7 @@ async function m001_up() {
     for (const [k, v] of Object.entries(onlineKeys)) {
       await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
     }
-  } catch (e) { console.warn('online settings seed skip:', e.message); }
+  } catch (e) { console.warn('online settings seed skip:', (e as Error).message); }
 
   await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS position TEXT DEFAULT ''`;
   await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS work_type TEXT DEFAULT ''`;
@@ -1138,7 +1144,7 @@ async function m001_up() {
     for (const [k, v] of Object.entries(clockinKeys)) {
       await sql`INSERT INTO settings (key, value) VALUES (${k}, ${v}) ON CONFLICT (key) DO NOTHING`;
     }
-  } catch (e) { console.warn('clockin settings seed skip:', e.message); }
+  } catch (e) { console.warn('clockin settings seed skip:', (e as Error).message); }
 
   // ===== ALBARANES (NOTAS DE ENTREGA) =====
   await sql`
@@ -1311,17 +1317,17 @@ async function m001_up() {
       last_seen BIGINT NOT NULL
     )
   `;
-  try { await sql`ALTER TABLE sessions ADD CONSTRAINT unique_session UNIQUE (tenant_id, employee_id, device_id)`; } catch (e) { console.warn('sessions unique skip:', e.message); }
+  try { await sql`ALTER TABLE sessions ADD CONSTRAINT unique_session UNIQUE (tenant_id, employee_id, device_id)`; } catch (e) { console.warn('sessions unique skip:', (e as Error).message); }
 
   // Ensure tenant_id exists on all core tables (re-check for tables created after the ALTER loop above)
   const postCreateTables = ['employees', 'tables', 'orders', 'products', 'categories', 'offers', 'combos', 'settings', 'meal_menu_courses', 'meal_menu_course_items', 'meal_menu_schedules', 'modifier_options', 'product_modifiers', 'kds_pairings', 'kds_audit_log', 'qr_calls', 'delivery_tracking', 'webhook_events'];
   for (const table of postCreateTables) {
-    try { await sql`ALTER TABLE "${sql.unsafe(table)}" ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'default'`; } catch (e) { console.warn('tenant_id recheck:', table, e.message); }
+    try { await sql`ALTER TABLE "${sql.unsafe(table)}" ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'default'`; } catch (e) { console.warn('tenant_id recheck:', table, (e as Error).message); }
   }
 
   // Composite unique constraints for tables with non-standard PKs
   try { await sql`ALTER TABLE settings DROP CONSTRAINT IF EXISTS settings_pkey`; } catch {}
-  try { await sql`ALTER TABLE settings ADD PRIMARY KEY (tenant_id, key)`; } catch (e) { console.warn('settings PK skip:', e.message); }
+  try { await sql`ALTER TABLE settings ADD PRIMARY KEY (tenant_id, key)`; } catch (e) { console.warn('settings PK skip:', (e as Error).message); }
 
   // Convert PKs to composite (tenant_id, id) for tables that use ON CONFLICT
   const compositePkTables = ['tables', 'orders', 'products', 'employees', 'offers', 'combos', 'categories', 'kds_pairings', 'qr_calls'];
@@ -1329,12 +1335,12 @@ async function m001_up() {
     try {
       await sql`ALTER TABLE "${sql.unsafe(table)}" DROP CONSTRAINT IF EXISTS ${sql.unsafe('"' + table + '_pkey"')}`;
       await sql`ALTER TABLE "${sql.unsafe(table)}" ADD PRIMARY KEY (tenant_id, id)`;
-    } catch (e) { console.warn('composite PK skip:', table, e.message); }
+    } catch (e) { console.warn('composite PK skip:', table, (e as Error).message); }
     // Ensure ON CONFLICT (tenant_id, id) works even if composite PK migration failed
     try {
       await sql`ALTER TABLE "${sql.unsafe(table)}" ADD CONSTRAINT "${sql.unsafe(table + '_tenant_id_id_uniq')}" UNIQUE (tenant_id, id)`;
     } catch (e) {
-      if (!e.message?.includes('already exists')) console.warn('composite unique skip:', table, e.message);
+      if (!(e as Error).message.includes('already exists')) console.warn('composite unique skip:', table, (e as Error).message);
     }
   }
 
@@ -1355,7 +1361,7 @@ async function m001_up() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_closures_date ON closures(date)`;
 
-  try { await sql`ALTER TABLE closures ADD COLUMN IF NOT EXISTS cuadratura JSONB DEFAULT '[]'`; } catch (e) { console.warn('cuadratura col skip:', e.message); }
+  try { await sql`ALTER TABLE closures ADD COLUMN IF NOT EXISTS cuadratura JSONB DEFAULT '[]'`; } catch (e) { console.warn('cuadratura col skip:', (e as Error).message); }
 
   // Webhook events for idempotency and retry tracking
   await sql`
@@ -1418,8 +1424,8 @@ export async function runMigrations() {
       console.error(`Migration ${m.name} failed:`, e);
       await sql`
         INSERT INTO _migrations (name, description, applied_at, duration_ms, failed, error)
-        VALUES (${m.name}, ${m.description}, ${Date.now()}, ${Date.now() - start}, true, ${e.message.slice(0, 500)})
-        ON CONFLICT (name) DO UPDATE SET failed = true, error = ${e.message.slice(0, 500)}
+        VALUES (${m.name}, ${m.description}, ${Date.now()}, ${Date.now() - start}, true, ${(e as Error).message.slice(0, 500)})
+        ON CONFLICT (name) DO UPDATE SET failed = true, error = ${(e as Error).message.slice(0, 500)}
       `;
       throw e;
     }
@@ -1428,14 +1434,29 @@ export async function runMigrations() {
   return { ok: true };
 }
 
-export async function logStock({ productId, productName, oldStock, newStock, reason, employeeName }) {
+interface LogStockParams {
+  productId: string;
+  productName: string;
+  oldStock: number;
+  newStock: number;
+  reason: string;
+  employeeName?: string | null;
+}
+
+export async function logStock({ productId, productName, oldStock, newStock, reason, employeeName }: LogStockParams): Promise<void> {
   await sql`
     INSERT INTO stock_log (product_id, product_name, old_stock, new_stock, change_amount, reason, employee_name, created_at)
     VALUES (${productId}, ${productName}, ${oldStock}, ${newStock}, ${newStock - oldStock}, ${reason}, ${employeeName ?? null}, ${Date.now()})
   `;
 }
 
-export async function logCancelled(order, tableName, employeeName, reason) {
+interface CancelledOrder {
+  id: string;
+  tableId?: string;
+  items: Array<{ price: number; qty: number; name?: string }>;
+}
+
+export async function logCancelled(order: CancelledOrder, tableName: string, employeeName: string | null, reason: string): Promise<void> {
   await sql`
     INSERT INTO cancelled_orders (order_id, table_id, table_name, items, total, employee_name, reason, cancelled_at)
     VALUES (${order.id}, ${order.tableId}, ${tableName}, ${JSON.stringify(order.items)},
@@ -1444,26 +1465,33 @@ export async function logCancelled(order, tableName, employeeName, reason) {
   `;
 }
 
-export async function logTurn({ employeeId, employeeName, action, turnDate }) {
+interface LogTurnParams {
+  employeeId: string;
+  employeeName: string;
+  action: string;
+  turnDate: string;
+}
+
+export async function logTurn({ employeeId, employeeName, action, turnDate }: LogTurnParams): Promise<void> {
   await sql`
     INSERT INTO employee_turns (employee_id, employee_name, action, turn_date, time)
     VALUES (${employeeId}, ${employeeName}, ${action}, ${turnDate}, ${Date.now()})
   `;
 }
 
-export async function fetchCancelledOrders(limit = 50) {
+export async function fetchCancelledOrders(limit = 50): Promise<unknown> {
   return sql`
     SELECT * FROM cancelled_orders ORDER BY cancelled_at DESC LIMIT ${limit}
   `;
 }
 
-export async function fetchStockLog(limit = 100) {
+export async function fetchStockLog(limit = 100): Promise<unknown> {
   return sql`
     SELECT * FROM stock_log ORDER BY created_at DESC LIMIT ${limit}
   `;
 }
 
-export async function fetchTurns(employeeId, turnDate) {
+export async function fetchTurns(employeeId?: string, turnDate?: string): Promise<unknown> {
   if (employeeId) {
     return sql`
       SELECT * FROM employee_turns WHERE employee_id = ${employeeId} AND turn_date = ${turnDate} ORDER BY time
@@ -1474,7 +1502,13 @@ export async function fetchTurns(employeeId, turnDate) {
   `;
 }
 
-export async function backupAll() {
+interface BackupData {
+  exportedAt: string;
+  version: string;
+  data: Record<string, unknown>;
+}
+
+export async function backupAll(): Promise<BackupData> {
   const [
     categories, products, tables, orders, sales, employees, accessLogs,
     stockLog, cancelledOrders, offers, settings, backups,
@@ -1497,7 +1531,7 @@ export async function backupAll() {
     verifactuRegistros, paymentLogs, fiskalyConfig,
     modifierGroups, modifierOptions, productModifiers,
     productStock, productPriceRules,
-    sessions, employeeTurns,
+    employeeTurns,
     gestoriaSettings, gestoriaDocuments, gestoriaDocumentLines,
     gestoriaPayrolls, gestoriaTaxModels, gestoriaAuthorization,
     kdsPairings, kdsAuditLog,
@@ -1568,7 +1602,6 @@ export async function backupAll() {
     sql`SELECT * FROM product_price_rules ORDER BY id`,
     sql`SELECT * FROM employee_turns ORDER BY id`,
     sql`SELECT * FROM employees ORDER BY id`,
-    sql`SELECT * FROM sessions`,
     sql`SELECT * FROM gestoria_settings`,
     sql`SELECT * FROM gestoria_documents ORDER BY id`,
     sql`SELECT * FROM gestoria_document_lines ORDER BY id`,
@@ -1597,7 +1630,7 @@ export async function backupAll() {
       // Combos
       combos, combosSlots, combosSlotItems, combosItems,
       // Recetas / Producción
-      recipes, recipeIngredients, modifierRecipes, modifierRecipeIngredients,
+      produtosRecipes, recipeIngredients, modifierRecipes, modifierRecipeIngredients,
       productions, productionIngredients,
       // Compras / Proveedores
       suppliers, supplierCatalog, purchaseOrders, purchaseOrderLines,

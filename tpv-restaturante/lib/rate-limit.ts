@@ -1,6 +1,7 @@
-const windows = new Map();
+const windows = new Map<string, number[]>();
 
-let cleanupTimer = null;
+let cleanupTimer: ReturnType<typeof setInterval> | null = null;
+
 function ensureCleanup() {
   if (cleanupTimer) return;
   cleanupTimer = setInterval(() => {
@@ -11,13 +12,19 @@ function ensureCleanup() {
       else windows.set(key, recent);
     }
     if (windows.size === 0) {
-      clearInterval(cleanupTimer);
+      clearInterval(cleanupTimer!);
       cleanupTimer = null;
     }
   }, 60000);
 }
 
-export function rateLimit(key, maxRequests, windowMs) {
+interface RateLimitResult {
+  allowed: boolean;
+  remaining: number;
+  reset: number;
+}
+
+export function rateLimit(key: string | null | undefined, maxRequests: number, windowMs: number): RateLimitResult {
   if (!key) return { allowed: true, remaining: Infinity, reset: 0 };
 
   const now = Date.now();
@@ -27,7 +34,7 @@ export function rateLimit(key, maxRequests, windowMs) {
     windows.set(key, []);
   }
 
-  const timestamps = windows.get(key).filter(t => t > windowStart);
+  const timestamps = windows.get(key)!.filter(t => t > windowStart);
   timestamps.push(now);
   windows.set(key, timestamps);
   ensureCleanup();

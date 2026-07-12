@@ -1,6 +1,21 @@
 import { sql } from './db';
 
-export async function logPayment(opts) {
+interface PaymentLogOptions {
+  eventId?: string | null;
+  paymentIntentId?: string | null;
+  operation: string;
+  amountCents?: number;
+  currency?: string;
+  status?: string;
+  tableId?: string | null;
+  tableName?: string | null;
+  employeeName?: string | null;
+  source?: string | null;
+  error?: string | null;
+  stripeResponse?: unknown;
+}
+
+export async function logPayment(opts: PaymentLogOptions): Promise<void> {
   try {
     await sql`
       INSERT INTO payment_logs (
@@ -24,6 +39,6 @@ export async function logPayment(opts) {
       )
     `;
   } catch (e) {
-    console.error('[PaymentLogger] Error al guardar log:', e.message);
+    console.error('[PaymentLogger] Error al guardar log:', (e as Error).message);
   }
 }

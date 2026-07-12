@@ -1,31 +1,20 @@
-/**
- * Módulo de simulación Verifactu (AEAT)
- * Implementa la cadena de huellas SHA-256 y la generación de XML/QR
- * según el esquema RegFactuSistemaFacturacion.
- *
- * Canarias — IGIC tipo general: 7% (en lugar de IVA 21%)
- * El impuesto se denomina IGIC y la etiqueta en el XML se adapta.
- */
 import { createHash } from 'crypto';
 
-const NIF_EMISOR    = process.env.FISKALY_TAXPAYER_NIF || 'B12345678';
-const QR_BASE       = 'https://prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQR';
+const NIF_EMISOR = process.env.FISKALY_TAXPAYER_NIF || 'B12345678';
+const QR_BASE = 'https://prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQR';
 
-// Tipo de IGIC general aplicable en Canarias
-const IGIC_RATE     = 0.07;          // 7%
-const IGIC_LABEL    = '7.00';        // como aparece en el XML
+const IGIC_RATE = 0.07;
+const IGIC_LABEL = '7.00';
 
-// ---------- Utilidades de fecha ----------
-
-export function formatFecha(ts) {
+export function formatFecha(ts: number | string | Date): string {
   const d = new Date(ts);
   const yyyy = d.getFullYear();
-  const mm   = String(d.getMonth() + 1).padStart(2, '0');
-  const dd   = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}`;
 }
 
-export function formatHora(ts) {
+export function formatHora(ts: number | string | Date): string {
   const d = new Date(ts);
   const hh = String(d.getHours()).padStart(2, '0');
   const mi = String(d.getMinutes()).padStart(2, '0');
@@ -33,15 +22,18 @@ export function formatHora(ts) {
   return `${hh}:${mi}:${ss}`;
 }
 
-// ---------- Hash SHA-256 ----------
+interface RegistroData {
+  nif: string;
+  numSerie: string;
+  fechaExpedicion: string;
+  tipoFactura: string;
+  cuotaTotal: number;
+  importeTotal: number;
+  huellaAnterior: string;
+  fechaHoraFirma: string;
+}
 
-/**
- * Calcula la huella de un registro.
- * Concatenación:  NIF-EmisorFactura + NumSerieFactura + FechaExpedicionFacturaEmisor
- *                 + TipoFactura + CuotaTotal + ImporteTotal
- *                 + Huella_anterior + FechaHoraHusoHorarioFirma
- */
-export function computeHash(registroData) {
+export function computeHash(registroData: RegistroData): string {
   const {
     nif,
     numSerie,
@@ -67,9 +59,7 @@ export function computeHash(registroData) {
   return createHash('sha256').update(cadena, 'utf8').digest('hex');
 }
 
-// ---------- URL de QR ----------
-
-export function buildQRUrl(nif, numSerie, fecha, importe) {
+export function buildQRUrl(nif: string, numSerie: string, fecha: string, importe: number): string {
   const params = new URLSearchParams({
     nif,
     numserie: numSerie,
@@ -79,36 +69,54 @@ export function buildQRUrl(nif, numSerie, fecha, importe) {
   return `${QR_BASE}?${params.toString()}`;
 }
 
-// ---------- Generador principal ----------
+interface Sale {
+  id?: string;
+  saleId?: string;
+  closedAt?: number | string | Date;
+  total?: number;
+  totalWithTip?: number;
+  tableName?: string;
+}
 
-/**
- * Genera todos los datos Verifactu para una venta.
- *
- * @param {Object} sale          - Objeto venta del TPV
- * @param {string} previousHash  - Huella del registro anterior (o '0' si es el primero)
- * @param {string} numSerie      - Número de serie asignado (ej: "VERI-2025-000001")
- * @returns {{ xml, hash, qrUrl, registroData }}
- */
-export function generateRegistroFactura(sale, previousHash, numSerie, overrides = {}) {
-  const ts              = sale.closedAt ?? Date.now();
+interface Overrides {
+  fechaExpedicion?: string;
+  importeTotal?: number;
+  baseImponible?: number;
+  cuotaIGIC?: number;
+}
+
+interface RegistroFacturaResult {
+  xml: string;
+  hash: string;
+  qrUrl: string;
+  registroData: RegistroData;
+  fechaExpedicion: string;
+  fechaHoraFirma: string;
+}
+
+export function generateRegistroFactura(
+  sale: Sale,
+  previousHash: string,
+  numSerie: string,
+  overrides: Overrides = {}
+): RegistroFacturaResult {
+  const ts = sale.closedAt ?? Date.now();
   const fechaExpedicion = overrides.fechaExpedicion ?? formatFecha(ts);
-  const hora            = formatHora(ts);
-  const fechaHoraFirma  = `${fechaExpedicion}T${hora}`;
+  const hora = formatHora(ts);
+  const fechaHoraFirma = `${fechaExpedicion}T${hora}`;
 
-  // --- Cálculo IGIC (7% incluido en precio) ---
-  // Precio total incluye IGIC → base = total / 1.07
-  const importeTotal  = overrides.importeTotal ?? Number((sale.totalWithTip ?? sale.total ?? 0).toFixed(2));
+  const importeTotal = overrides.importeTotal ?? Number((sale.totalWithTip ?? sale.total ?? 0).toFixed(2));
   const baseImponible = overrides.baseImponible ?? Number((importeTotal / (1 + IGIC_RATE)).toFixed(2));
-  const cuotaIGIC     = overrides.cuotaIGIC ?? Number((importeTotal - baseImponible).toFixed(2));
+  const cuotaIGIC = overrides.cuotaIGIC ?? Number((importeTotal - baseImponible).toFixed(2));
 
-  const tipoFactura = 'F1'; // Factura normal
+  const tipoFactura = 'F1';
 
-  const registroData = {
-    nif:            NIF_EMISOR,
+  const registroData: RegistroData = {
+    nif: NIF_EMISOR,
     numSerie,
     fechaExpedicion,
     tipoFactura,
-    cuotaTotal:     cuotaIGIC,
+    cuotaTotal: cuotaIGIC,
     importeTotal,
     huellaAnterior: previousHash ?? '0',
     fechaHoraFirma,
@@ -128,39 +136,42 @@ export function generateRegistroFactura(sale, previousHash, numSerie, overrides 
     importeTotal,
     baseImponible,
     cuotaIGIC,
-    previousHash:  previousHash ?? '0',
+    previousHash: previousHash ?? '0',
     fechaHoraFirma,
     hash,
   });
 
   const qrUrl = buildQRUrl(NIF_EMISOR, numSerie, fechaExpedicion, importeTotal);
 
-  // fechaHoraFirma se expone aparte para que los callers la persistan y la
-  // reutilicen al verificar (es uno de los 8 campos del hash y no se debe
-  // recalcular nunca).
   return { xml, hash, qrUrl, registroData, fechaExpedicion, fechaHoraFirma };
 }
 
-// ---------- Constructor de XML ----------
-
-function esc(str) {
+function esc(str: string | number): string {
   return String(str)
-    .replace(/&/g,  '&amp;')
-    .replace(/</g,  '&lt;')
-    .replace(/>/g,  '&gt;')
-    .replace(/"/g,  '&quot;');
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
-/**
- * Genera el XML Verifactu con IGIC (Canarias).
- * Se usa TipoDesgloseIGIC en lugar de TipoDesgloseIVA,
- * y el tipo impositivo es 7.00.
- */
+interface XMLParams {
+  nif: string;
+  numSerie: string;
+  fechaExpedicion: string;
+  descripcion: string;
+  importeTotal: number;
+  baseImponible: number;
+  cuotaIGIC: number;
+  previousHash: string;
+  fechaHoraFirma: string;
+  hash: string;
+}
+
 function buildXML({
   nif, numSerie, fechaExpedicion, descripcion,
   importeTotal, baseImponible, cuotaIGIC,
   previousHash, fechaHoraFirma, hash,
-}) {
+}: XMLParams): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <RegFactuSistemaFacturacion>
   <IDVersion>1.0</IDVersion>

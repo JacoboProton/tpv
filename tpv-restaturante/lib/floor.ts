@@ -2,7 +2,7 @@ import { sql } from './db';
 import type { TenantId } from './tenant';
 
 /** Helper to generate upsert queries for tables */
-export function upsertTableQueries(tables: any[], tenantId: TenantId) {
+export function upsertTableQueries(tables: Record<string, unknown>[], tenantId: TenantId) {
   const queries = [];
   for (const t of tables) {
     queries.push(sql`
@@ -45,7 +45,7 @@ export function upsertTableQueries(tables: any[], tenantId: TenantId) {
 }
 
 /** Helper to generate upsert queries for orders */
-export function upsertOrderQueries(orders: Record<string, any>, tenantId: TenantId) {
+export function upsertOrderQueries(orders: Record<string, Record<string, unknown>>, tenantId: TenantId) {
   const queries = [];
   for (const [oid, o] of Object.entries(orders)) {
     queries.push(sql`
@@ -65,7 +65,7 @@ export function upsertOrderQueries(orders: Record<string, any>, tenantId: Tenant
 }
 
 /** Upsert floor plan (zones/background) */
-export function upsertFloorPlanQuery(zones: any, background: any) {
+export function upsertFloorPlanQuery(zones: unknown, background: unknown) {
   const zonesVal = typeof zones === 'string' ? zones : JSON.stringify(zones || []);
   const bgVal = typeof background === 'string' ? background : JSON.stringify(background ?? null);
   return sql`
@@ -90,7 +90,7 @@ export async function fetchFullFloor(tenantId: TenantId) {
     sql`SELECT zones, background FROM floor_plan WHERE id = 1`,
   ]);
 
-  const ordersMap: Record<string, any> = {};
+  const ordersMap: Record<string, Record<string, unknown>> = {};
   for (const o of orderRows) ordersMap[o.id] = o;
   const fp = floorPlanRows[0] || { zones: [], background: null };
   const rawZones = fp.zones;

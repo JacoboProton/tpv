@@ -1,15 +1,23 @@
-import { cacheGet, cacheSet, isOnline, enqueueMutation } from './offline';
+import { cacheGet, cacheSet } from './offline';
 
-const TPV_API_KEY = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_TPV_API_KEY
+declare global {
+  interface Window {
+    __TPV_API_KEY?: string;
+    __employeeRole?: string;
+    __employeeId?: string;
+  }
+}
+
+const TPV_API_KEY: string = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_TPV_API_KEY
   ? process.env.NEXT_PUBLIC_TPV_API_KEY
   : (typeof window !== 'undefined' && window.__TPV_API_KEY) || '';
 
-function getTenantId() {
+export function getTenantId(): string {
   if (typeof window === 'undefined') return 'default';
   try { return localStorage.getItem('tpv:tenant') || 'default'; } catch { return 'default'; }
 }
 
-function apiHeaders(headers = {}) {
+function apiHeaders(headers: Record<string, string> = {}): Record<string, string> {
   headers['Content-Type'] = 'application/json';
   if (TPV_API_KEY) headers['x-tpv-key'] = TPV_API_KEY;
   headers['x-tenant-id'] = getTenantId();
@@ -20,10 +28,10 @@ function apiHeaders(headers = {}) {
   return headers;
 }
 
-async function apiFetch(url, options = {}) {
+async function apiFetch(url: string, options: RequestInit = {}): Promise<unknown> {
   try {
     const res = await fetch(url, {
-      headers: apiHeaders(options.headers),
+      headers: apiHeaders(options.headers as Record<string, string> | undefined),
       ...options,
     });
     if (!res.ok) {
@@ -37,7 +45,7 @@ async function apiFetch(url, options = {}) {
   }
 }
 
-async function apiFetchWithCache(url, cacheKey, options = {}) {
+async function apiFetchWithCache(url: string, cacheKey: string, options: RequestInit = {}): Promise<unknown> {
   try {
     const data = await apiFetch(url, options);
     if (data) cacheSet(cacheKey, data);
@@ -47,25 +55,25 @@ async function apiFetchWithCache(url, cacheKey, options = {}) {
   }
 }
 
-export async function runMigrate() {
+export async function runMigrate(): Promise<unknown> {
   return apiFetch('/api/migrate', { method: 'POST' });
 }
 
-export async function fetchCatalog() {
+export async function fetchCatalog(): Promise<unknown> {
   return apiFetchWithCache('/api/catalog', 'catalog');
 }
-export async function saveCatalog(catalog) {
+export async function saveCatalog(catalog: unknown): Promise<unknown> {
   cacheSet('catalog', catalog);
   return apiFetch('/api/catalog', { method: 'PUT', body: JSON.stringify(catalog) });
 }
 
-let lastFloor = null;
+let lastFloor: Record<string, unknown> | null = null;
 
-export function setLastFloor(floor) {
+export function setLastFloor(floor: Record<string, unknown> | null): void {
   lastFloor = floor ? JSON.parse(JSON.stringify(floor)) : null;
 }
 
-function stableKeyOrder(a, b) {
+function stableKeyOrder(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
   const ka = Object.keys(a);
@@ -77,42 +85,56 @@ function stableKeyOrder(a, b) {
     if (ka[i] !== kb[i]) return false;
   }
   for (const k of ka) {
-    if (typeof a[k] === 'object' && typeof b[k] === 'object') {
-      if (Array.isArray(a[k]) && Array.isArray(b[k])) {
-        if (a[k].length !== b[k].length) return false;
-        for (let i = 0; i < a[k].length; i++) {
-          if (typeof a[k][i] === 'object' || typeof b[k][i] === 'object') {
-            if (!stableKeyOrder(a[k][i], b[k][i])) return false;
-          } else if (a[k][i] !== b[k][i]) {
+    const av = (a as Record<string, unknown>)[k];
+    const bv = (b as Record<string, unknown>)[k];
+    if (typeof av === 'object' && typeof bv === 'object' && av !== null && bv !== null) {
+      if (Array.isArray(av) && Array.isArray(bv)) {
+        if (av.length !== bv.length) return false;
+        for (let i = 0; i < av.length; i++) {
+          if (typeof av[i] === 'object' || typeof bv[i] === 'object') {
+            if (!stableKeyOrder(av[i], bv[i])) return false;
+          } else if (av[i] !== bv[i]) {
             return false;
           }
         }
-      } else if (!stableKeyOrder(a[k], b[k])) {
+      } else if (!stableKeyOrder(av, bv)) {
         return false;
       }
-    } else if (a[k] !== b[k]) {
+    } else if (av !== bv) {
       return false;
     }
   }
   return true;
 }
 
-function computeFloorDiff(last, next) {
+interface FloorDiff {
+  isFullSync: boolean;
+  updatedTables?: unknown[];
+  deletedTableIds?: string[];
+  updatedOrders?: Record<string, unknown>;
+  deletedOrderIds?: string[];
+}
+
+function computeFloorDiff(last: Record<string, unknown> | null, next: Record<string, unknown>): FloorDiff {
   if (!last || !last.tables || !next || !next.tables) {
     return { isFullSync: true };
   }
-  if (last.tables.length !== next.tables.length || 
+  const lastTables = last.tables as unknown[];
+  const nextTables = next.tables as unknown[];
+  if (lastTables.length !== nextTables.length || 
       !stableKeyOrder(last.zones, next.zones) || 
       last.background !== next.background) {
     return { isFullSync: true };
   }
 
-  const updatedTables = [];
-  const deletedTableIds = [];
-  const lastTablesMap = new Map(last.tables.map(t => [t.id, t]));
+  const updatedTables: unknown[] = [];
+  const deletedTableIds: string[] = [];
+  const lastTablesMap = new Map<string, Record<string, unknown>>(
+    (lastTables as Array<Record<string, unknown>>).map(t => [t.id as string, t])
+  );
   
-  for (const t of next.tables) {
-    const prev = lastTablesMap.get(t.id);
+  for (const t of nextTables as Array<Record<string, unknown>>) {
+    const prev = lastTablesMap.get(t.id as string);
     if (!prev) {
       return { isFullSync: true };
     }
@@ -132,10 +154,10 @@ function computeFloorDiff(last, next) {
     }
   }
 
-  const updatedOrders = {};
-  const deletedOrderIds = [];
-  const lastOrders = last.orders || {};
-  const nextOrders = next.orders || {};
+  const updatedOrders: Record<string, unknown> = {};
+  const deletedOrderIds: string[] = [];
+  const lastOrders = (last.orders as Record<string, unknown>) || {};
+  const nextOrders = (next.orders as Record<string, unknown>) || {};
 
   for (const [oid, o] of Object.entries(nextOrders)) {
     const prev = lastOrders[oid];
@@ -158,15 +180,15 @@ function computeFloorDiff(last, next) {
   };
 }
 
-export async function fetchFloor() {
-  const floor = await apiFetchWithCache('/api/floor', 'floor');
+export async function fetchFloor(): Promise<unknown> {
+  const floor = await apiFetchWithCache('/api/floor', 'floor') as Record<string, unknown> | null;
   if (floor) {
     setLastFloor(floor);
   }
   return floor;
 }
 
-export async function saveFloor(floor) {
+export async function saveFloor(floor: Record<string, unknown>): Promise<unknown> {
   cacheSet('floor', floor);
   const diff = computeFloorDiff(lastFloor, floor);
   setLastFloor(floor);
@@ -174,229 +196,266 @@ export async function saveFloor(floor) {
   if (diff.isFullSync) {
     return apiFetch('/api/floor', { method: 'PUT', body: JSON.stringify(floor) });
   } else {
-    if (diff.updatedTables.length === 0 && 
-        diff.deletedTableIds.length === 0 && 
-        Object.keys(diff.updatedOrders).length === 0 && 
-        diff.deletedOrderIds.length === 0) {
+    if (diff.updatedTables!.length === 0 && 
+        diff.deletedTableIds!.length === 0 && 
+        Object.keys(diff.updatedOrders!).length === 0 && 
+        diff.deletedOrderIds!.length === 0) {
       return { ok: true };
     }
     return apiFetch('/api/floor', { method: 'PATCH', body: JSON.stringify(diff) });
   }
 }
 
-export async function fetchSales() {
+export async function fetchSales(): Promise<unknown> {
   return apiFetchWithCache('/api/sales', 'sales');
 }
-export async function addSale(sale) {
+
+export async function addSale(sale: unknown): Promise<unknown> {
   return apiFetch('/api/sales', { method: 'POST', body: JSON.stringify(sale) });
 }
 
-export async function fetchEmployees() {
+export async function fetchEmployees(): Promise<unknown> {
   return apiFetchWithCache('/api/employees', 'employees');
 }
-export async function saveEmployees(employees) {
+
+export async function saveEmployees(employees: unknown): Promise<unknown> {
   cacheSet('employees', employees);
   return apiFetch('/api/employees', { method: 'PUT', body: JSON.stringify(employees) });
 }
 
-export async function logAccess(data) {
+export async function logAccess(data: unknown): Promise<unknown> {
   return apiFetch('/api/access-logs', { method: 'POST', body: JSON.stringify(data) });
 }
-export async function fetchAccessLogs(limit = 200, offset = 0) {
+
+export async function fetchAccessLogs(limit = 200, offset = 0): Promise<unknown> {
   return apiFetch(`/api/access-logs?limit=${limit}&offset=${offset}`);
 }
 
-export async function registerVerifactu(saleId, sale) {
+export async function registerVerifactu(saleId: string, sale: unknown): Promise<unknown> {
   return apiFetch('/api/verifactu', { method: 'POST', body: JSON.stringify({ saleId, sale }) });
 }
-export async function fetchVerifactuRegistros() {
+
+export async function fetchVerifactuRegistros(): Promise<unknown> {
   return apiFetch('/api/verifactu');
 }
-export async function verifyVerifactuChain(saleId) {
+
+export async function verifyVerifactuChain(saleId: string): Promise<unknown> {
   return apiFetch('/api/verifactu/verify', { method: 'POST', body: JSON.stringify({ saleId }) });
 }
 
-export async function fetchStockLog(limit = 100) {
+export async function fetchStockLog(limit = 100): Promise<unknown> {
   return apiFetch(`/api/stock-log?limit=${limit}`);
 }
-export async function saveStockLog(entry) {
+
+export async function saveStockLog(entry: unknown): Promise<unknown> {
   return apiFetch('/api/stock-log', { method: 'POST', body: JSON.stringify(entry) });
 }
 
-export async function fetchCancelledOrders(limit = 50) {
+export async function fetchCancelledOrders(limit = 50): Promise<unknown> {
   return apiFetch(`/api/cancelled?limit=${limit}`);
 }
-export async function saveCancelledOrder(data) {
+
+export async function saveCancelledOrder(data: unknown): Promise<unknown> {
   return apiFetch('/api/cancelled', { method: 'POST', body: JSON.stringify(data) });
 }
 
-export async function fetchTurns(employeeId, turnDate) {
+export async function fetchTurns(employeeId?: string, turnDate?: string): Promise<unknown> {
   const params = new URLSearchParams();
   if (employeeId) params.set('employeeId', employeeId);
   if (turnDate) params.set('turnDate', turnDate);
   return apiFetch(`/api/turns?${params}`);
 }
-export async function saveTurn(data) {
+
+export async function saveTurn(data: unknown): Promise<unknown> {
   return apiFetch('/api/turns', { method: 'POST', body: JSON.stringify(data) });
 }
 
-export async function fetchBackup() {
+export async function fetchBackup(): Promise<unknown> {
   return apiFetch('/api/backup');
 }
 
-export async function fetchModifiers() {
+export async function fetchModifiers(): Promise<unknown> {
   return apiFetchWithCache('/api/modifiers', 'modifiers');
 }
-export async function saveModifiers(data) {
+
+export async function saveModifiers(data: unknown): Promise<unknown> {
   cacheSet('modifiers', data);
   return apiFetch('/api/modifiers', { method: 'PUT', body: JSON.stringify(data) });
 }
 
-export async function fetchCombos() {
+export async function fetchCombos(): Promise<unknown> {
   return apiFetchWithCache('/api/combos', 'combos');
 }
-export async function saveCombos(combos) {
+
+export async function saveCombos(combos: unknown): Promise<unknown> {
   cacheSet('combos', combos);
   return apiFetch('/api/combos', { method: 'PUT', body: JSON.stringify(combos) });
 }
 
-export async function fetchSettings() {
+export async function fetchSettings(): Promise<unknown> {
   return apiFetch('/api/settings');
 }
-export async function saveSettings(settings) {
+
+export async function saveSettings(settings: unknown): Promise<unknown> {
   return apiFetch('/api/settings', { method: 'PUT', body: JSON.stringify(settings) });
 }
 
-export async function fetchOffers() {
+export async function fetchOffers(): Promise<unknown> {
   return apiFetch('/api/offers');
 }
-export async function saveOffers(offers) {
+
+export async function saveOffers(offers: unknown): Promise<unknown> {
   return apiFetch('/api/offers', { method: 'PUT', body: JSON.stringify(offers) });
 }
 
-export async function fetchMealMenus() {
+export async function fetchMealMenus(): Promise<unknown> {
   return apiFetchWithCache('/api/meal-menus', 'mealMenus');
 }
-export async function saveMealMenus(menus) {
+
+export async function saveMealMenus(menus: unknown): Promise<unknown> {
   cacheSet('mealMenus', menus);
   return apiFetch('/api/meal-menus', { method: 'PUT', body: JSON.stringify(menus) });
 }
 
-export async function fetchPriceRules() {
+export async function fetchPriceRules(): Promise<unknown> {
   return apiFetchWithCache('/api/price-rules', 'priceRules');
 }
-export async function savePriceRules(rules) {
+
+export async function savePriceRules(rules: unknown): Promise<unknown> {
   cacheSet('priceRules', rules);
   return apiFetch('/api/price-rules', { method: 'PUT', body: JSON.stringify(rules) });
 }
 
-export async function fetchExportSales(year) {
+export async function fetchExportSales(year: string | number): Promise<unknown> {
   return apiFetch(`/api/export/sales?year=${year}`);
 }
 
-// Delivery
-export async function fetchDeliveryRunners() {
+export async function fetchDeliveryRunners(): Promise<unknown> {
   return apiFetch('/api/delivery/runners');
 }
-export async function saveDeliveryRunners(runners) {
+
+export async function saveDeliveryRunners(runners: unknown): Promise<unknown> {
   return apiFetch('/api/delivery/runners', { method: 'PUT', body: JSON.stringify(runners) });
 }
-export async function deleteDeliveryRunner(id) {
+
+export async function deleteDeliveryRunner(id: string): Promise<unknown> {
   return apiFetch('/api/delivery/runners', { method: 'DELETE', body: JSON.stringify({ id }) });
 }
-export async function fetchDeliveryOrders() {
+
+export async function fetchDeliveryOrders(): Promise<unknown> {
   return apiFetch('/api/delivery/orders');
 }
-export async function createDeliveryOrder(data) {
+
+export async function createDeliveryOrder(data: unknown): Promise<unknown> {
   return apiFetch('/api/delivery/orders', { method: 'POST', body: JSON.stringify(data) });
 }
-export async function updateDeliveryOrder(data) {
+
+export async function updateDeliveryOrder(data: unknown): Promise<unknown> {
   return apiFetch('/api/delivery/orders', { method: 'PUT', body: JSON.stringify(data) });
 }
-export async function fetchDeliveryTracking(deliveryId) {
+
+export async function fetchDeliveryTracking(deliveryId: string): Promise<unknown> {
   return apiFetch(`/api/delivery/tracking?deliveryId=${deliveryId}`);
 }
-export async function addDeliveryTracking(data) {
+
+export async function addDeliveryTracking(data: unknown): Promise<unknown> {
   return apiFetch('/api/delivery/tracking', { method: 'POST', body: JSON.stringify(data) });
 }
 
-// ----- Gestoría -----
-export async function fetchGestoriaSettings() {
+export async function fetchGestoriaSettings(): Promise<unknown> {
   return apiFetch('/api/gestoria?action=settings');
 }
-export async function saveGestoriaSettings(settings) {
+
+export async function saveGestoriaSettings(settings: unknown): Promise<unknown> {
   return apiFetch('/api/gestoria', { method: 'PUT', body: JSON.stringify({ action: 'settings', settings }) });
 }
 
-export async function fetchGestoriaDocuments(type) {
+export async function fetchGestoriaDocuments(type: string): Promise<unknown> {
   return apiFetch(`/api/gestoria?action=documents&type=${type}`);
 }
-export async function saveGestoriaDocument(doc) {
+
+export async function saveGestoriaDocument(doc: unknown): Promise<unknown> {
   return apiFetch('/api/gestoria', { method: 'POST', body: JSON.stringify({ action: 'document', document: doc }) });
 }
-export async function deleteGestoriaDocument(id) {
+
+export async function deleteGestoriaDocument(id: string): Promise<unknown> {
   return apiFetch('/api/gestoria', { method: 'DELETE', body: JSON.stringify({ action: 'document', id }) });
 }
-export async function confirmGestoriaDocument(id) {
+
+export async function confirmGestoriaDocument(id: string): Promise<unknown> {
   return apiFetch('/api/gestoria', { method: 'PUT', body: JSON.stringify({ action: 'confirm', id }) });
 }
 
-export async function fetchGestoriaPayrolls() {
+export async function fetchGestoriaPayrolls(): Promise<unknown> {
   return apiFetch('/api/gestoria?action=payrolls');
 }
-export async function saveGestoriaPayroll(payroll) {
+
+export async function saveGestoriaPayroll(payroll: unknown): Promise<unknown> {
   return apiFetch('/api/gestoria', { method: 'POST', body: JSON.stringify({ action: 'payroll', payroll }) });
 }
-export async function deleteGestoriaPayroll(id) {
+
+export async function deleteGestoriaPayroll(id: string): Promise<unknown> {
   return apiFetch('/api/gestoria', { method: 'DELETE', body: JSON.stringify({ action: 'payroll', id }) });
 }
 
-export async function fetchGestoriaTaxModels() {
+export async function fetchGestoriaTaxModels(): Promise<unknown> {
   return apiFetch('/api/gestoria?action=taxmodels');
 }
-export async function calculateGestoriaTaxModel(modelCode, year, quarter) {
+
+export async function calculateGestoriaTaxModel(modelCode: string, year: string | number, quarter: string | number): Promise<unknown> {
   return apiFetch('/api/gestoria', { method: 'POST', body: JSON.stringify({ action: 'calculate', modelCode, year, quarter }) });
 }
-export async function updateTaxModelStatus(id, status) {
+
+export async function updateTaxModelStatus(id: string, status: string): Promise<unknown> {
   return apiFetch('/api/gestoria', { method: 'PUT', body: JSON.stringify({ action: 'status', id, status }) });
 }
 
-export async function fetchGestoriaAuthorization() {
+export async function fetchGestoriaAuthorization(): Promise<unknown> {
   return apiFetch('/api/gestoria?action=authorization');
 }
-export async function saveGestoriaAuthorization(data) {
+
+export async function saveGestoriaAuthorization(data: Record<string, unknown>): Promise<unknown> {
   return apiFetch('/api/gestoria', { method: 'PUT', body: JSON.stringify({ action: 'authorization', ...data }) });
 }
 
-// ----- KDS Pairing -----
-export async function generateKDSPairCode(label = '') {
+export async function generateKDSPairCode(label = ''): Promise<unknown> {
   return apiFetch('/api/kds', { method: 'POST', body: JSON.stringify({ action: 'generate', label }) });
 }
-export async function verifyKDSPairCode(code, label, deviceId) {
+
+export async function verifyKDSPairCode(code: string, label: string, deviceId: string): Promise<unknown> {
   return apiFetch('/api/kds', { method: 'POST', body: JSON.stringify({ action: 'verify', code, label, deviceId }) });
 }
-export async function fetchKDSPairings() {
+
+export async function fetchKDSPairings(): Promise<unknown> {
   return apiFetch('/api/kds');
 }
-export async function checkKDSPairing(deviceId) {
+
+export async function checkKDSPairing(deviceId: string): Promise<unknown> {
   return apiFetch(`/api/kds?deviceId=${encodeURIComponent(deviceId)}`);
 }
-export async function revokeKDSPairing(id) {
+
+export async function revokeKDSPairing(id: string): Promise<unknown> {
   return apiFetch('/api/kds', { method: 'DELETE', body: JSON.stringify({ id }) });
 }
 
-// ----- KDS Audit -----
-export async function logKDSAudit(action, details = {}) {
+export async function logKDSAudit(action: string, details: Record<string, unknown> = {}): Promise<unknown> {
   return apiFetch('/api/kds/audit', { method: 'POST', body: JSON.stringify({ action, details }) });
 }
-export async function fetchKDSAudit(limit = 200, offset = 0, action = '') {
-  const params = new URLSearchParams({ limit, offset });
+
+export async function fetchKDSAudit(limit = 200, offset = 0, action = ''): Promise<unknown> {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
   if (action) params.set('action', action);
   return apiFetch(`/api/kds/audit?${params}`);
 }
 
-// ----- Reservations -----
-export async function fetchReservations(params = {}) {
+interface ReservationParams {
+  date?: string;
+  from?: string;
+  to?: string;
+  status?: string;
+}
+
+export async function fetchReservations(params: ReservationParams = {}): Promise<unknown> {
   const q = new URLSearchParams();
   if (params.date) q.set('date', params.date);
   if (params.from) q.set('from', params.from);
@@ -404,40 +463,47 @@ export async function fetchReservations(params = {}) {
   if (params.status) q.set('status', params.status);
   return apiFetch(`/api/reservations?${q}`);
 }
-export async function saveReservation(reservation) {
+
+export async function saveReservation(reservation: unknown): Promise<unknown> {
   return apiFetch('/api/reservations', { method: 'POST', body: JSON.stringify(reservation) });
 }
-export async function deleteReservation(id) {
+
+export async function deleteReservation(id: string): Promise<unknown> {
   return apiFetch('/api/reservations', { method: 'DELETE', body: JSON.stringify({ id }) });
 }
-export async function fetchWaitlist() {
+
+export async function fetchWaitlist(): Promise<unknown> {
   return apiFetch('/api/waitlist');
 }
-export async function waitlistAction(action, extra = {}) {
+
+export async function waitlistAction(action: string, extra: Record<string, unknown> = {}): Promise<unknown> {
   return apiFetch('/api/waitlist', { method: 'POST', body: JSON.stringify({ action, ...extra }) });
 }
 
-// ----- Buffet -----
-export async function fetchBuffetSessions() {
+export async function fetchBuffetSessions(): Promise<unknown> {
   return apiFetch('/api/buffet?scope=sessions');
 }
-export async function fetchBuffetConfig() {
+
+export async function fetchBuffetConfig(): Promise<unknown> {
   return apiFetch('/api/buffet?scope=config');
 }
-export async function buffetAction(action, payload = {}) {
+
+export async function buffetAction(action: string, payload: Record<string, unknown> = {}): Promise<unknown> {
   return apiFetch('/api/buffet', { method: 'POST', body: JSON.stringify({ action, ...payload }) });
 }
-export async function fetchBuffetTableSession(tableId) {
+
+export async function fetchBuffetTableSession(tableId: string): Promise<unknown> {
   return apiFetch(`/api/buffet?scope=table_session&tableId=${tableId}`);
 }
-export async function fetchBuffetRounds(sessionId) {
+
+export async function fetchBuffetRounds(sessionId: string): Promise<unknown> {
   return apiFetch(`/api/buffet?scope=rounds&sessionId=${sessionId}`);
 }
 
-export async function fetchClosures() {
+export async function fetchClosures(): Promise<unknown> {
   return apiFetch('/api/closures');
 }
 
-export async function saveClosure(data) {
+export async function saveClosure(data: unknown): Promise<unknown> {
   return apiFetch('/api/closures', { method: 'POST', body: JSON.stringify(data) });
 }

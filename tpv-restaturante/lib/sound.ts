@@ -1,11 +1,13 @@
-let audioCtx = null;
+let audioCtx: AudioContext | null = null;
 
-function getCtx() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function getCtx(): AudioContext {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || (window as unknown as Record<string, typeof AudioContext>).webkitAudioContext)();
+  }
   return audioCtx;
 }
 
-export function playBeep(freq = 660, duration = 0.15) {
+export function playBeep(freq = 660, duration = 0.15): void {
   try {
     const ctx = getCtx();
     const osc = ctx.createOscillator();
@@ -16,10 +18,10 @@ export function playBeep(freq = 660, duration = 0.15) {
     gain.gain.value = 0.1;
     osc.start();
     osc.stop(ctx.currentTime + duration);
-  } catch {}
+  } catch { /* audio not available */ }
 }
 
-export function playKitchenAlert() {
+export function playKitchenAlert(): void {
   try {
     const ctx = getCtx();
     const notes = [523, 659, 784, 1047];
@@ -33,10 +35,10 @@ export function playKitchenAlert() {
       osc.start(ctx.currentTime + i * 0.15);
       osc.stop(ctx.currentTime + i * 0.15 + 0.2);
     });
-  } catch {}
+  } catch { /* audio not available */ }
 }
 
-export function showKitchenNotification(count) {
+export function showKitchenNotification(count: number): void {
   if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
     new Notification('La Comanda — Cocina', {
       body: `${count} ${count === 1 ? 'línea pendiente' : 'líneas pendientes'} en cocina`,
@@ -45,7 +47,7 @@ export function showKitchenNotification(count) {
   }
 }
 
-export function requestNotificationPermission() {
+export function requestNotificationPermission(): void {
   if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
     Notification.requestPermission();
   }
