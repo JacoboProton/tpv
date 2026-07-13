@@ -1,0 +1,59 @@
+services:
+  - type: web
+    name: tpv-restaurante
+    runtime: node
+    plan: free
+    buildCommand: npm run build
+    startCommand: node server.js
+    healthCheckPath: /api/keep-alive
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: ALLOWED_ORIGINS
+        value: https://tpv-restaurante.onrender.com
+      - key: DATABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: FISKALY_ENVIRONMENT
+        value: TEST
+      - key: FISKALY_API_KEY
+        sync: false
+      - key: FISKALY_API_SECRET
+        sync: false
+      - key: FISKALY_TAXPAYER_NIF
+        sync: false
+      - key: FISKALY_TERRITORY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: UBER_WEBHOOK_SECRET
+        sync: false
+      - key: GLOVO_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_LOCATION_NAME
+        sync: false
+      - key: STRIPE_LOCATION_LINE1
+        sync: false
+      - key: STRIPE_LOCATION_CITY
+        sync: false
+      - key: STRIPE_LOCATION_STATE
+        sync: false
+      - key: STRIPE_LOCATION_COUNTRY
+        value: ES
+      - key: STRIPE_LOCATION_POSTAL_CODE
+        sync: false
+      - key: TPV_API_KEY
+        sync: false
+      - key: NEXT_PUBLIC_TPV_API_KEY
+        sync: false
+      - key: CRON_SECRET
+        sync: false
