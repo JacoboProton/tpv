@@ -2,19 +2,87 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, FileText, Check, X, ChevronDown, ChevronUp, Loader2, Search, Ban, AlertTriangle, Package, BookOpen } from 'lucide-react';
+import type { Theme } from './constants';
 
-export default function ProduccionView({ catalog, colors: C }) {
-  const [productions, setProductions] = useState([]);
-  const [recipes, setRecipes] = useState([]);
+interface ProductionIngredient {
+  id: string;
+  ingredientId: string;
+  ingredientName: string;
+  quantity: number;
+  costPerUnit: number;
+  totalCost: number;
+}
+
+interface Production {
+  id: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  costPerUnit: number;
+  totalCost: number;
+  location: string;
+  batchNumber: string;
+  expiryDate: string;
+  notes: string;
+  status: string;
+  producedAt: number;
+  createdAt: number;
+  anuladoAt: number | null;
+  anuladoReason: string;
+  anuladoBy: string;
+  ingredients: ProductionIngredient[];
+  recipeYield: number;
+}
+
+interface RecipeIngredient {
+  id: string;
+  ingredientId: string;
+  ingredientName: string;
+  quantity: number;
+  unit: string;
+  costPerUnit: number;
+  totalCost: number;
+}
+
+interface Recipe {
+  id: string;
+  productId: string;
+  productName: string;
+  costPerUnit: number;
+  yieldQty: number;
+  updatedAt: number;
+  ingredients: RecipeIngredient[];
+}
+
+interface CatalogProduct {
+  id: string;
+  name: string;
+  type: string;
+  inventariable: boolean;
+  price?: number;
+}
+
+interface Catalog {
+  products: CatalogProduct[];
+}
+
+interface ProduccionViewProps {
+  catalog: Catalog;
+  colors: Theme;
+}
+
+export default function ProduccionView({ catalog, colors: C }: ProduccionViewProps) {
+  const [productions, setProductions] = useState<Production[]>([]);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showRecipes, setShowRecipes] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [processingId, setProcessingId] = useState(null);
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   const elaborados = (catalog?.products || []).filter(
-    p => p.type === 'elaborado' && p.inventariable
+    (p: CatalogProduct) => p.type === 'elaborado' && p.inventariable
   );
 
   useEffect(() => { loadAll(); }, []);
@@ -39,7 +107,7 @@ export default function ProduccionView({ catalog, colors: C }) {
       p.batchNumber.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  const recipeMap = {};
+  const recipeMap: Record<string, Recipe> = {};
   for (const r of recipes) recipeMap[r.productId] = r;
 
   if (loading) {
@@ -134,7 +202,7 @@ export default function ProduccionView({ catalog, colors: C }) {
     </div>
   );
 
-  async function handleVoid(prod) {
+  async function handleVoid(prod: Production) {
     const reason = prompt('Motivo de la anulación (opcional):');
     if (reason === null) return;
     setProcessingId(prod.id);
@@ -149,14 +217,21 @@ export default function ProduccionView({ catalog, colors: C }) {
         const err = await r.json();
         alert('Error al anular: ' + (err.error || 'Error desconocido'));
       }
-    } catch (err) {
-      alert('Error al anular: ' + err.message);
+    } catch (err: unknown) {
+      alert('Error al anular: ' + (err as Error).message);
     }
     setProcessingId(null);
   }
 }
 
-function ProduccionCard({ prod: p, C, onVoid, processing }) {
+interface ProduccionCardProps {
+  prod: Production;
+  C: Theme;
+  onVoid: () => void;
+  processing: boolean;
+}
+
+function ProduccionCard({ prod: p, C, onVoid, processing }: ProduccionCardProps) {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -229,7 +304,17 @@ function ProduccionCard({ prod: p, C, onVoid, processing }) {
   );
 }
 
-function ProduccionForm({ elaborados, recipes, recipeMap, C, onClose, onSaved, onManageRecipes }) {
+interface ProduccionFormProps {
+  elaborados: CatalogProduct[];
+  recipes: Recipe[];
+  recipeMap: Record<string, Recipe>;
+  C: Theme;
+  onClose: () => void;
+  onSaved: () => void;
+  onManageRecipes: () => void;
+}
+
+function ProduccionForm({ elaborados, recipes, recipeMap, C, onClose, onSaved, onManageRecipes }: ProduccionFormProps) {
   const [productId, setProductId] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [location, setLocation] = useState('Cocina');
@@ -258,8 +343,8 @@ function ProduccionForm({ elaborados, recipes, recipeMap, C, onClose, onSaved, o
           action: 'create',
           productId,
           productName: product?.name || '',
-          quantity: parseFloat(quantity),
-          costPerUnit: parseFloat(costPerUnit) || 0,
+          quantity: Number(quantity),
+          costPerUnit: Number(costPerUnit) || 0,
           location,
           batchNumber,
           expiryDate,
@@ -274,13 +359,13 @@ function ProduccionForm({ elaborados, recipes, recipeMap, C, onClose, onSaved, o
         const err = await r.json();
         alert('Error: ' + (err.error || 'Error desconocido'));
       }
-    } catch (err) {
-      alert('Error: ' + err.message);
+    } catch (err: unknown) {
+      alert('Error: ' + (err as Error).message);
     }
     setSaving(false);
   }
 
-  const totalCost = (parseFloat(costPerUnit) || 0) * (parseFloat(quantity) || 0);
+  const totalCost = (Number(costPerUnit) || 0) * (Number(quantity) || 0);
 
   return (
     <div className="rounded-xl p-4 space-y-3" style={{ background: C.surfaceLight, border: `1px solid ${C.line}` }}>
@@ -336,14 +421,14 @@ function ProduccionForm({ elaborados, recipes, recipeMap, C, onClose, onSaved, o
         <div>
           <label className="text-[10px] block mb-1" style={{ color: C.muted }}>Cantidad</label>
           <input type="number" step="0.01" value={quantity} min={0.01}
-            onChange={e => setQuantity(e.target.value)}
+            onChange={e => setQuantity(Number(e.target.value))}
             className="w-full rounded-lg px-2 py-1.5 text-[10px]"
             style={{ background: C.surface, color: C.cream, border: `1px solid ${C.line}` }} />
         </div>
         <div>
           <label className="text-[10px] block mb-1" style={{ color: C.muted }}>Coste unidad (€)</label>
           <input type="number" step="0.0001" value={costPerUnit} min={0}
-            onChange={e => setCostPerUnit(e.target.value)}
+            onChange={e => setCostPerUnit(Number(e.target.value))}
             className="w-full rounded-lg px-2 py-1.5 text-[10px] font-mono"
             style={{ background: C.surface, color: C.cream, border: `1px solid ${C.line}` }} />
         </div>
@@ -416,15 +501,24 @@ function ProduccionForm({ elaborados, recipes, recipeMap, C, onClose, onSaved, o
   );
 }
 
-function RecipeManager({ catalog, recipes, elaborados, C, onBack, onSaved }) {
-  const [editingRecipe, setEditingRecipe] = useState(null);
+interface RecipeManagerProps {
+  catalog: Catalog;
+  recipes: Recipe[];
+  elaborados: CatalogProduct[];
+  C: Theme;
+  onBack: () => void;
+  onSaved: () => void;
+}
+
+function RecipeManager({ catalog, recipes, elaborados, C, onBack, onSaved }: RecipeManagerProps) {
+  const [editingRecipe, setEditingRecipe] = useState<string | null>(null);
   const [selectedProductId, setSelectedProductId] = useState('');
   const [yieldQty, setYieldQty] = useState(1);
-  const [ingredients, setIngredients] = useState([]);
+  const [ingredients, setIngredients] = useState<Omit<RecipeIngredient, 'id' | 'totalCost'>[]>([]);
   const [saving, setSaving] = useState(false);
 
   const rawMaterials = (catalog?.products || []).filter(
-    p => p.type === 'raw_material' || (p.type !== 'elaborado' && !p.type)
+    (p: CatalogProduct) => p.type === 'raw_material' || (p.type !== 'elaborado' && !p.type)
   );
 
   function startNewRecipe() {
@@ -434,7 +528,7 @@ function RecipeManager({ catalog, recipes, elaborados, C, onBack, onSaved }) {
     setEditingRecipe('new');
   }
 
-  function editRecipe(recipe) {
+  function editRecipe(recipe: Recipe) {
     setSelectedProductId(recipe.productId);
     setYieldQty(recipe.yieldQty);
     setIngredients(recipe.ingredients.map(ing => ({
@@ -451,12 +545,12 @@ function RecipeManager({ catalog, recipes, elaborados, C, onBack, onSaved }) {
     setIngredients(i => [...i, { ingredientId: '', ingredientName: '', quantity: 0, unit: 'kg', costPerUnit: 0 }]);
   }
 
-  function updateIngredient(idx, field, value) {
+  function updateIngredient(idx: number, field: string, value: string) {
     setIngredients(i => {
       const n = [...i];
       n[idx] = { ...n[idx], [field]: value };
       if (field === 'ingredientId') {
-        const product = rawMaterials.find(p => p.id === value);
+        const product = rawMaterials.find((p: CatalogProduct) => p.id === value);
         if (product) {
           n[idx].ingredientName = product.name;
           n[idx].costPerUnit = product.price || 0;
@@ -466,7 +560,7 @@ function RecipeManager({ catalog, recipes, elaborados, C, onBack, onSaved }) {
     });
   }
 
-  function removeIngredient(idx) {
+  function removeIngredient(idx: number) {
     setIngredients(i => i.filter((_, index) => index !== idx));
   }
 
@@ -474,7 +568,7 @@ function RecipeManager({ catalog, recipes, elaborados, C, onBack, onSaved }) {
     if (!selectedProductId || ingredients.length === 0) return;
     setSaving(true);
     try {
-      const product = elaborados.find(p => p.id === selectedProductId) || catalog?.products?.find(p => p.id === selectedProductId);
+      const product = elaborados.find(p => p.id === selectedProductId) || catalog?.products?.find((p: CatalogProduct) => p.id === selectedProductId);
       const r = await fetch('/api/recipes', {
         method: 'POST',
         body: JSON.stringify({
@@ -485,9 +579,9 @@ function RecipeManager({ catalog, recipes, elaborados, C, onBack, onSaved }) {
           ingredients: ingredients.map(ing => ({
             ingredientId: ing.ingredientId,
             ingredientName: ing.ingredientName,
-            quantity: parseFloat(ing.quantity) || 0,
+            quantity: Number(ing.quantity) || 0,
             unit: ing.unit,
-            costPerUnit: parseFloat(ing.costPerUnit) || 0,
+            costPerUnit: Number(ing.costPerUnit) || 0,
           })),
         }),
       });
@@ -498,13 +592,13 @@ function RecipeManager({ catalog, recipes, elaborados, C, onBack, onSaved }) {
         const err = await r.json();
         alert('Error: ' + (err.error || 'Error desconocido'));
       }
-    } catch (err) {
-      alert('Error: ' + err.message);
+    } catch (err: unknown) {
+      alert('Error: ' + (err as Error).message);
     }
     setSaving(false);
   }
 
-  async function handleDeleteRecipe(recipe) {
+  async function handleDeleteRecipe(recipe: Recipe) {
     if (!confirm(`¿Eliminar receta de ${recipe.productName}?`)) return;
     try {
       await fetch('/api/recipes', {
@@ -576,7 +670,7 @@ function RecipeManager({ catalog, recipes, elaborados, C, onBack, onSaved }) {
                       className="flex-1 rounded-lg px-2 py-1 text-[10px]"
                       style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}` }}>
                       <option value="">Seleccionar</option>
-                      {rawMaterials.map(p => (
+                      {rawMaterials.map((p: CatalogProduct) => (
                         <option key={p.id} value={p.id}>{p.name}</option>
                       ))}
                     </select>
@@ -613,7 +707,7 @@ function RecipeManager({ catalog, recipes, elaborados, C, onBack, onSaved }) {
                     </div>
                     <div className="flex items-end pb-1">
                       <span className="text-[10px] font-mono" style={{ color: C.brassLight }}>
-                        {((parseFloat(ing.quantity) || 0) * (parseFloat(ing.costPerUnit) || 0)).toFixed(2)}€
+                        {((Number(ing.quantity) || 0) * (Number(ing.costPerUnit) || 0)).toFixed(2)}€
                       </span>
                     </div>
                   </div>
@@ -626,7 +720,7 @@ function RecipeManager({ catalog, recipes, elaborados, C, onBack, onSaved }) {
             <span style={{ color: C.muted }}>Coste por unidad:</span>
             <span className="font-mono" style={{ color: C.brassLight }}>
               {ingredients.length > 0 && yieldQty > 0
-                ? (ingredients.reduce((s, ing) => s + ((parseFloat(ing.quantity) || 0) * (parseFloat(ing.costPerUnit) || 0)), 0) / yieldQty).toFixed(4)
+                ? (ingredients.reduce((s, ing) => s + ((Number(ing.quantity) || 0) * (Number(ing.costPerUnit) || 0)), 0) / yieldQty).toFixed(4)
                 : '0'}€
             </span>
           </div>

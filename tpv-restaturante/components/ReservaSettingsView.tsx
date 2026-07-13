@@ -2,18 +2,48 @@
 
 import { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Clock, RefreshCw, MessageSquare, CreditCard, Calendar, Globe, Bell, Shield, Ban, Repeat, Star } from 'lucide-react';
+import type { Theme } from './constants';
 
 const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 const DAY_SHORT = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
-export default function ReservaSettingsView({ colors: C }) {
-  const [settings, setSettings] = useState(null);
+interface Shift {
+  days: number[];
+  label: string;
+  open: string;
+  close: string;
+}
+
+interface BlockedDate {
+  date: string;
+  reason: string;
+}
+
+interface RecurringItem {
+  id: string;
+  name: string;
+  weekday: number;
+  time: string;
+  pax: number;
+  phone: string;
+  notes: string;
+  zone: string;
+  tableId: string;
+  active: boolean;
+}
+
+interface ReservaSettingsViewProps {
+  colors: Theme;
+}
+
+export default function ReservaSettingsView({ colors: C }: ReservaSettingsViewProps) {
+  const [settings, setSettings] = useState<Record<string, string> | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState('general');
-  const [localShifts, setLocalShifts] = useState([]);
-  const [localBlocked, setLocalBlocked] = useState([]);
-  const [recurring, setRecurring] = useState([]);
+  const [localShifts, setLocalShifts] = useState<Shift[]>([]);
+  const [localBlocked, setLocalBlocked] = useState<BlockedDate[]>([]);
+  const [recurring, setRecurring] = useState<RecurringItem[]>([]);
 
   useEffect(() => { loadAll(); }, []);
 
@@ -21,10 +51,10 @@ export default function ReservaSettingsView({ colors: C }) {
     setLoading(true);
     try {
       const { fetchSettings } = await import('../lib/api');
-      const s = await fetchSettings();
+      const s = await fetchSettings() as Record<string, string>;
       setSettings(s);
-      setLocalShifts(parseJSON(s.reservationShifts, []));
-      setLocalBlocked(parseJSON(s.reservationBlockedDates, []));
+      setLocalShifts(parseJSON<Shift[]>(s.reservationShifts, []));
+      setLocalBlocked(parseJSON<BlockedDate[]>(s.reservationBlockedDates, []));
     } catch {}
     setLoading(false);
     try {
@@ -33,55 +63,54 @@ export default function ReservaSettingsView({ colors: C }) {
     } catch {}
   }
 
-  async function fetchRecurring() {
+  async function fetchRecurring(): Promise<RecurringItem[]> {
     const res = await fetch('/api/reservations?recurring=1');
     if (!res.ok) return [];
-    const data = await res.json();
+    const data = await res.json() as { recurring: RecurringItem[] };
     return data.recurring || [];
   }
 
-  function parseJSON(val, fallback) {
+  function parseJSON<T>(val: string | undefined, fallback: T): T {
     if (!val) return fallback;
-    try { return JSON.parse(val); } catch { return fallback; }
+    try { return JSON.parse(val) as T; } catch { return fallback; }
   }
 
-  async function handleSave(nextSettings) {
+  async function handleSave(nextSettings: Record<string, string>) {
     setSaving(true);
     try {
       const { saveSettings } = await import('../lib/api');
       await saveSettings({ ...settings, ...nextSettings });
-      setSettings(prev => ({ ...prev, ...nextSettings }));
+      setSettings(prev => ({ ...prev!, ...nextSettings }));
     } catch {}
     setSaving(false);
   }
 
-  function toggle(key) {
-    handleSave({ [key]: settings[key] === 'true' ? 'false' : 'true' });
+  function toggle(key: string) {
+    handleSave({ [key]: settings![key] === 'true' ? 'false' : 'true' });
   }
 
-  function setVal(key, val) {
-    handleSave({ [key]: String(val) });
+  function setVal(key: string, val: string) {
+    handleSave({ [key]: val });
   }
 
-  // Shifts management
   function addShift() {
     setLocalShifts([...localShifts, { days: [1], label: 'Turno', open: '13:00', close: '16:00' }]);
   }
 
-  function updateShift(i, field, val) {
+  function updateShift(i: number, field: string, val: string) {
     const copy = [...localShifts];
-    copy[i] = { ...copy[i], [field]: val };
+    (copy[i] as unknown as Record<string, unknown>)[field] = val;
     setLocalShifts(copy);
   }
 
-  function toggleShiftDay(i, d) {
+  function toggleShiftDay(i: number, d: number) {
     const copy = [...localShifts];
     const days = copy[i].days;
     copy[i] = { ...copy[i], days: days.includes(d) ? days.filter(x => x !== d) : [...days, d].sort() };
     setLocalShifts(copy);
   }
 
-  function removeShift(i) {
+  function removeShift(i: number) {
     const copy = localShifts.filter((_, idx) => idx !== i);
     setLocalShifts(copy);
   }
@@ -90,18 +119,17 @@ export default function ReservaSettingsView({ colors: C }) {
     handleSave({ reservationShifts: JSON.stringify(localShifts) });
   }
 
-  // Blocked dates
   function addBlocked() {
     setLocalBlocked([...localBlocked, { date: '', reason: '' }]);
   }
 
-  function updateBlocked(i, field, val) {
+  function updateBlocked(i: number, field: string, val: string) {
     const copy = [...localBlocked];
-    copy[i] = { ...copy[i], [field]: val };
+    (copy[i] as unknown as Record<string, unknown>)[field] = val;
     setLocalBlocked(copy);
   }
 
-  function removeBlocked(i) {
+  function removeBlocked(i: number) {
     setLocalBlocked(localBlocked.filter((_, idx) => idx !== i));
   }
 
@@ -109,8 +137,7 @@ export default function ReservaSettingsView({ colors: C }) {
     handleSave({ reservationBlockedDates: JSON.stringify(localBlocked) });
   }
 
-  // Recurring
-  async function saveRecurring(item) {
+  async function saveRecurring(item: Partial<RecurringItem>) {
     try {
       const res = await fetch('/api/reservations', {
         method: 'POST',
@@ -123,7 +150,7 @@ export default function ReservaSettingsView({ colors: C }) {
     } catch {}
   }
 
-  async function deleteRecurring(id) {
+  async function deleteRecurring(id: string) {
     try {
       const res = await fetch('/api/reservations', {
         method: 'DELETE',
@@ -139,7 +166,7 @@ export default function ReservaSettingsView({ colors: C }) {
     return 'rec_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
   }
 
-  const [recForm, setRecForm] = useState(null);
+  const [recForm, setRecForm] = useState<RecurringItem | null>(null);
 
   if (loading || !settings) {
     return <div className="text-center py-12" style={{ color: C.muted }}>Cargando configuración…</div>;
@@ -166,7 +193,6 @@ export default function ReservaSettingsView({ colors: C }) {
         {saving && <span className="text-xs" style={{ color: C.muted }}>Guardando…</span>}
       </div>
 
-      {/* Sub-tabs */}
       <div className="flex items-center gap-1 flex-wrap">
         {tabs.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
@@ -201,7 +227,7 @@ export default function ReservaSettingsView({ colors: C }) {
   );
 }
 
-function Toggle({ value, onChange, label, C }) {
+function Toggle({ value, onChange, C }: { value: string; onChange: () => void; C: Theme }) {
   return (
     <button onClick={onChange}
       className="relative w-10 h-5 rounded-full transition-colors"
@@ -212,13 +238,16 @@ function Toggle({ value, onChange, label, C }) {
   );
 }
 
-function SectionTitle({ text, C }) {
+function SectionTitle({ text, C }: { text: string; C: Theme }) {
   return <h3 className="text-sm font-semibold mt-4 mb-2" style={{ color: C.brassLight }}>{text}</h3>;
 }
 
-// ---- Tabs ----
-
-function GeneralTab({ settings, setVal, toggle, C }) {
+function GeneralTab({ settings, setVal, toggle, C }: {
+  settings: Record<string, string>;
+  setVal: (key: string, val: string) => void;
+  toggle: (key: string) => void;
+  C: Theme;
+}) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -242,7 +271,18 @@ function GeneralTab({ settings, setVal, toggle, C }) {
   );
 }
 
-function ScheduleTab({ settings, setVal, toggle, localShifts, addShift, updateShift, toggleShiftDay, removeShift, saveShifts, C }) {
+function ScheduleTab({ settings, setVal, toggle, localShifts, addShift, updateShift, toggleShiftDay, removeShift, saveShifts, C }: {
+  settings: Record<string, string>;
+  setVal: (key: string, val: string) => void;
+  toggle: (key: string) => void;
+  localShifts: Shift[];
+  addShift: () => void;
+  updateShift: (i: number, field: string, val: string) => void;
+  toggleShiftDay: (i: number, d: number) => void;
+  removeShift: (i: number) => void;
+  saveShifts: () => void;
+  C: Theme;
+}) {
   const scheduleType = settings.reservationScheduleType || 'simple';
   return (
     <div className="space-y-3">
@@ -320,10 +360,10 @@ function ScheduleTab({ settings, setVal, toggle, localShifts, addShift, updateSh
       <SectionTitle text="Días de cierre semanal" C={C} />
       <div className="flex items-center gap-1 flex-wrap">
         {DAY_SHORT.map((d, i) => {
-          const closed = parseJSON(settings.reservationClosedDays, []).includes(i);
+          const closed = parseJSON<number[]>(settings.reservationClosedDays, []).includes(i);
           return (
             <button key={i} onClick={() => {
-              const current = parseJSON(settings.reservationClosedDays, []);
+              const current = parseJSON<number[]>(settings.reservationClosedDays, []);
               const next = current.includes(i) ? current.filter(x => x !== i) : [...current, i];
               setVal('reservationClosedDays', JSON.stringify(next));
             }}
@@ -338,12 +378,16 @@ function ScheduleTab({ settings, setVal, toggle, localShifts, addShift, updateSh
   );
 }
 
-function parseJSON(val, fallback) {
+function parseJSON<T>(val: string | undefined, fallback: T): T {
   if (!val) return fallback;
-  try { return JSON.parse(val); } catch { return fallback; }
+  try { return JSON.parse(val) as T; } catch { return fallback; }
 }
 
-function RulesTab({ settings, setVal, C }) {
+function RulesTab({ settings, setVal, C }: {
+  settings: Record<string, string>;
+  setVal: (key: string, val: string) => void;
+  C: Theme;
+}) {
   return (
     <div className="grid grid-cols-2 gap-3">
       <Field label="Intervalo de horarios" type="select" value={settings.reservationInterval || '30'} onChange={v => setVal('reservationInterval', v)} C={C}>
@@ -359,7 +403,19 @@ function RulesTab({ settings, setVal, C }) {
   );
 }
 
-function Field({ label, value, onChange, type = 'text', min, max, step, placeholder, suffix, children, C }) {
+function Field({ label, value, onChange, type = 'text', min, max, step, placeholder, suffix, children, C }: {
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  type?: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  placeholder?: string;
+  suffix?: string;
+  children?: React.ReactNode;
+  C: Theme;
+}) {
   if (type === 'select') {
     return (
       <div>
@@ -386,7 +442,12 @@ function Field({ label, value, onChange, type = 'text', min, max, step, placehol
   );
 }
 
-function DepositTab({ settings, setVal, toggle, C }) {
+function DepositTab({ settings, setVal, toggle, C }: {
+  settings: Record<string, string>;
+  setVal: (key: string, val: string) => void;
+  toggle: (key: string) => void;
+  C: Theme;
+}) {
   const amount = Number(settings.reservationDepositAmount || '0');
   return (
     <div className="space-y-3">
@@ -411,7 +472,11 @@ function DepositTab({ settings, setVal, toggle, C }) {
   );
 }
 
-function CancelTab({ settings, setVal, C }) {
+function CancelTab({ settings, setVal, C }: {
+  settings: Record<string, string>;
+  setVal: (key: string, val: string) => void;
+  C: Theme;
+}) {
   return (
     <div className="space-y-3">
       <Field label="Antelación para cancelación (horas)" type="number" value={settings.reservationCancellationHours || '24'} onChange={v => setVal('reservationCancellationHours', v)} min={0} max={168} C={C} />
@@ -425,7 +490,14 @@ function CancelTab({ settings, setVal, C }) {
   );
 }
 
-function BlockedTab({ localBlocked, addBlocked, updateBlocked, removeBlocked, saveBlocked, C }) {
+function BlockedTab({ localBlocked, addBlocked, updateBlocked, removeBlocked, saveBlocked, C }: {
+  localBlocked: BlockedDate[];
+  addBlocked: () => void;
+  updateBlocked: (i: number, field: string, val: string) => void;
+  removeBlocked: (i: number) => void;
+  saveBlocked: () => void;
+  C: Theme;
+}) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -458,12 +530,20 @@ function BlockedTab({ localBlocked, addBlocked, updateBlocked, removeBlocked, sa
   );
 }
 
-function RecurringTab({ recurring, recForm, setRecForm, saveRecurring, deleteRecurring, generateRecurringId, C }) {
+function RecurringTab({ recurring, recForm, setRecForm, saveRecurring, deleteRecurring, generateRecurringId, C }: {
+  recurring: RecurringItem[];
+  recForm: RecurringItem | null;
+  setRecForm: (item: RecurringItem | null) => void;
+  saveRecurring: (item: Partial<RecurringItem>) => void;
+  deleteRecurring: (id: string) => void;
+  generateRecurringId: () => string;
+  C: Theme;
+}) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium" style={{ color: C.cream }}>Plantillas recurrentes</span>
-        <button onClick={() => setRecForm({ id: generateRecurringId(), name: '', weekday: 5, time: '20:00', pax: 4, phone: '', notes: '', zone: '', tableId: '' })}
+        <button onClick={() => setRecForm({ id: generateRecurringId(), name: '', weekday: 5, time: '20:00', pax: 4, phone: '', notes: '', zone: '', tableId: '', active: true })}
           className="flex items-center gap-1 px-2 py-1 rounded text-[10px] hover:opacity-80" style={{ background: C.brass + '20', color: C.brassLight }}>
           <Plus className="w-3 h-3" /> Nueva plantilla
         </button>
@@ -548,7 +628,12 @@ function RecurringTab({ recurring, recForm, setRecForm, saveRecurring, deleteRec
   );
 }
 
-function NotifyTab({ settings, toggle, setVal, C }) {
+function NotifyTab({ settings, toggle, setVal, C }: {
+  settings: Record<string, string>;
+  toggle: (key: string) => void;
+  setVal: (key: string, val: string) => void;
+  C: Theme;
+}) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -574,7 +659,12 @@ function NotifyTab({ settings, toggle, setVal, C }) {
   );
 }
 
-function ReviewsTab({ settings, toggle, setVal, C }) {
+function ReviewsTab({ settings, toggle, setVal, C }: {
+  settings: Record<string, string>;
+  toggle: (key: string) => void;
+  setVal: (key: string, val: string) => void;
+  C: Theme;
+}) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">

@@ -2,18 +2,94 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, FileText, Truck, Calendar, Euro, Check, X, ChevronDown, ChevronUp, Loader2, Search, Package, AlertTriangle, Ban, Trash2 } from 'lucide-react';
+import type { Theme } from './constants';
 
-export default function AlbaranesView({ colors: C }) {
-  const [albaranes, setAlbaranes] = useState([]);
-  const [suppliers, setSuppliers] = useState([]);
-  const [purchaseOrders, setPurchaseOrders] = useState([]);
-  const [catalog, setCatalog] = useState(null);
+interface AlbaranLine {
+  id: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  packSize: number;
+  pricePerPack: number;
+  pricePerUnit: number;
+  supplierSku: string;
+  ivaPct: number;
+  lineDiscountPct: number;
+  lineDiscountAmount: number;
+  subtotal: number;
+  ivaAmount: number;
+  totalLine: number;
+  batchNumber: string;
+  expiryDate: string;
+  location: string;
+}
+
+interface Albaran {
+  id: string;
+  supplierId: string;
+  supplierName: string;
+  albaranNumber: string;
+  deliveryDate: string;
+  invoiceNumber: string;
+  notes: string;
+  totalAmount: number;
+  totalNet: number;
+  totalIva: number;
+  headerDiscountPct: number;
+  headerDiscountAmount: number;
+  recargoEquivalenciaPct: number;
+  recargoAmount: number;
+  portesAmount: number;
+  status: string;
+  receivedBy: string;
+  linkedPurchaseOrderId: string;
+  anuladoReason: string;
+  lines: AlbaranLine[];
+}
+
+interface Supplier {
+  id: string;
+  name: string;
+  active: boolean;
+}
+
+interface PurchaseOrder {
+  id: string;
+  orderNumber: string;
+  supplierId: string;
+  supplierName: string;
+  status: string;
+}
+
+interface SupplierCatalogOffer {
+  id: string;
+  productId: string;
+  productName: string;
+  price: number;
+  sku: string;
+}
+
+interface CatalogProduct {
+  id: string;
+  name: string;
+  type: string;
+}
+
+interface AlbaranesViewProps {
+  colors: Theme;
+}
+
+export default function AlbaranesView({ colors: C }: AlbaranesViewProps) {
+  const [albaranes, setAlbaranes] = useState<Albaran[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+  const [catalog, setCatalog] = useState<{ products: CatalogProduct[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [editId, setEditId] = useState(null);
+  const [editId, setEditId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [processingId, setProcessingId] = useState(null);
-  const [voidingId, setVoidingId] = useState(null);
+  const [processingId, setProcessingId] = useState<string | null>(null);
+  const [voidingId, setVoidingId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => { loadAll(); }, []);
@@ -30,7 +106,7 @@ export default function AlbaranesView({ colors: C }) {
       if (aRes.ok) setAlbaranes(await aRes.json());
       if (sRes.ok) setSuppliers(await sRes.json());
       if (poRes.ok) {
-        const pos = await poRes.json();
+        const pos: PurchaseOrder[] = await poRes.json();
         setPurchaseOrders(pos.filter(po => po.status !== 'received'));
       }
       if (cRes.ok) setCatalog(await cRes.json());
@@ -38,7 +114,7 @@ export default function AlbaranesView({ colors: C }) {
     setLoading(false);
   }
 
-  const nonElaborados = catalog?.products?.filter(p => p.type !== 'elaborado') || [];
+  const nonElaborados = catalog?.products?.filter((p: CatalogProduct) => p.type !== 'elaborado') || [];
   const filtered = albaranes.filter(a => 
     (statusFilter === 'all' || a.status === statusFilter) &&
     (!searchQuery || 
@@ -84,7 +160,7 @@ export default function AlbaranesView({ colors: C }) {
           suppliers={suppliers} 
           purchaseOrders={purchaseOrders}
           nonElaborados={nonElaborados} 
-          editAlbaran={editId ? albaranes.find(a => a.id === editId) : null} 
+          editAlbaran={editId ? albaranes.find(a => a.id === editId) ?? null : null} 
           C={C}
           onClose={() => { setShowForm(false); setEditId(null); }} 
           onSaved={() => { loadAll(); setShowForm(false); setEditId(null); }} 
@@ -101,7 +177,6 @@ export default function AlbaranesView({ colors: C }) {
               albaran={a} 
               C={C} 
               onEdit={() => setEditId(a.id)} 
-              onRefresh={loadAll} 
               onConfirm={() => handleConfirm(a)}
               onVoid={() => handleVoid(a)}
               onDelete={() => handleDelete(a)}
@@ -114,7 +189,7 @@ export default function AlbaranesView({ colors: C }) {
     </div>
   );
 
-  async function handleConfirm(albaran) {
+  async function handleConfirm(albaran: Albaran) {
     if (!confirm(`¿Confirmar albarán ${albaran.albaranNumber}? Esto actualizará el stock, ajustará los costes y creará los lotes.`)) return;
     
     setProcessingId(albaran.id);
@@ -139,13 +214,13 @@ export default function AlbaranesView({ colors: C }) {
         const err = await r.json();
         alert('Error al confirmar: ' + (err.error || 'Error desconocido'));
       }
-    } catch (err) {
-      alert('Error al confirmar albarán: ' + err.message);
+    } catch (err: unknown) {
+      alert('Error al confirmar albarán: ' + (err as Error).message);
     }
     setProcessingId(null);
   }
 
-  async function handleVoid(albaran) {
+  async function handleVoid(albaran: Albaran) {
     const reason = prompt('Motivo de la anulación (opcional):');
     if (reason === null) return;
     
@@ -162,13 +237,13 @@ export default function AlbaranesView({ colors: C }) {
         const err = await r.json();
         alert('Error al anular: ' + (err.error || 'Error desconocido'));
       }
-    } catch (err) {
-      alert('Error al anular albarán: ' + err.message);
+    } catch (err: unknown) {
+      alert('Error al anular albarán: ' + (err as Error).message);
     }
     setVoidingId(null);
   }
 
-  async function handleDelete(albaran) {
+  async function handleDelete(albaran: Albaran) {
     if (!confirm(`¿Eliminar albarán ${albaran.albaranNumber}? Esta acción no se puede deshacer.`)) return;
     
     try {
@@ -182,16 +257,27 @@ export default function AlbaranesView({ colors: C }) {
         const err = await r.json();
         alert('Error al eliminar: ' + (err.error || 'Error desconocido'));
       }
-    } catch (err) {
-      alert('Error al eliminar albarán: ' + err.message);
+    } catch (err: unknown) {
+      alert('Error al eliminar albarán: ' + (err as Error).message);
     }
   }
 }
 
-function AlbaranCard({ albaran: a, C, onEdit, onConfirm, onVoid, onDelete, processing, voiding }) {
+interface AlbaranCardProps {
+  albaran: Albaran;
+  C: Theme;
+  onEdit: () => void;
+  onConfirm: () => void;
+  onVoid: () => void;
+  onDelete: () => void;
+  processing: boolean;
+  voiding: boolean;
+}
+
+function AlbaranCard({ albaran: a, C, onEdit, onConfirm, onVoid, onDelete, processing, voiding }: AlbaranCardProps) {
   const [expanded, setExpanded] = useState(false);
 
-  const statusColors = {
+  const statusColors: Record<string, { bg: string; text: string; label: string }> = {
     draft: { bg: C.surface, text: C.muted, label: 'Borrador' },
     confirmed: { bg: C.sage + '30', text: C.sage, label: 'Confirmado' },
     anulado: { bg: C.wine + '30', text: C.wine, label: 'Anulado' }
@@ -310,7 +396,32 @@ function AlbaranCard({ albaran: a, C, onEdit, onConfirm, onVoid, onDelete, proce
   );
 }
 
-function AlbaranForm({ suppliers, purchaseOrders, nonElaborados, editAlbaran, C, onClose, onSaved }) {
+interface AlbaranLineForm {
+  productId: string;
+  productName: string;
+  quantity: number;
+  packSize: number;
+  pricePerPack: number;
+  pricePerUnit: number;
+  ivaPct: number;
+  lineDiscountPct: number;
+  supplierSku: string;
+  batchNumber: string;
+  expiryDate: string;
+  location: string;
+}
+
+interface AlbaranFormProps {
+  suppliers: Supplier[];
+  purchaseOrders: PurchaseOrder[];
+  nonElaborados: CatalogProduct[];
+  editAlbaran: Albaran | null;
+  C: Theme;
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+function AlbaranForm({ suppliers, purchaseOrders, nonElaborados, editAlbaran, C, onClose, onSaved }: AlbaranFormProps) {
   const [supplierId, setSupplierId] = useState(editAlbaran?.supplierId || '');
   const [albaranNumber, setAlbaranNumber] = useState(editAlbaran?.albaranNumber || `ALB-${Date.now()}`);
   const [deliveryDate, setDeliveryDate] = useState(editAlbaran?.deliveryDate || new Date().toISOString().split('T')[0]);
@@ -321,22 +432,22 @@ function AlbaranForm({ suppliers, purchaseOrders, nonElaborados, editAlbaran, C,
   const [recargoEquivalenciaPct, setRecargoEquivalenciaPct] = useState(editAlbaran?.recargoEquivalenciaPct || 0);
   const [portesAmount, setPortesAmount] = useState(editAlbaran?.portesAmount || 0);
   const [linkedPurchaseOrderId, setLinkedPurchaseOrderId] = useState(editAlbaran?.linkedPurchaseOrderId || '');
-  const [lines, setLines] = useState(editAlbaran?.lines.map(l => ({
+  const [lines, setLines] = useState<AlbaranLineForm[]>(editAlbaran?.lines.map(l => ({
     ...l, productName: l.productName || '', pricePerPack: l.pricePerPack || l.pricePerUnit || 0, packSize: l.packSize || 1, ivaPct: l.ivaPct || 0, lineDiscountPct: l.lineDiscountPct || 0, supplierSku: l.supplierSku || '', batchNumber: l.batchNumber || '', expiryDate: l.expiryDate || '', location: l.location || 'Almacén'
-  })) || []);
+  } as AlbaranLineForm)) || []);
   const [saving, setSaving] = useState(false);
-  const [catalogOffers, setCatalogOffers] = useState({});
+  const [catalogOffers, setCatalogOffers] = useState<Record<string, SupplierCatalogOffer>>({});
 
   useEffect(() => {
     if (supplierId) loadOffers(supplierId);
   }, [supplierId]);
 
-  async function loadOffers(sid) {
+  async function loadOffers(sid: string) {
     try {
       const r = await fetch(`/api/supplier-catalog?supplierId=${sid}`);
       if (r.ok) {
-        const offers = await r.json();
-        const map = {};
+        const offers: SupplierCatalogOffer[] = await r.json();
+        const map: Record<string, SupplierCatalogOffer> = {};
         for (const o of offers) map[o.productId] = o;
         setCatalogOffers(map);
       }
@@ -344,13 +455,13 @@ function AlbaranForm({ suppliers, purchaseOrders, nonElaborados, editAlbaran, C,
   }
 
   function addLine() {
-    setLines(l => [...l, { productId: '', productName: '', quantity: 1, packSize: 1, pricePerPack: 0, ivaPct: 21, lineDiscountPct: 0, supplierSku: '', batchNumber: '', expiryDate: '', location: 'Almacén' }]);
+    setLines(l => [...l, { productId: '', productName: '', quantity: 1, packSize: 1, pricePerPack: 0, pricePerUnit: 0, ivaPct: 21, lineDiscountPct: 0, supplierSku: '', batchNumber: '', expiryDate: '', location: 'Almacén' }]);
   }
 
-  function updateLine(i, field, value) {
+  function updateLine(i: number, field: string, value: string) {
     setLines(l => {
       const n = [...l];
-      n[i] = { ...n[i], [field]: value };
+      (n[i] as unknown as Record<string, string | number>)[field] = value;
       if (field === 'productId' && catalogOffers[value]) {
         n[i].pricePerPack = catalogOffers[value].price;
         n[i].supplierSku = catalogOffers[value].sku || '';
@@ -360,15 +471,15 @@ function AlbaranForm({ suppliers, purchaseOrders, nonElaborados, editAlbaran, C,
         n[i].productName = nonElaborados.find(p => p.id === value)?.name || '';
       }
       if (field === 'packSize' || field === 'pricePerPack') {
-        const packSize = parseFloat(n[i].packSize) || 1;
-        const pricePerPack = parseFloat(n[i].pricePerPack) || 0;
+        const packSize = Number(n[i].packSize) || 1;
+        const pricePerPack = Number(n[i].pricePerPack) || 0;
         n[i].pricePerUnit = pricePerPack / packSize;
       }
       return n;
     });
   }
 
-  function removeLine(i) {
+  function removeLine(i: number) {
     setLines(l => l.filter((_, idx) => idx !== i));
   }
 
@@ -378,7 +489,7 @@ function AlbaranForm({ suppliers, purchaseOrders, nonElaborados, editAlbaran, C,
     try {
       const supplier = suppliers.find(s => s.id === supplierId);
       const action = editAlbaran ? 'update' : 'create';
-      const body = {
+      const body: Record<string, unknown> = {
         action,
         supplierId,
         supplierName: supplier?.name || '',
@@ -393,9 +504,9 @@ function AlbaranForm({ suppliers, purchaseOrders, nonElaborados, editAlbaran, C,
         linkedPurchaseOrderId,
         lines: lines.map(l => ({
           productId: l.productId, productName: l.productName,
-          quantity: parseFloat(l.quantity) || 1, packSize: parseFloat(l.packSize) || 1,
-          pricePerPack: parseFloat(l.pricePerPack) || 0, pricePerUnit: parseFloat(l.pricePerUnit) || 0,
-          ivaPct: parseFloat(l.ivaPct) || 0, lineDiscountPct: parseFloat(l.lineDiscountPct) || 0,
+          quantity: Number(l.quantity) || 1, packSize: Number(l.packSize) || 1,
+          pricePerPack: Number(l.pricePerPack) || 0, pricePerUnit: Number(l.pricePerUnit) || 0,
+          ivaPct: Number(l.ivaPct) || 0, lineDiscountPct: Number(l.lineDiscountPct) || 0,
           supplierSku: l.supplierSku || '', batchNumber: l.batchNumber || '', expiryDate: l.expiryDate || '', location: l.location || 'Almacén',
         })),
       };
@@ -407,19 +518,19 @@ function AlbaranForm({ suppliers, purchaseOrders, nonElaborados, editAlbaran, C,
         const err = await r.json();
         alert('Error: ' + (err.error || 'Error desconocido'));
       }
-    } catch (err) {
-      alert('Error: ' + err.message);
+    } catch (err: unknown) {
+      alert('Error: ' + (err as Error).message);
     }
     setSaving(false);
   }
 
   const supplier = suppliers.find(s => s.id === supplierId);
-  const calculateLineTotal = (l) => {
-    const qty = parseFloat(l.quantity) || 0;
-    const packSize = parseFloat(l.packSize) || 1;
-    const pricePerPack = parseFloat(l.pricePerPack) || 0;
-    const lineDiscountPct = parseFloat(l.lineDiscountPct) || 0;
-    const ivaPct = parseFloat(l.ivaPct) || 0;
+  const calculateLineTotal = (l: AlbaranLineForm) => {
+    const qty = Number(l.quantity) || 0;
+    const packSize = Number(l.packSize) || 1;
+    const pricePerPack = Number(l.pricePerPack) || 0;
+    const lineDiscountPct = Number(l.lineDiscountPct) || 0;
+    const ivaPct = Number(l.ivaPct) || 0;
     const subtotal = qty * pricePerPack;
     const lineDiscountAmount = subtotal * (lineDiscountPct / 100);
     const afterLineDiscount = subtotal - lineDiscountAmount;
@@ -427,29 +538,29 @@ function AlbaranForm({ suppliers, purchaseOrders, nonElaborados, editAlbaran, C,
     return afterLineDiscount + ivaAmount;
   };
   const totalNet = lines.reduce((s, l) => {
-    const qty = parseFloat(l.quantity) || 0;
-    const packSize = parseFloat(l.packSize) || 1;
-    const pricePerPack = parseFloat(l.pricePerPack) || 0;
-    const lineDiscountPct = parseFloat(l.lineDiscountPct) || 0;
+    const qty = Number(l.quantity) || 0;
+    const packSize = Number(l.packSize) || 1;
+    const pricePerPack = Number(l.pricePerPack) || 0;
+    const lineDiscountPct = Number(l.lineDiscountPct) || 0;
     const subtotal = qty * pricePerPack;
     const lineDiscountAmount = subtotal * (lineDiscountPct / 100);
     return s + (subtotal - lineDiscountAmount);
   }, 0);
   const totalIva = lines.reduce((s, l) => {
-    const qty = parseFloat(l.quantity) || 0;
-    const packSize = parseFloat(l.packSize) || 1;
-    const pricePerPack = parseFloat(l.pricePerPack) || 0;
-    const lineDiscountPct = parseFloat(l.lineDiscountPct) || 0;
-    const ivaPct = parseFloat(l.ivaPct) || 0;
+    const qty = Number(l.quantity) || 0;
+    const packSize = Number(l.packSize) || 1;
+    const pricePerPack = Number(l.pricePerPack) || 0;
+    const lineDiscountPct = Number(l.lineDiscountPct) || 0;
+    const ivaPct = Number(l.ivaPct) || 0;
     const subtotal = qty * pricePerPack;
     const lineDiscountAmount = subtotal * (lineDiscountPct / 100);
     const afterLineDiscount = subtotal - lineDiscountAmount;
     return s + (afterLineDiscount * (ivaPct / 100));
   }, 0);
-  const headerDiscountAmount = totalNet * (parseFloat(headerDiscountPct) / 100);
+  const headerDiscountAmount = totalNet * (Number(headerDiscountPct) / 100);
   const afterHeaderDiscount = totalNet - headerDiscountAmount;
-  const recargoAmount = afterHeaderDiscount * (parseFloat(recargoEquivalenciaPct) / 100);
-  const portes = parseFloat(portesAmount) || 0;
+  const recargoAmount = afterHeaderDiscount * (Number(recargoEquivalenciaPct) / 100);
+  const portes = Number(portesAmount) || 0;
   const total = afterHeaderDiscount + recargoAmount + portes + totalIva;
 
   return (
@@ -509,21 +620,21 @@ function AlbaranForm({ suppliers, purchaseOrders, nonElaborados, editAlbaran, C,
         <div>
           <label className="text-[10px] block mb-1" style={{ color: C.muted }}>Descuento cabecera %</label>
           <input type="number" step="0.1" value={headerDiscountPct} min={0} max={100}
-            onChange={e => setHeaderDiscountPct(parseFloat(e.target.value) || 0)}
+            onChange={e => setHeaderDiscountPct(Number(e.target.value) || 0)}
             className="rounded-lg px-2 py-1.5 text-[10px] w-full"
             style={{ background: C.surface, color: C.cream, border: `1px solid ${C.line}` }} />
         </div>
         <div>
           <label className="text-[10px] block mb-1" style={{ color: C.muted }}>Recargo eq. %</label>
           <input type="number" step="0.1" value={recargoEquivalenciaPct} min={0} max={100}
-            onChange={e => setRecargoEquivalenciaPct(parseFloat(e.target.value) || 0)}
+            onChange={e => setRecargoEquivalenciaPct(Number(e.target.value) || 0)}
             className="rounded-lg px-2 py-1.5 text-[10px] w-full"
             style={{ background: C.surface, color: C.cream, border: `1px solid ${C.line}` }} />
         </div>
         <div>
           <label className="text-[10px] block mb-1" style={{ color: C.muted }}>Portes €</label>
           <input type="number" step="0.01" value={portesAmount} min={0}
-            onChange={e => setPortesAmount(parseFloat(e.target.value) || 0)}
+            onChange={e => setPortesAmount(Number(e.target.value) || 0)}
             className="rounded-lg px-2 py-1.5 text-[10px] w-full"
             style={{ background: C.surface, color: C.cream, border: `1px solid ${C.line}` }} />
         </div>

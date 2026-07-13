@@ -2,30 +2,85 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Plus, X, Trash2, Copy, Calendar, Target, Clock, Users, Save, Loader2 } from 'lucide-react';
+import type { Theme } from './constants';
 
 const DAYS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 const DAYS_SHORT = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 const COLORS = ['#7a9a7c','#c4a04a','#6a9af8','#b05e5e','#9c958a','#d4a574','#8a9ab0','#c48a7a'];
 
-export default function TurnosView({ employees, colors: C }) {
-  const [shifts, setShifts] = useState([]);
-  const [objectives, setObjectives] = useState([]);
+interface Employee {
+  id: string;
+  name: string;
+}
+
+interface Shift {
+  id?: string;
+  employeeId: string;
+  employeeName?: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  position?: string;
+  notes?: string;
+  color?: string;
+}
+
+interface Objective {
+  id: string;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  position: string;
+  min_people: number;
+  max_people: number;
+}
+
+interface WeekDay {
+  date: string;
+  dayName: string;
+  dayNum: number;
+  isToday: boolean;
+}
+
+interface MonthCell {
+  date: string;
+  day: number;
+  isToday: boolean;
+  shifts: Shift[];
+}
+
+interface CoverageSlot extends Objective {
+  dayName: string;
+  assigned: number;
+  min: number;
+  max: number;
+  ok: boolean;
+}
+
+interface TurnosViewProps {
+  employees: Employee[];
+  colors: Theme;
+}
+
+export default function TurnosView({ employees, colors: C }: TurnosViewProps) {
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [objectives, setObjectives] = useState<Objective[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('week');
   const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
   const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState(null);
+  const [editing, setEditing] = useState<Shift | Partial<Shift> | null>(null);
   const [copiando, setCopiando] = useState(false);
 
   useEffect(() => { loadShifts(); loadObjectives(); }, [weekStart]);
 
-  function getWeekStart(d) {
+  function getWeekStart(d: Date) {
     const wd = d.getDay();
     const diff = d.getDate() - wd + (wd === 0 ? -6 : 1);
     return new Date(d.getFullYear(), d.getMonth(), diff);
   }
 
-  function formatDate(d) { return d.toISOString().slice(0, 10); }
+  function formatDate(d: Date) { return d.toISOString().slice(0, 10); }
 
   function weekRange() {
     const start = new Date(weekStart);
@@ -46,7 +101,7 @@ export default function TurnosView({ employees, colors: C }) {
     const range = tab === 'month' ? monthRange() : weekRange();
     try {
       const r = await fetch(`/api/shifts?from=${range.start}&to=${range.end}`);
-      if (r.ok) setShifts(await r.json());
+      if (r.ok) setShifts(await r.json() as Shift[]);
     } catch {}
     setLoading(false);
   }
@@ -54,11 +109,11 @@ export default function TurnosView({ employees, colors: C }) {
   async function loadObjectives() {
     try {
       const r = await fetch('/api/shifts?objectives=true');
-      if (r.ok) setObjectives(await r.json());
+      if (r.ok) setObjectives(await r.json() as Objective[]);
     } catch {}
   }
 
-  async function saveShift(data) {
+  async function saveShift(data: Partial<Shift>) {
     try {
       await fetch('/api/shifts', {
         method: 'POST',
@@ -70,14 +125,14 @@ export default function TurnosView({ employees, colors: C }) {
     } catch {}
   }
 
-  async function deleteShift(id) {
+  async function deleteShift(id: string) {
     try {
       await fetch('/api/shifts', { method: 'DELETE', body: JSON.stringify({ id }) });
       loadShifts();
     } catch {}
   }
 
-  async function copyWeek(from, to) {
+  async function copyWeek(from: Date, to: Date) {
     setCopiando(true);
     try {
       await fetch('/api/shifts', {
@@ -90,8 +145,8 @@ export default function TurnosView({ employees, colors: C }) {
     setCopiando(false);
   }
 
-  const weekDays = useMemo(() => {
-    const days = [];
+  const weekDays: WeekDay[] = useMemo(() => {
+    const days: WeekDay[] = [];
     for (let i = 0; i < 7; i++) {
       const d = new Date(weekStart);
       d.setDate(d.getDate() + i);
@@ -100,10 +155,10 @@ export default function TurnosView({ employees, colors: C }) {
     return days;
   }, [weekStart]);
 
-  const monthDays = useMemo(() => {
+  const monthDays: (MonthCell | null)[] = useMemo(() => {
     const start = new Date(weekStart.getFullYear(), weekStart.getMonth(), 1);
     const end = new Date(weekStart.getFullYear(), weekStart.getMonth() + 1, 0);
-    const days = [];
+    const days: (MonthCell | null)[] = [];
     const firstDay = start.getDay();
     for (let i = 0; i < firstDay; i++) days.push(null);
     for (let d = 1; d <= end.getDate(); d++) {
@@ -113,9 +168,8 @@ export default function TurnosView({ employees, colors: C }) {
     return days;
   }, [shifts, weekStart]);
 
-  // Coverage analysis
-  const coverage = useMemo(() => {
-    const bySlot = {};
+  const coverage: CoverageSlot[] = useMemo(() => {
+    const bySlot: Record<string, CoverageSlot> = {};
     objectives.forEach(obj => {
       const key = `${obj.day_of_week}-${obj.start_time}-${obj.end_time}`;
       const dayShifts = shifts.filter(s => {
@@ -138,7 +192,7 @@ export default function TurnosView({ employees, colors: C }) {
     return Object.values(bySlot).sort((a, b) => a.day_of_week - b.day_of_week || a.start_time.localeCompare(b.start_time));
   }, [objectives, shifts]);
 
-  function navigate(dir) {
+  function navigate(dir: number) {
     const d = new Date(weekStart);
     if (tab === 'month') d.setMonth(d.getMonth() + dir);
     else d.setDate(d.getDate() + 7 * dir);
@@ -232,7 +286,7 @@ export default function TurnosView({ employees, colors: C }) {
                               className="text-[9px] px-1 py-0.5 rounded cursor-pointer hover:opacity-80 flex items-center justify-between gap-0.5"
                               style={{ background: (s.color || COLORS[0]) + '30', color: s.color || COLORS[0], borderLeft: `2px solid ${s.color || COLORS[0]}` }}>
                               <span className="truncate">{s.startTime.slice(0, 5)}-{s.endTime.slice(0, 5)}</span>
-                              <button onClick={e => { e.stopPropagation(); deleteShift(s.id); }}
+                              <button onClick={e => { e.stopPropagation(); if (s.id) deleteShift(s.id); }}
                                 className="shrink-0 hover:opacity-70" style={{ color: C.muted }}>
                                 <X className="w-2.5 h-2.5" />
                               </button>
@@ -309,7 +363,6 @@ export default function TurnosView({ employees, colors: C }) {
             </div>
           )}
 
-          {/* Objective form */}
           <ObjectiveForm objectives={objectives} onSave={async (data) => {
             await fetch('/api/shifts', {
               method: 'POST',
@@ -335,7 +388,16 @@ export default function TurnosView({ employees, colors: C }) {
   );
 }
 
-function ShiftForm({ shift, employees, weekDays, onSave, onClose, C }) {
+interface ShiftFormProps {
+  shift: Shift | Partial<Shift> | null;
+  employees: Employee[];
+  weekDays: WeekDay[];
+  onSave: (data: Partial<Shift>) => Promise<void>;
+  onClose: () => void;
+  C: Theme;
+}
+
+function ShiftForm({ shift, employees, weekDays, onSave, onClose, C }: ShiftFormProps) {
   const [employeeId, setEmployeeId] = useState(shift?.employeeId || '');
   const [employeeName, setEmployeeName] = useState(shift?.employeeName || '');
   const [date, setDate] = useState(shift?.date || weekDays?.[0]?.date || '');
@@ -345,7 +407,7 @@ function ShiftForm({ shift, employees, weekDays, onSave, onClose, C }) {
   const [notes, setNotes] = useState(shift?.notes || '');
   const [color, setColor] = useState(shift?.color || COLORS[0]);
 
-  function handleSubmit(e) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const emp = employees.find(e => e.id === employeeId);
     onSave({
@@ -436,7 +498,14 @@ function ShiftForm({ shift, employees, weekDays, onSave, onClose, C }) {
   );
 }
 
-function ObjectiveForm({ objectives, onSave, onDelete, C }) {
+interface ObjectiveFormProps {
+  objectives: Objective[];
+  onSave: (data: Record<string, unknown>) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+  C: Theme;
+}
+
+function ObjectiveForm({ objectives, onSave, onDelete, C }: ObjectiveFormProps) {
   const [dayOfWeek, setDayOfWeek] = useState(1);
   const [startTime, setStartTime] = useState('13:00');
   const [endTime, setEndTime] = useState('16:00');

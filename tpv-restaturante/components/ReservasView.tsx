@@ -2,9 +2,70 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Plus, X, Calendar, Clock, Users, Phone, Mail, MapPin, Check, Trash2, Search } from 'lucide-react';
+import type { Theme } from './constants';
 import ReservaSettingsView from './ReservaSettingsView';
 
-const STATUS_CONFIG = {
+interface Reservation {
+  id: string;
+  date: string;
+  time: string;
+  pax: number;
+  name: string;
+  phone: string;
+  email: string;
+  status: string;
+  zone: string;
+  notes: string;
+  tableId: string;
+  customerId: string;
+  depositAmount: number;
+  depositPaid: boolean;
+  source: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+interface FloorTable {
+  id: string;
+  name: string;
+  type: string;
+  seats: number;
+  reserved_for?: string;
+}
+
+interface FloorZone {
+  id: string;
+  name: string;
+}
+
+interface Floor {
+  tables: FloorTable[];
+  zones: FloorZone[];
+}
+
+interface SlotInfo {
+  time: string;
+  available: boolean;
+  paxRemaining: number;
+  overlapping: number;
+}
+
+interface SlotData {
+  slots: SlotInfo[];
+  isClosed: boolean;
+  isBlocked: boolean;
+  availableSeats: number;
+  totalSeats: number;
+  existingPax: number;
+}
+
+interface ReservasViewProps {
+  floor: Floor;
+  catalog: unknown;
+  colors: Theme;
+}
+
+const STATUS_CONFIG: Record<string, { label: string; color: string; next: string | null }> = {
   pendiente:  { label: 'Pendiente',  color: '#c4a04a', next: 'confirmada' },
   confirmada: { label: 'Confirmada', color: '#7a9a7c', next: 'sentada' },
   sentada:    { label: 'Sentada',    color: '#6a9af8', next: null },
@@ -17,16 +78,16 @@ const STATUS_FLOW = ['pendiente', 'confirmada', 'sentada', 'noshow', 'cancelada'
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const DAYS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 
-export default function ReservasView({ floor, catalog, colors: C }) {
-  const [reservations, setReservations] = useState([]);
+export default function ReservasView({ floor, catalog, colors: C }: ReservasViewProps) {
+  const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState('month'); // month | week | day
+  const [viewMode, setViewMode] = useState('month');
   const [cursor, setCursor] = useState(new Date());
   const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState(null);
+  const [editing, setEditing] = useState<Reservation | null>(null);
   const [statusFilter, setStatusFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [subTab, setSubTab] = useState('calendar'); // calendar | settings
+  const [subTab, setSubTab] = useState('calendar');
 
   useEffect(() => { loadReservations(); }, []);
 
@@ -34,13 +95,12 @@ export default function ReservasView({ floor, catalog, colors: C }) {
     setLoading(true);
     try {
       const { fetchReservations } = await import('../lib/api');
-      const data = await fetchReservations();
+      const data = await fetchReservations() as Reservation[];
       setReservations(data || []);
     } catch {}
     setLoading(false);
   }
 
-  // Filtered
   const filtered = useMemo(() => {
     let list = reservations;
     if (statusFilter) list = list.filter(r => r.status === statusFilter);
@@ -51,35 +111,33 @@ export default function ReservasView({ floor, catalog, colors: C }) {
     return list;
   }, [reservations, statusFilter, searchTerm]);
 
-  // Reservations for the visible period
   const visibleReservations = useMemo(() => {
     const year = cursor.getFullYear();
     const month = cursor.getMonth();
     if (viewMode === 'month') {
       const start = new Date(year, month, 1);
       const end = new Date(year, month + 1, 0, 23, 59);
-      const fmt = d => d.toISOString().slice(0, 10);
+      const fmt = (d: Date) => d.toISOString().slice(0, 10);
       return filtered.filter(r => r.date >= fmt(start) && r.date <= fmt(end));
     }
     if (viewMode === 'week') {
       const start = new Date(cursor); start.setDate(start.getDate() - start.getDay());
       const end = new Date(start); end.setDate(end.getDate() + 6);
-      const fmt = d => d.toISOString().slice(0, 10);
+      const fmt = (d: Date) => d.toISOString().slice(0, 10);
       return filtered.filter(r => r.date >= fmt(start) && r.date <= fmt(end));
     }
-    const fmt = d => d.toISOString().slice(0, 10);
+    const fmt = (d: Date) => d.toISOString().slice(0, 10);
     return filtered.filter(r => r.date === fmt(cursor));
   }, [filtered, cursor, viewMode]);
 
-  // Calendar grid
   const calendarGrid = useMemo(() => {
-    if (viewMode !== 'month') return [];
+    if (viewMode !== 'month') return [] as ({ day: number; date: string; isToday: boolean; reservations: Reservation[] } | null)[];
     const year = cursor.getFullYear();
     const month = cursor.getMonth();
     const first = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const today = new Date().toISOString().slice(0, 10);
-    const cells = [];
+    const cells: ({ day: number; date: string; isToday: boolean; reservations: Reservation[] } | null)[] = [];
     for (let i = 0; i < first; i++) cells.push(null);
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
@@ -89,7 +147,7 @@ export default function ReservasView({ floor, catalog, colors: C }) {
     return cells;
   }, [cursor, viewMode, visibleReservations]);
 
-  function navigate(dir) {
+  function navigate(dir: number) {
     const d = new Date(cursor);
     if (viewMode === 'month') d.setMonth(d.getMonth() + dir);
     else if (viewMode === 'week') d.setDate(d.getDate() + 7 * dir);
@@ -97,12 +155,8 @@ export default function ReservasView({ floor, catalog, colors: C }) {
     setCursor(d);
   }
 
-  function statusColor(status) {
+  function statusColor(status: string) {
     return STATUS_CONFIG[status]?.color || C.muted;
-  }
-
-  function daysInMonth(date) {
-    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
   }
 
   const headerLabel = viewMode === 'month'
@@ -113,7 +167,6 @@ export default function ReservasView({ floor, catalog, colors: C }) {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold" style={{ color: C.cream }}>Reservas</h2>
         <button onClick={() => { setEditing(null); setShowForm(true); }}
@@ -123,7 +176,6 @@ export default function ReservasView({ floor, catalog, colors: C }) {
         </button>
       </div>
 
-      {/* Sub-tabs */}
       <div className="flex items-center gap-1 border-b pb-2" style={{ borderColor: C.line }}>
         {[{ id: 'calendar', label: 'Calendario' }, { id: 'settings', label: 'Ajustes' }].map(t => (
           <button key={t.id} onClick={() => setSubTab(t.id)}
@@ -137,7 +189,6 @@ export default function ReservasView({ floor, catalog, colors: C }) {
       {subTab === 'settings' ? (
         <ReservaSettingsView colors={C} />
       ) : (<>
-      {/* View controls */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-1">
           <button onClick={() => navigate(-1)} className="p-1.5 rounded hover:opacity-70" style={{ color: C.muted }}><ChevronLeft className="w-4 h-4" /></button>
@@ -156,7 +207,6 @@ export default function ReservasView({ floor, catalog, colors: C }) {
         </div>
       </div>
 
-      {/* Status filter */}
       <div className="flex items-center gap-1 flex-wrap">
         <button onClick={() => setStatusFilter('')}
           className="px-2.5 py-1 rounded text-[10px] font-medium hover:opacity-80"
@@ -179,7 +229,6 @@ export default function ReservasView({ floor, catalog, colors: C }) {
         </div>
       </div>
 
-      {/* Calendar */}
       {viewMode === 'month' && (
         <div className="rounded-xl overflow-hidden" style={{ border: `1px solid ${C.line}` }}>
           <div className="grid grid-cols-7">
@@ -214,7 +263,6 @@ export default function ReservasView({ floor, catalog, colors: C }) {
         </div>
       )}
 
-      {/* Week / Day list */}
       {(viewMode === 'week' || viewMode === 'day') && (
         <div className="space-y-2">
           {visibleReservations.length === 0 ? (
@@ -224,7 +272,7 @@ export default function ReservasView({ floor, catalog, colors: C }) {
             </div>
           ) : (
             (viewMode === 'week' ? groupByDate(visibleReservations) : [{'': visibleReservations}]).flatMap((group, gi) => {
-              const dateEntries = viewMode === 'week' ? Object.entries(group) : [['', group[''] || []]];
+              const dateEntries = viewMode === 'week' ? Object.entries(group) : [['', group[''] || []]] as [string, Reservation[]][];
               return dateEntries.map(([dateStr, dayRes]) => (
                 <div key={dateStr || gi} className="space-y-1">
                   {dateStr && (
@@ -232,10 +280,10 @@ export default function ReservasView({ floor, catalog, colors: C }) {
                       {new Date(dateStr + 'T12:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
                     </p>
                   )}
-                  {dayRes.sort((a, b) => a.time.localeCompare(b.time)).map(r => (
+                  {[...dayRes].sort((a, b) => a.time.localeCompare(b.time)).map(r => (
                     <ReservationCard key={r.id} reservation={r} C={C}
                       onEdit={() => { setEditing(r); setShowForm(true); }}
-                      onChangeStatus={async (newStatus) => {
+                      onChangeStatus={async (newStatus: string) => {
                         try {
                           const { saveReservation } = await import('../lib/api');
                           await saveReservation({ ...r, status: newStatus });
@@ -258,9 +306,8 @@ export default function ReservasView({ floor, catalog, colors: C }) {
         </div>
       )}
 
-      {/* Create/Edit modal */}
       {showForm && (
-        <ReservationForm reservation={editing} onSave={async (data) => {
+        <ReservationForm reservation={editing} onSave={async (data: Reservation) => {
           try {
             const { saveReservation } = await import('../lib/api');
             await saveReservation(data);
@@ -275,8 +322,8 @@ export default function ReservasView({ floor, catalog, colors: C }) {
   );
 }
 
-function groupByDate(reservations) {
-  const groups = {};
+function groupByDate(reservations: Reservation[]): Record<string, Reservation[]>[] {
+  const groups: Record<string, Reservation[]> = {};
   for (const r of reservations) {
     if (!groups[r.date]) groups[r.date] = [];
     groups[r.date].push(r);
@@ -284,7 +331,13 @@ function groupByDate(reservations) {
   return [groups];
 }
 
-function ReservationCard({ reservation: r, C, onEdit, onChangeStatus, onDelete }) {
+function ReservationCard({ reservation: r, C, onEdit, onChangeStatus, onDelete }: {
+  reservation: Reservation;
+  C: Theme;
+  onEdit: () => void;
+  onChangeStatus: (status: string) => void;
+  onDelete: () => void;
+}) {
   const config = STATUS_CONFIG[r.status];
   const nextStatus = config.next;
   const zoneLabel = r.zone || '';
@@ -320,7 +373,15 @@ function ReservationCard({ reservation: r, C, onEdit, onChangeStatus, onDelete }
   );
 }
 
-function ReservationForm({ reservation, onSave, onClose, floor, C }) {
+interface ReservationFormProps {
+  reservation: Reservation | null;
+  onSave: (data: Reservation) => Promise<void>;
+  onClose: () => void;
+  floor: Floor;
+  C: Theme;
+}
+
+function ReservationForm({ reservation, onSave, onClose, floor, C }: ReservationFormProps) {
   const [date, setDate] = useState(reservation?.date || new Date().toISOString().slice(0, 10));
   const [time, setTime] = useState(reservation?.time || '14:00');
   const [pax, setPax] = useState(reservation?.pax || 2);
@@ -332,9 +393,9 @@ function ReservationForm({ reservation, onSave, onClose, floor, C }) {
   const [notes, setNotes] = useState(reservation?.notes || '');
   const [tableId, setTableId] = useState(reservation?.tableId || '');
   const [source, setSource] = useState(reservation?.source || 'manual');
-  const [slots, setSlots] = useState(null);
+  const [slots, setSlots] = useState<SlotData | null>(null);
   const [slotsLoading, setSlotsLoading] = useState(false);
-  const [settings, setSettings] = useState(null);
+  const [settings, setSettings] = useState<Record<string, unknown> | null>(null);
 
   const tables = floor?.tables || [];
 
@@ -345,7 +406,7 @@ function ReservationForm({ reservation, onSave, onClose, floor, C }) {
   async function loadSettings() {
     try {
       const { fetchSettings } = await import('../lib/api');
-      const s = await fetchSettings();
+      const s = await fetchSettings() as Record<string, unknown>;
       setSettings(s);
     } catch {}
   }
@@ -354,21 +415,20 @@ function ReservationForm({ reservation, onSave, onClose, floor, C }) {
     setSlotsLoading(true);
     try {
       const { fetchReservations } = await import('../lib/api');
-      const existing = await fetchReservations({ date });
+      const existing = await fetchReservations({ date }) as Reservation[];
 
       const dur = Number(settings?.reservationDuration || 90);
       const interval = Number(settings?.reservationInterval || 30);
       const maxPax = Number(settings?.reservationMaxPax || 8);
 
-      // Determine open/close times
       let openTime = '00:00', closeTime = '23:59';
-      const scheduleType = settings?.reservationScheduleType;
-      const closedDays = parseJSON2(settings?.reservationClosedDays, []);
+      const scheduleType = settings?.reservationScheduleType as string | undefined;
+      const closedDays = parseJSON2(settings?.reservationClosedDays, []) as number[];
       const dayOfWeek = new Date(date + 'T12:00').getDay();
       const isClosed = closedDays.includes(dayOfWeek);
 
       if (!isClosed && scheduleType === 'advanced') {
-        const shifts = parseJSON2(settings?.reservationShifts, []);
+        const shifts = parseJSON2(settings?.reservationShifts, []) as { days: number[]; open: string; close: string }[];
         const dayShifts = shifts.filter(s => s.days?.includes(dayOfWeek));
         if (dayShifts.length > 0) {
           const opens = dayShifts.map(s => s.open).sort();
@@ -377,18 +437,16 @@ function ReservationForm({ reservation, onSave, onClose, floor, C }) {
           closeTime = closes[0];
         }
       } else if (!isClosed) {
-        openTime = settings?.reservationOpenTime || '13:00';
-        closeTime = settings?.reservationCloseTime || '23:00';
+        openTime = (settings?.reservationOpenTime as string) || '13:00';
+        closeTime = (settings?.reservationCloseTime as string) || '23:00';
       }
 
-      // Total capacity from tables
       const totalSeats = tables.reduce((s, t) => s + (t.seats || 4), 0);
       const existingPax = existing.filter(r => r.status !== 'cancelada' && r.status !== 'noshow')
         .reduce((s, r) => s + (r.pax || 0), 0);
       const availableSeats = Math.max(0, totalSeats - existingPax);
 
-      // Generate slots
-      const generated = [];
+      const generated: SlotInfo[] = [];
       const [openH, openM] = openTime.split(':').map(Number);
       const [closeH, closeM] = closeTime.split(':').map(Number);
       let current = openH * 60 + openM;
@@ -401,11 +459,9 @@ function ReservationForm({ reservation, onSave, onClose, floor, C }) {
         const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
         const slotEnd = current + dur;
 
-        // Check if past (for today)
         const slotDate = new Date(date + 'T' + timeStr);
         const isPast = slotDate < now && date === new Date().toISOString().slice(0, 10);
 
-        // Check existing reservations overlapping this slot
         const overlapping = existing.filter(r =>
           r.status !== 'cancelada' && r.status !== 'noshow' &&
           r.time < `${String(Math.floor(slotEnd / 60)).padStart(2, '0')}:${String(slotEnd % 60).padStart(2, '0')}` &&
@@ -424,8 +480,7 @@ function ReservationForm({ reservation, onSave, onClose, floor, C }) {
         current += interval;
       }
 
-      // Check if date is blocked
-      const blocked = parseJSON2(settings?.reservationBlockedDates, []);
+      const blocked = parseJSON2(settings?.reservationBlockedDates, []) as { date: string }[];
       const isBlocked = blocked.some(b => b.date === date);
 
       setSlots({ slots: generated, isClosed, isBlocked, availableSeats, totalSeats, existingPax });
@@ -433,25 +488,25 @@ function ReservationForm({ reservation, onSave, onClose, floor, C }) {
     setSlotsLoading(false);
   }
 
-  function addMinutes(timeStr, mins) {
+  function addMinutes(timeStr: string, mins: number) {
     const [h, m] = timeStr.split(':').map(Number);
     const total = h * 60 + m + mins;
     return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
   }
 
-  function parseJSON2(val, fallback) {
+  function parseJSON2<T>(val: unknown, fallback: T): T {
     if (!val) return fallback;
-    try { return JSON.parse(val); } catch { return fallback; }
+    try { return JSON.parse(val as string) as T; } catch { return fallback; }
   }
 
-  function handleDateChange(newDate) {
+  function handleDateChange(newDate: string) {
     setDate(newDate);
     setSlots(null);
   }
 
-  async function handleSubmit(e) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    await onSave({ id: reservation?.id, date, time, pax, name, phone, email, status, zone, notes, tableId, source });
+    await onSave({ id: reservation?.id, date, time, pax, name, phone, email, status, zone, notes, tableId, source } as Reservation);
   }
 
   return (

@@ -2,16 +2,107 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Plus, Send, Truck, Download, Eye, Settings, Loader2, Search, Euro, Package, AlertTriangle, Check, X, ChevronDown, ChevronUp } from 'lucide-react';
+import type { Theme } from './constants';
+
+interface PurchaseOrderLine {
+  id: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  pricePerUnit: number;
+  supplierSku: string;
+  receivedQty: number;
+}
+
+interface PurchaseOrder {
+  id: string;
+  supplierId: string;
+  supplierName: string;
+  status: string;
+  expectedDate: string;
+  notes: string;
+  createdBy: string;
+  createdAt: number;
+  updatedAt: number | null;
+  lines: PurchaseOrderLine[];
+}
+
+interface Supplier {
+  id: string;
+  name: string;
+  contact: string;
+  phone: string;
+  email: string;
+  nif: string;
+  address: string;
+  paymentTerms: string;
+  notes: string;
+  active: boolean;
+  createdAt: number;
+}
+
+interface CatalogProduct {
+  id: string;
+  name: string;
+  type: string;
+}
+
+interface SupplierCatalogOffer {
+  id: string;
+  productId: string;
+  productName: string;
+  price: number;
+  sku: string;
+  packSize: number;
+  minOrder: number;
+  isPreferred: boolean;
+  active: boolean;
+  deliveryDays: number;
+  pricePerUnit: number;
+  trend: number | null;
+  prevPrice: number | null;
+}
+
+interface PreviewGroup {
+  supplierId: string;
+  supplierName: string;
+  lines: { productId: string; productName: string; quantity: number; pricePerUnit: number; supplierSku: string }[];
+  total: number;
+}
+
+interface PreviewData {
+  preview: PreviewGroup[];
+  noOfferProducts: { id: string; name: string }[];
+  skippedByMin: { supplierName: string; total: number; minOrderValue: number }[];
+}
+
+interface GenResult {
+  ok: boolean;
+  created: { id: string; supplierName: string; lineCount: number }[];
+  noOfferProducts: { id: string; name: string }[];
+  skippedByMin: { supplierName: string; total: number; minOrderValue: number }[];
+}
+
+interface AutoSettings {
+  leadTimeDays: string;
+  safetyStockDays: string;
+  minOrderValue: string;
+  consolidateBySupplier: string;
+}
 
 const ORDER_STATUS = ['draft', 'sent', 'partial', 'received'];
-const STATUS_LABELS = { draft: 'Borrador', sent: 'Enviado', partial: 'Recibido parcial', received: 'Recibido' };
-const STATUS_COLORS = { draft: '#8a8275', sent: '#c4a04a', partial: '#6a9af8', received: '#7a9a7c' };
+const STATUS_LABELS: Record<string, string> = { draft: 'Borrador', sent: 'Enviado', partial: 'Recibido parcial', received: 'Recibido' };
+const STATUS_COLORS: Record<string, string> = { draft: '#8a8275', sent: '#c4a04a', partial: '#6a9af8', received: '#7a9a7c' };
 
-export default function PedidosCompraView({ colors: C }) {
+interface PedidosCompraViewProps {
+  colors: Theme;
+}
+
+export default function PedidosCompraView({ colors: C }: PedidosCompraViewProps) {
   const [tab, setTab] = useState('orders');
-  const [orders, setOrders] = useState([]);
-  const [suppliers, setSuppliers] = useState([]);
-  const [catalog, setCatalog] = useState(null);
+  const [orders, setOrders] = useState<PurchaseOrder[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [catalog, setCatalog] = useState<{ products: CatalogProduct[] } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => { loadAll(); }, []);
@@ -32,8 +123,8 @@ export default function PedidosCompraView({ colors: C }) {
   }
 
   const nonElaborados = useMemo(() => {
-    if (!catalog?.products) return [];
-    return catalog.products.filter(p => p.type !== 'elaborado');
+    if (!catalog?.products) return [] as CatalogProduct[];
+    return catalog.products.filter((p: CatalogProduct) => p.type !== 'elaborado');
   }, [catalog]);
 
   if (loading) {
@@ -63,10 +154,16 @@ export default function PedidosCompraView({ colors: C }) {
   );
 }
 
-// ===================== ORDERS TAB =====================
-function OrdersTab({ orders, suppliers, catalog, nonElaborados, C, onRefresh }) {
+function OrdersTab({ orders, suppliers, catalog, nonElaborados, C, onRefresh }: {
+  orders: PurchaseOrder[];
+  suppliers: Supplier[];
+  catalog: { products: CatalogProduct[] } | null;
+  nonElaborados: CatalogProduct[];
+  C: Theme;
+  onRefresh: () => void;
+}) {
   const [showNew, setShowNew] = useState(false);
-  const [editId, setEditId] = useState(null);
+  const [editId, setEditId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState('all');
 
   const filtered = useMemo(() => {
@@ -96,7 +193,7 @@ function OrdersTab({ orders, suppliers, catalog, nonElaborados, C, onRefresh }) 
       </div>
 
       {(showNew || editId) && (
-        <OrderForm suppliers={suppliers} nonElaborados={nonElaborados} editOrder={editId ? orders.find(o => o.id === editId) : null} C={C}
+        <OrderForm suppliers={suppliers} nonElaborados={nonElaborados} editOrder={editId ? orders.find(o => o.id === editId) ?? null : null} C={C}
           onClose={() => { setShowNew(false); setEditId(null); }} onSaved={() => { onRefresh(); setShowNew(false); setEditId(null); }} />
       )}
 
@@ -113,7 +210,14 @@ function OrdersTab({ orders, suppliers, catalog, nonElaborados, C, onRefresh }) 
   );
 }
 
-function OrderCard({ order: o, C, onEdit, onRefresh, suppliers, nonElaborados }) {
+function OrderCard({ order: o, C, onEdit, onRefresh, suppliers, nonElaborados }: {
+  order: PurchaseOrder;
+  C: Theme;
+  onEdit: () => void;
+  onRefresh: () => void;
+  suppliers: Supplier[];
+  nonElaborados: CatalogProduct[];
+}) {
   const [expanded, setExpanded] = useState(false);
   const [showReceive, setShowReceive] = useState(false);
   const [receiveLines, setReceiveLines] = useState(o.lines.map(l => ({ lineId: l.id, receivedQty: l.receivedQty })));
@@ -122,7 +226,7 @@ function OrderCard({ order: o, C, onEdit, onRefresh, suppliers, nonElaborados })
   const total = o.lines.reduce((s, l) => s + l.quantity * l.pricePerUnit, 0);
   const fullyReceived = o.lines.every(l => l.receivedQty >= l.quantity);
 
-  async function handleStatusChange(newStatus) {
+  async function handleStatusChange(newStatus: string) {
     try {
       await fetch('/api/purchase-orders', {
         method: 'POST',
@@ -220,7 +324,7 @@ function OrderCard({ order: o, C, onEdit, onRefresh, suppliers, nonElaborados })
                     <span className="flex-1" style={{ color: C.cream }}>{line.productName}</span>
                     <input type="number" step="0.01"
                       value={rl.receivedQty} min={0} max={line.quantity}
-                      onChange={e => { const nv = [...receiveLines]; nv[i].receivedQty = parseFloat(e.target.value) || 0; setReceiveLines(nv); }}
+                      onChange={e => { const nv = [...receiveLines]; nv[i].receivedQty = Number(e.target.value) || 0; setReceiveLines(nv); }}
                       className="w-20 text-center rounded-lg px-2 py-1 text-xs"
                       style={{ background: C.surface, color: C.cream, border: `1px solid ${C.line}` }} />
                     <span style={{ color: C.muted }}>/ {line.quantity}</span>
@@ -248,27 +352,42 @@ function OrderCard({ order: o, C, onEdit, onRefresh, suppliers, nonElaborados })
   );
 }
 
-function OrderForm({ suppliers, nonElaborados, editOrder, C, onClose, onSaved }) {
+interface OrderLineForm {
+  productId: string;
+  productName: string;
+  quantity: number;
+  pricePerUnit: number;
+  supplierSku: string;
+}
+
+function OrderForm({ suppliers, nonElaborados, editOrder, C, onClose, onSaved }: {
+  suppliers: Supplier[];
+  nonElaborados: CatalogProduct[];
+  editOrder: PurchaseOrder | null;
+  C: Theme;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
   const [supplierId, setSupplierId] = useState(editOrder?.supplierId || '');
   const [expectedDate, setExpectedDate] = useState(editOrder?.expectedDate || '');
   const [notes, setNotes] = useState(editOrder?.notes || '');
-  const [lines, setLines] = useState(editOrder?.lines.map(l => ({
+  const [lines, setLines] = useState<OrderLineForm[]>(editOrder?.lines.map(l => ({
     ...l, productName: l.productName || '', pricePerUnit: l.pricePerUnit || 0, supplierSku: l.supplierSku || ''
-  })) || []);
+  } as OrderLineForm)) || []);
   const [saving, setSaving] = useState(false);
-  const [catalogOffers, setCatalogOffers] = useState({});
+  const [catalogOffers, setCatalogOffers] = useState<Record<string, SupplierCatalogOffer>>({});
   const [products, setProducts] = useState(nonElaborados);
 
   useEffect(() => {
     if (supplierId) loadOffers(supplierId);
   }, [supplierId]);
 
-  async function loadOffers(sid) {
+  async function loadOffers(sid: string) {
     try {
       const r = await fetch(`/api/supplier-catalog?supplierId=${sid}`);
       if (r.ok) {
-        const offers = await r.json();
-        const map = {};
+        const offers: SupplierCatalogOffer[] = await r.json();
+        const map: Record<string, SupplierCatalogOffer> = {};
         for (const o of offers) map[o.productId] = o;
         setCatalogOffers(map);
       }
@@ -279,10 +398,10 @@ function OrderForm({ suppliers, nonElaborados, editOrder, C, onClose, onSaved })
     setLines(l => [...l, { productId: '', productName: '', quantity: 1, pricePerUnit: 0, supplierSku: '' }]);
   }
 
-  function updateLine(i, field, value) {
+  function updateLine(i: number, field: string, value: string) {
     setLines(l => {
       const n = [...l];
-      n[i] = { ...n[i], [field]: value };
+      (n[i] as unknown as Record<string, string | number>)[field] = value;
       if (field === 'productId' && catalogOffers[value]) {
         n[i].pricePerUnit = catalogOffers[value].price;
         n[i].supplierSku = catalogOffers[value].sku || '';
@@ -295,15 +414,12 @@ function OrderForm({ suppliers, nonElaborados, editOrder, C, onClose, onSaved })
     });
   }
 
-  function removeLine(i) {
+  function removeLine(i: number) {
     setLines(l => l.filter((_, idx) => idx !== i));
   }
 
-  // For each line, check if cheaper offer exists
-  function cheapestOtherOffer(productId, currentSupplierId) {
+  function cheapestOtherOffer(productId: string, currentSupplierId: string) {
     if (!catalogOffers[productId]) return null;
-    // We only loaded current supplier's offers; need broader check
-    // For now, just show a note if product has catalog entry
     return catalogOffers[productId];
   }
 
@@ -313,7 +429,7 @@ function OrderForm({ suppliers, nonElaborados, editOrder, C, onClose, onSaved })
     try {
       const supplier = suppliers.find(s => s.id === supplierId);
       const action = editOrder ? 'update-lines' : 'create';
-      const body = {
+      const body: Record<string, unknown> = {
         action,
         supplierId,
         supplierName: supplier?.name || '',
@@ -321,7 +437,7 @@ function OrderForm({ suppliers, nonElaborados, editOrder, C, onClose, onSaved })
         notes,
         lines: lines.map(l => ({
           productId: l.productId, productName: l.productName,
-          quantity: parseFloat(l.quantity) || 1, pricePerUnit: parseFloat(l.pricePerUnit) || 0,
+          quantity: Number(l.quantity) || 1, pricePerUnit: Number(l.pricePerUnit) || 0,
           supplierSku: l.supplierSku || '',
         })),
         createdBy: 'admin',
@@ -333,8 +449,7 @@ function OrderForm({ suppliers, nonElaborados, editOrder, C, onClose, onSaved })
     setSaving(false);
   }
 
-  const supplier = suppliers.find(s => s.id === supplierId);
-  const total = lines.reduce((s, l) => s + (parseFloat(l.quantity) || 0) * (parseFloat(l.pricePerUnit) || 0), 0);
+  const total = lines.reduce((s, l) => s + (Number(l.quantity) || 0) * (Number(l.pricePerUnit) || 0), 0);
 
   return (
     <div className="rounded-xl p-4 space-y-3" style={{ background: C.surfaceLight, border: `1px solid ${C.line}` }}>
@@ -374,7 +489,7 @@ function OrderForm({ suppliers, nonElaborados, editOrder, C, onClose, onSaved })
               className="w-20 text-center rounded-lg px-2 py-1.5 text-[10px]"
               style={{ background: C.surface, color: C.cream, border: `1px solid ${C.line}` }} />
             <span className="font-mono w-14 text-right" style={{ color: C.brassLight }}>
-              {((parseFloat(l.quantity) || 0) * (parseFloat(l.pricePerUnit) || 0)).toFixed(2)}
+              {((Number(l.quantity) || 0) * (Number(l.pricePerUnit) || 0)).toFixed(2)}
             </span>
             <button onClick={() => removeLine(i)} style={{ color: C.wineLight }}><X className="w-3 h-3" /></button>
           </div>
@@ -407,14 +522,18 @@ function OrderForm({ suppliers, nonElaborados, editOrder, C, onClose, onSaved })
   );
 }
 
-// ===================== AUTO TAB =====================
-function AutoTab({ suppliers, nonElaborados, C, onRefresh }) {
-  const [settings, setSettings] = useState({ leadTimeDays: '2', safetyStockDays: '3', minOrderValue: '50', consolidateBySupplier: 'true' });
+function AutoTab({ suppliers, nonElaborados, C, onRefresh }: {
+  suppliers: Supplier[];
+  nonElaborados: CatalogProduct[];
+  C: Theme;
+  onRefresh: () => void;
+}) {
+  const [settings, setSettings] = useState<AutoSettings>({ leadTimeDays: '2', safetyStockDays: '3', minOrderValue: '50', consolidateBySupplier: 'true' });
   const [loading, setLoading] = useState(true);
-  const [preview, setPreview] = useState(null);
+  const [preview, setPreview] = useState<PreviewData | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [genResult, setGenResult] = useState(null);
+  const [genResult, setGenResult] = useState<GenResult | null>(null);
 
   useEffect(() => {
     loadSettings();
@@ -460,7 +579,7 @@ function AutoTab({ suppliers, nonElaborados, C, onRefresh }) {
         body: JSON.stringify({ action: 'auto-generate', ...settings, createdBy: 'admin' }),
       });
       if (r.ok) {
-        const data = await r.json();
+        const data: GenResult = await r.json();
         setGenResult(data);
         setPreview(null);
         onRefresh();
@@ -476,7 +595,6 @@ function AutoTab({ suppliers, nonElaborados, C, onRefresh }) {
 
   return (
     <div className="space-y-4">
-      {/* Settings */}
       <div className="rounded-xl p-4 space-y-3" style={{ background: C.surfaceLight }}>
         <h4 className="text-xs font-bold" style={{ color: C.cream }}>Ajustes</h4>
         <div className="grid grid-cols-2 gap-3 text-xs">
@@ -511,7 +629,6 @@ function AutoTab({ suppliers, nonElaborados, C, onRefresh }) {
         </button>
       </div>
 
-      {/* Actions */}
       <div className="flex gap-2">
         <button onClick={handlePreview} disabled={previewLoading}
           className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium hover:opacity-80 disabled:opacity-40"
@@ -529,7 +646,6 @@ function AutoTab({ suppliers, nonElaborados, C, onRefresh }) {
         )}
       </div>
 
-      {/* Preview */}
       {previewLoading && <p className="text-xs text-center" style={{ color: C.muted }}>Calculando previsión…</p>}
 
       {preview && (
@@ -581,7 +697,6 @@ function AutoTab({ suppliers, nonElaborados, C, onRefresh }) {
         </div>
       )}
 
-      {/* Generation result */}
       {genResult && (
         <div className="rounded-xl p-4 space-y-2" style={{ background: C.sage + '20', border: `1px solid ${C.sage}40` }}>
           <p className="text-xs font-bold" style={{ color: C.sage }}>Pedidos generados</p>
@@ -600,11 +715,16 @@ function AutoTab({ suppliers, nonElaborados, C, onRefresh }) {
   );
 }
 
-// ===================== SUPPLIERS TAB =====================
-function SuppliersTab({ suppliers, catalog, nonElaborados, C, onRefresh }) {
+function SuppliersTab({ suppliers, catalog, nonElaborados, C, onRefresh }: {
+  suppliers: Supplier[];
+  catalog: { products: CatalogProduct[] } | null;
+  nonElaborados: CatalogProduct[];
+  C: Theme;
+  onRefresh: () => void;
+}) {
   const [showForm, setShowForm] = useState(false);
-  const [editSupplier, setEditSupplier] = useState(null);
-  const [showOffers, setShowOffers] = useState(null);
+  const [editSupplier, setEditSupplier] = useState<Supplier | null>(null);
+  const [showOffers, setShowOffers] = useState<string | null>(null);
 
   return (
     <div className="space-y-3">
@@ -641,7 +761,16 @@ function SuppliersTab({ suppliers, catalog, nonElaborados, C, onRefresh }) {
   );
 }
 
-function SupplierCard({ supplier: s, C, onEdit, showOffersId, onShowOffers, catalog, nonElaborados, onRefresh }) {
+function SupplierCard({ supplier: s, C, onEdit, showOffersId, onShowOffers, catalog, nonElaborados, onRefresh }: {
+  supplier: Supplier;
+  C: Theme;
+  onEdit: () => void;
+  showOffersId: string | null;
+  onShowOffers: () => void;
+  catalog: { products: CatalogProduct[] } | null;
+  nonElaborados: CatalogProduct[];
+  onRefresh: () => void;
+}) {
   return (
     <div className="rounded-xl p-4 space-y-2" style={{ background: C.surfaceLight }}>
       <div className="flex items-start justify-between">
@@ -675,9 +804,15 @@ function SupplierCard({ supplier: s, C, onEdit, showOffersId, onShowOffers, cata
   );
 }
 
-function SupplierOffers({ supplier, C, nonElaborados, onRefresh }) {
-  const [offers, setOffers] = useState([]);
+function SupplierOffers({ supplier, C, nonElaborados, onRefresh }: {
+  supplier: Supplier;
+  C: Theme;
+  nonElaborados: CatalogProduct[];
+  onRefresh: () => void;
+}) {
+  const [offers, setOffers] = useState<SupplierCatalogOffer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [newOffer, setNewOffer] = useState<{ productId: string; sku: string; price: string; packSize: number; minOrder: number } | null>(null);
 
   useEffect(() => {
     loadOffers();
@@ -691,7 +826,7 @@ function SupplierOffers({ supplier, C, nonElaborados, onRefresh }) {
     setLoading(false);
   }
 
-  async function saveOffer(offer) {
+  async function saveOffer(offer: Record<string, unknown>) {
     try {
       await fetch('/api/supplier-catalog', {
         method: 'POST',
@@ -701,7 +836,7 @@ function SupplierOffers({ supplier, C, nonElaborados, onRefresh }) {
     } catch {}
   }
 
-  async function deleteOffer(id) {
+  async function deleteOffer(id: string) {
     try {
       await fetch('/api/supplier-catalog', {
         method: 'POST',
@@ -711,20 +846,18 @@ function SupplierOffers({ supplier, C, nonElaborados, onRefresh }) {
     } catch {}
   }
 
-  const [newOffer, setNewOffer] = useState(null);
-
   function startNewOffer() {
     setNewOffer({ productId: '', sku: '', price: '', packSize: 1, minOrder: 0 });
   }
 
   async function saveNewOffer() {
-    if (!newOffer.productId || !newOffer.price) return;
+    if (!newOffer!.productId || !newOffer!.price) return;
     await saveOffer({
-      productId: newOffer.productId,
-      sku: newOffer.sku,
-      price: parseFloat(newOffer.price),
-      packSize: parseFloat(newOffer.packSize) || 1,
-      minOrder: parseFloat(newOffer.minOrder) || 0,
+      productId: newOffer!.productId,
+      sku: newOffer!.sku,
+      price: Number(newOffer!.price),
+      packSize: Number(newOffer!.packSize) || 1,
+      minOrder: Number(newOffer!.minOrder) || 0,
     });
     setNewOffer(null);
   }
@@ -742,7 +875,7 @@ function SupplierOffers({ supplier, C, nonElaborados, onRefresh }) {
 
       {newOffer && (
         <div className="flex items-center gap-1.5 text-[10px]">
-          <select value={newOffer.productId} onChange={e => setNewOffer(no => ({ ...no, productId: e.target.value }))}
+          <select value={newOffer.productId} onChange={e => setNewOffer(no => ({ ...no!, productId: e.target.value }))}
             className="flex-1 rounded-lg px-2 py-1.5"
             style={{ background: C.surface, color: C.cream, border: `1px solid ${C.line}` }}>
             <option value="">Seleccionar</option>
@@ -750,10 +883,10 @@ function SupplierOffers({ supplier, C, nonElaborados, onRefresh }) {
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
-          <input type="text" value={newOffer.sku} onChange={e => setNewOffer(no => ({ ...no, sku: e.target.value }))}
+          <input type="text" value={newOffer.sku} onChange={e => setNewOffer(no => ({ ...no!, sku: e.target.value }))}
             placeholder="SKU" className="w-16 rounded-lg px-2 py-1.5 text-center"
             style={{ background: C.surface, color: C.cream, border: `1px solid ${C.line}` }} />
-          <input type="number" step="0.001" value={newOffer.price} onChange={e => setNewOffer(no => ({ ...no, price: e.target.value }))}
+          <input type="number" step="0.001" value={newOffer.price} onChange={e => setNewOffer(no => ({ ...no!, price: e.target.value }))}
             placeholder="Precio" className="w-20 rounded-lg px-2 py-1.5 text-center"
             style={{ background: C.surface, color: C.cream, border: `1px solid ${C.line}` }} />
           <button onClick={saveNewOffer} style={{ color: C.sage }}><Check className="w-3.5 h-3.5" /></button>
@@ -770,7 +903,12 @@ function SupplierOffers({ supplier, C, nonElaborados, onRefresh }) {
   );
 }
 
-function OfferRow({ offer: o, C, onSave, onDelete }) {
+function OfferRow({ offer: o, C, onSave, onDelete }: {
+  offer: SupplierCatalogOffer;
+  C: Theme;
+  onSave: (data: Record<string, unknown>) => void;
+  onDelete: (id: string) => void;
+}) {
   const [edit, setEdit] = useState(false);
   const [price, setPrice] = useState(o.price);
   const [sku, setSku] = useState(o.sku);
@@ -788,10 +926,10 @@ function OfferRow({ offer: o, C, onSave, onDelete }) {
         <input type="text" value={sku} onChange={e => setSku(e.target.value)}
           className="w-14 rounded-lg px-2 py-1 text-center"
           style={{ background: C.surface, color: C.cream, border: `1px solid ${C.line}` }} />
-        <input type="number" step="0.001" value={price} onChange={e => setPrice(e.target.value)}
+        <input type="number" step="0.001" value={price} onChange={e => setPrice(Number(e.target.value))}
           className="w-20 rounded-lg px-2 py-1 text-center"
           style={{ background: C.surface, color: C.cream, border: `1px solid ${C.line}` }} />
-        <input type="number" step="0.01" value={packSize} onChange={e => setPackSize(e.target.value)}
+        <input type="number" step="0.01" value={packSize} onChange={e => setPackSize(Number(e.target.value))}
           className="w-14 rounded-lg px-2 py-1 text-center"
           style={{ background: C.surface, color: C.cream, border: `1px solid ${C.line}` }} />
         <button onClick={handleSave} style={{ color: C.sage }}><Check className="w-3 h-3" /></button>
@@ -829,7 +967,12 @@ function OfferRow({ offer: o, C, onSave, onDelete }) {
   );
 }
 
-function SupplierForm({ supplier, C, onClose, onSaved }) {
+function SupplierForm({ supplier, C, onClose, onSaved }: {
+  supplier: Supplier | null;
+  C: Theme;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
   const [name, setName] = useState(supplier?.name || '');
   const [contact, setContact] = useState(supplier?.contact || '');
   const [phone, setPhone] = useState(supplier?.phone || '');
@@ -845,7 +988,7 @@ function SupplierForm({ supplier, C, onClose, onSaved }) {
     if (!name.trim()) return;
     setSaving(true);
     try {
-      const body = {
+      const body: Record<string, unknown> = {
         action: 'save', name, contact, phone, email, nif, address, paymentTerms, notes, active,
       };
       if (supplier) body.id = supplier.id;

@@ -1,20 +1,41 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   ChefHat, Clock, Check, X, Bell, BellOff, Maximize, Minimize,
   LayoutGrid, Columns, RefreshCw, Printer, Search, AlertTriangle, Layers,
   Undo2, Sun, Moon, Languages,
 } from 'lucide-react';
+import type { Theme } from './constants';
 
-const KDS_THEMES = {
+interface KDSThemeColors {
+  base: string; surface: string; surfaceLight: string; line: string;
+  accent: string; accentLight: string; cream: string; muted: string;
+  danger: string; success: string; successLight: string;
+}
+
+const KDS_THEMES: Record<string, KDSThemeColors> = {
   dark: { base: '#1a1d23', surface: '#252830', surfaceLight: '#30343e', line: '#3e4350', accent: '#c4a04a', accentLight: '#d6b86a', cream: '#e6e1d6', muted: '#9c958a', danger: '#b05e5e', success: '#7a9a7c', successLight: '#94b496' },
   highContrast: { base: '#000000', surface: '#1a1a1a', surfaceLight: '#2a2a2a', line: '#555555', accent: '#ffcc00', accentLight: '#ffdd33', cream: '#ffffff', muted: '#aaaaaa', danger: '#ff4444', success: '#44cc44', successLight: '#66dd66' },
   colorblind: { base: '#1a1d23', surface: '#252830', surfaceLight: '#30343e', line: '#3e4350', accent: '#e6a800', accentLight: '#f0c040', cream: '#e6e1d6', muted: '#9c958a', danger: '#d97373', success: '#6a9a7a', successLight: '#82b08e' },
   light: { base: '#f4efe6', surface: '#ece6da', surfaceLight: '#e2dace', line: '#cec6b8', accent: '#b0963e', accentLight: '#98802e', cream: '#2c2822', muted: '#8a8478', danger: '#b05e5e', success: '#6a8a6c', successLight: '#7a9a7c' },
 };
 
-const KDS_LANGS = {
+interface KDSLang {
+  title: string; pending: string; preparing: string; ready: string;
+  expo: string; allZones: string; allStations: string; noOrders: string;
+  markReady: string; markPreparing: string; markServed: string; undo: string;
+  settings: string; sound: string; fullscreen: string; layout: string;
+  compact: string; columns: string; language: string; theme: string;
+  stockControl: string; searchProduct: string;
+  agotado: string; disponible: string; reprint: string;
+  newOrder: string; minAgo: string; expoEmpty: string;
+  reconnect: string; connecting: string; disconnected: string;
+  stations: string; refresh: string;
+  orders: string;
+}
+
+const KDS_LANGS: Record<string, KDSLang> = {
   es: {
     title: 'COCINA', pending: 'Pendientes', preparing: 'Preparando', ready: 'Listos',
     expo: 'Expo', allZones: 'Todos', allStations: 'Todas', noOrders: 'No hay comandas pendientes',
@@ -26,6 +47,7 @@ const KDS_LANGS = {
     newOrder: 'Nueva comanda', minAgo: 'min', expoEmpty: 'Todo servido',
     reconnect: 'Reconectar', connecting: 'Conectando…', disconnected: 'Sin conexión',
     stations: 'Estaciones', refresh: 'Actualizar',
+    orders: 'Comandas',
   },
   en: {
     title: 'KITCHEN', pending: 'Pending', preparing: 'Preparing', ready: 'Ready',
@@ -38,18 +60,90 @@ const KDS_LANGS = {
     newOrder: 'New order', minAgo: 'min', expoEmpty: 'All served',
     reconnect: 'Reconnect', connecting: 'Connecting…', disconnected: 'Disconnected',
     stations: 'Stations', refresh: 'Refresh',
+    orders: 'Orders',
   },
 };
 
-const ITEM_STATES = ['pending', 'preparing', 'ready'];
-const STATE_COLORS = { pending: '#b05e5e', preparing: '#c4a04a', ready: '#7a9a7c' };
-const STATE_LABELS = { pending: 'Nuevo', preparing: 'Preparando', ready: 'Listo' };
+const ITEM_STATES = ['pending', 'preparing', 'ready'] as const;
+const STATE_COLORS: Record<string, string> = { pending: '#b05e5e', preparing: '#c4a04a', ready: '#7a9a7c' };
+const STATE_LABELS: Record<string, string> = { pending: 'Nuevo', preparing: 'Preparando', ready: 'Listo' };
 
-export default function KDSView({ floor, catalog, onReady, onAgotar, onUpdateItemState, onAdvanceOrder, onReprint, colors: C }) {
+interface KDSItem {
+  id: string;
+  productId: string;
+  name: string;
+  qty: number;
+  price: number;
+  sent: boolean;
+  sentAt?: number;
+  inPreparation?: boolean;
+  ready?: boolean;
+  served?: boolean;
+  notes?: string;
+  course?: string;
+  ubicacion?: string;
+  modifiers?: string[] | { name?: string }[];
+}
+
+interface KDSOrder {
+  tableId?: string;
+  items: KDSItem[];
+  [key: string]: unknown;
+}
+
+interface KDSTable {
+  id: string;
+  name?: string;
+  [key: string]: unknown;
+}
+
+interface KDSFloor {
+  orders?: Record<string, KDSOrder>;
+  tables?: KDSTable[];
+  [key: string]: unknown;
+}
+
+interface KDSCategory {
+  name: string;
+  printer_zone?: string;
+}
+
+interface KDSProduct {
+  id: string;
+  name: string;
+  price: number;
+  category?: string;
+  agotado?: boolean;
+}
+
+interface KDSCatalog {
+  products?: KDSProduct[];
+  categories?: (KDSCategory | string)[];
+}
+
+interface FilteredOrder {
+  orderId: string;
+  tableName: string;
+  items: KDSItem[];
+  [key: string]: unknown;
+}
+
+interface KDSViewProps {
+  floor: KDSFloor | null;
+  catalog: KDSCatalog | null;
+  onReady?: (id: string) => void;
+  onAgotar?: (productId: string, agotado: boolean) => void;
+  onUpdateItemState: (next: KDSFloor, action: { orderId: string; itemId: string | null; previousState: string | null }) => void;
+  onAdvanceOrder: (next: KDSFloor, action: { orderId: string; itemId: string | null; previousState: string | null } | null) => void;
+  onReprint?: (orderId: string) => void;
+  colors: Theme;
+}
+
+export default function KDSView({ floor, catalog, onReady, onAgotar, onUpdateItemState, onAdvanceOrder, onReprint }: KDSViewProps) {
   const [zoneFilter, setZoneFilter] = useState('all');
   const [stationFilter, setStationFilter] = useState('all');
-  const [viewMode, setViewMode] = useState('orders'); // 'orders' | 'expo'
-  const [layout, setLayout] = useState('compact');     // 'compact' | 'columns'
+  const [viewMode, setViewMode] = useState<'orders' | 'expo'>('orders');
+  const [layout, setLayout] = useState<'compact' | 'columns'>('compact');
   const [fullscreen, setFullscreen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [lang, setLang] = useState('es');
@@ -57,13 +151,12 @@ export default function KDSView({ floor, catalog, onReady, onAgotar, onUpdateIte
   const [showSettings, setShowSettings] = useState(false);
   const [showStock, setShowStock] = useState(false);
   const [searchStock, setSearchStock] = useState('');
-  const [undoStack, setUndoStack] = useState(null);
+  const [undoStack, setUndoStack] = useState<{ orderId: string; itemId: string | null; previousState: string | null } | null>(null);
   const [connected, setConnected] = useState(true);
   const [now, setNow] = useState(Date.now());
   const prevPendingRef = useRef(0);
-  const soundRef = useRef(null);
   const K = KDS_LANGS[lang];
-  const KTC = KDS_THEMES[kdsTheme];
+  const KTC: KDSThemeColors = KDS_THEMES[kdsTheme];
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 5000);
@@ -90,7 +183,7 @@ export default function KDSView({ floor, catalog, onReady, onAgotar, onUpdateIte
 
   function playAlert() {
     try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const ctx = new (window.AudioContext || (window as unknown as Record<string, unknown>).webkitAudioContext as typeof AudioContext)();
       const osc = ctx.createOscillator();
       osc.type = 'square'; osc.frequency.value = 880;
       const g = ctx.createGain(); g.gain.value = 0.15;
@@ -104,10 +197,10 @@ export default function KDSView({ floor, catalog, onReady, onAgotar, onUpdateIte
     else { document.exitFullscreen().catch(() => {}); setFullscreen(false); }
   }
 
-  function handleItemState(orderId, itemId) {
-    const action = { orderId, itemId, previousState: null };
-    const next = JSON.parse(JSON.stringify(floor));
-    const order = next.orders[orderId];
+  function handleItemState(orderId: string, itemId: string) {
+    const action: { orderId: string; itemId: string; previousState: string | null } = { orderId, itemId, previousState: null };
+    const next = JSON.parse(JSON.stringify(floor)) as KDSFloor;
+    const order = next.orders?.[orderId];
     if (!order) return;
     const item = order.items.find(i => i.id === itemId);
     if (!item) return;
@@ -119,10 +212,10 @@ export default function KDSView({ floor, catalog, onReady, onAgotar, onUpdateIte
     setUndoStack(action);
   }
 
-  function handleAdvanceOrder(orderId) {
-    const action = { orderId, itemId: null, previousState: null };
-    const next = JSON.parse(JSON.stringify(floor));
-    const order = next.orders[orderId];
+  function handleAdvanceOrder(orderId: string) {
+    const action: { orderId: string; itemId: null; previousState: string | null } = { orderId, itemId: null, previousState: null };
+    const next = JSON.parse(JSON.stringify(floor)) as KDSFloor;
+    const order = next.orders?.[orderId];
     if (!order) return;
     const target = order.items.filter(i => i.sent && !i.served && i.ubicacion !== 'Bar');
     const allReady = target.every(i => i.ready);
@@ -139,8 +232,8 @@ export default function KDSView({ floor, catalog, onReady, onAgotar, onUpdateIte
 
   function handleUndo() {
     if (!undoStack) return;
-    const next = JSON.parse(JSON.stringify(floor));
-    const order = next.orders[undoStack.orderId];
+    const next = JSON.parse(JSON.stringify(floor)) as KDSFloor;
+    const order = next.orders?.[undoStack.orderId];
     if (!order) return;
     if (undoStack.itemId) {
       const item = order.items.find(i => i.id === undoStack.itemId);
@@ -159,17 +252,15 @@ export default function KDSView({ floor, catalog, onReady, onAgotar, onUpdateIte
     setUndoStack(null);
   }
 
-  // Build available zones from catalog categories' printer_zone
-  const zones = useMemo(() => {
-    const z = new Set();
-    if (catalog?.categories) catalog.categories.forEach(c => { if (c.printer_zone) z.add(c.printer_zone); });
+  const zones: string[] = useMemo(() => {
+    const z = new Set<string>();
+    if (catalog?.categories) catalog.categories.forEach(c => { const cat = typeof c === 'string' ? null : c; if (cat?.printer_zone) z.add(cat.printer_zone); });
     return ['all', ...z];
   }, [catalog]);
 
   const stations = ['all', 'Plancha', 'Freidora', 'Horno', 'Frío', 'Montaje'];
 
-  // Filter orders
-  const filteredOrders = useMemo(() => {
+  const filteredOrders: FilteredOrder[] = useMemo(() => {
     if (!floor?.orders) return [];
     return Object.entries(floor.orders).map(([id, o]) => {
       const table = floor.tables?.find(t => t.id === o.tableId);
@@ -179,21 +270,26 @@ export default function KDSView({ floor, catalog, onReady, onAgotar, onUpdateIte
         const p = catalog.products.find(p => p.id === i.productId);
         if (!p) return false;
         const cat = catalog.categories?.find(c => (typeof c === 'string' ? c : c.name) === (typeof p.category === 'string' ? p.category : ''));
-        return cat?.printer_zone === zoneFilter;
+        return typeof cat !== 'string' && cat?.printer_zone === zoneFilter;
       });
       if (zoneItems.length === 0) return null;
-      return { ...o, orderId: id, tableName: table?.name || o.tableId, items: zoneItems };
-    }).filter(Boolean);
+      return { ...o, orderId: id, tableName: table?.name || o.tableId || id, items: zoneItems };
+    }).filter(Boolean) as FilteredOrder[];
   }, [floor, zoneFilter, catalog]);
 
-  const expoItems = useMemo(() => {
+  interface ExpoItem extends KDSItem {
+    orderId: string;
+    tableName: string;
+    tableId?: string;
+  }
+
+  const expoItems: ExpoItem[] = useMemo(() => {
     return Object.entries(floor?.orders || {}).flatMap(([oid, o]) => {
-      const table = floor.tables?.find(t => t.id === o.tableId);
-      return o.items.filter(i => i.ready && !i.served && i.ubicacion !== 'Bar').map(i => ({ ...i, orderId: oid, tableName: table?.name || o.tableId, tableId: o.tableId }));
+      const table = floor?.tables?.find(t => t.id === o.tableId);
+      return o.items.filter(i => i.ready && !i.served && i.ubicacion !== 'Bar').map(i => ({ ...i, orderId: oid, tableName: table?.name || o.tableId || oid, tableId: o.tableId }));
     });
   }, [floor]);
 
-  // Counts
   const counts = useMemo(() => {
     const all = Object.values(floor?.orders || {}).reduce((acc, o) => {
       o.items.filter(i => i.sent && !i.served && i.ubicacion !== 'Bar').forEach(i => {
@@ -206,7 +302,6 @@ export default function KDSView({ floor, catalog, onReady, onAgotar, onUpdateIte
     return all;
   }, [floor]);
 
-  // Stock control
   const agotados = useMemo(() => {
     if (!catalog?.products) return [];
     return catalog.products.filter(p => p.agotado);
@@ -272,7 +367,7 @@ export default function KDSView({ floor, catalog, onReady, onAgotar, onUpdateIte
             <button onClick={toggleFullscreen} className="p-1.5 rounded hover:opacity-70" style={{ color: KTC.muted }} title={K.fullscreen}>
               {fullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
             </button>
-            <button onClick={() => setShowStock(true)} className="p-1.5 rounded hover:opacity-70" style={{ color: KTC.muted }} title={K.stockControl}>
+            <button onClick={() => setShowStock(true)} className="p-1.5 rounded hover:opacity-70 relative" style={{ color: KTC.muted }} title={K.stockControl}>
               <AlertTriangle className="w-3.5 h-3.5" />
               {agotados.length > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold" style={{ background: KTC.danger, color: '#fff' }}>{agotados.length}</span>}
             </button>
@@ -397,7 +492,7 @@ export default function KDSView({ floor, catalog, onReady, onAgotar, onUpdateIte
         <div className={layout === 'compact' ? 'space-y-1' : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3'}>
           {filteredOrders.map(order => (
             <OrderCard key={order.orderId} order={order} now={now} layout={layout} K={K} KTC={KTC}
-              onItemClick={(itemId) => handleItemState(order.orderId, itemId)}
+              onItemClick={(itemId: string) => handleItemState(order.orderId, itemId)}
               onReprint={() => onReprint?.(order.orderId)} />
           ))}
         </div>
@@ -416,8 +511,7 @@ export default function KDSView({ floor, catalog, onReady, onAgotar, onUpdateIte
       );
     }
 
-    // Group by table
-    const byTable = {};
+    const byTable: Record<string, { tableName: string; orderId: string; items: ExpoItem[]; since: number }> = {};
     for (const item of expoItems) {
       const key = `${item.tableId}-${item.orderId}`;
       if (!byTable[key]) byTable[key] = { tableName: item.tableName, orderId: item.orderId, items: [], since: Date.now() };
@@ -459,7 +553,17 @@ export default function KDSView({ floor, catalog, onReady, onAgotar, onUpdateIte
 }
 
 // ----- Order Card -----
-function OrderCard({ order, now, layout, K, KTC, onItemClick, onReprint }) {
+interface OrderCardProps {
+  order: FilteredOrder;
+  now: number;
+  layout: string;
+  K: KDSLang;
+  KTC: KDSThemeColors;
+  onItemClick: (itemId: string) => void;
+  onReprint: () => void;
+}
+
+function OrderCard({ order, now, layout, K, KTC, onItemClick, onReprint }: OrderCardProps) {
   const items = order.items;
   const sentAts = items.map(i => i.sentAt || now);
   const minutesAgo = Math.max(0, Math.round((now - Math.min(...sentAts)) / 60000));
@@ -469,7 +573,7 @@ function OrderCard({ order, now, layout, K, KTC, onItemClick, onReprint }) {
   const readyCount = items.filter(i => i.ready).length;
 
   const courseOrder = ['Entrantes', 'Principales', 'Postres', ''];
-  const groups = {};
+  const groups: Record<string, KDSItem[]> = {};
   for (const item of items) {
     const key = item.course || 'General';
     if (!groups[key]) groups[key] = [];
@@ -479,7 +583,7 @@ function OrderCard({ order, now, layout, K, KTC, onItemClick, onReprint }) {
     Object.keys(groups).filter(k => !courseOrder.includes(k === 'General' ? '' : k))
   );
 
-  function renderItem(item) {
+  function renderItem(item: KDSItem) {
     const state = item.ready ? 'ready' : item.inPreparation ? 'preparing' : 'pending';
     return (
       <button key={item.id} onClick={() => onItemClick(item.id)}
@@ -490,7 +594,7 @@ function OrderCard({ order, now, layout, K, KTC, onItemClick, onReprint }) {
             <span className="w-6 h-6 rounded flex items-center justify-center text-[9px] font-bold shrink-0" style={{ background: STATE_COLORS[state], color: '#fff' }}>{item.qty}</span>
             <span className="text-sm flex-1 truncate" style={{ color: KTC.cream }}>{item.name}</span>
             {item.notes && <span className="text-[9px] px-1 py-0.5 rounded shrink-0" style={{ background: KTC.accent + '30', color: KTC.accentLight }}>{item.notes}</span>}
-            {item.modifiers?.length > 0 && <span className="text-[9px]" style={{ color: KTC.muted }}>+{item.modifiers.length}</span>}
+            {item.modifiers && item.modifiers.length > 0 && <span className="text-[9px]" style={{ color: KTC.muted }}>+{item.modifiers.length}</span>}
             <div className="w-2 h-2 rounded-full shrink-0" style={{ background: STATE_COLORS[state] }} />
           </>
         ) : (
@@ -501,7 +605,7 @@ function OrderCard({ order, now, layout, K, KTC, onItemClick, onReprint }) {
                 <div className="w-2 h-2 rounded-full shrink-0" style={{ background: STATE_COLORS[state] }} />
               </div>
               {item.notes && <p className="text-[10px] mt-0.5" style={{ color: KTC.accentLight }}>{item.notes}</p>}
-              {item.modifiers?.length > 0 && <p className="text-[9px] mt-0.5" style={{ color: KTC.muted }}>{item.modifiers.map(m => typeof m === 'string' ? m : m.name || '').filter(Boolean).join(', ')}</p>}
+              {item.modifiers && item.modifiers.length > 0 && <p className="text-[9px] mt-0.5" style={{ color: KTC.muted }}>{item.modifiers.map(m => typeof m === 'string' ? m : (m as { name?: string }).name || '').filter(Boolean).join(', ')}</p>}
             </div>
             <span className="text-[9px] font-medium shrink-0 ml-2" style={{ color: STATE_COLORS[state] }}>{STATE_LABELS[state]}</span>
           </div>
@@ -515,7 +619,6 @@ function OrderCard({ order, now, layout, K, KTC, onItemClick, onReprint }) {
       style={{
         background: KTC.surface,
         border: `1px solid ${urgent ? KTC.danger : KTC.line}`,
-        ringColor: urgent ? KTC.danger : 'transparent',
         boxShadow: urgent ? `0 0 24px ${KTC.danger}40` : 'none',
       }}>
       {/* Header */}
@@ -538,7 +641,7 @@ function OrderCard({ order, now, layout, K, KTC, onItemClick, onReprint }) {
           {sortedGroups.map(courseKey => {
           const courseItems = groups[courseKey];
           if (!courseItems?.length) return null;
-          const headerColors = { Entrantes: '#7a9a7c', Principales: '#c4a04a', Postres: '#b05e5e' };
+          const headerColors: Record<string, string> = { Entrantes: '#7a9a7c', Principales: '#c4a04a', Postres: '#b05e5e' };
           const isNamed = courseKey !== 'General';
           const allReady = courseItems.every(i => i.ready);
           return (

@@ -1,32 +1,101 @@
 "use client";
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, type FormEvent, type ChangeEvent } from 'react';
 import { Plus, AlertTriangle, Trash2, Package, Filter, FolderTree, List, Camera, Star, Truck, ChevronDown, ChevronUp, Euro, Check, X } from 'lucide-react';
 import { euros, ALLERGENS, ALLERGEN_COLORS } from './constants';
 
-function totalStock(p) {
-  const sbl = p.stockByLocation || {};
-  return Object.values(sbl).reduce((s, e) => s + (e.stock || 0), 0);
+interface StockEntry { stock: number; lowStock: number; }
+interface StockByLocation { [loc: string]: StockEntry; }
+
+interface CatalogProduct {
+  id: string; name: string; category: string; price: number;
+  stockByLocation?: StockByLocation; ubicacion: string;
+  image?: string; featured?: boolean; allergens?: string[];
+  discount?: number;
 }
 
-function isLow(p) {
+interface Catalog {
+  products: CatalogProduct[];
+  categories: (string | { id: string; name: string })[];
+}
+
+interface Supplier {
+  id: string; name: string; active: boolean;
+}
+
+interface SupplierOffer {
+  id: string; supplierId: string; supplierName: string;
+  sku: string; price: number; packSize: number;
+  minOrder: number; deliveryDays: number;
+  isPreferred: boolean; active: boolean;
+  pricePerUnit: number; trend: number | null;
+}
+
+interface NewOfferFormData {
+  supplierId: string; sku: string; price: string;
+  packSize: number; minOrder: number;
+  deliveryDays: number; isPreferred: boolean;
+}
+
+interface Props {
+  catalog: Catalog;
+  colors: Record<string, string>;
+  onUpdateField: (id: string, field: string, value: unknown) => void;
+  newProductOpen: boolean;
+  setNewProductOpen: (v: boolean) => void;
+  onAddProduct: (data: Record<string, unknown>) => void;
+  confirmDeleteId: string | null;
+  setConfirmDeleteId: (id: string | null) => void;
+  onDelete: (id: string) => void;
+  suppliers?: Supplier[];
+  onSupplierRefresh?: () => void;
+}
+
+function totalStock(p: CatalogProduct) {
+  const sbl = p.stockByLocation || {};
+  return Object.values(sbl).reduce((s: number, e) => s + (e.stock || 0), 0);
+}
+
+function isLow(p: CatalogProduct) {
   const sbl = p.stockByLocation || {};
   return Object.values(sbl).some(e => (e.stock || 0) <= (e.lowStock || 0));
 }
 
-const LOCATIONS = ['Bar', 'Cocina', 'Almacén'];
+interface StockBarResult { total: number; low: boolean; pct: number; multi: boolean; }
+
+function stockBar(p: CatalogProduct): StockBarResult {
+  const sbl = p.stockByLocation || {};
+  const all = LOCATIONS.map(loc => ({ loc, entry: sbl[loc] }));
+  const hasStock = all.some(({ entry }) => entry);
+  if (!hasStock) {
+    const total = Object.values(sbl).reduce((s, e) => s + (e.stock || 0), 0);
+    const low = Object.values(sbl).reduce((s, e) => s + (e.lowStock || 5), 0);
+    const pct = Math.min(100, low ? Math.round((total / low) * 50) : 0);
+    return { total, low: total <= low / LOCATIONS.length, pct, multi: false };
+  }
+  const total = all.reduce((s, { entry }) => s + (entry?.stock || 0), 0);
+  const minLow = Math.min(...all.filter(({ entry }) => entry).map(({ entry }) => entry!.lowStock || 5));
+  return { total, low: total <= minLow, pct: Math.min(100, minLow ? Math.round((total / minLow) * 50) : 0), multi: true };
+}
+
+const LOCATIONS = ['Bar', 'Cocina', 'Almacén'] as const;
+
+interface ProductForm {
+  name: string; category: string; price: string;
+  stock: string; lowStock: string; ubicacion: string;
+}
 
 export default function InventarioView({
   catalog, colors: C, onUpdateField,
   newProductOpen, setNewProductOpen, onAddProduct,
   confirmDeleteId, setConfirmDeleteId, onDelete,
   suppliers, onSupplierRefresh,
-}) {
-  const fileInputRef = useRef(null);
-  const [uploadingProduct, setUploadingProduct] = useState(null);
-  const [showProductSuppliers, setShowProductSuppliers] = useState(null);
+}: Props) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingProduct, setUploadingProduct] = useState<string | null>(null);
+  const [showProductSuppliers, setShowProductSuppliers] = useState<string | null>(null);
 
-  async function handleUploadImage(productId, file) {
+  async function handleUploadImage(productId: string, file: File) {
     if (!file) return;
     setUploadingProduct(productId);
     try {
@@ -38,19 +107,24 @@ export default function InventarioView({
     } catch {}
     setUploadingProduct(null);
   }
-  const [form, setForm] = useState({
-    name: '', category: catalog.categories[0] || '', price: '', stock: '', lowStock: '', ubicacion: 'Bar',
+
+  const defaultCategory = typeof catalog.categories[0] === 'string'
+    ? catalog.categories[0]
+    : (catalog.categories[0] as { id: string; name: string } | undefined)?.name || '';
+
+  const [form, setForm] = useState<ProductForm>({
+    name: '', category: defaultCategory, price: '', stock: '', lowStock: '', ubicacion: 'Bar',
   });
   const [filterCategory, setFilterCategory] = useState('Todos');
   const [filterLowOnly, setFilterLowOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [groupByCat, setGroupByCat] = useState(false);
 
-  function submit(e) {
+  function submit(e: FormEvent) {
     e.preventDefault();
     if (!form.name || !form.price) return;
-    onAddProduct(form);
-    setForm({ name: '', category: catalog.categories[0] || '', price: '', stock: '', lowStock: '', ubicacion: 'Bar' });
+    onAddProduct(form as unknown as Record<string, unknown>);
+    setForm({ name: '', category: defaultCategory, price: '', stock: '', lowStock: '', ubicacion: 'Bar' });
   }
 
   const filteredProducts = catalog.products.filter(p => {
@@ -60,7 +134,7 @@ export default function InventarioView({
     return byCategory && byLowStock && bySearch;
   });
 
-  const porCategoria = {};
+  const porCategoria: Record<string, CatalogProduct[]> = {};
   for (const p of filteredProducts) {
     if (!porCategoria[p.category]) porCategoria[p.category] = [];
     porCategoria[p.category].push(p);
@@ -70,37 +144,22 @@ export default function InventarioView({
   const totalValor = filteredProducts.reduce((s, p) => s + totalStock(p) * p.price, 0);
   const totalBajo = filteredProducts.filter(isLow).length;
 
-  const inputStyle = {
+  const inputStyle: Record<string, string> = {
     background: C.surfaceLight,
     color: C.cream,
     border: `1px solid transparent`,
     transition: 'border-color 0.2s, box-shadow 0.2s',
   };
 
-  function updateStock(pId, loc, val) {
+  function updateStock(pId: string, loc: string, val: string) {
     const nv = parseInt(val) || 0;
     const p = catalog.products.find(p => p.id === pId);
-    const sbl = { ...(p?.stockByLocation || {}) };
+    const sbl: StockByLocation = { ...(p?.stockByLocation || {}) };
     sbl[loc] = { stock: nv, lowStock: sbl[loc]?.lowStock ?? 5 };
     onUpdateField(pId, 'stockByLocation', sbl);
   }
 
-  function stockBar(p) {
-    const sbl = p.stockByLocation || {};
-    const all = LOCATIONS.map(loc => ({ loc, entry: sbl[loc] }));
-    const hasStock = all.some(({ entry }) => entry);
-    if (!hasStock) {
-      const total = Object.values(sbl).reduce((s, e) => s + (e.stock || 0), 0);
-      const low = Object.values(sbl).reduce((s, e) => s + (e.lowStock || 5), 0);
-      const pct = Math.min(100, low ? Math.round((total / low) * 50) : 0);
-      return { total, low: total <= low / LOCATIONS.length, pct, multi: false };
-    }
-    const total = all.reduce((s, { entry }) => s + (entry?.stock || 0), 0);
-    const minLow = Math.min(...all.filter(({ entry }) => entry).map(({ entry }) => entry.lowStock || 5));
-    return { total, low: total <= minLow, pct: Math.min(100, minLow ? Math.round((total / minLow) * 50) : 0), multi: true };
-  }
-
-  function renderProduct(p) {
+  function renderProduct(p: CatalogProduct) {
     const sb = stockBar(p);
     return (
       <div
@@ -108,37 +167,37 @@ export default function InventarioView({
         style={{ background: C.surface, border: `1px solid ${sb.low ? C.wine : C.line}` }}
         className={`rounded-lg p-3 flex flex-wrap items-center gap-3 transition-all ${sb.low ? 'shadow-md shadow-red-500/10' : ''}`}
       >
-          <div className="flex items-start gap-3 flex-1 min-w-[8rem]">
-            <div className="relative shrink-0">
-              {p.image ? (
-                <img src={p.image} alt="" className="w-9 h-9 rounded-lg object-cover" />
-              ) : (
-                <div style={{ background: sb.low ? 'rgba(176,94,94,0.2)' : 'rgba(122,154,124,0.2)', width: 36, height: 36 }} className="rounded-lg flex items-center justify-center">
-                  <Package className="w-4 h-4" style={{ color: sb.low ? C.wineLight : C.sageLight }} />
-                </div>
-              )}
+        <div className="flex items-start gap-3 flex-1 min-w-[8rem]">
+          <div className="relative shrink-0">
+            {p.image ? (
+              <img src={p.image} alt="" className="w-9 h-9 rounded-lg object-cover" />
+            ) : (
+              <div style={{ background: sb.low ? 'rgba(176,94,94,0.2)' : 'rgba(122,154,124,0.2)', width: 36, height: 36 }} className="rounded-lg flex items-center justify-center">
+                <Package className="w-4 h-4" style={{ color: sb.low ? C.wineLight : C.sageLight }} />
+              </div>
+            )}
+            <button
+              onClick={() => { setUploadingProduct(p.id); setTimeout(() => fileInputRef.current?.click(), 0); }}
+              style={{ background: C.surface, border: `1px solid ${C.line}` }}
+              className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full flex items-center justify-center hover:opacity-80"
+              title="Cambiar imagen"
+            >
+              <Camera className="w-2.5 h-2.5" style={{ color: C.muted }} />
+            </button>
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-medium">{p.name}</p>
               <button
-                onClick={() => { setUploadingProduct(p.id); setTimeout(() => fileInputRef.current?.click(), 0); }}
-                style={{ background: C.surface, border: `1px solid ${C.line}` }}
-                className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full flex items-center justify-center hover:opacity-80"
-                title="Cambiar imagen"
+                onClick={() => onUpdateField(p.id, 'featured', !p.featured)}
+                style={{ color: p.featured ? C.brassLight : C.muted }}
+                className="p-0.5 hover:opacity-80 transition-colors"
+                title={p.featured ? 'Quitar destacado' : 'Marcar como destacado'}
               >
-                <Camera className="w-2.5 h-2.5" style={{ color: C.muted }} />
+                <Star className="w-3.5 h-3.5" fill={p.featured ? C.brassLight : 'transparent'} />
               </button>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <p className="text-sm font-medium">{p.name}</p>
-                <button
-                  onClick={() => onUpdateField(p.id, 'featured', !p.featured)}
-                  style={{ color: p.featured ? C.brassLight : C.muted }}
-                  className="p-0.5 hover:opacity-80 transition-colors"
-                  title={p.featured ? 'Quitar destacado' : 'Marcar como destacado'}
-                >
-                  <Star className="w-3.5 h-3.5" fill={p.featured ? C.brassLight : 'transparent'} />
-                </button>
-              </div>
-              <p style={{ color: C.muted }} className="text-xs">{p.category} · {p.ubicacion}</p>
+            <p style={{ color: C.muted }} className="text-xs">{p.category} · {p.ubicacion}</p>
             <div className="flex gap-0.5 mt-0.5 flex-wrap">
               {ALLERGENS.map(a => {
                 const active = p.allergens?.includes(a.id);
@@ -167,7 +226,6 @@ export default function InventarioView({
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
-          {/* Stock por ubicación */}
           <div className="flex gap-1.5">
             {LOCATIONS.map(loc => {
               const entry = (p.stockByLocation || {})[loc];
@@ -185,10 +243,10 @@ export default function InventarioView({
                       onBlur={e => updateStock(p.id, loc, e.target.value)}
                       style={{ ...inputStyle, color: isLowLoc ? C.wineLight : C.cream, width: 52 }}
                       className="rounded-lg px-1.5 py-1 text-xs text-center font-mono hover:border-gray-500 focus:border-gray-300 focus:outline-none"
-                      onMouseEnter={e => { if (!e.target.matches(':focus')) e.target.style.borderColor = C.line; }}
-                      onMouseLeave={e => { if (!e.target.matches(':focus')) e.target.style.borderColor = 'transparent'; }}
-                      onFocus={e => e.target.style.borderColor = C.brass}
-                      onBlurCapture={e => e.target.style.borderColor = 'transparent'}
+                      onMouseEnter={e => { if (!(e.target as HTMLElement).matches(':focus')) (e.target as HTMLElement).style.borderColor = C.line; }}
+                      onMouseLeave={e => { if (!(e.target as HTMLElement).matches(':focus')) (e.target as HTMLElement).style.borderColor = 'transparent'; }}
+                      onFocus={e => (e.target as HTMLElement).style.borderColor = C.brass}
+                      onBlurCapture={e => (e.target as HTMLElement).style.borderColor = 'transparent'}
                     />
                     {isLowLoc && <AlertTriangle className="w-2.5 h-2.5 absolute -top-1 -right-1" style={{ color: C.wineLight }} />}
                   </div>
@@ -202,10 +260,10 @@ export default function InventarioView({
             onBlur={e => onUpdateField(p.id, 'price', e.target.value)}
             style={{ ...inputStyle, color: C.cream, width: 72 }}
             className="font-mono rounded-lg px-2.5 py-1.5 text-sm text-center hover:border-gray-500 focus:border-gray-300 focus:outline-none"
-            onMouseEnter={e => { if (!e.target.matches(':focus')) e.target.style.borderColor = C.line; }}
-            onMouseLeave={e => { if (!e.target.matches(':focus')) e.target.style.borderColor = 'transparent'; }}
-            onFocus={e => e.target.style.borderColor = C.brass}
-            onBlurCapture={e => e.target.style.borderColor = 'transparent'}
+            onMouseEnter={e => { if (!(e.target as HTMLElement).matches(':focus')) (e.target as HTMLElement).style.borderColor = C.line; }}
+            onMouseLeave={e => { if (!(e.target as HTMLElement).matches(':focus')) (e.target as HTMLElement).style.borderColor = 'transparent'; }}
+            onFocus={e => (e.target as HTMLElement).style.borderColor = C.brass}
+            onBlurCapture={e => (e.target as HTMLElement).style.borderColor = 'transparent'}
           />
 
           <div className="relative" style={{ width: 80, height: 36 }}>
@@ -426,7 +484,7 @@ export default function InventarioView({
         type="file"
         accept="image/*"
         className="hidden"
-        onChange={e => {
+        onChange={(e: ChangeEvent<HTMLInputElement>) => {
           const file = e.target.files?.[0];
           if (file && uploadingProduct) handleUploadImage(uploadingProduct, file);
           e.target.value = '';
@@ -437,28 +495,34 @@ export default function InventarioView({
 }
 
 // ===== Product Supplier Offers (inline edit per product) =====
-function ProductSuppliers({ product, suppliers: externalSuppliers, C, onSupplierRefresh }) {
-  const [offers, setOffers] = useState([]);
-  const [suppliers, setSuppliers] = useState(externalSuppliers || []);
+
+function ProductSuppliers({ product, suppliers: externalSuppliers, C, onSupplierRefresh }: {
+  product: CatalogProduct;
+  suppliers?: Supplier[];
+  C: Record<string, string>;
+  onSupplierRefresh?: () => void;
+}) {
+  const [offers, setOffers] = useState<SupplierOffer[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>(externalSuppliers || []);
   const [loading, setLoading] = useState(true);
-  const [newOffer, setNewOffer] = useState(null);
-  const [editingId, setEditingId] = useState(null);
+  const [newOffer, setNewOffer] = useState<NewOfferFormData | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => { loadOffers(); if (!externalSuppliers || externalSuppliers.length === 0) loadSuppliers(); }, [product.id]);
 
   async function loadSuppliers() {
-    try { const r = await fetch('/api/suppliers'); if (r.ok) setSuppliers(await r.json()); } catch {}
+    try { const r = await fetch('/api/suppliers'); if (r.ok) setSuppliers(await r.json() as Supplier[]); } catch {}
   }
 
   async function loadOffers() {
     try {
       const r = await fetch(`/api/supplier-catalog?productId=${product.id}`);
-      if (r.ok) setOffers(await r.json());
+      if (r.ok) setOffers(await r.json() as SupplierOffer[]);
     } catch {}
     setLoading(false);
   }
 
-  async function saveOffer(data) {
+  async function saveOffer(data: Record<string, unknown>) {
     try {
       await fetch('/api/supplier-catalog', {
         method: 'POST',
@@ -468,7 +532,7 @@ function ProductSuppliers({ product, suppliers: externalSuppliers, C, onSupplier
     } catch {}
   }
 
-  async function deleteOffer(id) {
+  async function deleteOffer(id: string) {
     try {
       await fetch('/api/supplier-catalog', {
         method: 'POST',
@@ -527,7 +591,15 @@ function ProductSuppliers({ product, suppliers: externalSuppliers, C, onSupplier
   );
 }
 
-function OfferItem({ offer, editing, C, onEdit, onSave, onDelete, suppliers }) {
+function OfferItem({ offer, editing, C, onEdit, onSave, onDelete, suppliers }: {
+  offer: SupplierOffer;
+  editing: boolean;
+  C: Record<string, string>;
+  onEdit: () => void;
+  onSave: (data: Record<string, unknown>) => void;
+  onDelete: () => void;
+  suppliers: Supplier[];
+}) {
   const [form, setForm] = useState({
     id: offer.id, supplierId: offer.supplierId, sku: offer.sku,
     price: offer.price, packSize: offer.packSize, minOrder: offer.minOrder,
@@ -548,11 +620,11 @@ function OfferItem({ offer, editing, C, onEdit, onSave, onDelete, suppliers }) {
         <input type="text" value={form.sku} onChange={e => setForm(f => ({ ...f, sku: e.target.value }))}
           placeholder="SKU" className="w-16 rounded px-2 py-1 text-[10px] text-center"
           style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}` }} />
-        <input type="number" step="0.001" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
+        <input type="number" step="0.001" value={form.price} onChange={e => setForm(f => ({ ...f, price: Number(e.target.value) }))}
           placeholder="Precio pack" className="w-20 rounded px-2 py-1 text-[10px] text-center"
           style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}` }} />
         <span className="text-[9px]" style={{ color: C.muted }}>Pack:</span>
-        <input type="number" step="0.01" value={form.packSize} onChange={e => setForm(f => ({ ...f, packSize: e.target.value }))}
+        <input type="number" step="0.01" value={form.packSize} onChange={e => setForm(f => ({ ...f, packSize: Number(e.target.value) }))}
           className="w-12 rounded px-2 py-1 text-[10px] text-center"
           style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}` }} />
         <label className="flex items-center gap-1 text-[9px]" style={{ color: C.muted }}>
@@ -563,7 +635,7 @@ function OfferItem({ offer, editing, C, onEdit, onSave, onDelete, suppliers }) {
         {offer.isPreferred && !form.isPreferred && (
           <span className="text-[9px]" style={{ color: C.wineLight }}>No puedes desactivar el preferido sin marcar otro</span>
         )}
-        <button onClick={() => onSave(form)} style={{ color: C.sage }}><Check className="w-3 h-3" /></button>
+        <button onClick={() => onSave(form as unknown as Record<string, unknown>)} style={{ color: C.sage }}><Check className="w-3 h-3" /></button>
         <button onClick={onEdit} style={{ color: C.muted }}><X className="w-3 h-3" /></button>
         <button onClick={onDelete} style={{ color: C.wineLight }}><Trash2 className="w-3 h-3" /></button>
       </div>
@@ -595,8 +667,13 @@ function OfferItem({ offer, editing, C, onEdit, onSave, onDelete, suppliers }) {
   );
 }
 
-function NewOfferForm({ suppliers, C, onSave, onCancel }) {
-  const [form, setForm] = useState({ supplierId: '', sku: '', price: '', packSize: 1, minOrder: 0, deliveryDays: 0, isPreferred: false });
+function NewOfferForm({ suppliers, C, onSave, onCancel }: {
+  suppliers: Supplier[];
+  C: Record<string, string>;
+  onSave: (data: Record<string, unknown>) => void;
+  onCancel: () => void;
+}) {
+  const [form, setForm] = useState<NewOfferFormData>({ supplierId: '', sku: '', price: '', packSize: 1, minOrder: 0, deliveryDays: 0, isPreferred: false });
 
   return (
     <div className="flex flex-wrap items-center gap-1.5 text-[10px] p-2 rounded-lg" style={{ background: C.surface }}>
@@ -615,7 +692,7 @@ function NewOfferForm({ suppliers, C, onSave, onCancel }) {
         placeholder="Precio pack" className="w-20 rounded px-2 py-1 text-[10px] text-center"
         style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}` }} />
       <span style={{ color: C.muted }}>Pack:</span>
-      <input type="number" step="0.01" value={form.packSize} onChange={e => setForm(f => ({ ...f, packSize: e.target.value }))}
+      <input type="number" step="0.01" value={form.packSize} onChange={e => setForm(f => ({ ...f, packSize: Number(e.target.value) }))}
         className="w-12 rounded px-2 py-1 text-[10px] text-center"
         style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}` }} />
       <label className="flex items-center gap-1 text-[9px]" style={{ color: C.muted }}>
@@ -623,7 +700,7 @@ function NewOfferForm({ suppliers, C, onSave, onCancel }) {
           onChange={e => setForm(f => ({ ...f, isPreferred: e.target.checked }))} />
         Preferido
       </label>
-      <button onClick={() => onSave(form)} disabled={!form.supplierId || !form.price}
+      <button onClick={() => onSave(form as unknown as Record<string, unknown>)} disabled={!form.supplierId || !form.price}
         style={{ color: C.sage, opacity: (!form.supplierId || !form.price) ? 0.4 : 1 }}>
         <Check className="w-3 h-3" />
       </button>
