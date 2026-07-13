@@ -1,12 +1,16 @@
 import { Tabs } from 'expo-router';
 import { C } from '../../lib/theme';
 import { Ionicons } from '@expo/vector-icons';
+import { useAppContext } from '../../lib/store';
 
 function TabIcon({ name, color, size }: { name: keyof typeof Ionicons.glyphMap; color: string; size: number }) {
   return <Ionicons name={name} size={size} color={color} />;
 }
 
 export default function TabsLayout() {
+  const { user } = useAppContext();
+  const isAdmin = user?.role === 'admin';
+
   return (
     <Tabs
       screenOptions={{
@@ -52,13 +56,15 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => <TabIcon name="person-outline" color={color} size={size} />,
         }}
       />
-      <Tabs.Screen
-        name="operations"
-        options={{
-          title: 'Operaciones',
-          tabBarIcon: ({ color, size }) => <TabIcon name="analytics-outline" color={color} size={size} />,
-        }}
-      />
+      {isAdmin && (
+        <Tabs.Screen
+          name="operations"
+          options={{
+            title: 'Operaciones',
+            tabBarIcon: ({ color, size }) => <TabIcon name="analytics-outline" color={color} size={size} />,
+          }}
+        />
+      )}
     </Tabs>
   );
 }
