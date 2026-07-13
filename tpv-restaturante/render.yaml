@@ -3,7 +3,7 @@ services:
     name: tpv-restaurante
     runtime: node
     plan: free
-    buildCommand: npm run build
+    buildCommand: npm install && npm run build
     startCommand: node server.js
     healthCheckPath: /api/keep-alive
     envVars:
