@@ -3,65 +3,109 @@
 import { useState } from 'react';
 import { Plus, Trash2, Save, GripVertical, Tag, Percent } from 'lucide-react';
 import { euros } from './constants';
+import type { Theme } from './constants';
+
+interface ComboSlotItem {
+  id: string;
+  slot_id: string;
+  product_id: string;
+  surcharge: number;
+}
+
+interface ComboSlot {
+  id: string;
+  name: string;
+  minChoices: number;
+  maxChoices: number;
+  items: ComboSlotItem[];
+}
+
+interface Combo {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  image?: string;
+  active: boolean;
+  discountPct: number;
+  slots: ComboSlot[];
+}
+
+interface ComboProduct {
+  id: string;
+  name: string;
+  price: number;
+}
+
+interface ComboCatalog {
+  products: ComboProduct[];
+}
+
+interface CombosPanelProps {
+  combos: Combo[];
+  catalog: ComboCatalog;
+  onSave: (combos: Combo[]) => void;
+  colors: Theme;
+}
 
 function id() { return 'x_' + Date.now() + Math.random().toString(16).slice(2, 6); }
 
-function emptySlot() {
+function emptySlot(): ComboSlot {
   return { id: id(), name: '', minChoices: 1, maxChoices: 1, items: [] };
 }
 
-function emptyCombo() {
+function emptyCombo(): Combo {
   return { id: id(), name: '', description: '', price: 0, image: '', active: true, discountPct: 0, slots: [] };
 }
 
-export default function CombosPanel({ combos, catalog, onSave, colors: C }) {
-  const [local, setLocal] = useState(() => combos.length > 0 ? combos : []);
+export default function CombosPanel({ combos, catalog, onSave, colors: C }: CombosPanelProps) {
+  const [local, setLocal] = useState<Combo[]>(() => combos.length > 0 ? combos : []);
 
-  function updateCombo(ci, field, value) {
+  function updateCombo(ci: number, field: keyof Combo, value: unknown) {
     const next = [...local];
-    next[ci] = { ...next[ci], [field]: value };
+    (next[ci] as unknown as Record<string, unknown>)[field] = value;
     setLocal(next);
   }
 
-  function updateSlot(ci, si, field, value) {
+  function updateSlot(ci: number, si: number, field: keyof ComboSlot, value: unknown) {
     const next = [...local];
-    next[ci].slots[si] = { ...next[ci].slots[si], [field]: value };
+    (next[ci].slots[si] as unknown as Record<string, unknown>)[field] = value;
     setLocal(next);
   }
 
-  function updateSlotItem(ci, si, ii, field, value) {
+  function updateSlotItem(ci: number, si: number, ii: number, field: keyof ComboSlotItem, value: unknown) {
     const next = [...local];
-    next[ci].slots[si].items[ii] = { ...next[ci].slots[si].items[ii], [field]: value };
+    (next[ci].slots[si].items[ii] as unknown as Record<string, unknown>)[field] = value;
     setLocal(next);
   }
 
   function addCombo() { setLocal([...local, emptyCombo()]); }
-  function removeCombo(ci) { setLocal(local.filter((_, i) => i !== ci)); }
+  function removeCombo(ci: number) { setLocal(local.filter((_, i) => i !== ci)); }
 
-  function addSlot(ci) {
+  function addSlot(ci: number) {
     const next = [...local];
     next[ci].slots = [...(next[ci].slots || []), emptySlot()];
     setLocal(next);
   }
-  function removeSlot(ci, si) {
+  function removeSlot(ci: number, si: number) {
     const next = [...local];
     next[ci].slots = next[ci].slots.filter((_, i) => i !== si);
     setLocal(next);
   }
 
-  function addSlotItem(ci, si) {
+  function addSlotItem(ci: number, si: number) {
     const next = [...local];
     next[ci].slots[si].items = [...(next[ci].slots[si].items || []), { id: id(), slot_id: next[ci].slots[si].id, product_id: '', surcharge: 0 }];
     setLocal(next);
   }
-  function removeSlotItem(ci, si, ii) {
+  function removeSlotItem(ci: number, si: number, ii: number) {
     const next = [...local];
     next[ci].slots[si].items = next[ci].slots[si].items.filter((_, i) => i !== ii);
     setLocal(next);
   }
 
-  function totalIndividual(c) {
-    if (!c.slots) return 0;
+  function totalIndividual(c: Combo) {
+    if (!c.slots) return { min: 0, max: 0 };
     let min = 0, max = 0;
     for (const slot of c.slots) {
       if (!slot.items) continue;
@@ -109,7 +153,6 @@ export default function CombosPanel({ combos, catalog, onSave, colors: C }) {
           const savings = ind.min > 0 && c.price > 0 ? ind.min - c.price : 0;
           return (
             <div key={c.id} style={{ background: C.surface, border: `1px solid ${C.line}` }} className="rounded-xl p-4">
-              {/* Combo header */}
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1 grid grid-cols-1 sm:grid-cols-4 gap-3 mr-3">
                   <input value={c.name} onChange={e => updateCombo(ci, 'name', e.target.value)}
@@ -141,7 +184,6 @@ export default function CombosPanel({ combos, catalog, onSave, colors: C }) {
                 </button>
               </div>
 
-              {/* Savings indicator */}
               {savings > 0 && (
                 <div className="flex items-center gap-2 mb-3 text-xs font-mono">
                   <Tag className="w-3 h-3" style={{ color: C.sageLight }} />
@@ -155,7 +197,6 @@ export default function CombosPanel({ combos, catalog, onSave, colors: C }) {
                 rows={2} style={{ background: C.surfaceLight, color: C.cream }}
                 className="w-full rounded-lg px-3 py-2 text-sm mb-3" />
 
-              {/* Slots */}
               <p style={{ color: C.muted }} className="text-xs uppercase tracking-wide mb-2">
                 Slots — pasos que el cliente elige
               </p>
@@ -185,7 +226,6 @@ export default function CombosPanel({ combos, catalog, onSave, colors: C }) {
                       </button>
                     </div>
 
-                    {/* Slot items */}
                     <div className="flex flex-col gap-1.5">
                       {(slot.items || []).map((item, ii) => (
                         <div key={item.id} className="flex items-center gap-2">

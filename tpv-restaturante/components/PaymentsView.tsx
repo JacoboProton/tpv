@@ -2,12 +2,57 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Search, Download, Filter, CreditCard, Banknote, Smartphone, Clock,
-  AlertTriangle, CheckCircle2, XCircle, RefreshCw,
+  Search, Download, CreditCard, Banknote, Smartphone, Clock,
+  AlertTriangle, XCircle, RefreshCw,
 } from 'lucide-react';
 import { euros } from './constants';
+import type { Theme } from './constants';
+import type { LucideIcon } from 'lucide-react';
 
-const METHOD_ICONS = {
+interface PaymentItem {
+  id: string;
+  closedAt: number;
+  tableName: string;
+  employeeName: string;
+  paymentMethod: string;
+  total: number;
+  tip: number;
+  invoiceNumber?: string;
+  hasInvoice?: boolean;
+  paymentIntentId?: string;
+  stripeConfirmed?: boolean;
+  disputeStatus?: string;
+  refundCount: number;
+  hasRefunds?: boolean;
+  isFiado?: boolean;
+}
+
+interface PaymentSummary {
+  count: number;
+  total: number;
+  byMethod?: Record<string, number>;
+}
+
+interface PaymentsData {
+  summary: PaymentSummary;
+  payments: PaymentItem[];
+}
+
+interface PaymentsViewProps {
+  colors: Theme;
+}
+
+interface Filters {
+  from: string;
+  to: string;
+  method: string;
+  employee: string;
+  status: string;
+  minAmount: string;
+  maxAmount: string;
+}
+
+const METHOD_ICONS: Record<string, LucideIcon> = {
   tarjeta: CreditCard,
   efectivo: Banknote,
   bizum: Smartphone,
@@ -23,11 +68,11 @@ const STATUS_FILTERS = [
   { value: 'fiado', label: 'Fiados' },
 ];
 
-export default function PaymentsView({ colors: C }) {
-  const [data, setData] = useState(null);
+export default function PaymentsView({ colors: C }: PaymentsViewProps) {
+  const [data, setData] = useState<PaymentsData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState(null);
-  const [filters, setFilters] = useState({
+  const [toast, setToast] = useState<string | null>(null);
+  const [filters, setFilters] = useState<Filters>({
     from: new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0],
     to: new Date().toISOString().split('T')[0],
     method: '',
@@ -37,7 +82,7 @@ export default function PaymentsView({ colors: C }) {
     maxAmount: '',
   });
 
-  function showToast(msg) {
+  function showToast(msg: string) {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
   }
@@ -46,8 +91,8 @@ export default function PaymentsView({ colors: C }) {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (filters.from) params.set('from', new Date(filters.from).getTime());
-      if (filters.to) params.set('to', new Date(filters.to + 'T23:59:59').getTime());
+      if (filters.from) params.set('from', String(new Date(filters.from).getTime()));
+      if (filters.to) params.set('to', String(new Date(filters.to + 'T23:59:59').getTime()));
       if (filters.method) params.set('method', filters.method);
       if (filters.employee) params.set('employee', filters.employee);
       if (filters.status) params.set('status', filters.status);
@@ -56,10 +101,10 @@ export default function PaymentsView({ colors: C }) {
 
       const res = await fetch(`/api/payments?${params}`);
       if (!res.ok) throw new Error(await res.text());
-      const d = await res.json();
+      const d = await res.json() as PaymentsData;
       setData(d);
     } catch (err) {
-      showToast('Error al cargar pagos: ' + err.message);
+      showToast('Error al cargar pagos: ' + (err as Error).message);
     } finally {
       setLoading(false);
     }
@@ -79,12 +124,12 @@ export default function PaymentsView({ colors: C }) {
       p.total.toFixed(2),
       p.tip.toFixed(2),
       p.invoiceNumber || (p.hasInvoice ? 'Sí' : ''),
-      p.paymentIntentId.slice(-12),
+      (p.paymentIntentId || '').slice(-12),
       p.stripeConfirmed ? 'Confirmado' : (p.paymentIntentId ? 'Pendiente' : '—'),
       p.disputeStatus || '—',
       p.refundCount > 0 ? `${p.refundCount} dev.` : '',
     ]);
-    const csv = [rows.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = `pagos_${filters.from}_${filters.to}.csv`;
@@ -168,7 +213,7 @@ export default function PaymentsView({ colors: C }) {
                 <Icon className="w-4 h-4" style={{ color: C.brassLight }} />
                 <div>
                   <p className="text-[10px] uppercase tracking-wide" style={{ color: C.muted }}>{method}</p>
-                  <p className="font-mono text-sm font-semibold" style={{ color: C.cream }}>{euros(total)}</p>
+                  <p className="font-mono text-sm font-semibold" style={{ color: C.cream }}>{euros(total as number)}</p>
                 </div>
               </div>
             );
@@ -189,7 +234,7 @@ export default function PaymentsView({ colors: C }) {
         <div className="flex flex-col gap-1.5">
           {data.payments.map(p => {
             const Icon = METHOD_ICONS[p.paymentMethod] || CreditCard;
-            const hasWarning = p.disputeStatus || (!p.stripeConfirmed && p.paymentIntentId) || p.hasRefunds;
+            const hasWarning = !!p.disputeStatus || (!p.stripeConfirmed && !!p.paymentIntentId) || !!p.hasRefunds;
             return (
               <div key={p.id}
                 style={{
@@ -217,7 +262,7 @@ export default function PaymentsView({ colors: C }) {
                         <AlertTriangle className="w-3 h-3" /> {p.disputeStatus === 'disputed' ? 'Disputa' : p.disputeStatus}
                       </span>
                     )}
-                    {!p.stripeConfirmed && p.paymentIntentId && (
+                    {!p.stripeConfirmed && !!p.paymentIntentId && (
                       <span className="text-[10px] font-medium flex items-center gap-0.5 px-1.5 py-0.5 rounded"
                         style={{ background: '#fbbf24' + '30', color: '#fbbf24' }}>
                         <XCircle className="w-3 h-3" /> No confirmado
@@ -226,7 +271,7 @@ export default function PaymentsView({ colors: C }) {
                     {p.hasRefunds && (
                       <span className="text-[10px] font-medium flex items-center gap-0.5 px-1.5 py-0.5 rounded"
                         style={{ background: C.sage + '30', color: C.sageLight }}>
-                        ↩️ {p.refundCount} dev.
+                        {p.refundCount} dev.
                       </span>
                     )}
                     {p.isFiado && (

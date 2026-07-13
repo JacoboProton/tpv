@@ -2,11 +2,25 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, Copy, X, Trash2, Clock, Tablet, CheckCircle } from 'lucide-react';
+import type { Theme } from './constants';
 
-export default function PairingPanel({ colors: C }) {
-  const [pairings, setPairings] = useState([]);
+interface KDSPairing {
+  id: string;
+  label?: string;
+  expiresAt: number;
+  deviceId?: string | null;
+  revoked?: boolean;
+  createdAt: number;
+}
+
+interface PairingPanelProps {
+  colors: Theme;
+}
+
+export default function PairingPanel({ colors: C }: PairingPanelProps) {
+  const [pairings, setPairings] = useState<KDSPairing[]>([]);
   const [label, setLabel] = useState('');
-  const [generatedCode, setGeneratedCode] = useState(null);
+  const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(0);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -29,7 +43,7 @@ export default function PairingPanel({ colors: C }) {
     try {
       const { fetchKDSPairings } = await import('../lib/api');
       const data = await fetchKDSPairings();
-      setPairings(data || []);
+      setPairings((data as KDSPairing[]) || []);
     } catch {}
     setLoading(false);
   }
@@ -37,7 +51,7 @@ export default function PairingPanel({ colors: C }) {
   async function handleGenerate() {
     try {
       const { generateKDSPairCode } = await import('../lib/api');
-      const res = await generateKDSPairCode(label);
+      const res = await generateKDSPairCode(label) as { code?: string } | null;
       if (res?.code) {
         setGeneratedCode(res.code);
         setCountdown(600);
@@ -46,7 +60,7 @@ export default function PairingPanel({ colors: C }) {
     } catch {}
   }
 
-  async function handleRevoke(id) {
+  async function handleRevoke(id: string) {
     if (!confirm('¿Revocar este dispositivo emparejado?')) return;
     try {
       const { revokeKDSPairing } = await import('../lib/api');
@@ -138,7 +152,7 @@ export default function PairingPanel({ colors: C }) {
         <div className="space-y-2">
           {pairings.map(p => {
             const expired = p.expiresAt < Date.now() && !p.deviceId;
-            const active = p.deviceId && !p.revoked;
+            const active = !!p.deviceId && !p.revoked;
             return (
               <div key={p.id} className="rounded-lg px-4 py-3 flex items-center justify-between"
                 style={{ background: C.surfaceLight, border: `1px solid ${p.revoked ? C.wine : active ? C.sage : C.line}`, opacity: p.revoked ? 0.5 : 1 }}>

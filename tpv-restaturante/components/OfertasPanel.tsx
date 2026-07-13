@@ -2,54 +2,96 @@
 
 import { useState } from 'react';
 import { Plus, Trash2, Check, Percent, CalendarClock, Tag } from 'lucide-react';
+import type { Theme } from './constants';
+import type { LucideIcon } from 'lucide-react';
 
-const OFFER_TYPES = [
+type OfferType = 'happy_hour' | 'menu_del_dia' | 'discount';
+
+interface OfferData {
+  id: string;
+  name: string;
+  type: OfferType;
+  days: number[];
+  startHour: number;
+  endHour: number;
+  discountPct: number;
+  fixedPrice: number | null;
+  productIds: string[];
+  active: boolean;
+}
+
+interface OfferProduct {
+  id: string;
+  name: string;
+}
+
+interface OfferCatalog {
+  products: OfferProduct[];
+}
+
+interface OfertasPanelProps {
+  offers: OfferData[];
+  catalog: OfferCatalog;
+  onSave: (offers: OfferData[]) => void;
+  colors: Theme;
+}
+
+interface OfferTypeConfig {
+  id: OfferType;
+  label: string;
+  icon: LucideIcon;
+  desc: string;
+}
+
+const OFFER_TYPES: OfferTypeConfig[] = [
   { id: 'happy_hour', label: 'Happy Hour', icon: Percent, desc: 'Descuento por porcentaje en productos seleccionados' },
   { id: 'menu_del_dia', label: 'Menú del día', icon: CalendarClock, desc: 'Precio fijo por un conjunto de productos' },
   { id: 'discount', label: 'Descuento', icon: Tag, desc: 'Descuento general en productos seleccionados' },
 ];
 
-export default function OfertasPanel({ offers, catalog, onSave, colors: C }) {
-  const [localOffers, setLocalOffers] = useState(() => offers.length > 0 ? offers : []);
+const DEFAULT_OFFER: OfferData = {
+  id: 'offer_' + Date.now(), name: '', type: 'happy_hour',
+  days: [1, 2, 3, 4, 5], startHour: 13, endHour: 16,
+  discountPct: 15, fixedPrice: null, productIds: [], active: true,
+};
+
+export default function OfertasPanel({ offers, catalog, onSave, colors: C }: OfertasPanelProps) {
+  const [localOffers, setLocalOffers] = useState<OfferData[]>(() => offers.length > 0 ? offers : []);
 
   const DAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
   const allProducts = catalog?.products || [];
 
-  function update(i, field, value) {
+  function update(i: number, field: keyof OfferData, value: unknown) {
     const next = [...localOffers];
-    next[i] = { ...next[i], [field]: value };
+    (next[i] as unknown as Record<string, unknown>)[field] = value;
     setLocalOffers(next);
   }
 
-  function toggleDay(i, day) {
+  function toggleDay(i: number, day: number) {
     const o = localOffers[i];
     const days = o.days.includes(day) ? o.days.filter(d => d !== day) : [...o.days, day].sort();
     update(i, 'days', days);
   }
 
-  function toggleProduct(i, pid) {
+  function toggleProduct(i: number, pid: string) {
     const o = localOffers[i];
     const ids = o.productIds.includes(pid) ? o.productIds.filter(id => id !== pid) : [...o.productIds, pid];
     update(i, 'productIds', ids);
   }
 
   function addOffer() {
-    setLocalOffers([...localOffers, {
-      id: 'offer_' + Date.now(), name: '', type: 'happy_hour',
-      days: [1, 2, 3, 4, 5], startHour: 13, endHour: 16,
-      discountPct: 15, fixedPrice: null, productIds: [], active: true,
-    }]);
+    setLocalOffers([...localOffers, { ...DEFAULT_OFFER, id: 'offer_' + Date.now() }]);
   }
 
-  function removeOffer(i) {
+  function removeOffer(i: number) {
     setLocalOffers(localOffers.filter((_, idx) => idx !== i));
   }
 
-  const TypeIcon = (type) => {
+  function TypeIcon(type: OfferType) {
     const t = OFFER_TYPES.find(t => t.id === type);
     if (!t) return Tag;
     return t.icon;
-  };
+  }
 
   return (
     <div>

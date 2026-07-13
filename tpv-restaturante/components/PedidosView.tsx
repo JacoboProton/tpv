@@ -1,18 +1,64 @@
 import { useState, useMemo } from 'react';
-import { Search, X, Undo2, Euro, ChevronDown, Check, FileText } from 'lucide-react';
-import { euros, round2, clone } from './constants';
+import { Search, X, Undo2, Euro, Check, FileText } from 'lucide-react';
+import { euros, round2 } from './constants';
+import type { Theme } from './constants';
 
-export default function PedidosView({ sales, onRefund, onConfirmBizum, onPrintInvoice, onDownloadPdf, onSendInvoiceEmail, colors: C }) {
+interface PedidoItem {
+  id: string;
+  name: string;
+  price: number;
+  qty: number;
+  voided?: boolean;
+}
+
+interface Refund {
+  id: string;
+  mode: string;
+  amount: number;
+  items: { name: string; qty: number; price: number }[];
+  reason: string;
+  employeeName: string;
+  createdAt: number;
+}
+
+interface PedidoSale {
+  id: string;
+  totalWithTip?: number;
+  closedAt: number;
+  tableName?: string;
+  employeeName?: string;
+  items?: PedidoItem[];
+  ticketNumber?: string | number;
+  paymentMethod?: string;
+  refunds?: Refund[];
+  invoiceCreated?: boolean;
+  invoiceNumber?: string;
+  invoiceEmail?: string;
+  hasPendingBizum?: boolean;
+  verifactuStatus?: string;
+}
+
+interface PedidosViewProps {
+  sales: PedidoSale[];
+  onRefund: (saleId: string, refund: Refund) => void;
+  onConfirmBizum: (saleId: string) => void;
+  onPrintInvoice?: (sale: PedidoSale) => void;
+  onDownloadPdf?: (sale: PedidoSale) => void;
+  onSendInvoiceEmail?: (sale: PedidoSale) => void;
+  colors: Theme;
+}
+
+export default function PedidosView({ sales, onRefund, onConfirmBizum, onPrintInvoice, onDownloadPdf, onSendInvoiceEmail, colors: C }: PedidosViewProps) {
   const [query, setQuery] = useState('');
   const [dateFilter, setDateFilter] = useState('week');
-  const [selectedSale, setSelectedSale] = useState(null);
+  const [selectedSale, setSelectedSale] = useState<PedidoSale | null>(null);
   const [refundMode, setRefundMode] = useState('items');
-  const [checked, setChecked] = useState({});
+  const [checked, setChecked] = useState<Record<string, number>>({});
   const [refundAmount, setRefundAmount] = useState('');
   const [refundReason, setRefundReason] = useState('');
 
   const filtered = useMemo(() => {
-    let list = [...sales].filter(s => s.id && s.totalWithTip > 0).sort((a, b) => b.closedAt - a.closedAt);
+    let list = [...sales].filter(s => s.id && (s.totalWithTip ?? 0) > 0).sort((a, b) => b.closedAt - a.closedAt);
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     if (dateFilter === 'today') list = list.filter(s => s.closedAt >= today);
@@ -35,10 +81,10 @@ export default function PedidosView({ sales, onRefund, onConfirmBizum, onPrintIn
     return list;
   }, [sales, query, dateFilter]);
 
-  const totalRefunded = (sale) => (sale.refunds || []).reduce((s, r) => s + r.amount, 0);
-  const maxRefundable = (sale) => Math.max(0, (sale.totalWithTip || 0) - totalRefunded(sale));
+  const totalRefunded = (sale: PedidoSale) => (sale.refunds || []).reduce((s, r) => s + r.amount, 0);
+  const maxRefundable = (sale: PedidoSale) => Math.max(0, (sale.totalWithTip || 0) - totalRefunded(sale));
 
-  function openRefund(sale) {
+  function openRefund(sale: PedidoSale) {
     setSelectedSale(sale);
     setRefundMode('items');
     setChecked({});
@@ -46,7 +92,7 @@ export default function PedidosView({ sales, onRefund, onConfirmBizum, onPrintIn
     setRefundReason('');
   }
 
-  function calcItemTotal(sale) {
+  function calcItemTotal(sale: PedidoSale) {
     return (sale.items || []).reduce((s, i) => i.voided ? s : s + (i.price || 0) * (i.qty || 0), 0);
   }
 
@@ -73,7 +119,7 @@ export default function PedidosView({ sales, onRefund, onConfirmBizum, onPrintIn
       ? (selectedSale.items || []).filter(i => (checked[i.id] ?? 0) > 0).map(i => ({ name: i.name, qty: checked[i.id], price: i.price }))
       : [];
 
-    const refund = {
+    const refund: Refund = {
       id: 'r_' + Date.now(),
       mode: refundMode,
       amount: round2(amount),
@@ -131,17 +177,17 @@ export default function PedidosView({ sales, onRefund, onConfirmBizum, onPrintIn
                     </span>
                     {refTotal > 0 && (
                       <span style={{ color: C.wineLight }} className="text-[10px] font-medium">
-                        ↩️ Devoluciones: {euros(refTotal)}
+                        Devoluciones: {euros(refTotal)}
                       </span>
                     )}
                     {sale.invoiceCreated && (
                       <span style={{ color: C.sageLight }} className="text-[10px] font-medium">
-                        🧾 {sale.invoiceNumber}
+                        {sale.invoiceNumber}
                       </span>
                     )}
                     {sale.hasPendingBizum && (
                       <span style={{ color: '#fbbf24' }} className="text-[10px] font-medium bg-yellow-900/30 px-1.5 py-0.5 rounded">
-                        ⏳ Bizum pendiente
+                        Bizum pendiente
                       </span>
                     )}
                     {sale.verifactuStatus && sale.verifactuStatus !== 'registrado' && (
@@ -164,12 +210,12 @@ export default function PedidosView({ sales, onRefund, onConfirmBizum, onPrintIn
                     <span style={{ color: C.muted }} className="text-[10px]">{sale.employeeName}</span>
                   </div>
                 </div>
-                  <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5">
                   {sale.hasPendingBizum && (
                     <button onClick={(e) => { e.stopPropagation(); onConfirmBizum(sale.id); }}
                       style={{ color: '#fbbf24', background: '#fbbf24' + '20', border: '1px solid #fbbf24' }}
                       className="rounded-lg px-2.5 py-2 text-xs font-medium flex items-center gap-1 hover:opacity-80">
-                      ✅ Confirmar Bizum
+                      Confirmar Bizum
                     </button>
                   )}
                   {sale.invoiceCreated ? (
@@ -216,20 +262,19 @@ export default function PedidosView({ sales, onRefund, onConfirmBizum, onPrintIn
         </div>
       )}
 
-      {/* ── Modal devolución ── */}
+      {/* Modal devolución */}
       {selectedSale && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.65)' }}
           onClick={() => setSelectedSale(null)}>
           <div onClick={e => e.stopPropagation()}
             style={{ background: C.surface, border: `1px solid ${C.line}` }}
             className="w-full max-w-md rounded-xl p-5 fade-up max-h-[80vh] flex flex-col">
-            <p className="font-display text-lg mb-1" style={{ color: C.cream }}>↩️ Devolución</p>
+            <p className="font-display text-lg mb-1" style={{ color: C.cream }}>Devolución</p>
             <p style={{ color: C.muted }} className="text-xs mb-3">
               {selectedSale.tableName} · {euros(selectedSale.totalWithTip || 0)}
               {totalRefunded(selectedSale) > 0 && ` · ${euros(totalRefunded(selectedSale))} ya devuelto`}
             </p>
 
-            {/* Modo */}
             <div className="flex gap-2 mb-3">
               {['items', 'amount'].map(m => (
                 <button key={m} onClick={() => setRefundMode(m)}
@@ -248,7 +293,6 @@ export default function PedidosView({ sales, onRefund, onConfirmBizum, onPrintIn
               Máximo devolvible: <span style={{ color: C.cream }} className="font-mono">{euros(maxRefundable(selectedSale))}</span>
             </p>
 
-            {/* Items list */}
             {refundMode === 'items' && (
               <div className="flex-1 overflow-y-auto mb-3 space-y-1">
                 {(selectedSale.items || []).filter(i => !i.voided).map(item => {
@@ -279,7 +323,6 @@ export default function PedidosView({ sales, onRefund, onConfirmBizum, onPrintIn
               </div>
             )}
 
-            {/* Amount input */}
             {refundMode === 'amount' && (
               <div className="mb-3">
                 <input type="number" step="0.01" min="0" max={maxRefundable(selectedSale)}
@@ -290,16 +333,14 @@ export default function PedidosView({ sales, onRefund, onConfirmBizum, onPrintIn
               </div>
             )}
 
-            {/* Reason */}
             <input type="text" value={refundReason} onChange={e => setRefundReason(e.target.value)}
               placeholder="Motivo de la devolución (opcional)"
               style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}` }}
               className="w-full rounded-lg px-3 py-2 text-sm mb-3" />
 
-            {/* Total and confirm */}
             <div className="flex items-center justify-between mb-3">
               <span style={{ color: C.muted }} className="text-xs">
-                {refundMode === 'items' ? `Total seleccionado` : `Importe`}
+                {refundMode === 'items' ? 'Total seleccionado' : 'Importe'}
               </span>
               <span style={{ color: C.wineLight }} className="font-mono font-bold">
                 {euros(refundMode === 'items' ? calcSelectedTotal() : (parseFloat(refundAmount) || 0))}

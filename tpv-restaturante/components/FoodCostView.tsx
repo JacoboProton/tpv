@@ -2,10 +2,63 @@
 
 import { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Filter, ArrowUpDown, Download, Edit, Loader2 } from 'lucide-react';
+import type { Theme } from './constants';
 
-export default function FoodCostView({ colors: C, onNavigate }) {
-  const [data, setData] = useState(null);
-  const [categories, setCategories] = useState([]);
+interface FoodCostItem {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  recipeCost: number;
+  costPct: number;
+  margin: number;
+  marginPct: number;
+  ingredientCount: number;
+  hasRecipe: boolean;
+}
+
+interface FoodCostSummary {
+  totalItems: number;
+  avgFoodCost: number;
+  itemsAbove35: number;
+  itemsWithRecipe: number;
+}
+
+interface FoodCostData {
+  summary: FoodCostSummary;
+  items: FoodCostItem[];
+}
+
+interface FoodCostViewProps {
+  colors: Theme;
+  onNavigate?: (view: string, productId?: string) => void;
+}
+
+interface SummaryCardProps {
+  label: string;
+  value: string | number;
+  icon: React.ReactNode;
+  C: Theme;
+  warning?: boolean;
+}
+
+function SummaryCard({ label, value, icon, C, warning }: SummaryCardProps) {
+  return (
+    <div className="rounded-xl p-4" style={{ background: C.surfaceLight, border: `1px solid ${warning ? C.wine : C.line}` }}>
+      <div className="flex items-center justify-between">
+        <div style={{ color: warning ? C.wine : C.brassLight }}>{icon}</div>
+        <div className="text-right">
+          <div className="text-2xl font-bold font-mono" style={{ color: C.cream }}>{value}</div>
+          <div className="text-[10px]" style={{ color: C.muted }}>{label}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function FoodCostView({ colors: C, onNavigate }: FoodCostViewProps) {
+  const [data, setData] = useState<FoodCostData | null>(null);
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [recipeStatusFilter, setRecipeStatusFilter] = useState('all');
@@ -29,13 +82,13 @@ export default function FoodCostView({ colors: C, onNavigate }) {
         fetch(`/api/food-cost?${params.toString()}`),
         fetch('/api/catalog'),
       ]);
-      
+
       if (res.ok) {
-        const json = await res.json();
+        const json = await res.json() as FoodCostData;
         setData(json);
       }
       if (catRes.ok) {
-        const catJson = await catRes.json();
+        const catJson = await catRes.json() as { categories?: { id: string; name: string }[] };
         setCategories(catJson.categories || []);
       }
     } catch (err) {
@@ -46,7 +99,7 @@ export default function FoodCostView({ colors: C, onNavigate }) {
 
   function handleExportCSV() {
     if (!data?.items) return;
-    
+
     const headers = ['Nombre', 'Categoría', 'Precio', 'Coste receta', '% Coste', 'Margen', '% Margen', 'Ingredientes', 'Tiene receta'];
     const rows = data.items.map(item => [
       item.name,
@@ -59,7 +112,7 @@ export default function FoodCostView({ colors: C, onNavigate }) {
       item.ingredientCount,
       item.hasRecipe ? 'Sí' : 'No',
     ]);
-    
+
     const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -68,7 +121,7 @@ export default function FoodCostView({ colors: C, onNavigate }) {
     link.click();
   }
 
-  function handleEditProduct(productId) {
+  function handleEditProduct(productId: string) {
     if (onNavigate) {
       onNavigate('catalog', productId);
     }
@@ -78,7 +131,7 @@ export default function FoodCostView({ colors: C, onNavigate }) {
     return <div className="text-center py-8"><Loader2 className="w-5 h-5 animate-spin mx-auto" style={{ color: C.brassLight }} /></div>;
   }
 
-  const { summary, items } = data || { summary: {}, items: [] };
+  const { summary, items } = data || { summary: {} as FoodCostSummary, items: [] as FoodCostItem[] };
 
   return (
     <div className="space-y-4">
@@ -93,29 +146,29 @@ export default function FoodCostView({ colors: C, onNavigate }) {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-4 gap-3">
-        <SummaryCard 
-          label="Total artículos" 
-          value={summary.totalItems} 
+        <SummaryCard
+          label="Total artículos"
+          value={summary.totalItems}
           icon={<CheckCircle className="w-5 h-5" />}
           C={C}
         />
-        <SummaryCard 
-          label="Food cost medio" 
-          value={`${summary.avgFoodCost.toFixed(1)}%`} 
+        <SummaryCard
+          label="Food cost medio"
+          value={`${summary.avgFoodCost.toFixed(1)}%`}
           icon={<TrendingUp className="w-5 h-5" />}
           C={C}
           warning={summary.avgFoodCost > 35}
         />
-        <SummaryCard 
-          label="Coste > 35%" 
-          value={summary.itemsAbove35} 
+        <SummaryCard
+          label="Coste > 35%"
+          value={summary.itemsAbove35}
           icon={<AlertTriangle className="w-5 h-5" />}
           C={C}
           warning={summary.itemsAbove35 > 0}
         />
-        <SummaryCard 
-          label="Con receta" 
-          value={summary.itemsWithRecipe} 
+        <SummaryCard
+          label="Con receta"
+          value={summary.itemsWithRecipe}
           icon={<CheckCircle className="w-5 h-5" />}
           C={C}
         />
@@ -191,7 +244,7 @@ export default function FoodCostView({ colors: C, onNavigate }) {
                   </td>
                   <td className="px-3 py-2 text-right font-mono" style={{ color: C.cream }}>{item.price.toFixed(2)}€</td>
                   <td className="px-3 py-2 text-right">
-                    <span className={`font-mono ${item.costPct > 35 ? 'font-bold' : ''}`} 
+                    <span className={`font-mono ${item.costPct > 35 ? 'font-bold' : ''}`}
                       style={{ color: item.costPct > 35 ? C.wine : item.costPct > 25 ? C.brassLight : C.cream }}>
                       {item.costPct.toFixed(1)}%
                     </span>
@@ -218,20 +271,6 @@ export default function FoodCostView({ colors: C, onNavigate }) {
           </table>
         </div>
       )}
-    </div>
-  );
-}
-
-function SummaryCard({ label, value, icon, C, warning }) {
-  return (
-    <div className="rounded-xl p-4" style={{ background: C.surfaceLight, border: `1px solid ${warning ? C.wine : C.line}` }}>
-      <div className="flex items-center justify-between">
-        <div style={{ color: warning ? C.wine : C.brassLight }}>{icon}</div>
-        <div className="text-right">
-          <div className="text-2xl font-bold font-mono" style={{ color: C.cream }}>{value}</div>
-          <div className="text-[10px]" style={{ color: C.muted }}>{label}</div>
-        </div>
-      </div>
     </div>
   );
 }

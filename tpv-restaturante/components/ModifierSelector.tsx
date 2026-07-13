@@ -1,34 +1,76 @@
 import { useState } from 'react';
 import { Check } from 'lucide-react';
 import { euros } from './constants';
+import type { Theme } from './constants';
 
-export default function ModifierSelector({ product, modifierGroups, onConfirm, onCancel, colors: C, initialModifiers }) {
-  const [selected, setSelected] = useState(() => {
-    // If we have initial modifiers (edit mode), restore them
+interface ModifierOption {
+  id: string;
+  name: string;
+  priceDelta: number;
+  isDefault: boolean;
+}
+
+interface ModifierGroup {
+  id: string;
+  name: string;
+  type: 'single' | 'multiple';
+  required: boolean;
+  options: ModifierOption[];
+}
+
+interface ModifierSelection {
+  groupId: string;
+  groupName: string;
+  optionId: string;
+  optionName: string;
+  priceDelta: number;
+}
+
+interface InitialModifier {
+  groupId: string;
+  optionId: string;
+}
+
+interface ProductInfo {
+  name?: string;
+  price?: number;
+}
+
+interface ModifierSelectorProps {
+  product: ProductInfo;
+  modifierGroups: ModifierGroup[];
+  onConfirm: (selections: ModifierSelection[]) => void;
+  onCancel: () => void;
+  colors: Theme;
+  initialModifiers?: InitialModifier[];
+}
+
+export default function ModifierSelector({ product, modifierGroups, onConfirm, onCancel, colors: C, initialModifiers }: ModifierSelectorProps) {
+  const [selected, setSelected] = useState<Record<string, string | string[] | null>>(() => {
     if (initialModifiers && initialModifiers.length > 0) {
-      const init = {};
+      const init: Record<string, string | string[] | null> = {};
       for (const g of modifierGroups) {
         const groupMods = initialModifiers.filter(m => m.groupId === g.id);
         if (g.type === 'single') {
-          init[g.id] = groupMods[0]?.optionId || (g.options.find(o => o.isDefault)?.id) || (g.options[0]?.id || null);
+          init[g.id] = groupMods[0]?.optionId || (g.options.find(o => o.isDefault)?.id) || (g.options[0]?.id || null) as string | null;
         } else {
           init[g.id] = groupMods.map(m => m.optionId);
-          if (init[g.id].length === 0) {
+          if ((init[g.id] as string[]).length === 0) {
             const defs = g.options.filter(o => o.isDefault).map(o => o.id);
-            init[g.id] = g.required && defs.length === 0 ? [g.options[0]?.id].filter(Boolean) : defs;
+            init[g.id] = g.required && defs.length === 0 ? [g.options[0]?.id].filter(Boolean) as string[] : defs;
           }
         }
       }
       return init;
     }
-    const init = {};
+    const init: Record<string, string | string[] | null> = {};
     for (const g of modifierGroups) {
       if (g.type === 'single') {
         const def = g.options.find(o => o.isDefault);
-        init[g.id] = def ? def.id : (g.options[0]?.id || null);
+        init[g.id] = def ? def.id : (g.options[0]?.id || null) as string | null;
       } else {
         const defs = g.options.filter(o => o.isDefault).map(o => o.id);
-        init[g.id] = g.required && defs.length === 0 ? [g.options[0]?.id].filter(Boolean) : defs;
+        init[g.id] = g.required && defs.length === 0 ? [g.options[0]?.id].filter(Boolean) as string[] : defs;
       }
     }
     return init;
@@ -39,13 +81,13 @@ export default function ModifierSelector({ product, modifierGroups, onConfirm, o
     return null;
   }
 
-  function toggleOption(group, option) {
+  function toggleOption(group: ModifierGroup, option: ModifierOption) {
     setSelected(prev => {
       const next = { ...prev };
       if (group.type === 'single') {
         next[group.id] = option.id;
       } else {
-        const arr = [...(prev[group.id] || [])];
+        const arr = [...((prev[group.id] as string[]) || [])];
         const idx = arr.indexOf(option.id);
         if (idx >= 0) arr.splice(idx, 1);
         else arr.push(option.id);
@@ -55,37 +97,39 @@ export default function ModifierSelector({ product, modifierGroups, onConfirm, o
     });
   }
 
-  function isSelected(group, option) {
+  function isSelected(group: ModifierGroup, option: ModifierOption): boolean {
     if (group.type === 'single') return selected[group.id] === option.id;
-    return (selected[group.id] || []).includes(option.id);
+    return ((selected[group.id] as string[]) || []).includes(option.id);
   }
 
-  function canConfirm() {
+  function canConfirm(): boolean {
     for (const g of modifierGroups) {
       if (g.required) {
         if (g.type === 'single' && !selected[g.id]) return false;
-        if (g.type === 'multiple' && (!selected[g.id] || selected[g.id].length === 0)) return false;
+        if (g.type === 'multiple' && (!selected[g.id] || (selected[g.id] as string[]).length === 0)) return false;
       }
     }
     return true;
   }
 
   function handleConfirm() {
-    const result = [];
+    const result: ModifierSelection[] = [];
     for (const g of modifierGroups) {
       const val = selected[g.id];
       if (g.type === 'single') {
-        const opt = g.options.find(o => o.id === val);
+        const opt = g.options.find(o => o.id === (val as string));
         if (opt) result.push({
           groupId: g.id, groupName: g.name,
-          optionId: opt.id, optionName: opt.name,           priceDelta: opt.priceDelta || 0,
+          optionId: opt.id, optionName: opt.name,
+          priceDelta: opt.priceDelta || 0,
         });
       } else {
-        for (const oid of (val || [])) {
+        for (const oid of ((val as string[]) || [])) {
           const opt = g.options.find(o => o.id === oid);
           if (opt) result.push({
             groupId: g.id, groupName: g.name,
-            optionId: opt.id, optionName: opt.name,           priceDelta: opt.priceDelta || 0,
+            optionId: opt.id, optionName: opt.name,
+            priceDelta: opt.priceDelta || 0,
           });
         }
       }
@@ -96,10 +140,10 @@ export default function ModifierSelector({ product, modifierGroups, onConfirm, o
   const totalExtra = modifierGroups.reduce((s, g) => {
     const val = selected[g.id];
     if (g.type === 'single') {
-      const opt = g.options.find(o => o.id === val);
+      const opt = g.options.find(o => o.id === (val as string));
       return s + (opt?.priceDelta || 0);
     }
-    return s + ((val || [])).reduce((a, oid) => {
+    return s + ((val as string[]) || []).reduce((a, oid) => {
       const opt = g.options.find(o => o.id === oid);
       return a + (opt?.priceDelta || 0);
     }, 0);

@@ -1,33 +1,58 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Clock, Search, X, RefreshCw, Undo2, ArrowUpDown, AlertTriangle, ChefHat } from 'lucide-react';
+import { Clock, Search, RefreshCw, Undo2, ArrowUpDown, AlertTriangle, ChefHat, type LucideIcon } from 'lucide-react';
+import type { Theme } from './constants';
 
-const ACTION_LABELS = {
+type AuditAction = 'undo_ready' | 'order_bump' | 'order_undo' | 'item_86';
+
+interface AuditDetails {
+  tableName?: string;
+  productName?: string;
+  itemName?: string;
+  previousState?: string;
+  agotado?: boolean;
+  label?: string;
+  deviceId?: string;
+  note?: string;
+}
+
+interface AuditLog {
+  id: string;
+  action: AuditAction;
+  details: AuditDetails;
+  createdAt: number;
+}
+
+interface AuditViewProps {
+  colors: Theme;
+}
+
+const ACTION_LABELS: Record<AuditAction, string> = {
   undo_ready: 'Deshacer Listo',
   order_bump: 'Bump de pedido',
   order_undo: 'Deshacer bump',
   item_86: 'Marcar agotado (86)',
 };
-const ACTION_ICONS = {
+const ACTION_ICONS: Record<AuditAction, LucideIcon> = {
   undo_ready: Undo2,
   order_bump: ArrowUpDown,
   order_undo: Undo2,
   item_86: AlertTriangle,
 };
-const ACTION_COLORS = {
+const ACTION_COLORS: Record<AuditAction, string> = {
   undo_ready: '#c4a04a',
   order_bump: '#7a9a7c',
   order_undo: '#b05e5e',
   item_86: '#b05e5e',
 };
 
-const ACTIONS = ['', 'undo_ready', 'order_bump', 'order_undo', 'item_86'];
+const ACTIONS: (AuditAction | '')[] = ['', 'undo_ready', 'order_bump', 'order_undo', 'item_86'];
 
-export default function AuditView({ colors: C }) {
-  const [logs, setLogs] = useState([]);
+export default function AuditView({ colors: C }: AuditViewProps) {
+  const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterAction, setFilterAction] = useState('');
+  const [filterAction, setFilterAction] = useState<AuditAction | ''>('');
   const [search, setSearch] = useState('');
 
   useEffect(() => { loadLogs(); }, [filterAction]);
@@ -37,7 +62,7 @@ export default function AuditView({ colors: C }) {
     try {
       const { fetchKDSAudit } = await import('../lib/api');
       const data = await fetchKDSAudit(200, 0, filterAction);
-      setLogs(data || []);
+      setLogs((data as AuditLog[]) || []);
     } catch {}
     setLoading(false);
   }
@@ -65,17 +90,21 @@ export default function AuditView({ colors: C }) {
 
       {/* Filters */}
       <div className="flex items-center gap-2 flex-wrap">
-        {ACTIONS.map(a => (
-          <button key={a} onClick={() => setFilterAction(a)}
-            className="px-3 py-1.5 rounded-lg text-[10px] font-medium hover:opacity-80"
-            style={{
-              background: filterAction === a ? (a ? ACTION_COLORS[a] : C.surfaceLight) : 'transparent',
-              color: filterAction === a ? '#fff' : C.muted,
-              border: `1px solid ${filterAction === a ? 'transparent' : C.line}`,
-            }}>
-            {a ? ACTION_LABELS[a] : 'Todas'}
-          </button>
-        ))}
+          {ACTIONS.map(a => {
+            const isActive = filterAction === a;
+            const bg = isActive ? (a ? ACTION_COLORS[a] : C.surfaceLight) : 'transparent';
+            return (
+            <button key={a} onClick={() => setFilterAction(a)}
+              className="px-3 py-1.5 rounded-lg text-[10px] font-medium hover:opacity-80"
+              style={{
+                background: bg,
+                color: isActive ? '#fff' : C.muted,
+                border: `1px solid ${isActive ? 'transparent' : C.line}`,
+              }}>
+              {a ? ACTION_LABELS[a] : 'Todas'}
+            </button>
+          );
+          })}
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3" style={{ color: C.muted }} />
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}

@@ -1,9 +1,49 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Plus, Trash2, QrCode, Share2, MessageCircle, Clock, Loader2, User } from 'lucide-react';
+import type { Theme } from './constants';
 
-const ROLES = [
+interface Employee {
+  id: string;
+  name: string;
+  pin: string;
+  role: string;
+  position?: string;
+  workType?: string;
+  workPct?: number;
+  dni?: string;
+  notes?: string;
+  personalDiscountEnabled?: boolean;
+  monthlyLimit?: number;
+  monthlyUsedMonth?: string;
+  monthlyUsed?: number;
+}
+
+interface ClockinLog {
+  id: string;
+  action: string;
+  createdAt: string;
+  method?: string;
+}
+
+interface WACode {
+  employeeId: string;
+  name: string;
+  code: string;
+}
+
+interface EmpleadosViewProps {
+  employees: Employee[];
+  colors: Theme;
+  onAdd: (emp: Employee) => void;
+  onUpdateField: (id: string, field: string, value: unknown) => void;
+  onDelete: (id: string) => void;
+  confirmDeleteId: string | null;
+  setConfirmDeleteId: (id: string | null) => void;
+}
+
+const ROLES: { id: string; label: string }[] = [
   { id: 'camarero', label: 'Camarero' },
   { id: 'manager',  label: 'Manager' },
   { id: 'admin',    label: 'Admin / Propietario' },
@@ -13,13 +53,13 @@ const ROLES = [
 export default function EmpleadosView({
   employees, colors: C, onAdd, onUpdateField, onDelete,
   confirmDeleteId, setConfirmDeleteId,
-}) {
+}: EmpleadosViewProps) {
   const [showForm, setShowForm] = useState(false);
   const [showCodes, setShowCodes] = useState(false);
-  const [codes, setCodes] = useState([]);
+  const [codes, setCodes] = useState<WACode[]>([]);
   const [generating, setGenerating] = useState(false);
-  const [clockinLogs, setClockinLogs] = useState({});
-  const [expandedLogs, setExpandedLogs] = useState(null);
+  const [clockinLogs, setClockinLogs] = useState<Record<string, ClockinLog[]>>({});
+  const [expandedLogs, setExpandedLogs] = useState<string | null>(null);
 
   const [form, setForm] = useState({ name: '', pin: '', role: 'camarero', position: '', workType: '', workPct: 100, dni: '', notes: '' });
 
@@ -27,22 +67,22 @@ export default function EmpleadosView({
 
   function handleAdd() {
     if (!form.name || !/^\d{4}$/.test(form.pin)) return;
-    onAdd({ ...form, id: 'e_' + Date.now() });
+    onAdd({ ...form, id: 'e_' + Date.now() } as Employee);
     resetForm();
     setShowForm(false);
   }
 
-  async function loadClockin(empId) {
+  async function loadClockin(empId: string) {
     try {
       const r = await fetch(`/api/clockin?employeeId=${empId}&date=${new Date().toISOString().slice(0, 10)}`);
       if (r.ok) {
-        const data = await r.json();
+        const data = await r.json() as ClockinLog[];
         setClockinLogs(prev => ({ ...prev, [empId]: data || [] }));
       }
     } catch {}
   }
 
-  function toggleLogs(empId) {
+  function toggleLogs(empId: string) {
     if (expandedLogs === empId) {
       setExpandedLogs(null);
     } else {
@@ -58,7 +98,7 @@ export default function EmpleadosView({
         method: 'POST',
         body: JSON.stringify({ action: 'generate-codes' }),
       });
-      const data = await r.json();
+      const data = await r.json() as { ok: boolean; codes?: WACode[] };
       if (data.ok) setCodes(data.codes || []);
     } catch {}
     setGenerating(false);
@@ -66,11 +106,11 @@ export default function EmpleadosView({
 
   const currentMonth = new Date().toISOString().slice(0, 7);
 
-  function ficharUrl(empId) {
+  function ficharUrl(empId: string) {
     return typeof window !== 'undefined' ? `${window.location.origin}/fichar/${empId}` : '';
   }
 
-  function copyLink(empId) {
+  function copyLink(empId: string) {
     if (typeof navigator !== 'undefined') navigator.clipboard.writeText(ficharUrl(empId));
   }
 
@@ -96,7 +136,7 @@ export default function EmpleadosView({
       {showCodes && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={() => setShowCodes(false)}>
           <div onClick={e => e.stopPropagation()} className="w-full max-w-sm rounded-xl p-5 space-y-3" style={{ background: C.surface, border: `1px solid ${C.line}` }}>
-            <h3 className="text-sm font-bold" style={{ color: C.cream }}>💬 Códigos de vinculación WhatsApp</h3>
+            <h3 className="text-sm font-bold" style={{ color: C.cream }}>Códigos de vinculación WhatsApp</h3>
             <p className="text-[10px]" style={{ color: C.muted }}>Reparte estos códigos a cada empleado. Deben escribir <strong>vincular CÓDIGO</strong> al WhatsApp de Mesero.</p>
             {generating ? <Loader2 className="w-5 h-5 animate-spin mx-auto" style={{ color: C.brassLight }} /> : codes.length === 0 ? (
               <button onClick={generateCodes} className="w-full py-2 rounded-lg text-xs font-medium hover:opacity-80" style={{ background: C.brass, color: '#000' }}>
@@ -119,7 +159,7 @@ export default function EmpleadosView({
       {/* Employee list */}
       <div className="space-y-2">
         {employees.map(emp => {
-          const remaining = emp.monthlyLimit - (emp.monthlyUsedMonth === currentMonth ? (emp.monthlyUsed || 0) : 0);
+          const remaining = (emp.monthlyLimit || 0) - (emp.monthlyUsedMonth === currentMonth ? (emp.monthlyUsed || 0) : 0);
           const todayLogs = clockinLogs[emp.id] || [];
           const lastAction = todayLogs.length > 0 ? todayLogs[0].action : null;
           return (
@@ -229,7 +269,7 @@ export default function EmpleadosView({
                           const isPausa = log.action === 'pausa';
                           const isVuelta = log.action === 'vuelta';
                           const isEntrada = log.action === 'entrada';
-                          let icon, bg, fg;
+                          let icon: string, bg: string, fg: string;
                           if (isEntrada) { icon = '→'; bg = C.sage + '20'; fg = C.sage; }
                           else if (log.action === 'salida') { icon = '←'; bg = C.wine + '20'; fg = C.wineLight; }
                           else if (isPausa) { icon = '⏸'; bg = C.brass + '20'; fg = C.brassLight; }

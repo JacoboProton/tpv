@@ -2,8 +2,36 @@
 
 import { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Bell, Check, Phone, Users, Clock, Settings, RefreshCw, ExternalLink, Wifi, Copy } from 'lucide-react';
+import type { Theme } from './constants';
 
-const STATUS_CONFIG = {
+interface WaitlistEntry {
+  id: string;
+  name: string;
+  phone?: string;
+  pax: number;
+  status: string;
+  createdAt: number;
+  calledCount: number;
+  notes?: string;
+  source?: string;
+}
+
+interface WaitlistSettings {
+  [key: string]: string;
+  waitlistEnabled: string;
+  waitlistMaxPax: string;
+  waitlistCallTimeout: string;
+  waitlistMaxAttempts: string;
+  waitlistWelcomeMessage: string;
+  waitlistSmsEnabled: string;
+  waitlistWhatsAppEnabled: string;
+  waitlistTwilioSid: string;
+  waitlistTwilioToken: string;
+  waitlistTwilioPhone: string;
+  waitlistTwilioWhatsApp: string;
+}
+
+const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ComponentType<{ className?: string }> }> = {
   waiting:  { label: 'Esperando', color: '#c4a04a', icon: Clock },
   called:   { label: 'Llamado',   color: '#6a9af8', icon: Phone },
   seated:   { label: 'Sentado',   color: '#7a9a7c', icon: Check },
@@ -11,9 +39,13 @@ const STATUS_CONFIG = {
   noshow:   { label: 'No-show',   color: '#b05e5e', icon: Trash2 },
 };
 
-export default function WaitlistView({ colors: C }) {
-  const [entries, setEntries] = useState([]);
-  const [settings, setSettings] = useState(null);
+interface WaitlistViewProps {
+  colors: Theme;
+}
+
+export default function WaitlistView({ colors: C }: WaitlistViewProps) {
+  const [entries, setEntries] = useState<WaitlistEntry[]>([]);
+  const [settings, setSettings] = useState<WaitlistSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('queue');
   const [showForm, setShowForm] = useState(false);
@@ -28,13 +60,13 @@ export default function WaitlistView({ colors: C }) {
         import('../lib/api'), import('../lib/api')
       ]);
       const [s, w] = await Promise.all([fetchSettings(), fetchWaitlist()]);
-      setSettings(s);
-      setEntries(w || []);
+      setSettings(s as WaitlistSettings);
+      setEntries(w as WaitlistEntry[] || []);
     } catch {}
     setLoading(false);
   }
 
-  async function handleAction(action, extra = {}) {
+  async function handleAction(action: string, extra: Record<string, unknown> = {}) {
     try {
       await fetch('/api/waitlist', {
         method: 'POST',
@@ -44,21 +76,21 @@ export default function WaitlistView({ colors: C }) {
     } catch {}
   }
 
-  function toggle(key) {
-    const next = { [key]: settings[key] === 'true' ? 'false' : 'true' };
-    setSettings(prev => ({ ...prev, ...next }));
+  function toggle(key: string) {
+    const next = { [key]: settings![key] === 'true' ? 'false' : 'true' };
+    setSettings(prev => ({ ...prev!, ...next }));
     setSaving(true);
     fetch('/api/settings', { method: 'PUT', body: JSON.stringify(next) }).finally(() => setSaving(false));
   }
 
-  function setVal(key, val) {
-    const next = { [key]: String(val) };
-    setSettings(prev => ({ ...prev, ...next }));
+  function setVal(key: string, val: string) {
+    const next = { [key]: val };
+    setSettings(prev => ({ ...prev!, ...next }));
     fetch('/api/settings', { method: 'PUT', body: JSON.stringify(next) });
   }
 
-  async function saveSettings(next) {
-    setSettings(prev => ({ ...prev, ...next }));
+  async function saveSettings(next: Record<string, string>) {
+    setSettings(prev => ({ ...prev!, ...next }));
     setSaving(true);
     await fetch('/api/settings', { method: 'PUT', body: JSON.stringify(next) });
     setSaving(false);
@@ -95,7 +127,7 @@ export default function WaitlistView({ colors: C }) {
       </div>
 
       {showSettings ? (
-        <SettingsPanel settings={settings} setVal={setVal} toggle={toggle} saveSettings={saveSettings} C={C} onClose={() => setShowSettings(false)} />
+        <SettingsPanel settings={settings!} setVal={setVal} toggle={toggle} saveSettings={saveSettings} C={C} onClose={() => setShowSettings(false)} />
       ) : (
         <>
           {/* Stats */}
@@ -207,7 +239,7 @@ export default function WaitlistView({ colors: C }) {
   );
 }
 
-function timeAgo(ts) {
+function timeAgo(ts: number) {
   const min = Math.floor((Date.now() - ts) / 60000);
   if (min < 1) return 'ahora';
   if (min < 60) return `${min} min`;
@@ -215,14 +247,20 @@ function timeAgo(ts) {
   return `${h}h ${min % 60}min`;
 }
 
-function QuickAddForm({ onSave, onClose, C }) {
+interface QuickAddFormProps {
+  onSave: (data: Record<string, unknown>) => Promise<void>;
+  onClose: () => void;
+  C: Theme;
+}
+
+function QuickAddForm({ onSave, onClose, C }: QuickAddFormProps) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [pax, setPax] = useState(2);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
-  async function handleSubmit(e) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     await onSave({ name, phone, pax, notes, source: 'manual' });
@@ -273,7 +311,16 @@ function QuickAddForm({ onSave, onClose, C }) {
   );
 }
 
-function SettingsPanel({ settings, setVal, toggle, saveSettings, C, onClose }) {
+interface SettingsPanelProps {
+  settings: WaitlistSettings;
+  setVal: (key: string, val: string) => void;
+  toggle: (key: string) => void;
+  saveSettings: (next: Record<string, string>) => void;
+  C: Theme;
+  onClose: () => void;
+}
+
+function SettingsPanel({ settings, setVal, toggle, saveSettings, C, onClose }: SettingsPanelProps) {
   const [twilioVisible, setTwilioVisible] = useState(false);
   const publicUrl = typeof window !== 'undefined' ? `${window.location.origin}/waitlist` : '/waitlist';
 
@@ -360,7 +407,13 @@ function SettingsPanel({ settings, setVal, toggle, saveSettings, C, onClose }) {
   );
 }
 
-function Toggle({ value, onChange, C }) {
+interface ToggleProps {
+  value: string;
+  onChange: () => void;
+  C: Theme;
+}
+
+function Toggle({ value, onChange, C }: ToggleProps) {
   return (
     <button onClick={onChange} type="button"
       className="relative w-10 h-5 rounded-full transition-colors"
@@ -371,7 +424,20 @@ function Toggle({ value, onChange, C }) {
   );
 }
 
-function Field({ label, value, onChange, type = 'text', min, max, step, placeholder, suffix, C }) {
+interface FieldProps {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  placeholder?: string;
+  suffix?: string;
+  C: Theme;
+}
+
+function Field({ label, value, onChange, type = 'text', min, max, step, placeholder, suffix, C }: FieldProps) {
   return (
     <div>
       <label className="text-[10px] uppercase tracking-wider mb-1 block" style={{ color: C.muted }}>{label}</label>

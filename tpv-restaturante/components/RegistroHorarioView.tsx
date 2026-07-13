@@ -2,16 +2,59 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Search, Filter, Download, FileText, X, Save, ChevronLeft, ChevronRight, Clock, Users, Check, AlertTriangle, Loader2 } from 'lucide-react';
+import type { Theme } from './constants';
 
-export default function RegistroHorarioView({ employees, colors: C }) {
-  const [allLogs, setAllLogs] = useState([]);
-  const [corrections, setCorrections] = useState([]);
+interface Employee {
+  id: string;
+  name: string;
+}
+
+interface ClockinLog {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  clockinDate: string;
+  action: string;
+  createdAt: number;
+  edited?: boolean;
+  method?: string;
+}
+
+interface Correction {
+  id: string;
+  employee_name: string;
+  reason: string;
+  status: string;
+}
+
+interface Session {
+  employeeId: string;
+  employeeName: string;
+  date: string;
+  logs: ClockinLog[];
+  entrada: ClockinLog | null;
+  salida: ClockinLog | null;
+  pausas: { start: ClockinLog; end: ClockinLog | null }[];
+  totalMinutes: number;
+  pauseMinutes: number;
+  effectiveMinutes: number;
+  edited: boolean;
+}
+
+interface RegistroHorarioViewProps {
+  employees: Employee[];
+  colors: Theme;
+}
+
+export default function RegistroHorarioView({ employees, colors: C }: RegistroHorarioViewProps) {
+  const [allLogs, setAllLogs] = useState<ClockinLog[]>([]);
+  const [corrections, setCorrections] = useState<Correction[]>([]);
   const [loading, setLoading] = useState(true);
   const [employeeFilter, setEmployeeFilter] = useState('');
   const [period, setPeriod] = useState('semana');
   const [fromDate, setFromDate] = useState(() => getPeriodRange('semana').from);
   const [toDate, setToDate] = useState(() => getPeriodRange('semana').to);
-  const [editModal, setEditModal] = useState(null);
+  const [editModal, setEditModal] = useState<Session | null>(null);
   const [subTab, setSubTab] = useState('registros');
 
   useEffect(() => {
@@ -23,7 +66,7 @@ export default function RegistroHorarioView({ employees, colors: C }) {
 
   useEffect(() => { loadData(); }, [employeeFilter, fromDate, toDate]);
 
-  function getPeriodRange(p) {
+  function getPeriodRange(p: string) {
     const now = new Date();
     const today = now.toISOString().slice(0, 10);
     if (p === 'semana') {
@@ -52,27 +95,27 @@ export default function RegistroHorarioView({ employees, colors: C }) {
       if (fromDate) q.set('from', fromDate);
       if (toDate) q.set('to', toDate);
       const r = await fetch(`/api/clockin?${q}`);
-      if (r.ok) setAllLogs(await r.json());
+      if (r.ok) setAllLogs(await r.json() as ClockinLog[]);
     } catch {}
     try {
       const cr = await fetch('/api/clockin-corrections');
-      if (cr.ok) setCorrections(await cr.json());
+      if (cr.ok) setCorrections(await cr.json() as Correction[]);
     } catch {}
     setLoading(false);
   }
 
   // Group logs into sessions
   const sessions = useMemo(() => {
-    const byEmp = {};
+    const byEmp: Record<string, Session> = {};
     allLogs.forEach(log => {
       const key = log.employeeId + '|' + log.clockinDate;
-      if (!byEmp[key]) byEmp[key] = { employeeId: log.employeeId, employeeName: log.employeeName, date: log.clockinDate, logs: [], entrada: null, salida: null, pausas: [] };
+      if (!byEmp[key]) byEmp[key] = { employeeId: log.employeeId, employeeName: log.employeeName, date: log.clockinDate, logs: [], entrada: null, salida: null, pausas: [], totalMinutes: 0, pauseMinutes: 0, effectiveMinutes: 0, edited: false };
       byEmp[key].logs.push(log);
     });
 
     return Object.values(byEmp).map(session => {
       session.logs.sort((a, b) => a.createdAt - b.createdAt);
-      let lastPausa = null;
+      let lastPausa: ClockinLog | null = null;
       session.logs.forEach(l => {
         if (l.action === 'entrada') session.entrada = l;
         else if (l.action === 'salida') session.salida = l;
@@ -93,29 +136,29 @@ export default function RegistroHorarioView({ employees, colors: C }) {
     }).sort((a, b) => b.date.localeCompare(a.date) || (b.entrada?.createdAt || 0) - (a.entrada?.createdAt || 0));
   }, [allLogs]);
 
-  function formatTime(ts) {
+  function formatTime(ts: number) {
     if (!ts) return '—';
     return new Date(ts).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   }
 
-  function formatDate(d) {
+  function formatDate(d: string) {
     return new Date(d + 'T12:00').toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' });
   }
 
-  function fmtMins(m) {
+  function fmtMins(m: number) {
     if (!m && m !== 0) return '—';
     const h = Math.floor(m / 60);
     const min = Math.round(m % 60);
     return `${h}h ${min}m`;
   }
 
-  async function handleEditRecord(id, newCreatedAt, newAction, reason) {
+  async function handleEditRecord(id: string, newCreatedAt: number, newAction: string, reason: string) {
     try {
       await fetch('/api/clockin', {
         method: 'PUT',
         body: JSON.stringify({
           action: 'edit-record', id, createdAt: newCreatedAt,
-          action: newAction, editedBy: 'admin', editReason: reason,
+          recordAction: newAction, editedBy: 'admin', editReason: reason,
         }),
       });
       setEditModal(null);
@@ -134,7 +177,7 @@ export default function RegistroHorarioView({ employees, colors: C }) {
     } catch {}
   }
 
-  async function handleResolveCorrection(id, status) {
+  async function handleResolveCorrection(id: string, status: string) {
     try {
       await fetch('/api/clockin', {
         method: 'PUT',
@@ -145,11 +188,11 @@ export default function RegistroHorarioView({ employees, colors: C }) {
   }
 
   function downloadCSV() {
-    const rows = [
+    const rows: string[][] = [
       ['Fecha', 'Empleado', 'Entrada', 'Salida', 'Total', 'Efectivas', 'Descanso', 'Editado'],
       ...sessions.map(s => [
         s.date, s.employeeName,
-        formatTime(s.entrada?.createdAt), formatTime(s.salida?.createdAt),
+        formatTime(s.entrada?.createdAt ?? 0), formatTime(s.salida?.createdAt ?? 0),
         fmtMins(s.totalMinutes), fmtMins(s.effectiveMinutes), fmtMins(s.pauseMinutes),
         s.edited ? 'Sí' : '',
       ]),
@@ -165,9 +208,14 @@ export default function RegistroHorarioView({ employees, colors: C }) {
 
   async function downloadPDF() {
     const [{ jsPDF }, { autoTable }] = await Promise.all([
-      import('jspdf'), import('jspdf-autotable'),
-    ]);
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      import('jspdf'), import('jspdf-autotable') as unknown as { autoTable: (doc: unknown, opts: unknown) => void },
+    ]) as [{ jsPDF: new (opts: unknown) => unknown }, { autoTable: (doc: unknown, opts: unknown) => void }];
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' }) as unknown as {
+      setFontSize: (s: number) => void; setTextColor: (r: number, g: number, b: number) => void;
+      text: (t: string, x: number, y: number, opts?: { align?: string }) => void;
+      line: (x1: number, y1: number, x2: number, y2: number) => void;
+      save: (name: string) => void;
+    };
     doc.setFontSize(16);
     doc.setTextColor(200, 169, 110);
     doc.text('Registro de Jornada', 14, 20);
@@ -178,7 +226,7 @@ export default function RegistroHorarioView({ employees, colors: C }) {
 
     const body = sessions.map(s => [
       s.date, s.employeeName,
-      formatTime(s.entrada?.createdAt), formatTime(s.salida?.createdAt),
+      formatTime(s.entrada?.createdAt ?? 0), formatTime(s.salida?.createdAt ?? 0),
       fmtMins(s.totalMinutes), fmtMins(s.effectiveMinutes), fmtMins(s.pauseMinutes),
       s.edited ? 'Editado' : '',
     ]);
@@ -321,8 +369,8 @@ export default function RegistroHorarioView({ employees, colors: C }) {
                   <div className="flex-1 min-w-0 grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto] gap-2 items-center">
                     <span className="font-medium" style={{ color: C.cream }}>{formatDate(s.date)}</span>
                     <span style={{ color: C.muted }}>{s.employeeName}</span>
-                    <span className="font-mono" style={{ color: C.sageLight }}>{formatTime(s.entrada?.createdAt)}</span>
-                    <span className="font-mono" style={{ color: s.salida ? C.wineLight : C.muted }}>{formatTime(s.salida?.createdAt)}</span>
+                    <span className="font-mono" style={{ color: C.sageLight }}>{formatTime(s.entrada?.createdAt ?? 0)}</span>
+                    <span className="font-mono" style={{ color: s.salida ? C.wineLight : C.muted }}>{formatTime(s.salida?.createdAt ?? 0)}</span>
                     <span className="font-mono" style={{ color: C.brassLight }}>{fmtMins(s.effectiveMinutes)}</span>
                     {s.edited && <span className="text-[8px] px-1 py-px rounded" style={{ background: C.brass + '30', color: C.brassLight }}>Editado</span>}
                     {!s.salida && <span className="text-[8px] px-1 py-px rounded" style={{ background: C.wine + '30', color: C.wineLight }}>Abierto</span>}
@@ -346,7 +394,14 @@ export default function RegistroHorarioView({ employees, colors: C }) {
   );
 }
 
-function EditRecordModal({ session, onSave, onClose, C }) {
+interface EditRecordModalProps {
+  session: Session;
+  onSave: (id: string, newCreatedAt: number, action: string, reason: string) => Promise<void>;
+  onClose: () => void;
+  C: Theme;
+}
+
+function EditRecordModal({ session, onSave, onClose, C }: EditRecordModalProps) {
   const [entradaTime, setEntradaTime] = useState(() => session.entrada ? new Date(session.entrada.createdAt).toISOString().slice(0, 16) : '');
   const [salidaTime, setSalidaTime] = useState(() => session.salida ? new Date(session.salida.createdAt).toISOString().slice(0, 16) : '');
   const [pauseMinutes, setPauseMinutes] = useState(session.pauseMinutes || 0);
@@ -354,13 +409,12 @@ function EditRecordModal({ session, onSave, onClose, C }) {
 
   async function handleSave() {
     if (entradaTime) {
-      await onSave(session.entrada.id, new Date(entradaTime).getTime(), 'entrada', reason);
+      await onSave(session.entrada!.id, new Date(entradaTime).getTime(), 'entrada', reason);
     }
     if (salidaTime) {
-      await onSave(session.salida.id, new Date(salidaTime).getTime(), 'salida', reason);
+      await onSave(session.salida!.id, new Date(salidaTime).getTime(), 'salida', reason);
     }
     if (pauseMinutes !== session.pauseMinutes) {
-      // Adjust pause duration by modifying vuelta time
       const lastPause = session.pausas[session.pausas.length - 1];
       if (lastPause?.end && session.salida) {
         const currentPauseMins = Math.round((lastPause.end.createdAt - lastPause.start.createdAt) / 60000);

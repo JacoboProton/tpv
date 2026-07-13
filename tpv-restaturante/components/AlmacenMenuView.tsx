@@ -1,8 +1,36 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, FileText, Package } from 'lucide-react';
+import { ChevronDown, ChevronRight, FileText } from 'lucide-react';
 import { euros } from './constants';
+import type { Theme } from './constants';
 
-function CategoryRow({ name, productos, C }) {
+interface InventoryProduct {
+  id: string;
+  name: string;
+  price: number;
+  stock: number;
+  lowStock: number;
+  ubicacion: string;
+  category: string;
+}
+
+interface InventoryCatalog {
+  products: InventoryProduct[];
+}
+
+interface AlmacenMenuViewProps {
+  catalog: InventoryCatalog;
+  onSelectUbicacion: (ubicacion: string) => void;
+  onSelectAlbaranes?: () => void;
+  colors: Theme;
+}
+
+interface CategoryRowProps {
+  name: string;
+  productos: InventoryProduct[];
+  C: Theme;
+}
+
+function CategoryRow({ name, productos, C }: CategoryRowProps) {
   const total = productos.length;
   const bajo = productos.filter(p => p.stock <= p.lowStock).length;
   const valor = productos.reduce((s, p) => s + p.stock * p.price, 0);
@@ -18,8 +46,8 @@ function CategoryRow({ name, productos, C }) {
   );
 }
 
-export default function AlmacenMenuView({ catalog, onSelectUbicacion, onSelectAlbaranes, colors: C }) {
-  const [expanded, setExpanded] = useState(null);
+export default function AlmacenMenuView({ catalog, onSelectUbicacion, onSelectAlbaranes, colors: C }: AlmacenMenuViewProps) {
+  const [expanded, setExpanded] = useState<string | null>(null);
   const ubicaciones = ['Bar', 'Cocina', 'Almacén'];
 
   const stats = ubicaciones.map(ub => {
@@ -28,7 +56,7 @@ export default function AlmacenMenuView({ catalog, onSelectUbicacion, onSelectAl
     const bajo = productos.filter(p => p.stock <= p.lowStock).length;
     const valorTotal = productos.reduce((s, p) => s + p.stock * p.price, 0);
 
-    const porCategoria = {};
+    const porCategoria: Record<string, InventoryProduct[]> = {};
     for (const p of productos) {
       if (!porCategoria[p.category]) porCategoria[p.category] = [];
       porCategoria[p.category].push(p);
@@ -44,7 +72,6 @@ export default function AlmacenMenuView({ catalog, onSelectUbicacion, onSelectAl
         Gestiona el inventario por ubicación y categoría
       </p>
 
-      {/* Albaranes quick access */}
       {onSelectAlbaranes && (
         <div
           onClick={onSelectAlbaranes}

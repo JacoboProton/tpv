@@ -3,17 +3,67 @@
 import { useState } from 'react';
 import { Plus, Trash2, Save, Clock, Coffee, GlassWater, UtensilsCrossed, Calendar } from 'lucide-react';
 import { euros } from './constants';
+import type { Theme } from './constants';
 
 function id() { return 'mm_' + Date.now() + Math.random().toString(16).slice(2, 6); }
 
 const DAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-const PRESETS = [
+
+const PRESETS: { label: string; days: number[]; start: string; end: string }[] = [
   { label: 'Almuerzo L-V 13-16h', days: [0, 1, 2, 3, 4], start: '13:00', end: '16:00' },
   { label: 'Cena L-D 20-23h', days: [0, 1, 2, 3, 4, 5, 6], start: '20:00', end: '23:00' },
   { label: 'Fines de semana', days: [5, 6], start: '13:00', end: '16:00' },
 ];
 
-function emptyMenu() {
+interface CourseItem {
+  id: string;
+  course_id: string;
+  product_id: string;
+  surcharge: number;
+}
+
+interface Course {
+  id: string;
+  name: string;
+  items: CourseItem[];
+}
+
+interface Extra {
+  name: string;
+  price: number;
+}
+
+interface Schedule {
+  id: string;
+  menu_id: string;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+}
+
+interface MealMenu {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  image: string;
+  includes_pan: boolean;
+  includes_bebida: boolean;
+  includes_cafe: boolean;
+  extras: Extra[];
+  active: boolean;
+  courses: Course[];
+  schedules: Schedule[];
+}
+
+interface MenusDelDiaPanelProps {
+  mealMenus: MealMenu[];
+  catalog: { products: { id: string; name: string; price: number }[] };
+  onSave: (menus: MealMenu[]) => void;
+  colors: Theme;
+}
+
+function emptyMenu(): MealMenu {
   return {
     id: id(), name: '', description: '', price: 0, image: '',
     includes_pan: false, includes_bebida: false, includes_cafe: false,
@@ -21,63 +71,63 @@ function emptyMenu() {
   };
 }
 
-function emptyCourse() {
+function emptyCourse(): Course {
   return { id: id(), name: '', items: [] };
 }
 
-export default function MenusDelDiaPanel({ mealMenus, catalog, onSave, colors: C }) {
-  const [local, setLocal] = useState(() => mealMenus.length > 0 ? mealMenus : []);
+export default function MenusDelDiaPanel({ mealMenus, catalog, onSave, colors: C }: MenusDelDiaPanelProps) {
+  const [local, setLocal] = useState<MealMenu[]>(() => mealMenus.length > 0 ? mealMenus : []);
 
-  function update(ci, field, value) {
+  function update(ci: number, field: string, value: unknown) {
     const next = [...local];
-    next[ci] = { ...next[ci], [field]: value };
+    (next[ci] as unknown as Record<string, unknown>)[field] = value;
     setLocal(next);
   }
 
-  function updateCourse(ci, csi, field, value) {
+  function updateCourse(ci: number, csi: number, field: string, value: unknown) {
     const next = [...local];
-    next[ci].courses[csi] = { ...next[ci].courses[csi], [field]: value };
+    (next[ci].courses[csi] as unknown as Record<string, unknown>)[field] = value;
     setLocal(next);
   }
 
-  function updateItem(ci, csi, ii, field, value) {
+  function updateItem(ci: number, csi: number, ii: number, field: string, value: unknown) {
     const next = [...local];
-    next[ci].courses[csi].items[ii] = { ...next[ci].courses[csi].items[ii], [field]: value };
+    (next[ci].courses[csi].items[ii] as unknown as Record<string, unknown>)[field] = value;
     setLocal(next);
   }
 
-  function updateSchedule(ci, si, field, value) {
+  function updateSchedule(ci: number, si: number, field: string, value: unknown) {
     const next = [...local];
-    next[ci].schedules[si] = { ...next[ci].schedules[si], [field]: value };
+    (next[ci].schedules[si] as unknown as Record<string, unknown>)[field] = value;
     setLocal(next);
   }
 
   function addMenu() { setLocal([...local, emptyMenu()]); }
-  function removeMenu(ci) { setLocal(local.filter((_, i) => i !== ci)); }
+  function removeMenu(ci: number) { setLocal(local.filter((_, i) => i !== ci)); }
 
-  function addCourse(ci) {
+  function addCourse(ci: number) {
     const next = [...local];
     next[ci].courses = [...(next[ci].courses || []), emptyCourse()];
     setLocal(next);
   }
-  function removeCourse(ci, csi) {
+  function removeCourse(ci: number, csi: number) {
     const next = [...local];
     next[ci].courses = next[ci].courses.filter((_, i) => i !== csi);
     setLocal(next);
   }
 
-  function addCourseItem(ci, csi) {
+  function addCourseItem(ci: number, csi: number) {
     const next = [...local];
     next[ci].courses[csi].items = [...(next[ci].courses[csi].items || []), { id: id(), course_id: next[ci].courses[csi].id, product_id: '', surcharge: 0 }];
     setLocal(next);
   }
-  function removeCourseItem(ci, csi, ii) {
+  function removeCourseItem(ci: number, csi: number, ii: number) {
     const next = [...local];
     next[ci].courses[csi].items = next[ci].courses[csi].items.filter((_, i) => i !== ii);
     setLocal(next);
   }
 
-  function addSchedule(ci, preset = null) {
+  function addSchedule(ci: number, preset: typeof PRESETS[number] | null = null) {
     const next = [...local];
     const scheds = next[ci].schedules || [];
     if (preset) {
@@ -93,31 +143,31 @@ export default function MenusDelDiaPanel({ mealMenus, catalog, onSave, colors: C
     next[ci].schedules = scheds;
     setLocal(next);
   }
-  function removeSchedule(ci, si) {
+  function removeSchedule(ci: number, si: number) {
     const next = [...local];
     next[ci].schedules = next[ci].schedules.filter((_, i) => i !== si);
     setLocal(next);
   }
 
-  function addExtra(ci) {
+  function addExtra(ci: number) {
     const next = [...local];
     const extras = next[ci].extras || [];
     extras.push({ name: '', price: 0 });
     next[ci].extras = extras;
     setLocal(next);
   }
-  function updateExtra(ci, ei, field, value) {
+  function updateExtra(ci: number, ei: number, field: string, value: unknown) {
     const next = [...local];
-    next[ci].extras[ei] = { ...next[ci].extras[ei], [field]: value };
+    (next[ci].extras[ei] as unknown as Record<string, unknown>)[field] = value;
     setLocal(next);
   }
-  function removeExtra(ci, ei) {
+  function removeExtra(ci: number, ei: number) {
     const next = [...local];
     next[ci].extras = next[ci].extras.filter((_, i) => i !== ei);
     setLocal(next);
   }
 
-  function toggleDay(ci, day) {
+  function toggleDay(ci: number, day: number) {
     const next = [...local];
     const scheds = next[ci].schedules || [];
     const existing = scheds.findIndex(s => s.day_of_week === day);
@@ -223,8 +273,8 @@ export default function MenusDelDiaPanel({ mealMenus, catalog, onSave, colors: C
                     </button>
                   </div>
                 ))}
-                <button onClick={() => addExtra(ci)} style={{ color: C.sageLight }}
-                  className="text-[10px] px-1.5 py-1 rounded border border-dashed" style2={{ borderColor: C.line }}>
+                <button onClick={() => addExtra(ci)} style={{ color: C.sageLight, border: `1px dashed ${C.line}` }}
+                  className="text-[10px] px-1.5 py-1 rounded">
                   + Extra
                 </button>
               </div>

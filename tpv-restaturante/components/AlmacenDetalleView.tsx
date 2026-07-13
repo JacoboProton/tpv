@@ -1,29 +1,56 @@
 import { AlertTriangle, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { euros } from './constants';
+import type { Theme } from './constants';
+
+interface DetalleProduct {
+  id: string;
+  name: string;
+  price: number;
+  stock: number;
+  lowStock: number;
+  ubicacion: string;
+  category: string;
+  image?: string;
+}
+
+interface DetalleCatalog {
+  products: DetalleProduct[];
+}
+
+interface AlmacenDetalleViewProps {
+  catalog: DetalleCatalog;
+  ubicacion: string;
+  onBack: () => void;
+  colors: Theme;
+  onUpdateField: (id: string, field: string, value: string) => void;
+  confirmDeleteId: string | null;
+  setConfirmDeleteId: (id: string | null) => void;
+  onDelete: (id: string) => void;
+}
 
 export default function AlmacenDetalleView({
   catalog, ubicacion, onBack, colors: C,
   onUpdateField,
   confirmDeleteId, setConfirmDeleteId, onDelete,
-}) {
-  const [expandedCats, setExpandedCats] = useState({});
+}: AlmacenDetalleViewProps) {
+  const [expandedCats, setExpandedCats] = useState<Record<string, boolean>>({});
   const productos = catalog.products.filter(p => p.ubicacion === ubicacion);
   const bajo = productos.filter(p => p.stock <= p.lowStock).length;
   const valorTotal = productos.reduce((s, p) => s + p.stock * p.price, 0);
 
-  const porCategoria = {};
+  const porCategoria: Record<string, DetalleProduct[]> = {};
   for (const p of productos) {
     if (!porCategoria[p.category]) porCategoria[p.category] = [];
     porCategoria[p.category].push(p);
   }
   const categorias = Object.keys(porCategoria).sort();
 
-  function toggleCat(cat) {
+  function toggleCat(cat: string) {
     setExpandedCats(prev => ({ ...prev, [cat]: !prev[cat] }));
   }
 
-  const inputStyle = {
+  const inputStyle: Record<string, string> = {
     background: C.surface,
     color: C.cream,
     border: `1px solid transparent`,
@@ -63,8 +90,8 @@ export default function AlmacenDetalleView({
 
       {categorias.map(cat => {
         const items = porCategoria[cat];
-        const catBajo = items.filter(p => p.stock <= p.lowStock).length;
-        const catValor = items.reduce((s, p) => s + p.stock * p.price, 0);
+        const catBajo = items.filter((p: DetalleProduct) => p.stock <= p.lowStock).length;
+        const catValor = items.reduce((s: number, p: DetalleProduct) => s + p.stock * p.price, 0);
         const isOpen = expandedCats[cat] !== false;
 
         return (
@@ -91,7 +118,7 @@ export default function AlmacenDetalleView({
               transition: 'max-height 0.35s ease, opacity 0.25s ease',
             }}>
               <div className="px-3 pb-3 flex flex-col gap-1.5">
-                {items.map(p => {
+                {items.map((p: DetalleProduct) => {
                   const low = p.stock <= p.lowStock;
                   const pct = Math.min(100, Math.round((p.stock / (p.lowStock || 1)) * 100));
                   return (
@@ -121,26 +148,26 @@ export default function AlmacenDetalleView({
                       <div className="relative">
                         <input
                           type="number" defaultValue={p.stock}
-                          onBlur={e => onUpdateField(p.id, 'stock', e.target.value)}
+                          onBlur={e => onUpdateField(p.id, 'stock', (e.target as HTMLInputElement).value)}
                           style={{ ...inputStyle, color: low ? C.wineLight : C.cream, width: 56 }}
                           className="rounded-md px-2 py-1 text-sm text-center font-mono hover:border-gray-500 focus:border-gray-300 focus:outline-none"
-                          onMouseEnter={e => { if (!e.target.matches(':focus')) e.target.style.borderColor = C.line; }}
-                          onMouseLeave={e => { if (!e.target.matches(':focus')) e.target.style.borderColor = 'transparent'; }}
-                          onFocus={e => e.target.style.borderColor = C.brass}
-                          onBlurCapture={e => e.target.style.borderColor = 'transparent'}
+                          onMouseEnter={e => { if (!(e.target as HTMLElement).matches(':focus')) (e.target as HTMLElement).style.borderColor = C.line; }}
+                          onMouseLeave={e => { if (!(e.target as HTMLElement).matches(':focus')) (e.target as HTMLElement).style.borderColor = 'transparent'; }}
+                          onFocus={e => (e.target as HTMLElement).style.borderColor = C.brass}
+                          onBlurCapture={e => (e.target as HTMLElement).style.borderColor = 'transparent'}
                         />
                         {low && <AlertTriangle className="w-3 h-3 absolute -top-1 -right-1" style={{ color: C.wineLight }} />}
                       </div>
 
                       <input
                         type="number" step="0.1" defaultValue={p.price}
-                        onBlur={e => onUpdateField(p.id, 'price', e.target.value)}
+                        onBlur={e => onUpdateField(p.id, 'price', (e.target as HTMLInputElement).value)}
                         style={{ ...inputStyle, color: C.cream, width: 64 }}
                         className="font-mono rounded-md px-2 py-1 text-sm text-center hover:border-gray-500 focus:border-gray-300 focus:outline-none"
-                        onMouseEnter={e => { if (!e.target.matches(':focus')) e.target.style.borderColor = C.line; }}
-                        onMouseLeave={e => { if (!e.target.matches(':focus')) e.target.style.borderColor = 'transparent'; }}
-                        onFocus={e => e.target.style.borderColor = C.brass}
-                        onBlurCapture={e => e.target.style.borderColor = 'transparent'}
+                        onMouseEnter={e => { if (!(e.target as HTMLElement).matches(':focus')) (e.target as HTMLElement).style.borderColor = C.line; }}
+                        onMouseLeave={e => { if (!(e.target as HTMLElement).matches(':focus')) (e.target as HTMLElement).style.borderColor = 'transparent'; }}
+                        onFocus={e => (e.target as HTMLElement).style.borderColor = C.brass}
+                        onBlurCapture={e => (e.target as HTMLElement).style.borderColor = 'transparent'}
                       />
 
                       <div className="relative" style={{ width: 70, height: 32 }}>
@@ -149,7 +176,7 @@ export default function AlmacenDetalleView({
                           style={{
                             background: C.wine, color: C.cream,
                             opacity: confirmDeleteId === p.id ? 1 : 0,
-                            pointerEvents: confirmDeleteId === p.id ? 'auto' : 'none',
+                            pointerEvents: confirmDeleteId === p.id ? 'auto' as const : 'none' as const,
                             transition: 'opacity 0.2s',
                           }}
                           className="absolute inset-0 rounded-md text-xs font-medium"
@@ -161,7 +188,7 @@ export default function AlmacenDetalleView({
                           style={{
                             color: C.muted,
                             opacity: confirmDeleteId === p.id ? 0 : 1,
-                            pointerEvents: confirmDeleteId === p.id ? 'none' : 'auto',
+                            pointerEvents: confirmDeleteId === p.id ? 'none' as const : 'auto' as const,
                             transition: 'opacity 0.2s',
                           }}
                           className="absolute inset-0 p-1 rounded-md hover:opacity-70 flex items-center justify-center"

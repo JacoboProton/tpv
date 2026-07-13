@@ -2,16 +2,44 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Check, X, Search, Loader2, Calendar, Clock } from 'lucide-react';
+import type { Theme } from './constants';
 
-const STATUS_KEYS = ['todas', 'pending', 'approved', 'rejected'];
-const STATUS_LABELS = { todas: 'Todas', pending: 'Pendientes', approved: 'Aprobadas', rejected: 'Rechazadas' };
-const STATUS_COLORS = { pending: '#c4a04a', approved: '#7a9a7c', rejected: '#b05e5e' };
+type RequestStatus = 'pending' | 'approved' | 'rejected';
+type StatusTabKey = 'todas' | RequestStatus;
+
+interface TimeOffRequest {
+  id: string;
+  employeeName: string;
+  reason: string;
+  fromDate: string;
+  toDate: string;
+  status: RequestStatus;
+  createdAt: number;
+  notes?: string;
+  resolvedNote?: string;
+}
+
+interface SolicitudesViewProps {
+  colors: Theme;
+}
+
+interface RequestCardProps {
+  request: TimeOffRequest;
+  days: number;
+  onApprove: (note: string) => void;
+  onReject: (note: string) => void;
+  C: Theme;
+}
+
+const STATUS_KEYS: StatusTabKey[] = ['todas', 'pending', 'approved', 'rejected'];
+const STATUS_LABELS: Record<string, string> = { todas: 'Todas', pending: 'Pendientes', approved: 'Aprobadas', rejected: 'Rechazadas' };
+const STATUS_COLORS: Record<RequestStatus, string> = { pending: '#c4a04a', approved: '#7a9a7c', rejected: '#b05e5e' };
 const REASONS = ['vacaciones', 'asunto personal', 'baja médica', 'permiso', 'otro'];
 
-export default function SolicitudesView({ colors: C }) {
-  const [requests, setRequests] = useState([]);
+export default function SolicitudesView({ colors: C }: SolicitudesViewProps) {
+  const [requests, setRequests] = useState<TimeOffRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusTab, setStatusTab] = useState('todas');
+  const [statusTab, setStatusTab] = useState<StatusTabKey>('todas');
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => { loadRequests(); }, []);
@@ -20,12 +48,12 @@ export default function SolicitudesView({ colors: C }) {
     setLoading(true);
     try {
       const r = await fetch('/api/time-off-requests');
-      if (r.ok) setRequests(await r.json());
+      if (r.ok) setRequests(await r.json() as TimeOffRequest[]);
     } catch {}
     setLoading(false);
   }
 
-  async function handleResolve(id, status, resolvedNote) {
+  async function handleResolve(id: string, status: RequestStatus, resolvedNote: string) {
     try {
       await fetch('/api/time-off-requests', {
         method: 'POST',
@@ -92,8 +120,8 @@ export default function SolicitudesView({ colors: C }) {
             ) + 1;
             return (
               <RequestCard key={r.id} request={r} days={days}
-                onApprove={(note) => handleResolve(r.id, 'approved', note)}
-                onReject={(note) => handleResolve(r.id, 'rejected', note)}
+                onApprove={(note: string) => handleResolve(r.id, 'approved', note)}
+                onReject={(note: string) => handleResolve(r.id, 'rejected', note)}
                 C={C} />
             );
           })}
@@ -103,7 +131,7 @@ export default function SolicitudesView({ colors: C }) {
   );
 }
 
-function RequestCard({ request: r, days, onApprove, onReject, C }) {
+function RequestCard({ request: r, days, onApprove, onReject, C }: RequestCardProps) {
   const [showActions, setShowActions] = useState(r.status === 'pending');
   const [note, setNote] = useState('');
   const statusColor = STATUS_COLORS[r.status] || C.muted;
@@ -134,7 +162,7 @@ function RequestCard({ request: r, days, onApprove, onReject, C }) {
         </span>
       </div>
 
-      {r.notes && <p className="text-[10px]" style={{ color: C.muted }}>📝 {r.notes}</p>}
+      {r.notes && <p className="text-[10px]" style={{ color: C.muted }}>{r.notes}</p>}
       {r.resolvedNote && <p className="text-[10px]" style={{ color: C.muted }}>Nota: {r.resolvedNote}</p>}
 
       {showActions && (

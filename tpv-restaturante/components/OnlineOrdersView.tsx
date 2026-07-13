@@ -2,9 +2,51 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { playKitchenAlert } from '../lib/sound';
-import { Clock, Check, ChefHat, Utensils, Truck, Store, User, Phone, MapPin, Euro, Loader2, RefreshCw, Search, X, Zap, Globe } from 'lucide-react';
+import { Clock, Check, ChefHat, Utensils, Truck, Store, User, Phone, MapPin, Loader2, RefreshCw, Search, X, Zap, Globe } from 'lucide-react';
+import type { Theme } from './constants';
+import type { LucideIcon } from 'lucide-react';
 
-const STATUS_LABELS = {
+type OrderType = 'qr' | 'platform';
+type OrderStatus = 'pending' | 'paid' | 'confirmed' | 'preparing' | 'ready' | 'en_camino' | 'en_ruta' | 'delivered' | 'cancelled';
+type Modality = 'dinein' | 'pickup' | 'delivery';
+type Source = 'qr_mesa' | 'qr_online' | 'glovo' | 'ubereats';
+type FilterMode = 'open' | 'closed' | 'cancelled';
+type TabMode = 'all' | 'qr' | 'platform';
+
+interface OrderItem {
+  name: string;
+  price: number;
+  qty: number;
+}
+
+interface Order {
+  type: OrderType;
+  id: string;
+  customerName?: string;
+  customerPhone?: string;
+  address?: string;
+  modality: Modality;
+  source: Source;
+  orderStatus: OrderStatus;
+  items?: OrderItem[];
+  amount?: number;
+  deliveryCost?: number;
+  createdAt: number;
+  accepted?: boolean;
+}
+
+interface StatusConfig {
+  label: string;
+  color: string;
+  icon: LucideIcon;
+  next?: OrderStatus | null;
+}
+
+interface OnlineOrdersViewProps {
+  colors: Theme;
+}
+
+const STATUS_LABELS: Record<string, StatusConfig> = {
   pending:    { label: 'Recibido',     color: '#c4a04a', icon: Clock,    next: 'confirmed' },
   paid:       { label: 'Pagado',       color: '#6a9af8', icon: Check,    next: 'confirmed' },
   confirmed:  { label: 'Confirmado',   color: '#7a9a7c', icon: Check,    next: 'preparing' },
@@ -15,8 +57,7 @@ const STATUS_LABELS = {
   cancelled:  { label: 'Cancelado',    color: '#b05e5e', icon: X,        next: null },
 };
 
-// Delivery orders use different status values
-const DELIVERY_STATUS_LABELS = {
+const DELIVERY_STATUS_LABELS: Record<string, { label: string; color: string; icon: LucideIcon }> = {
   pending:    { label: 'Recibido',      color: '#c4a04a', icon: Clock },
   preparing:  { label: 'Preparando',    color: '#c4a04a', icon: ChefHat },
   ready:      { label: 'Listo',         color: '#7a9a7c', icon: Utensils },
@@ -25,30 +66,29 @@ const DELIVERY_STATUS_LABELS = {
   cancelled:  { label: 'Cancelado',     color: '#b05e5e', icon: X },
 };
 
-const MODALITY_LABELS = {
+const MODALITY_LABELS: Record<string, { label: string; color: string; icon: LucideIcon }> = {
   dinein:    { label: 'Mesa',      color: '#c4a04a', icon: Store },
   pickup:    { label: 'Recogida',  color: '#6a9af8', icon: Store },
   delivery:  { label: 'Domicilio', color: '#7a9a7c', icon: Truck },
 };
 
-const SOURCE_LABELS = {
+const SOURCE_LABELS: Record<string, { label: string; color: string }> = {
   qr_mesa:   { label: 'QR Mesa',     color: '#6a9af8' },
   qr_online: { label: 'Web',         color: '#7a9a7c' },
   glovo:     { label: 'Glovo',       color: '#6ab04c' },
   ubereats:  { label: 'UberEats',    color: '#5b9bd5' },
 };
 
-export default function OnlineOrdersView({ colors: C }) {
-  const [orders, setOrders] = useState([]);
+export default function OnlineOrdersView({ colors: C }: OnlineOrdersViewProps) {
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('open');
+  const [filter, setFilter] = useState<FilterMode>('open');
   const [searchTerm, setSearchTerm] = useState('');
-  const [tab, setTab] = useState('all');
+  const [tab, setTab] = useState<TabMode>('all');
   const prevPendingRef = useRef(0);
 
   useEffect(() => { loadOrders(); const iv = setInterval(loadOrders, 10000); return () => clearInterval(iv); }, []);
 
-  // Sound + notification for new platform orders
   useEffect(() => {
     const pending = orders.filter(o =>
       o.type === 'platform' && o.orderStatus === 'pending'
@@ -68,16 +108,17 @@ export default function OnlineOrdersView({ colors: C }) {
   async function loadOrders() {
     try {
       const r = await fetch('/api/delivery/combined-orders');
-      if (r.ok) setOrders(await r.json());
+      if (r.ok) setOrders(await r.json() as Order[]);
     } catch {}
     setLoading(false);
   }
 
-  function getStatusCfg(order) {
+  function getStatusCfg(order: Order): StatusConfig {
     if (order.type === 'platform') {
-      return DELIVERY_STATUS_LABELS[order.orderStatus] || { label: order.orderStatus, color: C.muted, icon: Clock };
+      const d = DELIVERY_STATUS_LABELS[order.orderStatus];
+      return d ? { ...d, next: null } : { label: order.orderStatus, color: C.muted, icon: Clock, next: null };
     }
-    return STATUS_LABELS[order.orderStatus] || { label: order.orderStatus, color: C.muted, icon: Clock };
+    return STATUS_LABELS[order.orderStatus] || { label: order.orderStatus, color: C.muted, icon: Clock, next: null };
   }
 
   const filtered = useMemo(() => {
@@ -111,7 +152,7 @@ export default function OnlineOrdersView({ colors: C }) {
     return { active: active.length, received: received.length, preparing: preparing.length, platform: platformOrders.length, revenue: todayRevenue };
   }, [orders]);
 
-  function timeAgo(ts) {
+  function timeAgo(ts: number) {
     if (!ts) return '';
     const min = Math.floor((Date.now() - ts) / 60000);
     if (min < 1) return 'Ahora';
@@ -149,12 +190,12 @@ export default function OnlineOrdersView({ colors: C }) {
         ))}
       </div>
 
-      {/* Tabs: All / QR / Platform */}
+      {/* Tabs */}
       <div className="flex items-center gap-1 flex-wrap">
         {[
-          { id: 'all', label: 'Todos' },
-          { id: 'qr', label: 'QR / Web' },
-          { id: 'platform', label: 'Glovo / UberEats' },
+          { id: 'all' as const, label: 'Todos' },
+          { id: 'qr' as const, label: 'QR / Web' },
+          { id: 'platform' as const, label: 'Glovo / UberEats' },
         ].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className="px-3 py-1.5 rounded-lg text-[10px] font-medium"
@@ -163,7 +204,7 @@ export default function OnlineOrdersView({ colors: C }) {
           </button>
         ))}
         <div className="flex gap-1 ml-2">
-          {[{ id: 'open', label: 'Abiertos' }, { id: 'closed', label: 'Cerrados' }, { id: 'cancelled', label: 'Cancelados' }].map(f => (
+          {[{ id: 'open' as const, label: 'Abiertos' }, { id: 'closed' as const, label: 'Cerrados' }, { id: 'cancelled' as const, label: 'Cancelados' }].map(f => (
             <button key={f.id} onClick={() => setFilter(f.id)}
               className="px-3 py-1.5 rounded-lg text-[10px] font-medium"
               style={{ background: filter === f.id ? C.surfaceLight : 'transparent', color: filter === f.id ? C.brassLight : C.muted }}>
@@ -214,7 +255,6 @@ export default function OnlineOrdersView({ colors: C }) {
                 <span className="text-[10px]" style={{ color: C.muted }}>{timeAgo(order.createdAt)}</span>
               </div>
 
-              {/* Customer */}
               <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px]" style={{ color: C.muted }}>
                 {order.customerName && <span><User className="w-2.5 h-2.5 inline mr-0.5" />{order.customerName}</span>}
                 {order.customerPhone && <span><Phone className="w-2.5 h-2.5 inline mr-0.5" />{order.customerPhone}</span>}
@@ -223,7 +263,6 @@ export default function OnlineOrdersView({ colors: C }) {
                 {order.source === 'ubereats' && <span className="flex items-center gap-0.5"><Globe className="w-2.5 h-2.5" />UberEats</span>}
               </div>
 
-              {/* Items */}
               <div className="text-[10px]" style={{ color: C.cream }}>
                 {items.slice(0, 3).map((it, i) => (
                   <span key={i} className="block">{it.qty}x {it.name} — {(it.price * it.qty).toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
@@ -231,14 +270,12 @@ export default function OnlineOrdersView({ colors: C }) {
                 {items.length > 3 && <span className="text-[9px]" style={{ color: C.muted }}>+{items.length - 3} más</span>}
               </div>
 
-              {/* Totals */}
               <div className="flex items-center gap-3 text-[10px]" style={{ color: C.muted }}>
                 <span>Subtotal: {Number(order.amount || 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
-                {order.deliveryCost > 0 && <span>Envío: {Number(order.deliveryCost).toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>}
+                {(order.deliveryCost ?? 0) > 0 && <span>Envío: {Number(order.deliveryCost ?? 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>}
                 <span className="font-bold" style={{ color: C.cream }}>Total: {total.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
               </div>
 
-              {/* Actions */}
               <div className="flex items-center gap-1 pt-1">
                 {order.type === 'qr' && !order.accepted && order.orderStatus === 'pending' && (
                   <button onClick={async () => {
@@ -258,7 +295,7 @@ export default function OnlineOrdersView({ colors: C }) {
                     className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-medium hover:opacity-80"
                     style={{ background: C.brass + '30', color: C.brassLight }}>
                     <Zap className="w-3 h-3" />
-                    {STATUS_LABELS[statusCfg.next]?.label || 'Avanzar'}
+                    {STATUS_LABELS[statusCfg.next!]?.label || 'Avanzar'}
                   </button>
                 )}
                 {!['delivered','cancelled'].includes(order.orderStatus) && (

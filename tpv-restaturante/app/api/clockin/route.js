@@ -141,7 +141,7 @@ export async function PUT(req) {
 
     // Edit a single record
     if (putAction === 'edit-record') {
-      const { id, createdAt, action: newAction } = body;
+      const { id, createdAt, recordAction: newAction } = body;
       await sql`
         UPDATE clockin_logs SET created_at=${createdAt}, action=${newAction},
           edited=true, edited_by=${body.editedBy || ''}, edit_reason=${body.editReason || ''}

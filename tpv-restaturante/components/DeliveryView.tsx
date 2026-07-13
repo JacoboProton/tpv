@@ -16,7 +16,7 @@ const C = {
   wine: '#6b3a3a', wineLight: '#a06050',
 };
 
-const STATUS_LABELS = {
+const STATUS_LABELS: Record<string, string> = {
   pending: 'Pendiente',
   preparing: 'Preparando',
   ready: 'Listo',
@@ -25,7 +25,7 @@ const STATUS_LABELS = {
   cancelled: 'Cancelado',
 };
 
-const STATUS_COLORS = {
+const STATUS_COLORS: Record<string, string> = {
   pending: C.wineLight,
   preparing: C.brass,
   ready: C.sageLight,
@@ -34,37 +34,74 @@ const STATUS_COLORS = {
   cancelled: C.muted,
 };
 
-export default function DeliveryView({ catalog }) {
-  const [runners, setRunners] = useState([]);
-  const [orders, setOrders] = useState([]);
+interface Runner {
+  id: string;
+  name: string;
+  phone: string;
+  active: boolean;
+}
+
+interface OrderItem {
+  productId: string;
+  name: string;
+  price: number;
+  qty: number;
+}
+
+interface DeliveryOrder {
+  id: string;
+  customer_name: string;
+  customer_phone: string;
+  address: string;
+  notes: string;
+  items: string | OrderItem[];
+  created_at: string;
+  status: string;
+  runner_id: string;
+  delivered_at: string;
+}
+
+interface CatalogProduct {
+  id: string;
+  name: string;
+  price: number;
+}
+
+interface DeliveryViewProps {
+  catalog: { products: CatalogProduct[] };
+}
+
+export default function DeliveryView({ catalog }: DeliveryViewProps) {
+  const [runners, setRunners] = useState<Runner[]>([]);
+  const [orders, setOrders] = useState<DeliveryOrder[]>([]);
   const [showRunnerForm, setShowRunnerForm] = useState(false);
-  const [newRunner, setNewRunner] = useState({ name: '', phone: '', active: true });
+  const [newRunner, setNewRunner] = useState<Runner>({ id: '', name: '', phone: '', active: true });
   const [showNewOrder, setShowNewOrder] = useState(false);
-  const [form, setForm] = useState({ customerName: '', customerPhone: '', address: '', notes: '', items: [] });
+  const [form, setForm] = useState<{ customerName: string; customerPhone: string; address: string; notes: string; items: OrderItem[] }>({ customerName: '', customerPhone: '', address: '', notes: '', items: [] });
   const [selectedProduct, setSelectedProduct] = useState('');
 
   const load = () => {
-    fetchDeliveryRunners().then(setRunners).catch(() => setRunners([]));
-    fetchDeliveryOrders().then(setOrders).catch(() => setOrders([]));
+    fetchDeliveryRunners().then(d => setRunners(d as Runner[])).catch(() => setRunners([]));
+    fetchDeliveryOrders().then(d => setOrders(d as DeliveryOrder[])).catch(() => setOrders([]));
   };
 
   useEffect(() => { load(); }, []);
 
   async function addRunner() {
     if (!newRunner.name.trim()) return;
-    await saveDeliveryRunners([{ id: 'dr_' + Date.now(), ...newRunner }]);
-    setNewRunner({ name: '', phone: '', active: true });
+    const { id: _rid, ...rest } = newRunner;
+    await saveDeliveryRunners([{ id: 'dr_' + Date.now(), ...rest }]);
+    setNewRunner({ id: '', name: '', phone: '', active: true });
     setShowRunnerForm(false);
-    fetchDeliveryRunners().then(setRunners).catch(() => setRunners([]));
+    fetchDeliveryRunners().then(d => setRunners(d as Runner[])).catch(() => setRunners([]));
   }
 
-  async function removeRunner(id) {
+  async function removeRunner(id: string) {
     await deleteDeliveryRunner(id);
-    fetchDeliveryRunners().then(setRunners).catch(() => setRunners([]));
+    fetchDeliveryRunners().then(d => setRunners(d as Runner[])).catch(() => setRunners([]));
   }
 
-  async function updateStatus(orderId, status) {
-    // eslint-disable-next-line react-hooks/purity
+  async function updateStatus(orderId: string, status: string) {
     const now = Date.now();
     await updateDeliveryOrder({ id: orderId, status });
     if (status === 'en_ruta') {
@@ -74,7 +111,7 @@ export default function DeliveryView({ catalog }) {
       await updateDeliveryOrder({ id: orderId, status, deliveredAt: now });
       await addDeliveryTracking({ deliveryId: orderId, status: 'delivered', note: 'Entregado' });
     }
-    fetchDeliveryOrders().then(setOrders).catch(() => setOrders([]));
+    fetchDeliveryOrders().then(d => setOrders(d as DeliveryOrder[])).catch(() => setOrders([]));
   }
 
   function addProductToForm() {
@@ -83,12 +120,12 @@ export default function DeliveryView({ catalog }) {
     if (!p) return;
     setForm(f => ({
       ...f,
-      items: [...f.items, { productId: p.id, name: p.name, price: parseFloat(p.price), qty: 1 }],
+      items: [...f.items, { productId: p.id, name: p.name, price: parseFloat(String(p.price)), qty: 1 }],
     }));
     setSelectedProduct('');
   }
 
-  function removeFormItem(idx) {
+  function removeFormItem(idx: number) {
     setForm(f => ({ ...f, items: f.items.filter((_, i) => i !== idx) }));
   }
 
@@ -104,7 +141,7 @@ export default function DeliveryView({ catalog }) {
     await createDeliveryOrder(data);
     setForm({ customerName: '', customerPhone: '', address: '', notes: '', items: [] });
     setShowNewOrder(false);
-    fetchDeliveryOrders().then(setOrders).catch(() => setOrders([]));
+    fetchDeliveryOrders().then(d => setOrders(d as DeliveryOrder[])).catch(() => setOrders([]));
   }
 
   const products = catalog?.products || [];
@@ -242,8 +279,8 @@ export default function DeliveryView({ catalog }) {
       {/* Lista de pedidos */}
       <div className="flex flex-col gap-3">
         {orders.map(o => {
-          const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
-          const total = items.reduce((s, i) => s + (parseFloat(i.price) || 0) * (i.qty || 1), 0);
+          const items: OrderItem[] = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
+          const total = items.reduce((s, i) => s + (parseFloat(String(i.price)) || 0) * (i.qty || 1), 0);
           const date = new Date(o.created_at).toLocaleString('es-ES');
           return (
             <div

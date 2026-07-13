@@ -4,16 +4,55 @@ import { useState, useMemo } from 'react';
 import { Ticket, Download, Search, Printer } from 'lucide-react';
 import { buildTicketHtml, printTicketHtml } from '../lib/ticket-template';
 import { euros } from './constants';
+import type { Theme } from './constants';
 
-export default function TicketsView({ sales, colors: C, ticketSettings = {} }) {
+interface TicketItem {
+  name: string;
+  price: number;
+  qty: number;
+  voided?: boolean;
+}
+
+interface TicketSale {
+  id: string;
+  closedAt: number;
+  paymentMethod?: string;
+  tableName?: string;
+  employeeName?: string;
+  total: number;
+  items?: TicketItem[];
+  ticketNumber?: number;
+  discountAmount?: number;
+  tip?: number;
+  tipMethod?: string;
+  totalWithTip?: number;
+}
+
+interface TicketSettings {
+  restaurantName?: string;
+  companyCif?: string;
+  companyAddress?: string;
+  companyPhone?: string;
+  logoUrl?: string;
+  footerText?: string;
+  ticketWidth?: number | string;
+}
+
+interface TicketsViewProps {
+  sales?: TicketSale[];
+  colors: Theme;
+  ticketSettings?: TicketSettings;
+}
+
+export default function TicketsView({ sales = [], colors: C, ticketSettings = {} }: TicketsViewProps) {
   const [search, setSearch] = useState('');
   const [filterMethod, setFilterMethod] = useState('Todas');
-  const [daysBack, setDaysBack] = useState(0); // 0 = hoy, 7 = última semana, 30 = último mes
+  const [daysBack, setDaysBack] = useState(0);
 
   const today = new Date().toDateString();
 
   const cutoffTime = useMemo(() => {
-    if (daysBack === 0) return 0; // no cutoff by time, filter by date string below
+    if (daysBack === 0) return 0;
     const d = new Date();
     d.setDate(d.getDate() - daysBack);
     d.setHours(0, 0, 0, 0);
@@ -46,14 +85,14 @@ export default function TicketsView({ sales, colors: C, ticketSettings = {} }) {
 
   const totalAmount = filteredSales.reduce((s, x) => s + x.total, 0);
   const methods = useMemo(() => {
-    const set = new Set();
+    const set = new Set<string>();
     (sales || []).forEach(s => {
       if (s.paymentMethod) set.add(s.paymentMethod);
     });
     return ['Todas', ...Array.from(set)];
   }, [sales]);
 
-  function printTicket(sale) {
+  function printTicket(sale: TicketSale) {
     const items = (sale.items || []).filter(i => !i.voided);
     const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
     const discountAmount = sale.discountAmount || 0;
@@ -68,7 +107,7 @@ export default function TicketsView({ sales, colors: C, ticketSettings = {} }) {
       totalWithTip: sale.totalWithTip || sale.total || 0,
       restaurantName: s.restaurantName, companyCif: s.companyCif,
       companyAddress: s.companyAddress, companyPhone: s.companyPhone,
-      logoUrl: s.logoUrl, footerText: s.footerText, ticketWidth: s.ticketWidth,
+      logoUrl: s.logoUrl, footerText: s.footerText,       ticketWidth: s.ticketWidth != null ? String(s.ticketWidth) : undefined,
       tableName: sale.tableName || '',
       employeeName: sale.employeeName || '',
       ticketNumber: sale.ticketNumber ? `#${sale.ticketNumber}` : '',
@@ -78,7 +117,7 @@ export default function TicketsView({ sales, colors: C, ticketSettings = {} }) {
   }
 
   function downloadCSV() {
-    const rows = [
+    const rows: string[][] = [
       ['ID', 'Hora', 'Mesa', 'Empleado', 'Total', 'Método', 'Artículos'],
       ...filteredSales.map(s => {
         const d = new Date(s.closedAt);

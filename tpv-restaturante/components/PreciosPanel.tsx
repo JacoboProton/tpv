@@ -2,18 +2,20 @@
 
 import { useState, useMemo } from 'react';
 import { Plus, Trash2, Save, X, Tag, Euro, Percent, Clock, CalendarDays, Eye } from 'lucide-react';
-import { euros } from './constants';
+import { euros, round2 } from './constants';
+import type { Theme } from './constants';
 
 function id() { return 'pr_' + Date.now() + Math.random().toString(16).slice(2, 6); }
 
 const DAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
-const TEMPLATES = [
+
+const TEMPLATES: { label: string; days: number[]; start: string; end: string; type: string; value: number }[] = [
   { label: 'Happy Hour', days: [0,1,2,3,4,5,6], start: '18:00', end: '21:00', type: 'discount_pct', value: 20 },
   { label: 'Menú Almuerzo', days: [0,1,2,3,4], start: '13:00', end: '16:00', type: 'fixed', value: 0 },
   { label: 'Fin de Semana', days: [5,6], start: '12:00', end: '23:00', type: 'discount_eur', value: 1 },
 ];
 
-function dayList(days) {
+function dayList(days: number[]) {
   if (!days || days.length === 0) return '-';
   if (days.length === 7) return 'L-D';
   if (days.length === 5 && days.every(d => d < 5)) return 'L-V';
@@ -21,34 +23,66 @@ function dayList(days) {
   return days.map(d => DAYS[d]).join('');
 }
 
-function effectivePrice(basePrice, rules) {
+function effectivePrice(basePrice: number, rules: PriceRule[]) {
   const now = new Date();
   const today = (now.getDay() + 6) % 7;
   const time = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
   const active = (rules || []).filter(r => r.active && r.days?.includes(today) && time >= r.start_time && time <= r.end_time);
-  if (active.length === 0) return { price: basePrice, rule: null };
+  if (active.length === 0) return { price: basePrice, rule: null as PriceRule | null };
   const r = active[0];
   if (r.type === 'fixed') return { price: r.value, rule: r };
   if (r.type === 'discount_pct') return { price: round2(basePrice - basePrice * r.value / 100), rule: r };
   if (r.type === 'discount_eur') return { price: Math.max(0, round2(basePrice - r.value)), rule: r };
-  return { price: basePrice, rule: null };
+  return { price: basePrice, rule: null as PriceRule | null };
 }
 
-function round2(v) { return Math.round(v * 100) / 100; }
+interface PriceRule {
+  id: string;
+  product_id: string;
+  name: string;
+  active: boolean;
+  days: number[];
+  start_time: string;
+  end_time: string;
+  type: string;
+  value: number;
+}
 
-function RuleEditor({ product, rules, onSave, onClose, colors: C }) {
-  const [local, setLocal] = useState(() => rules.filter(r => r.product_id === product.id));
+interface CatalogProduct {
+  id: string;
+  name: string;
+  price: number;
+  category?: string;
+}
+
+interface PreciosPanelProps {
+  catalog: { products: CatalogProduct[] };
+  priceRules: PriceRule[];
+  onSaveRules: (rules: PriceRule[]) => Promise<void>;
+  colors: Theme;
+}
+
+interface RuleEditorProps {
+  product: CatalogProduct;
+  rules: PriceRule[];
+  onSave: (rules: PriceRule[]) => void;
+  onClose: () => void;
+  colors: Theme;
+}
+
+function RuleEditor({ product, rules, onSave, onClose, colors: C }: RuleEditorProps) {
+  const [local, setLocal] = useState<PriceRule[]>(() => rules.filter(r => r.product_id === product.id));
   const [showForm, setShowForm] = useState(false);
-  const [editId, setEditId] = useState(null);
+  const [editId, setEditId] = useState<string | null>(null);
 
-  const [form, setForm] = useState({ id: '', product_id: product.id, name: '', active: true, days: [0, 1, 2, 3, 4, 5, 6], start_time: '17:00', end_time: '19:00', type: 'discount_pct', value: 0 });
+  const [form, setForm] = useState<PriceRule>({ id: '', product_id: product.id, name: '', active: true, days: [0, 1, 2, 3, 4, 5, 6], start_time: '17:00', end_time: '19:00', type: 'discount_pct', value: 0 });
 
-  function emptyRule() {
+  function emptyRule(): PriceRule {
     return { id: id(), product_id: product.id, name: '', active: true, days: [0, 1, 2, 3, 4, 5, 6], start_time: '17:00', end_time: '19:00', type: 'discount_pct', value: 0 };
   }
 
   function startAdd() { setForm(emptyRule()); setShowForm(true); setEditId(null); }
-  function startEdit(r) { setForm({ ...r }); setShowForm(true); setEditId(r.id); }
+  function startEdit(r: PriceRule) { setForm({ ...r }); setShowForm(true); setEditId(r.id); }
 
   function saveRule() {
     if (!form.name.trim()) return;
@@ -61,17 +95,17 @@ function RuleEditor({ product, rules, onSave, onClose, colors: C }) {
     setEditId(null);
   }
 
-  function deleteRule(id) {
+  function deleteRule(id: string) {
     setLocal(local.filter(r => r.id !== id));
     if (editId === id) { setShowForm(false); setEditId(null); }
   }
 
-  function toggleDay(d) {
+  function toggleDay(d: number) {
     const days = form.days.includes(d) ? form.days.filter(x => x !== d) : [...form.days, d].sort();
     setForm({ ...form, days });
   }
 
-  function applyTemplate(t) {
+  function applyTemplate(t: typeof TEMPLATES[number]) {
     setForm({ ...form, days: [...t.days], start_time: t.start, end_time: t.end, type: t.type, value: t.value });
   }
 
@@ -270,11 +304,11 @@ function RuleEditor({ product, rules, onSave, onClose, colors: C }) {
   );
 }
 
-export default function PreciosPanel({ catalog, priceRules, onSaveRules, colors: C }) {
-  const [filter, setFilter] = useState('all'); // 'all' | 'has_rules' | 'active_now'
-  const [editingProduct, setEditingProduct] = useState(null);
-  const [rulesMap, setRulesMap] = useState(() => {
-    const m = {};
+export default function PreciosPanel({ catalog, priceRules, onSaveRules, colors: C }: PreciosPanelProps) {
+  const [filter, setFilter] = useState('all');
+  const [editingProduct, setEditingProduct] = useState<CatalogProduct | null>(null);
+  const [rulesMap, setRulesMap] = useState<Record<string, PriceRule[]>>(() => {
+    const m: Record<string, PriceRule[]> = {};
     for (const r of (priceRules || [])) {
       if (!m[r.product_id]) m[r.product_id] = [];
       m[r.product_id].push(r);
@@ -301,9 +335,9 @@ export default function PreciosPanel({ catalog, priceRules, onSaveRules, colors:
     };
   }, [catalog?.products, rulesMap, filter]);
 
-  function handleSaveRules(productId, newRules) {
+  function handleSaveRules(productId: string, newRules: PriceRule[]) {
     setRulesMap(prev => ({ ...prev, [productId]: newRules }));
-    const all = [];
+    const all: PriceRule[] = [];
     for (const [, rs] of Object.entries({ ...rulesMap, [productId]: newRules })) {
       for (const r of rs) all.push(r);
     }
@@ -335,7 +369,7 @@ export default function PreciosPanel({ catalog, priceRules, onSaveRules, colors:
       {/* Product list */}
       <div className="flex flex-col gap-1">
         {filtered.map(p => (
-          <div key={p.id} onClick={() => setEditingProduct(p)}
+          <div key={p.id} onClick={() => setEditingProduct(p as unknown as CatalogProduct)}
             style={{ background: p.activeRule ? C.sage + '10' : C.surface, border: `1px solid ${p.activeRule ? C.sage : C.line}`, cursor: 'pointer' }}
             className="rounded-lg p-3 hover:opacity-90 transition-all flex items-center gap-3">
             {/* Info */}

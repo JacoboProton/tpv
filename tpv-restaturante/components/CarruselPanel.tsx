@@ -3,24 +3,42 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Plus, Trash2, Save, Star, ArrowUp, ArrowDown, GripVertical } from 'lucide-react';
 import { euros } from './constants';
+import type { Theme } from './constants';
+
+interface CatalogProduct {
+  id: string;
+  name: string;
+  price: number;
+  carousel_sort?: number | null;
+}
+
+interface Catalog {
+  products: CatalogProduct[];
+}
+
+interface CarruselPanelProps {
+  catalog: Catalog;
+  onSave: (data: { id: string; carousel_sort: number | null }[]) => void;
+  colors: Theme;
+}
 
 const MAX_FEATURED = 8;
 
-export default function CarruselPanel({ catalog, onSave, colors: C }) {
-  const [featured, setFeatured] = useState(() => {
+export default function CarruselPanel({ catalog, onSave, colors: C }: CarruselPanelProps) {
+  const [featured, setFeatured] = useState<CatalogProduct[]>(() => {
     const all = catalog?.products || [];
     return all
-      .filter(p => p.carousel_sort !== null && p.carousel_sort !== undefined)
-      .sort((a, b) => (a.carousel_sort || 0) - (b.carousel_sort || 0));
+      .filter((p: CatalogProduct) => p.carousel_sort !== null && p.carousel_sort !== undefined)
+      .sort((a: CatalogProduct, b: CatalogProduct) => (a.carousel_sort || 0) - (b.carousel_sort || 0));
   });
 
   const available = useMemo(() => {
     const all = catalog?.products || [];
     const featuredIds = new Set(featured.map(p => p.id));
-    return all.filter(p => !featuredIds.has(p.id)).sort((a, b) => a.name.localeCompare(b.name));
+    return all.filter((p: CatalogProduct) => !featuredIds.has(p.id)).sort((a: CatalogProduct, b: CatalogProduct) => a.name.localeCompare(b.name));
   }, [catalog?.products, featured]);
 
-  const moveUp = useCallback((i) => {
+  const moveUp = useCallback((i: number) => {
     if (i <= 0) return;
     setFeatured(prev => {
       const next = [...prev];
@@ -29,7 +47,7 @@ export default function CarruselPanel({ catalog, onSave, colors: C }) {
     });
   }, []);
 
-  const moveDown = useCallback((i) => {
+  const moveDown = useCallback((i: number) => {
     setFeatured(prev => {
       if (i >= prev.length - 1) return prev;
       const next = [...prev];
@@ -38,22 +56,21 @@ export default function CarruselPanel({ catalog, onSave, colors: C }) {
     });
   }, []);
 
-  const remove = useCallback((id) => {
+  const remove = useCallback((id: string) => {
     setFeatured(prev => prev.filter(p => p.id !== id));
   }, []);
 
-  const addProduct = useCallback((product) => {
+  const addProduct = useCallback((product: CatalogProduct) => {
     if (featured.length >= MAX_FEATURED) return;
     setFeatured(prev => [...prev, product]);
   }, [featured.length]);
 
   function save() {
     const data = featured.map((p, i) => ({ id: p.id, carousel_sort: i + 1 }));
-    // Clear sort from removed items
     const allIds = new Set(featured.map(p => p.id));
     const removed = (catalog?.products || [])
-      .filter(p => p.carousel_sort !== null && p.carousel_sort !== undefined && !allIds.has(p.id))
-      .map(p => ({ id: p.id, carousel_sort: null }));
+      .filter((p: CatalogProduct) => p.carousel_sort !== null && p.carousel_sort !== undefined && !allIds.has(p.id))
+      .map((p: CatalogProduct) => ({ id: p.id, carousel_sort: null }));
     onSave([...data, ...removed]);
   }
 
@@ -71,7 +88,6 @@ export default function CarruselPanel({ catalog, onSave, colors: C }) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Platos disponibles */}
         <div>
           <p style={{ color: C.muted }} className="text-xs uppercase tracking-wide mb-2 flex items-center gap-1.5">
             <Plus className="w-3 h-3" /> Platos disponibles
@@ -98,7 +114,6 @@ export default function CarruselPanel({ catalog, onSave, colors: C }) {
           </div>
         </div>
 
-        {/* En el carrusel */}
         <div>
           <p style={{ color: C.muted }} className="text-xs uppercase tracking-wide mb-2 flex items-center gap-1.5">
             <Star className="w-3 h-3" style={{ color: C.brassLight }} /> En el carrusel
