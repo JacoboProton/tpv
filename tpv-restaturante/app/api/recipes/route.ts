@@ -1,31 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '../../../lib/db';
+import { eq, sql } from 'drizzle-orm';
+import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
+import { recipes, recipeIngredients } from '../../../db/schema';
 
 export async function GET(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
-    const recipes = await sql`SELECT * FROM recipes WHERE tenant_id = ${tenantId} ORDER BY product_name`;
+    const recipeRows = await db.select().from(recipes)
+      .where(eq(recipes.tenantId, tenantId))
+      .orderBy(recipes.productName);
     const result = [];
-    for (const r of recipes) {
-      const ingredients = await sql`
-        SELECT * FROM recipe_ingredients WHERE recipe_id = ${r.id} AND tenant_id = ${tenantId} ORDER BY id
-      `;
+    for (const r of recipeRows) {
+      const ingredients = await db.select().from(recipeIngredients)
+        .where(sql`${eq(recipeIngredients.recipeId, r.id)} AND ${eq(recipeIngredients.tenantId, tenantId)}`)
+        .orderBy(recipeIngredients.id);
       result.push({
         id: r.id,
-        productId: r.product_id,
-        productName: r.product_name,
-        costPerUnit: parseFloat(r.cost_per_unit || 0),
-        yieldQty: parseFloat(r.yield_qty || 1),
-        updatedAt: Number(r.updated_at),
+        productId: r.productId,
+        productName: r.productName,
+        costPerUnit: parseFloat(r.costPerUnit as any || 0),
+        yieldQty: parseFloat(r.yieldQty as any || 1),
+        updatedAt: Number(r.updatedAt),
         ingredients: ingredients.map(ing => ({
           id: ing.id,
-          ingredientId: ing.ingredient_id,
-          ingredientName: ing.ingredient_name,
-          quantity: parseFloat(ing.quantity),
+          ingredientId: ing.ingredientId,
+          ingredientName: ing.ingredientName,
+          quantity: parseFloat(ing.quantity as any),
           unit: ing.unit,
-          costPerUnit: parseFloat(ing.cost_per_unit || 0),
-          totalCost: parseFloat(ing.total_cost || 0),
+          costPerUnit: parseFloat(ing.costPerUnit as any || 0),
+          totalCost: parseFloat(ing.totalCost as any || 0),
         })),
       });
     }
@@ -37,6 +42,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
     const body = await req.json() as any;
     const { action } = body;
@@ -48,25 +54,24 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Producto e ingredientes son requeridos' }, { status: 400 });
       }
 
-      let recipe = (await sql`SELECT * FROM recipes WHERE product_id = ${productId} AND tenant_id = ${tenantId} LIMIT 1`)[0];
+      let [recipe] = await db.select().from(recipes)
+        .where(sql`${eq(recipes.productId, productId)} AND ${eq(recipes.tenantId, tenantId)}`)
+        .limit(1);
       const recipeId = recipe?.id || 'rec_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
       const yieldQtyVal = parseFloat(yieldQty || 1);
 
-      // Calculate cost per unit from ingredient costs
-      let totalCost = 0;
-      const processedIngredients = [];
+      const processedIngredients: any[] = [];
       for (const ing of ingredients) {
         const iQty = parseFloat(ing.quantity || 0);
         const iCostPerUnit = parseFloat(ing.costPerUnit || 0);
         const iTotal = iQty * iCostPerUnit;
-        totalCost += iTotal;
 
-        const latestBatch = await sql`
+        const [latestBatch] = await db.execute(sql`
           SELECT cost_per_unit FROM product_batches
           WHERE product_id = ${ing.ingredientId} AND status = 'active' AND tenant_id = ${tenantId}
           ORDER BY received_at DESC LIMIT 1
-        `;
-        const currentCost = latestBatch.length > 0 ? parseFloat(latestBatch[0].cost_per_unit) : iCostPerUnit;
+        `).then(r => r.rows as any[]);
+        const currentCost = latestBatch ? parseFloat(latestBatch.cost_per_unit) : iCostPerUnit;
 
         processedIngredients.push({
           ingredientId: ing.ingredientId,
@@ -78,35 +83,35 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      const totalRecipeCost = processedIngredients.reduce((s, i) => s + i.totalCost, 0);
+      const totalRecipeCost = processedIngredients.reduce((s: number, i: any) => s + i.totalCost, 0);
       const costPerUnit = totalRecipeCost / yieldQtyVal;
 
       if (recipe) {
-        await sql`
+        await db.execute(sql`
           UPDATE recipes SET product_name = ${productName}, cost_per_unit = ${costPerUnit}, yield_qty = ${yieldQtyVal}, updated_at = ${Date.now()}
           WHERE id = ${recipe.id} AND tenant_id = ${tenantId}
-        `;
-        await sql`DELETE FROM recipe_ingredients WHERE recipe_id = ${recipe.id} AND tenant_id = ${tenantId}`;
+        `);
+        await db.execute(sql`DELETE FROM recipe_ingredients WHERE recipe_id = ${recipe.id} AND tenant_id = ${tenantId}`);
       } else {
-        await sql`
+        await db.execute(sql`
           INSERT INTO recipes (id, product_id, product_name, cost_per_unit, yield_qty, updated_at, tenant_id)
           VALUES (${recipeId}, ${productId}, ${productName}, ${costPerUnit}, ${yieldQtyVal}, ${Date.now()}, ${tenantId})
-        `;
+        `);
       }
 
       for (const ing of processedIngredients) {
-        await sql`
+        await db.execute(sql`
           INSERT INTO recipe_ingredients (recipe_id, ingredient_id, ingredient_name, quantity, unit, cost_per_unit, total_cost, tenant_id)
-          VALUES (${recipe.id || recipeId}, ${ing.ingredientId}, ${ing.ingredientName}, ${ing.quantity}, ${ing.unit}, ${ing.costPerUnit}, ${ing.totalCost}, ${tenantId})
-        `;
+          VALUES (${recipe?.id || recipeId}, ${ing.ingredientId}, ${ing.ingredientName}, ${ing.quantity}, ${ing.unit}, ${ing.costPerUnit}, ${ing.totalCost}, ${tenantId})
+        `);
       }
 
-      return NextResponse.json({ ok: true, id: recipe.id || recipeId, costPerUnit });
+      return NextResponse.json({ ok: true, id: recipe?.id || recipeId, costPerUnit });
     }
 
     if (action === 'delete') {
       const { id } = body;
-      await sql`DELETE FROM recipes WHERE id = ${id} AND tenant_id = ${tenantId}`;
+      await db.execute(sql`DELETE FROM recipes WHERE id = ${id} AND tenant_id = ${tenantId}`);
       return NextResponse.json({ ok: true });
     }
 

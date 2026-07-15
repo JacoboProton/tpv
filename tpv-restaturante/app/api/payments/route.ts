@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '../../../lib/db';
+import { and, desc, eq, gte, lte, like, sql } from 'drizzle-orm';
+import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
+import { sales } from '../../../db/schema';
 
 export async function GET(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
     const { searchParams } = new URL(req.url);
     const from = searchParams.get('from');
@@ -14,35 +17,35 @@ export async function GET(req: NextRequest) {
     const maxAmount = searchParams.get('maxAmount');
     const status = searchParams.get('status');
 
-    let base = sql`SELECT * FROM sales WHERE tenant_id = ${tenantId}`;
-    const conds: any[] = [];
+    const conditions: any[] = [eq(sales.tenantId, tenantId)];
 
-    if (from) conds.push(sql`closed_at >= ${BigInt(from)}`);
-    if (to) conds.push(sql`closed_at <= ${BigInt(to)}`);
-    if (method) conds.push(sql`payment_method ILIKE ${'%' + method + '%'}`);
-    if (employee) conds.push(sql`employee_name ILIKE ${'%' + employee + '%'}`);
-    if (minAmount) conds.push(sql`total_with_tip >= ${parseFloat(minAmount)}`);
-    if (maxAmount) conds.push(sql`total_with_tip <= ${parseFloat(maxAmount)}`);
+    if (from) conditions.push(gte(sales.closedAt, Number(from)));
+    if (to) conditions.push(lte(sales.closedAt, Number(to)));
+    if (method) conditions.push(like(sales.paymentMethod, `%${method}%`));
+    if (employee) conditions.push(like(sales.employeeName, `%${employee}%`));
+    if (minAmount) conditions.push(gte(sales.totalWithTip, String(parseFloat(minAmount))));
+    if (maxAmount) conditions.push(lte(sales.totalWithTip, String(parseFloat(maxAmount))));
     if (status) {
-      if (status === 'disputed') conds.push(sql`dispute_status != '' AND dispute_status != 'dispute_won'`);
-      else if (status === 'unconfirmed') conds.push(sql`stripe_confirmed = false AND payment_intent_id != ''`);
-      else if (status === 'refunded') conds.push(sql`refunds != '[]'::jsonb AND refunds IS NOT NULL`);
-      else if (status === 'stripe') conds.push(sql`payment_intent_id != ''`);
-      else if (status === 'fiado') conds.push(sql`is_fiado = true`);
+      if (status === 'disputed') conditions.push(sql`${sales.disputeStatus} != '' AND ${sales.disputeStatus} != 'dispute_won'`);
+      else if (status === 'unconfirmed') conditions.push(sql`${sales.stripeConfirmed} = false AND ${sales.paymentIntentId} != ''`);
+      else if (status === 'refunded') conditions.push(sql`${sales.refunds} != '[]'::jsonb AND ${sales.refunds} IS NOT NULL`);
+      else if (status === 'stripe') conditions.push(sql`${sales.paymentIntentId} != ''`);
+      else if (status === 'fiado') conditions.push(eq(sales.isFiado, true));
     }
 
-    if (conds.length > 0) base = sql`${base} AND ${conds.reduce((a: any, c: any) => sql`${a} AND ${c}`)}`;
-    base = sql`${base} ORDER BY closed_at DESC LIMIT 500`;
-    const rows = await base;
+    const rows = await db.select().from(sales)
+      .where(and(...conditions))
+      .orderBy(desc(sales.closedAt))
+      .limit(500);
 
     const totalByMethod: Record<string, number> = {};
     let grandTotal = 0;
     let grandCount = 0;
 
-    const mapped = (rows as any[]).map(r => {
-      const total = Number(r.total_with_tip || r.total || 0);
-      const methodLabel = r.payment_method || 'desconocido';
-      const date = r.closed_at ? new Date(Number(r.closed_at)).toISOString() : '';
+    const mapped = rows.map(r => {
+      const total = Number(r.totalWithTip || r.total || 0);
+      const methodLabel = r.paymentMethod || 'desconocido';
+      const date = r.closedAt ? new Date(Number(r.closedAt)).toISOString() : '';
 
       totalByMethod[methodLabel] = (totalByMethod[methodLabel] || 0) + total;
       grandTotal += total;
@@ -50,22 +53,22 @@ export async function GET(req: NextRequest) {
 
       return {
         id: r.id,
-        tableName: r.table_name,
-        employeeName: r.employee_name,
+        tableName: r.tableName,
+        employeeName: r.employeeName,
         paymentMethod: methodLabel,
         total,
         tip: Number(r.tip || 0),
-        closedAt: Number(r.closed_at),
+        closedAt: Number(r.closedAt),
         date,
-        hasInvoice: r.invoice_created || false,
-        invoiceNumber: r.invoice_number,
-        paymentIntentId: r.payment_intent_id || '',
-        stripeConfirmed: !!r.stripe_confirmed,
-        disputeStatus: r.dispute_status || '',
-        hasRefunds: (r.refunds || []).length > 0,
-        refundCount: (r.refunds || []).length,
-        isFiado: r.is_fiado || false,
-        isDebtPayment: r.is_debt_payment || false,
+        hasInvoice: r.invoiceCreated || false,
+        invoiceNumber: r.invoiceNumber,
+        paymentIntentId: r.paymentIntentId || '',
+        stripeConfirmed: !!r.stripeConfirmed,
+        disputeStatus: r.disputeStatus || '',
+        hasRefunds: Array.isArray(r.refunds) && r.refunds.length > 0,
+        refundCount: Array.isArray(r.refunds) ? r.refunds.length : 0,
+        isFiado: r.isFiado || false,
+        isDebtPayment: r.isDebtPayment || false,
       };
     });
 

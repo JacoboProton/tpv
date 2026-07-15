@@ -1,21 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '../../../lib/db';
+import { eq, sql } from 'drizzle-orm';
+import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
+import { mealMenus, mealMenuCourses, mealMenuCourseItems, mealMenuSchedules, products } from '../../../db/schema';
 
 export async function GET(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
-    const menus = await sql`SELECT * FROM meal_menus WHERE tenant_id = ${tenantId} ORDER BY name`;
-    const courses = await sql`SELECT * FROM meal_menu_courses WHERE tenant_id = ${tenantId} ORDER BY sort_order`;
-    const items = await sql`
+    const menus = await db.select().from(mealMenus)
+      .where(eq(mealMenus.tenantId, tenantId))
+      .orderBy(mealMenus.name);
+    const courses = await db.select().from(mealMenuCourses)
+      .where(eq(mealMenuCourses.tenantId, tenantId))
+      .orderBy(mealMenuCourses.sortOrder);
+    const items = await db.execute(sql`
       SELECT mmci.id, mmci.course_id, mmci.product_id, mmci.surcharge::float AS surcharge, mmci.sort_order,
         p.name AS product_name, p.price::float AS product_price
       FROM meal_menu_course_items mmci
       JOIN products p ON p.id = mmci.product_id
       WHERE mmci.tenant_id = ${tenantId}
       ORDER BY mmci.sort_order
-    `;
-    const schedules = await sql`SELECT * FROM meal_menu_schedules WHERE tenant_id = ${tenantId} ORDER BY day_of_week, start_time`;
+    `).then(r => r.rows as any[]);
+    const schedules = await db.select().from(mealMenuSchedules)
+      .where(eq(mealMenuSchedules.tenantId, tenantId))
+      .orderBy(mealMenuSchedules.dayOfWeek, mealMenuSchedules.startTime);
 
     const itemsByCourse: Record<string, any> = {};
     for (const item of items) {
@@ -24,26 +33,27 @@ export async function GET(req: NextRequest) {
     }
     const coursesByMenu: Record<string, any> = {};
     for (const c of courses) {
-      if (!coursesByMenu[c.menu_id]) coursesByMenu[c.menu_id] = [];
-      coursesByMenu[c.menu_id].push({ ...c, items: itemsByCourse[c.id] || [] });
+      if (!coursesByMenu[c.menuId]) coursesByMenu[c.menuId] = [];
+      coursesByMenu[c.menuId].push({ ...c, items: itemsByCourse[c.id] || [] });
     }
     const schedulesByMenu: Record<string, any> = {};
     for (const s of schedules) {
-      if (!schedulesByMenu[s.menu_id]) schedulesByMenu[s.menu_id] = [];
-      schedulesByMenu[s.menu_id].push(s);
+      if (!schedulesByMenu[s.menuId]) schedulesByMenu[s.menuId] = [];
+      schedulesByMenu[s.menuId].push(s);
     }
 
     const data = menus.map(m => ({
       ...m,
       active: !!m.active,
-      includes_pan: !!m.includes_pan,
-      includes_bebida: !!m.includes_bebida,
-      includes_cafe: !!m.includes_cafe,
-      extras: typeof m.extras === 'string' ? JSON.parse(m.extras) : (m.extras || []),
+      includesPan: !!m.includesPan,
+      includesBebida: !!m.includesBebida,
+      includesCafe: !!m.includesCafe,
+      extras: typeof m.extras === 'string' ? JSON.parse(m.extras as string) : (m.extras || []),
       courses: coursesByMenu[m.id] || [],
       schedules: schedulesByMenu[m.id] || [],
     }));
-    return NextResponse.json(data);
+
+    return NextResponse.json(data.map(({ tenantId: _t, ...rest }) => rest));
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
@@ -51,47 +61,51 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
     const menus = await req.json();
-    await sql`DELETE FROM meal_menu_course_items WHERE tenant_id = ${tenantId}`;
-    await sql`DELETE FROM meal_menu_courses WHERE tenant_id = ${tenantId}`;
-    await sql`DELETE FROM meal_menu_schedules WHERE tenant_id = ${tenantId}`;
-    await sql`DELETE FROM meal_menus WHERE tenant_id = ${tenantId}`;
+    await db.execute(sql`DELETE FROM meal_menu_course_items WHERE tenant_id = ${tenantId}`);
+    await db.execute(sql`DELETE FROM meal_menu_courses WHERE tenant_id = ${tenantId}`);
+    await db.execute(sql`DELETE FROM meal_menu_schedules WHERE tenant_id = ${tenantId}`);
+    await db.execute(sql`DELETE FROM meal_menus WHERE tenant_id = ${tenantId}`);
 
     for (const m of menus) {
-      await sql`
-        INSERT INTO meal_menus (id, name, description, price, image, includes_pan, includes_bebida, includes_cafe, active, created_at, extras, tenant_id)
-        VALUES (${m.id}, ${m.name}, ${m.description || ''}, ${m.price}, ${m.image || null},
-          ${m.includes_pan ?? false}, ${m.includes_bebida ?? false}, ${m.includes_cafe ?? false},
-          ${m.active ?? true}, ${Date.now()}, ${JSON.stringify(m.extras || [])}, ${tenantId})
-      `;
+      await db.insert(mealMenus).values({
+        id: m.id, name: m.name, description: m.description || '',
+        price: m.price, image: m.image || null,
+        includesPan: m.includesPan ?? false, includesBebida: m.includesBebida ?? false,
+        includesCafe: m.includesCafe ?? false,
+        active: m.active ?? true, createdAt: Date.now(),
+        extras: JSON.stringify(m.extras || []), tenantId,
+      });
       if (m.courses) {
         for (let ci = 0; ci < m.courses.length; ci++) {
           const course = m.courses[ci];
-          await sql`
-            INSERT INTO meal_menu_courses (id, menu_id, name, sort_order, tenant_id)
-            VALUES (${course.id}, ${m.id}, ${course.name}, ${ci}, ${tenantId})
-          `;
+          await db.insert(mealMenuCourses).values({
+            id: course.id, menuId: m.id, name: course.name,
+            sortOrder: ci, tenantId,
+          });
           if (course.items) {
             for (let ii = 0; ii < course.items.length; ii++) {
               const item = course.items[ii];
-              await sql`
-                INSERT INTO meal_menu_course_items (id, course_id, product_id, surcharge, sort_order, tenant_id)
-                VALUES (${item.id}, ${course.id}, ${item.product_id}, ${item.surcharge ?? 0}, ${ii}, ${tenantId})
-              `;
+              await db.insert(mealMenuCourseItems).values({
+                id: item.id, courseId: course.id, productId: item.product_id,
+                surcharge: item.surcharge ?? 0, sortOrder: ii, tenantId,
+              });
             }
           }
         }
       }
       if (m.schedules) {
         for (const s of m.schedules) {
-          await sql`
-            INSERT INTO meal_menu_schedules (id, menu_id, day_of_week, start_time, end_time, tenant_id)
-            VALUES (${s.id}, ${m.id}, ${s.day_of_week}, ${s.start_time}, ${s.end_time}, ${tenantId})
-          `;
+          await db.insert(mealMenuSchedules).values({
+            id: s.id, menuId: m.id, dayOfWeek: s.day_of_week,
+            startTime: s.start_time, endTime: s.end_time, tenantId,
+          });
         }
       }
     }
+
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
