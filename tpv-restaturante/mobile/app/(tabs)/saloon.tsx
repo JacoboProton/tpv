@@ -6,6 +6,7 @@ import { C } from '../../lib/theme';
 import { classifyError } from '../../lib/errors';
 import { useAppContext } from '../../lib/store';
 import { broadcastFloorUpdate } from '../../lib/realtime';
+import { logError, logWarn } from '../../lib/logger';
 import type { Floor, Table } from '../../lib/types';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -107,7 +108,7 @@ export default function SaloonScreen() {
       const f = await fetchFloor();
       syncFloor(f);
     } catch (e) {
-      console.error('Error loading floor', e);
+      logError('Error loading floor', { error: (e as Error).message });
     } finally {
       setLoading(false);
     }
@@ -202,7 +203,7 @@ export default function SaloonScreen() {
         closedAt: Date.now(),
       });
     } catch (e) {
-      console.warn('Error saving quick cash sale:', e);
+      logWarn('Error saving quick cash sale', { error: (e as Error).message });
     }
 
     syncFloor(f);

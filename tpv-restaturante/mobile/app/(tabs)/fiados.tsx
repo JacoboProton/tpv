@@ -4,6 +4,7 @@ import { useFocusEffect } from 'expo-router';
 import { C } from '../../lib/theme';
 import { fetchSales } from '../../lib/api';
 import { useAppContext } from '../../lib/store';
+import { logError } from '../../lib/logger';
 import type { Sale, Floor } from '../../lib/types';
 
 interface DebtInfo {
@@ -70,7 +71,7 @@ export default function FiadosScreen() {
       const data = await fetchSales();
       setSales(data || []);
     } catch (e) {
-      console.error('Error loading sales for fiados', e);
+      logError('Error loading sales for fiados', { error: (e as Error).message });
     } finally {
       setLoading(false);
     }

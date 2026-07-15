@@ -4,6 +4,7 @@ import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { C } from '../../lib/theme';
 import { fetchSales } from '../../lib/api';
+import { logError } from '../../lib/logger';
 import type { Sale } from '../../lib/types';
 
 const RANGES = [
@@ -34,7 +35,7 @@ export default function TicketsScreen() {
       const data = await fetchSales();
       setSales(data || []);
     } catch (e) {
-      console.error('Error loading tickets', e);
+      logError('Error loading tickets', { error: (e as Error).message });
     } finally {
       setLoading(false);
     }
