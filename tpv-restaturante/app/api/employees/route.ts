@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '../../../lib/db';
+import { and, eq, sql, not, inArray } from 'drizzle-orm';
+import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import bcrypt from 'bcryptjs';
 import { createHash } from 'crypto';
+import { employees } from '../../../db/schema';
 
 function sha256(s: string): string {
   return createHash('sha256').update(s, 'utf8').digest('hex');
@@ -10,21 +12,21 @@ function sha256(s: string): string {
 
 export async function GET(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
-    const rows = await sql`
-      SELECT * FROM employees WHERE tenant_id = ${tenantId} ORDER BY role DESC, name
-    `;
-    return NextResponse.json((rows as any[]).map(r => ({
+    const rows = await db.select().from(employees)
+      .where(eq(employees.tenantId, tenantId));
+    return NextResponse.json(rows.map(r => ({
       id: r.id, name: r.name, role: r.role,
-      personalDiscountEnabled: r.personal_discount_enabled,
-      monthlyLimit: Number(r.monthly_limit || 0),
-      monthlyUsed: Number(r.monthly_used || 0),
-      monthlyUsedMonth: r.monthly_used_month,
-      position: r.position, workType: r.work_type,
-      workPct: Number(r.work_pct || 100), dni: r.dni,
-      notes: r.notes, whatsappCode: r.whatsapp_code,
-      whatsappLinked: r.whatsapp_linked, createdAt: r.created_at,
-      hasPin: !!r.pin_hash,
+      personalDiscountEnabled: r.personalDiscountEnabled,
+      monthlyLimit: Number(r.monthlyLimit || 0),
+      monthlyUsed: Number(r.monthlyUsed || 0),
+      monthlyUsedMonth: r.monthlyUsedMonth,
+      position: r.position, workType: r.workType,
+      workPct: Number(r.workPct || 100), dni: r.dni,
+      notes: r.notes, whatsappCode: r.whatsappCode,
+      whatsappLinked: r.whatsappLinked, createdAt: r.createdAt,
+      hasPin: !!r.pinHash,
     })));
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
@@ -33,36 +35,54 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
-    const employees = await req.json() as any[];
+    const db = getDb();
+    const emps = await req.json() as any[];
     const tenantId = getTenantId(req);
     const queries: any[] = [];
-    for (const e of employees) {
-      queries.push(sql`
-        INSERT INTO employees (tenant_id, id, name, pin, pin_hash, role, position, work_type, work_pct, dni, notes,
-          personal_discount_enabled, monthly_limit, monthly_used, monthly_used_month,
-          whatsapp_code, whatsapp_linked, created_at)
-        VALUES (${tenantId}, ${e.id}, ${e.name}, '', ${e.pin ? bcrypt.hashSync(sha256(e.pin), 10) : (e.pin_hash || '')}, ${e.role || 'camarero'}, ${e.position || ''},
-          ${e.workType || ''}, ${e.workPct || 100}, ${e.dni || ''}, ${e.notes || ''},
-          ${e.personalDiscountEnabled || false}, ${e.monthlyLimit || 0}, ${e.monthlyUsed || 0},
-          ${e.monthlyUsedMonth || ''}, ${e.whatsappCode || ''}, ${e.whatsappLinked || false},
-          ${e.createdAt || Date.now()})
-        ON CONFLICT (id) DO UPDATE SET
-          tenant_id = EXCLUDED.tenant_id,
-          name = EXCLUDED.name, pin = '', pin_hash = EXCLUDED.pin_hash, role = EXCLUDED.role,
-          position = EXCLUDED.position, work_type = EXCLUDED.work_type,
-          work_pct = EXCLUDED.work_pct, dni = EXCLUDED.dni, notes = EXCLUDED.notes,
-          personal_discount_enabled = EXCLUDED.personal_discount_enabled,
-          monthly_limit = EXCLUDED.monthly_limit, monthly_used = EXCLUDED.monthly_used,
-          monthly_used_month = EXCLUDED.monthly_used_month,
-          whatsapp_code = EXCLUDED.whatsapp_code, whatsapp_linked = EXCLUDED.whatsapp_linked
-      `);
+    for (const e of emps) {
+      queries.push(
+        db.insert(employees).values({
+          tenantId, id: e.id, name: e.name, pin: '',
+          pinHash: e.pin ? bcrypt.hashSync(sha256(e.pin), 10) : (e.pinHash || ''),
+          role: e.role || 'camarero', position: e.position || '',
+          workType: e.workType || '', workPct: e.workPct || 100, dni: e.dni || '',
+          notes: e.notes || '',
+          personalDiscountEnabled: e.personalDiscountEnabled || false,
+          monthlyLimit: e.monthlyLimit || 0, monthlyUsed: e.monthlyUsed || 0,
+          monthlyUsedMonth: e.monthlyUsedMonth || '',
+          whatsappCode: e.whatsappCode || '', whatsappLinked: e.whatsappLinked || false,
+          createdAt: e.createdAt || Date.now(),
+        }).onConflictDoUpdate({
+          target: [employees.id, employees.tenantId],
+          set: {
+            name: sql`EXCLUDED.name`, pin: sql`''`, pinHash: sql`EXCLUDED.pin_hash`,
+            role: sql`EXCLUDED.role`, position: sql`EXCLUDED.position`,
+            workType: sql`EXCLUDED.work_type`, workPct: sql`EXCLUDED.work_pct`,
+            dni: sql`EXCLUDED.dni`, notes: sql`EXCLUDED.notes`,
+            personalDiscountEnabled: sql`EXCLUDED.personal_discount_enabled`,
+            monthlyLimit: sql`EXCLUDED.monthly_limit`,
+            monthlyUsed: sql`EXCLUDED.monthly_used`,
+            monthlyUsedMonth: sql`EXCLUDED.monthly_used_month`,
+            whatsappCode: sql`EXCLUDED.whatsapp_code`,
+            whatsappLinked: sql`EXCLUDED.whatsapp_linked`,
+          },
+        }).toSQL()
+      );
     }
-    const ids = employees.map(e => e.id);
+    const ids = emps.map((e: any) => e.id);
     if (ids.length > 0) {
-      queries.push(sql`DELETE FROM employees WHERE tenant_id = ${tenantId} AND id != ALL(${ids})`);
+      queries.push(
+        db.delete(employees)
+          .where(and(eq(employees.tenantId, tenantId), not(inArray(employees.id, ids))))
+          .toSQL()
+      );
     }
     if (queries.length > 0) {
-      await sql.transaction(queries);
+      await db.transaction(async (tx) => {
+        for (const q of queries) {
+          await tx.execute(q);
+        }
+      });
     }
     return NextResponse.json({ ok: true });
   } catch (err) {
@@ -72,20 +92,23 @@ export async function PUT(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const db = getDb();
     const body = await req.json() as any;
     const { action } = body;
     const tenantId = getTenantId(req);
 
     if (action === 'generate-codes') {
-      const employees = await sql`
-        SELECT id, name FROM employees WHERE tenant_id = ${tenantId} AND whatsapp_linked = false
-      `;
-      const codes = (employees as any[]).map((e: any) => {
+      const emps = await db.select({ id: employees.id, name: employees.name })
+        .from(employees)
+        .where(and(eq(employees.tenantId, tenantId), eq(employees.whatsappLinked, false)));
+      const codes = emps.map(e => {
         const code = Math.random().toString(36).slice(2, 8).toUpperCase();
         return { employeeId: e.id, name: e.name, code };
       });
       for (const c of codes) {
-        await sql`UPDATE employees SET whatsapp_code = ${c.code} WHERE id = ${c.employeeId} AND tenant_id = ${tenantId}`;
+        await db.update(employees)
+          .set({ whatsappCode: c.code })
+          .where(and(eq(employees.id, c.employeeId), eq(employees.tenantId, tenantId)));
       }
       return NextResponse.json({ ok: true, codes });
     }
@@ -93,14 +116,15 @@ export async function POST(req: NextRequest) {
     if (action === 'verify') {
       const { pin, pinHash } = body as Record<string, unknown>;
       if (!pin && !pinHash) return NextResponse.json({ error: 'PIN requerido' }, { status: 400 });
-      const emps = await sql`
-        SELECT * FROM employees WHERE tenant_id = ${tenantId}
-      `;
-      const emp = (emps as any[]).find((r: any) => {
-        if (pinHash && bcrypt.compareSync(pinHash as string, r.pin_hash)) return true;
-        if (pin && bcrypt.compareSync(pin as string, r.pin_hash)) {
+      const emps = await db.select().from(employees)
+        .where(eq(employees.tenantId, tenantId));
+      const emp = emps.find(r => {
+        const ph = r.pinHash ?? '';
+        if (pinHash && bcrypt.compareSync(pinHash as string, ph)) return true;
+        if (pin && bcrypt.compareSync(pin as string, ph)) {
           const newHash = bcrypt.hashSync(sha256(pin as string), 10);
-          sql`UPDATE employees SET pin_hash = ${newHash} WHERE id = ${r.id}`.catch(() => {});
+          db.update(employees).set({ pinHash: newHash })
+            .where(eq(employees.id, r.id)).catch(() => {});
           return true;
         }
         return false;
@@ -108,23 +132,23 @@ export async function POST(req: NextRequest) {
       if (!emp) return NextResponse.json({ error: 'PIN invalido' }, { status: 401 });
       return NextResponse.json({
         id: emp.id, name: emp.name, role: emp.role,
-        personalDiscountEnabled: emp.personal_discount_enabled,
-        monthlyLimit: Number(emp.monthly_limit || 0),
-        monthlyUsed: Number(emp.monthly_used || 0),
-        monthlyUsedMonth: emp.monthly_used_month,
+        personalDiscountEnabled: emp.personalDiscountEnabled,
+        monthlyLimit: Number(emp.monthlyLimit || 0),
+        monthlyUsed: Number(emp.monthlyUsed || 0),
+        monthlyUsedMonth: emp.monthlyUsedMonth,
       });
     }
 
     if (action === 'link-whatsapp') {
-      const { code, phone } = body as Record<string, unknown>;
-      const emp = await sql`
-        SELECT id, name FROM employees WHERE tenant_id = ${tenantId} AND whatsapp_code = ${code}
-      `;
-      if ((emp as any[]).length === 0) return NextResponse.json({ error: 'Codigo invalido' }, { status: 404 });
-      await sql`
-        UPDATE employees SET whatsapp_linked = true, whatsapp_code = '' WHERE id = ${(emp as any[])[0].id} AND tenant_id = ${tenantId}
-      `;
-      return NextResponse.json({ ok: true, employeeId: (emp as any[])[0].id, employeeName: (emp as any[])[0].name });
+      const { code } = body as Record<string, unknown>;
+      const [emp] = await db.select({ id: employees.id, name: employees.name })
+        .from(employees)
+        .where(and(eq(employees.tenantId, tenantId), eq(employees.whatsappCode, code as string)));
+      if (!emp) return NextResponse.json({ error: 'Codigo invalido' }, { status: 404 });
+      await db.update(employees)
+        .set({ whatsappLinked: true, whatsappCode: '' })
+        .where(and(eq(employees.id, emp.id), eq(employees.tenantId, tenantId)));
+      return NextResponse.json({ ok: true, employeeId: emp.id, employeeName: emp.name });
     }
 
     return NextResponse.json({ error: 'unknown action' }, { status: 400 });

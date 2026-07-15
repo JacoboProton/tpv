@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '../../../../lib/db';
+import { eq, desc } from 'drizzle-orm';
+import { getDb } from '../../../../lib/drizzle';
 import { rateLimit } from '../../../../lib/rate-limit';
 import { getTenantId } from '../../../../lib/tenant';
+import { webhookEvents } from '../../../../db/schema';
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,14 +16,16 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const status = searchParams.get('status') || 'failed';
+    const db = getDb();
 
-    const events = await sql`
-      SELECT event_id, type, status, error, created_at, processed_at
-      FROM webhook_events
-      WHERE status = ${status} AND tenant_id = ${tenantId}
-      ORDER BY created_at DESC
-      LIMIT 50
-    `;
+    const events = await db.select({
+      eventId: webhookEvents.eventId, type: webhookEvents.type,
+      status: webhookEvents.status, error: webhookEvents.error,
+      createdAt: webhookEvents.createdAt, processedAt: webhookEvents.processedAt,
+    }).from(webhookEvents)
+      .where(eq(webhookEvents.status, status))
+      .orderBy(desc(webhookEvents.createdAt))
+      .limit(50);
 
     return NextResponse.json(events);
   } catch (err) {
@@ -45,10 +49,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'eventId requerido' }, { status: 400 });
     }
 
-    await sql`
-      UPDATE webhook_events SET status = 'failed', error = NULL
-      WHERE event_id = ${eventId} AND tenant_id = ${tenantId}
-    `;
+    const db = getDb();
+    await db.update(webhookEvents).set({ status: 'failed', error: null })
+      .where(eq(webhookEvents.eventId, eventId));
 
     return NextResponse.json({ ok: true });
   } catch (err) {

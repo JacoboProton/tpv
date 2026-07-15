@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '../../../../lib/db';
+import { eq, and, sql, gte, lt } from 'drizzle-orm';
+import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
+import { sales } from '../../../../db/schema';
 import * as XLSX from 'xlsx';
 
 export async function GET(req: NextRequest) {
@@ -10,25 +12,33 @@ export async function GET(req: NextRequest) {
     const year = parseInt(searchParams.get('year') || String(new Date().getFullYear()));
     const from = `${year}-01-01`;
     const to = `${year}-12-31`;
+    const db = getDb();
 
-    const sales = await sql`
-      SELECT id, table_name, items, total_with_tip, payment_method, closed_at, employee_name, discount, tip
-      FROM sales WHERE tenant_id = ${tenantId} AND closed_at >= ${new Date(from).getTime()} AND closed_at < ${new Date(to + 'T23:59:59').getTime()}
-      ORDER BY closed_at
-    `;
+    const result = await db.select({
+      id: sales.id, tableName: sales.tableName, items: sales.items,
+      totalWithTip: sales.totalWithTip, paymentMethod: sales.paymentMethod,
+      closedAt: sales.closedAt, employeeName: sales.employeeName,
+      discount: sales.discount, tip: sales.tip,
+    }).from(sales)
+      .where(and(
+        eq(sales.tenantId, tenantId),
+        gte(sales.closedAt, new Date(from).getTime()),
+        lt(sales.closedAt, new Date(to + 'T23:59:59').getTime()),
+      ))
+      .orderBy(sales.closedAt);
 
-    const rows = sales.map(s => {
-      const items = typeof s.items === 'string' ? JSON.parse(s.items) : (s.items || []);
-      const date = new Date(s.closed_at).toLocaleDateString('es-ES');
+    const rows = result.map(s => {
+      const itemsArr = typeof s.items === 'string' ? JSON.parse(s.items) : (s.items || []);
+      const date = new Date(s.closedAt).toLocaleDateString('es-ES');
       return {
         Fecha: date,
-        Mesa: s.table_name || '',
-        'Tipo de pago': s.payment_method || '',
-        Empleado: s.employee_name || '',
-        'Nº artículos': items.reduce((sum: number, i: any) => sum + (i.qty || 1), 0),
-        Total: parseFloat(s.total_with_tip) || 0,
-        Descuento: parseFloat(s.discount) || 0,
-        Propina: parseFloat(s.tip) || 0,
+        Mesa: s.tableName || '',
+        'Tipo de pago': s.paymentMethod || '',
+        Empleado: s.employeeName || '',
+        'Nº artículos': (itemsArr as any[]).reduce((sum: number, i: any) => sum + (i.qty || 1), 0),
+        Total: Number(s.totalWithTip) || 0,
+        Descuento: Number(s.discount) || 0,
+        Propina: Number(s.tip) || 0,
       };
     });
 

@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '../../../lib/db';
+import { eq, and } from 'drizzle-orm';
+import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
+import { deliveryZones } from '../../../db/schema';
 
 export async function GET(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
-    const rows = await sql`SELECT * FROM delivery_zones WHERE tenant_id = ${tenantId} ORDER BY name`;
-    return NextResponse.json(rows.map(r => ({
-      id: r.id, name: r.name, radiusKm: Number(r.radius_km),
-      cost: Number(r.cost), minOrder: Number(r.min_order),
-      estimatedMinutes: r.estimated_minutes, active: r.active,
-      createdAt: r.created_at,
-    })));
+    const rows = await db.select().from(deliveryZones)
+      .where(eq(deliveryZones.tenantId, tenantId));
+    return NextResponse.json(rows);
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
@@ -19,13 +18,18 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
     const body = await req.json() as any;
     const id = 'dz_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    await sql`
-      INSERT INTO delivery_zones (id, name, radius_km, cost, min_order, estimated_minutes, active, created_at, tenant_id)
-      VALUES (${id}, ${body.name}, ${body.radiusKm || 0}, ${body.cost || 0}, ${body.minOrder || 0}, ${body.estimatedMinutes || 30}, ${body.active !== false}, ${Date.now()}, ${tenantId})
-    `;
+    await db.insert(deliveryZones).values({
+      id, name: body.name,
+      radiusKm: body.radiusKm || 0, cost: body.cost || 0,
+      minOrder: body.minOrder || 0,
+      estimatedMinutes: body.estimatedMinutes || 30,
+      active: body.active !== false,
+      createdAt: Date.now(), tenantId,
+    });
     return NextResponse.json({ ok: true, id });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
@@ -34,14 +38,15 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
     const body = await req.json() as any;
-    await sql`
-      UPDATE delivery_zones SET name = ${body.name}, radius_km = ${body.radiusKm || 0},
-        cost = ${body.cost || 0}, min_order = ${body.minOrder || 0},
-        estimated_minutes = ${body.estimatedMinutes || 30}, active = ${body.active !== false}
-      WHERE id = ${body.id} AND tenant_id = ${tenantId}
-    `;
+    await db.update(deliveryZones).set({
+      name: body.name, radiusKm: body.radiusKm || 0,
+      cost: body.cost || 0, minOrder: body.minOrder || 0,
+      estimatedMinutes: body.estimatedMinutes || 30,
+      active: body.active !== false,
+    }).where(eq(deliveryZones.id, body.id));
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
@@ -50,9 +55,10 @@ export async function PUT(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
     const { id } = await req.json() as any;
-    await sql`DELETE FROM delivery_zones WHERE id = ${id} AND tenant_id = ${tenantId}`;
+    await db.delete(deliveryZones).where(and(eq(deliveryZones.id, id), eq(deliveryZones.tenantId, tenantId)));
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

@@ -1,15 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '../../../lib/db';
+import { eq } from 'drizzle-orm';
+import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { invalidateSettingsCache } from '../../../lib/settings-cache';
+import { settings } from '../../../db/schema';
 
 export async function GET(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
-    const rows = await sql`SELECT key, value FROM settings WHERE tenant_id = ${tenantId}`;
-    const settings: Record<string, unknown> = {};
-    for (const r of rows as any[]) settings[r.key] = r.value;
-    return NextResponse.json(settings);
+    const rows = await db.select({ key: settings.key, value: settings.value })
+      .from(settings)
+      .where(eq(settings.tenantId, tenantId));
+    const result: Record<string, unknown> = {};
+    for (const r of rows) result[r.key] = r.value;
+    return NextResponse.json(result);
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
@@ -17,14 +22,16 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
+    const db = getDb();
     const body = await req.json() as any;
     const tenantId = getTenantId(req);
     for (const [key, value] of Object.entries(body)) {
-      await sql`
-        INSERT INTO settings (tenant_id, key, value)
-        VALUES (${tenantId}, ${key}, ${String(value)})
-        ON CONFLICT (key) DO UPDATE SET tenant_id = EXCLUDED.tenant_id, value = EXCLUDED.value
-      `;
+      await db.insert(settings).values({
+        tenantId, key, value: String(value),
+      }).onConflictDoUpdate({
+        target: settings.key,
+        set: { tenantId, value: String(value) },
+      });
     }
     invalidateSettingsCache();
     return NextResponse.json({ ok: true });

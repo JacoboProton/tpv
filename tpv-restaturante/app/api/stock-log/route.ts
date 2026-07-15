@@ -1,57 +1,62 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '../../../lib/db';
+import { eq, sql } from 'drizzle-orm';
+import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
+import { stockLog } from '../../../db/schema';
 
-// GET /api/stock-log → devuelve entradas del stock log
 export async function GET(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
     const { searchParams } = new URL(req.url);
     const limit = Math.min(parseInt(searchParams.get('limit') ?? '100'), 500);
     const offset = Math.max(parseInt(searchParams.get('offset') ?? '0'), 0);
 
     const [rows, countResult] = await Promise.all([
-      sql`
-        SELECT id, product_id AS "productId", product_name AS "productName",
-               old_stock AS "oldStock", new_stock AS "newStock",
-               change_amount AS "changeAmount", reason,
-               employee_name AS "employeeName", created_at AS "createdAt"
-        FROM stock_log
-        WHERE tenant_id = ${tenantId}
-        ORDER BY created_at DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `,
-      sql`SELECT COUNT(*)::int AS total FROM stock_log WHERE tenant_id = ${tenantId}`,
+      db.select({
+        id: stockLog.id, productId: stockLog.productId,
+        productName: stockLog.productName,
+        oldStock: stockLog.oldStock, newStock: stockLog.newStock,
+        changeAmount: stockLog.changeAmount, reason: stockLog.reason,
+        employeeName: stockLog.employeeName, createdAt: stockLog.createdAt,
+      }).from(stockLog)
+        .where(eq(stockLog.tenantId, tenantId))
+        .orderBy(sql`created_at DESC`)
+        .limit(limit).offset(offset),
+      db.execute(sql`SELECT COUNT(*)::int AS total FROM stock_log WHERE tenant_id = ${tenantId}`),
     ]);
+
+    const total = ((countResult as any).rows?.[0]?.total ?? 0) as number;
 
     return NextResponse.json({
       rows,
-      total: countResult[0].total,
+      total,
       limit,
       offset,
-      hasMore: offset + limit < countResult[0].total,
+      hasMore: offset + limit < total,
     });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
 
-// POST /api/stock-log → crea una entrada
 export async function POST(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
     const { productId, productName, oldStock, newStock, reason, employeeName } = await req.json() as any;
 
     const changeAmount = newStock - oldStock;
 
-    const [record] = await sql`
-      INSERT INTO stock_log (product_id, product_name, old_stock, new_stock, change_amount, reason, employee_name, created_at, tenant_id)
-      VALUES (${productId}, ${productName}, ${oldStock}, ${newStock}, ${changeAmount}, ${reason}, ${employeeName}, ${Date.now()}, ${tenantId})
-      RETURNING id, product_id AS "productId", product_name AS "productName",
-                old_stock AS "oldStock", new_stock AS "newStock",
-                change_amount AS "changeAmount", reason,
-                employee_name AS "employeeName", created_at AS "createdAt"
-    `;
+    const [record] = await db.insert(stockLog).values({
+      productId, productName, oldStock, newStock,
+      changeAmount, reason, employeeName, createdAt: Date.now(), tenantId,
+    }).returning({
+      id: stockLog.id, productId: stockLog.productId, productName: stockLog.productName,
+      oldStock: stockLog.oldStock, newStock: stockLog.newStock,
+      changeAmount: stockLog.changeAmount, reason: stockLog.reason,
+      employeeName: stockLog.employeeName, createdAt: stockLog.createdAt,
+    });
 
     return NextResponse.json(record);
   } catch (err) {

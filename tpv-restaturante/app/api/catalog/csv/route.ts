@@ -1,24 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '../../../../lib/db';
+import { eq, sql } from 'drizzle-orm';
+import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
+import { products } from '../../../../db/schema';
 
 export async function GET(req: NextRequest) {
   try {
     const tenantId = getTenantId(req);
-    const products = await sql`
-      SELECT id, name, category, price::float AS price, active, show_tpv, show_qr, agotado, description
-      FROM products WHERE tenant_id = ${tenantId} ORDER BY category, name
-    `;
+    const db = getDb();
+    const result = await db.select({
+      id: products.id, name: products.name, category: products.category,
+      price: products.price, active: products.active, showTpv: products.showTpv,
+      showQr: products.showQr, agotado: products.agotado, description: products.description,
+    }).from(products)
+      .where(eq(products.tenantId, tenantId))
+      .orderBy(products.category, products.name);
+
     const header = 'id,nombre,precio,categoria,activo,tpv,qr,agotado,descripcion';
-    const rows = products.map(p =>
+    const rows = result.map(p =>
       [
         p.id,
         `"${(p.name || '').replace(/"/g, '""')}"`,
-        p.price.toFixed(2),
+        Number(p.price).toFixed(2),
         `"${(p.category || '').replace(/"/g, '""')}"`,
         p.active ? '1' : '0',
-        p.show_tpv ? '1' : '0',
-        p.show_qr ? '1' : '0',
+        p.showTpv ? '1' : '0',
+        p.showQr ? '1' : '0',
         p.agotado ? '1' : '0',
         `"${(p.description || '').replace(/"/g, '""')}"`,
       ].join(',')
@@ -38,6 +45,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const tenantId = getTenantId(req);
+    const db = getDb();
     const text = await req.text();
     const lines = text.split('\n').filter(Boolean);
     if (lines.length < 2) return NextResponse.json({ ok: true, imported: 0 });
@@ -66,15 +74,18 @@ export async function POST(req: NextRequest) {
       const showQr = qrIdx >= 0 ? cols[qrIdx] === '1' : true;
       const agotado = agotadoIdx >= 0 ? cols[agotadoIdx] === '1' : false;
 
-      await sql`
-        INSERT INTO products (tenant_id, id, name, category, price, active, show_tpv, show_qr, agotado)
-        VALUES (${tenantId}, ${id}, ${name}, ${category}, ${price}, ${active}, ${showTpv}, ${showQr}, ${agotado})
-        ON CONFLICT (tenant_id, id) DO UPDATE SET
-          name = EXCLUDED.name, category = EXCLUDED.category,
-          price = EXCLUDED.price, active = EXCLUDED.active,
-          show_tpv = EXCLUDED.show_tpv, show_qr = EXCLUDED.show_qr,
-          agotado = EXCLUDED.agotado
-      `;
+      await db.insert(products).values({
+        tenantId, id, name, category, price: String(price),
+        active, showTpv, showQr, agotado,
+      }).onConflictDoUpdate({
+        target: [products.tenantId, products.id],
+        set: {
+          name: sql`EXCLUDED.name`, category: sql`EXCLUDED.category`,
+          price: sql`EXCLUDED.price`, active: sql`EXCLUDED.active`,
+          showTpv: sql`EXCLUDED.show_tpv`, showQr: sql`EXCLUDED.show_qr`,
+          agotado: sql`EXCLUDED.agotado`,
+        },
+      });
       imported++;
     }
     return NextResponse.json({ ok: true, imported });

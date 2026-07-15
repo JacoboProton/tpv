@@ -1,11 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '../../../lib/db';
+import { eq, sql } from 'drizzle-orm';
+import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
+import { offers } from '../../../db/schema';
 
 export async function GET(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
-    const rows = await sql`SELECT id, name, type, days, start_hour, end_hour, discount_pct::float AS discountPct, fixed_price::float AS fixedPrice, product_ids AS "productIds", active FROM offers WHERE tenant_id = ${tenantId} ORDER BY name`;
+    const rows = await db.select({
+      id: offers.id, name: offers.name, type: offers.type,
+      days: offers.days,
+      startHour: offers.startHour, endHour: offers.endHour,
+      discountPct: sql<number>`${offers.discountPct}::float`,
+      fixedPrice: sql<number>`${offers.fixedPrice}::float`,
+      productIds: offers.productIds,
+      active: offers.active,
+    }).from(offers)
+      .where(eq(offers.tenantId, tenantId));
     return NextResponse.json(rows);
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
@@ -14,14 +26,18 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
-    const offers = await req.json();
-    await sql`DELETE FROM offers WHERE tenant_id = ${tenantId}`;
-    for (const o of offers) {
-      await sql`
-        INSERT INTO offers (id, name, type, days, start_hour, end_hour, discount_pct, fixed_price, product_ids, active, tenant_id)
-        VALUES (${o.id}, ${o.name}, ${o.type}, ${o.days}, ${o.startHour}, ${o.endHour}, ${o.discountPct ?? null}, ${o.fixedPrice ?? null}, ${o.productIds}, ${o.active}, ${tenantId})
-      `;
+    const data = await req.json() as any[];
+    await db.delete(offers).where(eq(offers.tenantId, tenantId));
+    for (const o of data) {
+      await db.insert(offers).values({
+        id: o.id, name: o.name, type: o.type, days: o.days,
+        startHour: o.startHour, endHour: o.endHour,
+        discountPct: o.discountPct ?? null,
+        fixedPrice: o.fixedPrice ?? null,
+        productIds: o.productIds, active: o.active, tenantId,
+      });
     }
     return NextResponse.json({ ok: true });
   } catch (err) {

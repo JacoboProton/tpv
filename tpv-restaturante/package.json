@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:pull": "drizzle-kit pull",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
     "@neondatabase/serverless": "1.1.0",
@@ -17,7 +20,10 @@
     "@stripe/react-stripe-js": "3.3.0",
     "@stripe/stripe-js": "5.6.0",
     "@supabase/supabase-js": "^2.108.2",
+    "@tailwindcss/postcss": "^4",
     "bcryptjs": "^3.0.3",
+    "drizzle-kit": "^0.31.10",
+    "drizzle-orm": "^0.45.2",
     "iconv-lite": "^0.7.3",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
@@ -34,10 +40,9 @@
     "react-dom": "19.2.4",
     "recharts": "^3.9.0",
     "stripe": "17.7.0",
+    "tailwindcss": "^4",
     "xlsx": "^0.18.5",
-    "zod": "^4.4.3",
-    "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",

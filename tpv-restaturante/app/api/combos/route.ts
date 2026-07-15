@@ -1,40 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '../../../lib/db';
+import { eq, sql } from 'drizzle-orm';
+import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
+import { combos, comboSlots, comboSlotItems, comboItems } from '../../../db/schema';
 
 export async function GET(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
-    const combos = await sql`
-      SELECT id, name, description, price::float AS price, image, active, created_at, discount_pct::float AS discountPct
-      FROM combos WHERE tenant_id = ${tenantId} ORDER BY name
-    `;
-    const slots = await sql`
-      SELECT id, combo_id, name, min_choices, max_choices, sort_order
-      FROM combo_slots WHERE tenant_id = ${tenantId} ORDER BY sort_order
-    `;
-    const slotItems = await sql`
-      SELECT csi.id, csi.slot_id, csi.product_id, csi.surcharge::float AS surcharge, csi.sort_order,
-             p.name AS product_name, p.price::float AS product_price
-      FROM combo_slot_items csi
-      JOIN products p ON p.id = csi.product_id
-      WHERE csi.tenant_id = ${tenantId}
-      ORDER BY csi.sort_order
-    `;
-    const itemsBySlot: Record<string, any> = {};
-    for (const item of slotItems) {
-      if (!itemsBySlot[item.slot_id]) itemsBySlot[item.slot_id] = [];
-      itemsBySlot[item.slot_id].push(item);
+    const [comboRows, slotRows, slotItemRows] = await Promise.all([
+      db.select({
+        id: combos.id, name: combos.name, description: combos.description,
+        price: sql<number>`${combos.price}::float`, image: combos.image,
+        active: combos.active, createdAt: combos.createdAt,
+        discountPct: sql<number>`${combos.discountPct}::float`,
+      }).from(combos).where(eq(combos.tenantId, tenantId)),
+      db.select().from(comboSlots).where(eq(comboSlots.tenantId, tenantId)),
+      db.select({
+        id: comboSlotItems.id, slotId: comboSlotItems.slotId,
+        productId: comboSlotItems.productId,
+        surcharge: sql<number>`${comboSlotItems.surcharge}::float`,
+        sortOrder: comboSlotItems.sortOrder,
+        productName: sql<string>`p.name`,
+        productPrice: sql<number>`p.price::float`,
+      }).from(comboSlotItems)
+        .leftJoin(sql`products p`, eq(comboSlotItems.productId, sql`p.id`))
+        .where(eq(comboSlotItems.tenantId, tenantId)),
+    ]);
+
+    const itemsBySlot: Record<string, any[]> = {};
+    for (const item of slotItemRows) {
+      if (!itemsBySlot[item.slotId]) itemsBySlot[item.slotId] = [];
+      itemsBySlot[item.slotId].push(item);
     }
-    const slotsByCombo: Record<string, any> = {};
-    for (const s of slots) {
-      if (!slotsByCombo[s.combo_id]) slotsByCombo[s.combo_id] = [];
-      slotsByCombo[s.combo_id].push({ ...s, items: itemsBySlot[s.id] || [] });
+    const slotsByCombo: Record<string, any[]> = {};
+    for (const s of slotRows) {
+      if (!slotsByCombo[s.comboId]) slotsByCombo[s.comboId] = [];
+      slotsByCombo[s.comboId].push({ ...s, items: itemsBySlot[s.id] || [] });
     }
-    const data = combos.map(c => ({
-      ...c,
-      active: !!c.active,
-      slots: slotsByCombo[c.id] || [],
+    const data = comboRows.map(c => ({
+      ...c, active: !!c.active, slots: slotsByCombo[c.id] || [],
     }));
     return NextResponse.json(data);
   } catch (err) {
@@ -44,37 +49,44 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
-    const combos = await req.json();
-    await sql`DELETE FROM combo_slot_items WHERE tenant_id = ${tenantId}`;
-    await sql`DELETE FROM combo_slots WHERE tenant_id = ${tenantId}`;
-    await sql`DELETE FROM combo_items WHERE tenant_id = ${tenantId}`;
-    await sql`DELETE FROM combos WHERE tenant_id = ${tenantId}`;
+    const data = await req.json() as any[];
 
-    for (const c of combos) {
-      await sql`
-        INSERT INTO combos (id, name, description, price, image, active, created_at, discount_pct, tenant_id)
-        VALUES (${c.id}, ${c.name}, ${c.description || ''}, ${c.price}, ${c.image || null}, ${c.active ?? true}, ${Date.now()}, ${c.discountPct ?? 0}, ${tenantId})
-      `;
-      if (c.slots) {
-        for (let si = 0; si < c.slots.length; si++) {
-          const slot = c.slots[si];
-          await sql`
-            INSERT INTO combo_slots (id, combo_id, name, min_choices, max_choices, sort_order, tenant_id)
-            VALUES (${slot.id}, ${c.id}, ${slot.name}, ${slot.minChoices ?? 1}, ${slot.maxChoices ?? 1}, ${si}, ${tenantId})
-          `;
-          if (slot.items) {
-            for (let ii = 0; ii < slot.items.length; ii++) {
-              const item = slot.items[ii];
-              await sql`
-                INSERT INTO combo_slot_items (id, slot_id, product_id, surcharge, sort_order, tenant_id)
-                VALUES (${item.id}, ${slot.id}, ${item.product_id}, ${item.surcharge ?? 0}, ${ii}, ${tenantId})
-              `;
+    await db.transaction(async (tx) => {
+      await tx.delete(comboSlotItems).where(eq(comboSlotItems.tenantId, tenantId));
+      await tx.delete(comboSlots).where(eq(comboSlots.tenantId, tenantId));
+      await tx.delete(comboItems).where(eq(comboItems.tenantId, tenantId));
+      await tx.delete(combos).where(eq(combos.tenantId, tenantId));
+
+      for (const c of data) {
+        await tx.insert(combos).values({
+          id: c.id, name: c.name, description: c.description || '',
+          price: c.price, image: c.image || null, active: c.active ?? true,
+          createdAt: Date.now(), discountPct: c.discountPct ?? 0, tenantId,
+        });
+        if (c.slots) {
+          for (let si = 0; si < c.slots.length; si++) {
+            const slot = c.slots[si];
+            await tx.insert(comboSlots).values({
+              id: slot.id, comboId: c.id, name: slot.name,
+              minChoices: slot.minChoices ?? 1, maxChoices: slot.maxChoices ?? 1,
+              sortOrder: si, tenantId,
+            });
+            if (slot.items) {
+              for (let ii = 0; ii < slot.items.length; ii++) {
+                const item = slot.items[ii];
+                await tx.insert(comboSlotItems).values({
+                  id: item.id, slotId: slot.id, productId: item.product_id,
+                  surcharge: item.surcharge ?? 0, sortOrder: ii, tenantId,
+                });
+              }
             }
           }
         }
       }
-    }
+    });
+
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

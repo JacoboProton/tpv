@@ -1,18 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '../../../lib/db';
+import { eq, and, sql } from 'drizzle-orm';
+import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
+import { productStock } from '../../../db/schema';
 
 export async function POST(req: NextRequest) {
   const tenantId = getTenantId(req);
   try {
-    const rows = await sql`SELECT DISTINCT product_id FROM product_stock WHERE tenant_id = ${tenantId}`;
+    const db = getDb();
+    const rows = await db.selectDistinct({ productId: productStock.productId })
+      .from(productStock)
+      .where(eq(productStock.tenantId, tenantId));
     for (const r of rows) {
-      // Sumar 100 al Almacén; si no existe, crearlo con stock=100
-      const existing = await sql`SELECT stock FROM product_stock WHERE product_id = ${r.product_id} AND location = 'Almacén' AND tenant_id = ${tenantId}`;
+      const existing = await db.select({ stock: productStock.stock })
+        .from(productStock)
+        .where(and(
+          eq(productStock.productId, r.productId),
+          eq(productStock.location, 'Almacén'),
+          eq(productStock.tenantId, tenantId),
+        ));
       if (existing.length > 0) {
-        await sql`UPDATE product_stock SET stock = stock + 100 WHERE product_id = ${r.product_id} AND location = 'Almacén' AND tenant_id = ${tenantId}`;
+        await db.update(productStock).set({ stock: sql`stock + 100` })
+          .where(and(
+            eq(productStock.productId, r.productId),
+            eq(productStock.location, 'Almacén'),
+            eq(productStock.tenantId, tenantId),
+          ));
       } else {
-        await sql`INSERT INTO product_stock (product_id, tenant_id, location, stock, low_stock) VALUES (${r.product_id}, ${tenantId}, 'Almacén', 100, 20)`;
+        await db.insert(productStock).values({
+          productId: r.productId, tenantId, location: 'Almacén', stock: 100, lowStock: 20,
+        });
       }
     }
     return NextResponse.json({ ok: true, actualizados: rows.length });

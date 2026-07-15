@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '../../../../lib/db';
+import { eq, and, sql } from 'drizzle-orm';
+import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
 import { requireAdminPin } from '../../../../lib/rbac';
+import { verifactuRegistros } from '../../../../db/schema';
 
-// DELETE /api/verifactu/delete-test
-// Borra todos los registros de prueba (sale_id empieza por 'test-' seguido de UUID)
 export async function DELETE(req: NextRequest) {
   try {
     const body = await req.json() as any;
@@ -14,26 +14,27 @@ export async function DELETE(req: NextRequest) {
     }
 
     const tenantId = getTenantId(req);
+    const db = getDb();
 
-    // Backup before deleting
-    const toDelete = await sql`
-      SELECT * FROM verifactu_registros
-      WHERE sale_id LIKE 'test-%-%' AND tenant_id = ${tenantId}
-    `;
+    const toDelete = await db.select().from(verifactuRegistros)
+      .where(and(
+        sql`${verifactuRegistros.saleId} LIKE 'test-%-%'`,
+        eq(verifactuRegistros.tenantId, tenantId),
+      ));
     if (toDelete.length > 0) {
       const backupId = 'backup_verifactu_test_' + Date.now();
-      await sql`
+      await db.execute(sql`
         INSERT INTO backups (id, data, created_at)
         VALUES (${backupId}, ${JSON.stringify(toDelete)}, ${Date.now()})
         ON CONFLICT (id) DO NOTHING
-      `;
+      `);
     }
 
-    const deleted = await sql`
-      DELETE FROM verifactu_registros
-      WHERE sale_id LIKE 'test-%-%' AND tenant_id = ${tenantId}
-      RETURNING id, sale_id, num_serie
-    `;
+    const deleted = await db.delete(verifactuRegistros)
+      .where(and(
+        sql`${verifactuRegistros.saleId} LIKE 'test-%-%'`,
+        eq(verifactuRegistros.tenantId, tenantId),
+      )).returning({ id: verifactuRegistros.id, saleId: verifactuRegistros.saleId, numSerie: verifactuRegistros.numSerie });
     return NextResponse.json({ ok: true, deleted: deleted.length });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

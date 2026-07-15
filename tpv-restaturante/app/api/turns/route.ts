@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '../../../lib/db';
+import { eq, and } from 'drizzle-orm';
+import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
+import { employeeTurns } from '../../../db/schema';
 
 export async function GET(req: NextRequest) {
   try {
@@ -8,18 +10,22 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const employeeId = searchParams.get('employeeId');
     const turnDate = searchParams.get('turnDate');
+    const db = getDb();
 
-    let base = sql`SELECT * FROM employee_turns WHERE tenant_id = ${tenantId}`;
+    let conditions = [eq(employeeTurns.tenantId, tenantId)];
     if (employeeId && turnDate) {
-      base = sql`${base} AND employee_id = ${employeeId} AND turn_date = ${turnDate}`;
+      conditions.push(eq(employeeTurns.employeeId, employeeId));
+      conditions.push(eq(employeeTurns.turnDate, turnDate));
     } else if (employeeId) {
-      base = sql`${base} AND employee_id = ${employeeId}`;
+      conditions.push(eq(employeeTurns.employeeId, employeeId));
     } else if (turnDate) {
-      base = sql`${base} AND turn_date = ${turnDate}`;
+      conditions.push(eq(employeeTurns.turnDate, turnDate));
     }
-    base = sql`${base} ORDER BY time ASC`;
 
-    const rows = await base;
+    const rows = await db.select().from(employeeTurns)
+      .where(and(...conditions))
+      .orderBy(employeeTurns.time);
+
     return NextResponse.json(rows);
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
@@ -31,11 +37,11 @@ export async function POST(req: NextRequest) {
     const tenantId = getTenantId(req);
     const { employeeId, employeeName, action, turnDate } = await req.json() as any;
     const time = Date.now();
+    const db = getDb();
 
-    await sql`
-      INSERT INTO employee_turns (employee_id, employee_name, action, turn_date, time, tenant_id)
-      VALUES (${employeeId}, ${employeeName}, ${action}, ${turnDate}, ${time}, ${tenantId})
-    `;
+    await db.insert(employeeTurns).values({
+      employeeId, employeeName, action, turnDate, time, tenantId,
+    });
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

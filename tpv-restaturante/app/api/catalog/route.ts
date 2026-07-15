@@ -1,76 +1,122 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '../../../lib/db';
+import { eq, sql, and } from 'drizzle-orm';
+import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
+import { products, categories, productStock, combos, comboSlots, comboSlotItems, productPriceRules, mealMenus, mealMenuCourses, mealMenuCourseItems, mealMenuSchedules } from '../../../db/schema';
 
 export async function GET(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
 
-    const [rows, categories, stockRows, comboRows, slotRows, slotItemRows, priceRules] = await Promise.all([
-      sql`SELECT id, name, category, price::float AS price, ubicacion, course, image, allergens, description, featured, active, show_tpv, show_qr, agotado, carousel_sort, type, inventariable FROM products WHERE tenant_id = ${tenantId} ORDER BY category, name`,
-      sql`SELECT id, name, sort_order, active, printer_zone, show_qr FROM categories WHERE tenant_id = ${tenantId} ORDER BY sort_order, name`,
-      sql`SELECT * FROM product_stock WHERE tenant_id = ${tenantId} ORDER BY product_id, location`,
-      sql`SELECT id, name, description, price::float AS price, image, active, created_at, discount_pct::float AS "discountPct" FROM combos WHERE tenant_id = ${tenantId} ORDER BY name`,
-      sql`SELECT id, combo_id, name, min_choices, max_choices, sort_order FROM combo_slots WHERE tenant_id = ${tenantId} ORDER BY sort_order`,
-      sql`SELECT csi.id, csi.slot_id, csi.product_id, csi.surcharge::float AS surcharge, csi.sort_order, p.name AS product_name, p.price::float AS product_price FROM combo_slot_items csi JOIN products p ON p.id = csi.product_id WHERE csi.tenant_id = ${tenantId} ORDER BY csi.sort_order`,
-      sql`SELECT id, product_id, name, active, days, start_time, end_time, type, value::float AS value, created_at FROM product_price_rules WHERE tenant_id = ${tenantId} ORDER BY product_id, name`,
+    const [rows, catRows, stockRows, comboRows, slotRows, slotItemRows, priceRuleRows] = await Promise.all([
+      db.select({
+        id: products.id, name: products.name, category: products.category,
+        price: sql<number>`${products.price}::float`,
+        ubicacion: products.ubicacion, course: products.course,
+        image: products.image, allergens: products.allergens,
+        description: products.description, featured: products.featured,
+        active: products.active, showTpv: products.showTpv,
+        showQr: products.showQr, agotado: products.agotado,
+        carouselSort: products.carouselSort, type: products.type,
+        inventariable: products.inventariable,
+      }).from(products).where(eq(products.tenantId, tenantId)),
+      db.select().from(categories).where(eq(categories.tenantId, tenantId)),
+      db.select().from(productStock).where(eq(productStock.tenantId, tenantId)),
+      db.select({
+        id: combos.id, name: combos.name, description: combos.description,
+        price: sql<number>`${combos.price}::float`, image: combos.image,
+        active: combos.active, createdAt: combos.createdAt,
+        discountPct: sql<number>`${combos.discountPct}::float`,
+      }).from(combos).where(eq(combos.tenantId, tenantId)),
+      db.select().from(comboSlots).where(eq(comboSlots.tenantId, tenantId)),
+      db.select({
+        id: comboSlotItems.id, slotId: comboSlotItems.slotId,
+        productId: comboSlotItems.productId,
+        surcharge: sql<number>`${comboSlotItems.surcharge}::float`,
+        sortOrder: comboSlotItems.sortOrder,
+        productName: sql<string>`p.name`,
+        productPrice: sql<number>`p.price::float`,
+      }).from(comboSlotItems)
+        .leftJoin(sql`products p`, eq(comboSlotItems.productId, sql`p.id`))
+        .where(eq(comboSlotItems.tenantId, tenantId)),
+      db.select({
+        id: productPriceRules.id, productId: productPriceRules.productId,
+        name: productPriceRules.name, active: productPriceRules.active,
+        days: productPriceRules.days, startTime: productPriceRules.startTime,
+        endTime: productPriceRules.endTime, type: productPriceRules.type,
+        value: sql<number>`${productPriceRules.value}::float`,
+        createdAt: productPriceRules.createdAt,
+      }).from(productPriceRules).where(eq(productPriceRules.tenantId, tenantId)),
     ]);
 
-    const [mealMenuRows, mmCourseRows, mmItemRows, mmSchedRows] = await Promise.all([
-      sql`SELECT * FROM meal_menus WHERE tenant_id = ${tenantId} ORDER BY name`,
-      sql`SELECT * FROM meal_menu_courses WHERE tenant_id = ${tenantId} ORDER BY sort_order`,
-      sql`SELECT mmci.id, mmci.course_id, mmci.product_id, mmci.surcharge::float AS surcharge, mmci.sort_order, p.name AS product_name, p.price::float AS product_price FROM meal_menu_course_items mmci JOIN products p ON p.id = mmci.product_id WHERE mmci.tenant_id = ${tenantId} ORDER BY mmci.sort_order`,
-      sql`SELECT * FROM meal_menu_schedules WHERE tenant_id = ${tenantId} ORDER BY day_of_week, start_time`,
+    const [mmRows, mmCourseRows, mmItemRows, mmSchedRows] = await Promise.all([
+      db.select().from(mealMenus).where(eq(mealMenus.tenantId, tenantId)),
+      db.select().from(mealMenuCourses).where(eq(mealMenuCourses.tenantId, tenantId)),
+      db.select({
+        id: mealMenuCourseItems.id, courseId: mealMenuCourseItems.courseId,
+        productId: mealMenuCourseItems.productId,
+        surcharge: sql<number>`${mealMenuCourseItems.surcharge}::float`,
+        sortOrder: mealMenuCourseItems.sortOrder,
+        productName: sql<string>`p.name`,
+        productPrice: sql<number>`p.price::float`,
+      }).from(mealMenuCourseItems)
+        .leftJoin(sql`products p`, eq(mealMenuCourseItems.productId, sql`p.id`))
+        .where(eq(mealMenuCourseItems.tenantId, tenantId)),
+      db.select().from(mealMenuSchedules).where(eq(mealMenuSchedules.tenantId, tenantId)),
     ]);
 
     const stockByProduct: Record<string, Record<string, { stock: number; lowStock: number }>> = {};
-    for (const s of stockRows as any[]) {
-      if (!stockByProduct[s.product_id]) stockByProduct[s.product_id] = {};
-      stockByProduct[s.product_id][s.location] = { stock: s.stock, lowStock: s.low_stock };
+    for (const s of stockRows) {
+      if (!stockByProduct[s.productId]) stockByProduct[s.productId] = {};
+      stockByProduct[s.productId][s.location] = { stock: s.stock, lowStock: s.lowStock };
     }
-    const products = (rows as any[]).map((p: any) => ({
-      ...p,
-      stockByLocation: stockByProduct[p.id] || {},
+    const productsMapped = rows.map(p => ({
+      ...p, stockByLocation: stockByProduct[p.id] || {},
     }));
 
     const itemsBySlot: Record<string, any[]> = {};
-    for (const item of slotItemRows as any[]) {
-      if (!itemsBySlot[item.slot_id]) itemsBySlot[item.slot_id] = [];
-      itemsBySlot[item.slot_id].push(item);
+    for (const item of slotItemRows) {
+      if (!itemsBySlot[item.slotId]) itemsBySlot[item.slotId] = [];
+      itemsBySlot[item.slotId].push(item);
     }
     const slotsByCombo: Record<string, any[]> = {};
-    for (const s of slotRows as any[]) {
-      if (!slotsByCombo[s.combo_id]) slotsByCombo[s.combo_id] = [];
-      slotsByCombo[s.combo_id].push({ ...s, items: itemsBySlot[s.id] || [] });
+    for (const s of slotRows) {
+      if (!slotsByCombo[s.comboId]) slotsByCombo[s.comboId] = [];
+      slotsByCombo[s.comboId].push({ ...s, items: itemsBySlot[s.id] || [] });
     }
-    const combos = (comboRows as any[]).map((c: any) => ({
+    const combosMapped = comboRows.map(c => ({
       ...c, active: !!c.active, slots: slotsByCombo[c.id] || [],
     }));
 
     const mmItemsByCourse: Record<string, any[]> = {};
-    for (const item of mmItemRows as any[]) {
-      if (!mmItemsByCourse[item.course_id]) mmItemsByCourse[item.course_id] = [];
-      mmItemsByCourse[item.course_id].push(item);
+    for (const item of mmItemRows) {
+      if (!mmItemsByCourse[item.courseId]) mmItemsByCourse[item.courseId] = [];
+      mmItemsByCourse[item.courseId].push(item);
     }
     const mmCoursesByMenu: Record<string, any[]> = {};
-    for (const c of mmCourseRows as any[]) {
-      if (!mmCoursesByMenu[c.menu_id]) mmCoursesByMenu[c.menu_id] = [];
-      mmCoursesByMenu[c.menu_id].push({ ...c, items: mmItemsByCourse[c.id] || [] });
+    for (const c of mmCourseRows) {
+      if (!mmCoursesByMenu[c.menuId]) mmCoursesByMenu[c.menuId] = [];
+      mmCoursesByMenu[c.menuId].push({ ...c, items: mmItemsByCourse[c.id] || [] });
     }
     const mmSchedByMenu: Record<string, any[]> = {};
-    for (const s of mmSchedRows as any[]) {
-      if (!mmSchedByMenu[s.menu_id]) mmSchedByMenu[s.menu_id] = [];
-      mmSchedByMenu[s.menu_id].push(s);
+    for (const s of mmSchedRows) {
+      if (!mmSchedByMenu[s.menuId]) mmSchedByMenu[s.menuId] = [];
+      mmSchedByMenu[s.menuId].push(s);
     }
-    const mealMenus = (mealMenuRows as any[]).map((m: any) => ({
-      ...m, active: !!m.active, includes_pan: !!m.includes_pan,
-      includes_bebida: !!m.includes_bebida, includes_cafe: !!m.includes_cafe,
+    const mealMenusMapped = mmRows.map(m => ({
+      ...m, active: !!m.active, includesPan: !!m.includesPan,
+      includesBebida: !!m.includesBebida, includesCafe: !!m.includesCafe,
       extras: typeof m.extras === 'string' ? JSON.parse(m.extras) : (m.extras || []),
       courses: mmCoursesByMenu[m.id] || [], schedules: mmSchedByMenu[m.id] || [],
     }));
 
-    const priceRulesNormalized = (priceRules as any[]).map((r: any) => ({ ...r, active: !!r.active }));
-    return NextResponse.json({ categories, products, combos, mealMenus, priceRules: priceRulesNormalized });
+    const priceRulesNormalized = priceRuleRows.map(r => ({ ...r, active: !!r.active }));
+    return NextResponse.json({
+      categories: catRows, products: productsMapped,
+      combos: combosMapped, mealMenus: mealMenusMapped,
+      priceRules: priceRulesNormalized,
+    });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
@@ -78,92 +124,104 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
-    const { categories, products, combos } = await req.json() as { categories: any[]; products: any[]; combos: any[] };
+    const db = getDb();
+    const { categories: catData, products: prodData, combos: comboData } = await req.json() as { categories: any[]; products: any[]; combos: any[] };
     const tenantId = getTenantId(req);
 
-    await sql`DELETE FROM combo_items WHERE tenant_id = ${tenantId}`;
-    await sql`DELETE FROM combos WHERE tenant_id = ${tenantId}`;
-    await sql`DELETE FROM categories WHERE tenant_id = ${tenantId}`;
+    await db.transaction(async (tx) => {
+      await tx.delete(comboSlotItems).where(eq(comboSlotItems.tenantId, tenantId));
+      await tx.delete(comboSlots).where(eq(comboSlots.tenantId, tenantId));
+      await tx.delete(combos).where(eq(combos.tenantId, tenantId));
+      await tx.delete(productStock).where(eq(productStock.tenantId, tenantId));
+      await tx.delete(categories).where(eq(categories.tenantId, tenantId));
 
-    if (categories) {
-      for (let i = 0; i < categories.length; i++) {
-        const cat = categories[i];
-        const name = typeof cat === 'string' ? cat : cat.name;
-        const sortOrder = cat.sort_order ?? i;
-        const active = cat.active ?? true;
-        const printerZone = cat.printer_zone ?? '';
-        const showQr = cat.show_qr ?? true;
-        const catId = cat.id || 'cat_' + Date.now() + '_' + i;
-        await sql`
-          INSERT INTO categories (tenant_id, id, name, sort_order, active, printer_zone, show_qr)
-          VALUES (${tenantId}, ${catId}, ${name}, ${sortOrder}, ${active}, ${printerZone}, ${showQr})
-        `;
+      if (catData) {
+        for (let i = 0; i < catData.length; i++) {
+          const cat = catData[i];
+          const name = typeof cat === 'string' ? cat : cat.name;
+          const sortOrder = cat.sort_order ?? i;
+          const active = cat.active ?? true;
+          const printerZone = cat.printer_zone ?? '';
+          const showQr = cat.show_qr ?? true;
+          const catId = cat.id || 'cat_' + Date.now() + '_' + i;
+          await tx.insert(categories).values({
+            tenantId, id: catId, name, sortOrder,
+            active, printerZone, showQr,
+          });
+        }
       }
-    }
 
-    const queries: any[] = [];
-    if (products) {
-      for (const p of products) {
-        queries.push(sql`
-          INSERT INTO products (tenant_id, id, name, category, price, ubicacion, course, image, allergens, description, featured, active, show_tpv, show_qr, agotado, carousel_sort, type, inventariable)
-          VALUES (${tenantId}, ${p.id}, ${p.name}, ${p.category}, ${p.price}, ${p.ubicacion ?? 'Bar'}, ${p.course ?? ''}, ${p.image ?? null}, ${p.allergens ?? []}, ${p.description ?? null}, ${p.featured ?? false}, ${p.active ?? true}, ${p.show_tpv ?? true}, ${p.show_qr ?? true}, ${p.agotado ?? false}, ${p.carousel_sort ?? null}, ${p.type ?? ''}, ${p.inventariable ?? false})
-          ON CONFLICT (tenant_id, id) DO UPDATE SET
-            tenant_id = EXCLUDED.tenant_id, name = EXCLUDED.name, category = EXCLUDED.category, price = EXCLUDED.price,
-            ubicacion = EXCLUDED.ubicacion, course = EXCLUDED.course, image = EXCLUDED.image,
-            allergens = EXCLUDED.allergens, description = EXCLUDED.description,
-            featured = EXCLUDED.featured, active = EXCLUDED.active,
-            show_tpv = EXCLUDED.show_tpv, show_qr = EXCLUDED.show_qr,
-            agotado = EXCLUDED.agotado, carousel_sort = EXCLUDED.carousel_sort,
-            type = EXCLUDED.type, inventariable = EXCLUDED.inventariable
-        `);
-        const sbl = p.stockByLocation || {};
-        const locs = Object.keys(sbl);
-        if (locs.length > 0) {
-          for (const loc of locs) {
-            const entry = sbl[loc] || { stock: 0, lowStock: 5 };
-            queries.push(sql`
-              INSERT INTO product_stock (tenant_id, product_id, location, stock, low_stock)
-              VALUES (${tenantId}, ${p.id}, ${loc}, ${entry.stock ?? 0}, ${entry.lowStock ?? 5})
-              ON CONFLICT (product_id, location) DO UPDATE SET
-                tenant_id = EXCLUDED.tenant_id, stock = EXCLUDED.stock, low_stock = EXCLUDED.low_stock
-            `);
+      if (prodData) {
+        for (const p of prodData) {
+          await tx.insert(products).values({
+            tenantId, id: p.id, name: p.name, category: p.category,
+            price: p.price, ubicacion: p.ubicacion ?? 'Bar',
+            course: p.course ?? '', image: p.image ?? null,
+            allergens: p.allergens ?? [], description: p.description ?? null,
+            featured: p.featured ?? false, active: p.active ?? true,
+            showTpv: p.show_tpv ?? true, showQr: p.show_qr ?? true,
+            agotado: p.agotado ?? false, carouselSort: p.carousel_sort ?? null,
+            type: p.type ?? '', inventariable: p.inventariable ?? false,
+          }).onConflictDoUpdate({
+            target: [products.id, products.tenantId],
+            set: {
+              name: sql`EXCLUDED.name`, category: sql`EXCLUDED.category`,
+              price: sql`EXCLUDED.price`, ubicacion: sql`EXCLUDED.ubicacion`,
+              course: sql`EXCLUDED.course`, image: sql`EXCLUDED.image`,
+              allergens: sql`EXCLUDED.allergens`, description: sql`EXCLUDED.description`,
+              featured: sql`EXCLUDED.featured`, active: sql`EXCLUDED.active`,
+              showTpv: sql`EXCLUDED.show_tpv`, showQr: sql`EXCLUDED.show_qr`,
+              agotado: sql`EXCLUDED.agotado`, carouselSort: sql`EXCLUDED.carousel_sort`,
+              type: sql`EXCLUDED.type`, inventariable: sql`EXCLUDED.inventariable`,
+            },
+          });
+
+          const sbl = p.stockByLocation || {};
+          for (const [loc, entry] of Object.entries(sbl)) {
+            const e = entry as any;
+            await tx.insert(productStock).values({
+              tenantId, productId: p.id, location: loc,
+              stock: e.stock ?? 0, lowStock: e.lowStock ?? 5,
+            }).onConflictDoUpdate({
+              target: [productStock.productId, productStock.location],
+              set: {
+                tenantId: sql`EXCLUDED.tenant_id`,
+                stock: sql`EXCLUDED.stock`, lowStock: sql`EXCLUDED.low_stock`,
+              },
+            });
           }
         }
       }
-    }
 
-    if (queries.length > 0) {
-      await sql.transaction(queries);
-    }
-
-    if (combos) {
-      await sql`DELETE FROM combo_slot_items WHERE tenant_id = ${tenantId}`;
-      await sql`DELETE FROM combo_slots WHERE tenant_id = ${tenantId}`;
-      for (const c of combos) {
-        await sql`
-          INSERT INTO combos (tenant_id, id, name, description, price, image, active, created_at, discount_pct)
-          VALUES (${tenantId}, ${c.id}, ${c.name}, ${c.description || ''}, ${c.price}, ${c.image || null}, ${c.active ?? true}, ${Date.now()}, ${c.discountPct ?? 0})
-        `;
-        if (c.slots) {
-          for (let si = 0; si < c.slots.length; si++) {
-            const slot = c.slots[si];
-            await sql`
-              INSERT INTO combo_slots (tenant_id, id, combo_id, name, min_choices, max_choices, sort_order)
-              VALUES (${tenantId}, ${slot.id}, ${c.id}, ${slot.name}, ${slot.minChoices ?? 1}, ${slot.maxChoices ?? 1}, ${si})
-            `;
-            if (slot.items) {
-              for (let ii = 0; ii < slot.items.length; ii++) {
-                const item = slot.items[ii];
-                await sql`
-                  INSERT INTO combo_slot_items (tenant_id, id, slot_id, product_id, surcharge, sort_order)
-                  VALUES (${tenantId}, ${item.id}, ${slot.id}, ${item.product_id}, ${item.surcharge ?? 0}, ${ii})
-                `;
+      if (comboData) {
+        for (const c of comboData) {
+          await tx.insert(combos).values({
+            tenantId, id: c.id, name: c.name, description: c.description || '',
+            price: c.price, image: c.image || null, active: c.active ?? true,
+            createdAt: Date.now(), discountPct: c.discountPct ?? 0,
+          });
+          if (c.slots) {
+            for (let si = 0; si < c.slots.length; si++) {
+              const slot = c.slots[si];
+              await tx.insert(comboSlots).values({
+                tenantId, id: slot.id, comboId: c.id, name: slot.name,
+                minChoices: slot.minChoices ?? 1, maxChoices: slot.maxChoices ?? 1,
+                sortOrder: si,
+              });
+              if (slot.items) {
+                for (let ii = 0; ii < slot.items.length; ii++) {
+                  const item = slot.items[ii];
+                  await tx.insert(comboSlotItems).values({
+                    tenantId, id: item.id, slotId: slot.id, productId: item.product_id,
+                    surcharge: item.surcharge ?? 0, sortOrder: ii,
+                  });
+                }
               }
             }
           }
         }
       }
-    }
+    });
 
     return NextResponse.json({ ok: true });
   } catch (err) {
@@ -173,85 +231,67 @@ export async function PUT(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
+    const db = getDb();
     const { action, data } = await req.json() as { action: string; data: any };
     const tenantId = getTenantId(req);
 
-    const PRODUCT_FIELDS = ['name', 'price', 'description', 'show_tpv', 'show_qr', 'agotado', 'course', 'ubicacion', 'carousel_sort', 'sort_order'];
-    const CATEGORY_FIELDS = ['name', 'show_tpv', 'show_qr', 'sort_order'];
-
     if (action === 'reorder-categories') {
       for (const cat of data) {
-        await sql`UPDATE categories SET sort_order = ${cat.sort_order} WHERE id = ${cat.id} AND tenant_id = ${tenantId}`;
+        await db.update(categories)
+          .set({ sortOrder: cat.sort_order })
+          .where(and(eq(categories.id, cat.id), eq(categories.tenantId, tenantId)));
       }
       return NextResponse.json({ ok: true });
     }
 
-    if (action === 'toggle-product') {
+    if (action === 'toggle-product' || action === 'update-product') {
       const { id, field, value } = data;
-      let setClause;
-      switch (field) {
-        case 'name': setClause = sql`name = ${value}`; break;
-        case 'price': setClause = sql`price = ${value}`; break;
-        case 'description': setClause = sql`description = ${value}`; break;
-        case 'show_tpv': setClause = sql`show_tpv = ${value}`; break;
-        case 'show_qr': setClause = sql`show_qr = ${value}`; break;
-        case 'agotado': setClause = sql`agotado = ${value}`; break;
-        case 'course': setClause = sql`course = ${value}`; break;
-        case 'ubicacion': setClause = sql`ubicacion = ${value}`; break;
-        case 'carousel_sort': setClause = sql`carousel_sort = ${value}`; break;
-        case 'sort_order': setClause = sql`sort_order = ${value}`; break;
-        default: return NextResponse.json({ error: 'Campo no permitido' }, { status: 400 });
-      }
-      await sql`UPDATE products SET ${setClause} WHERE id = ${id} AND tenant_id = ${tenantId}`;
+      const fieldMap: Record<string, any> = {
+        name: { name: value },
+        price: { price: value },
+        description: { description: value },
+        show_tpv: { showTpv: value },
+        show_qr: { showQr: value },
+        agotado: { agotado: value },
+        course: { course: value },
+        ubicacion: { ubicacion: value },
+        carousel_sort: { carouselSort: value },
+        sort_order: { carouselSort: value },
+      };
+      const setValues = fieldMap[field];
+      if (!setValues) return NextResponse.json({ error: 'Campo no permitido' }, { status: 400 });
+      await db.update(products)
+        .set(setValues)
+        .where(and(eq(products.id, id), eq(products.tenantId, tenantId)));
       return NextResponse.json({ ok: true });
     }
 
     if (action === 'toggle-category') {
       const { id, field, value } = data;
-      let setClause;
-      switch (field) {
-        case 'name': setClause = sql`name = ${value}`; break;
-        case 'show_tpv': setClause = sql`show_tpv = ${value}`; break;
-        case 'show_qr': setClause = sql`show_qr = ${value}`; break;
-        case 'sort_order': setClause = sql`sort_order = ${value}`; break;
-        default: return NextResponse.json({ error: 'Campo no permitido' }, { status: 400 });
-      }
-      await sql`UPDATE categories SET ${setClause} WHERE id = ${id} AND tenant_id = ${tenantId}`;
-      return NextResponse.json({ ok: true });
-    }
-
-    if (action === 'update-product') {
-      const { id, field, value } = data;
-      let setClause;
-      switch (field) {
-        case 'name': setClause = sql`name = ${value}`; break;
-        case 'price': setClause = sql`price = ${value}`; break;
-        case 'description': setClause = sql`description = ${value}`; break;
-        case 'show_tpv': setClause = sql`show_tpv = ${value}`; break;
-        case 'show_qr': setClause = sql`show_qr = ${value}`; break;
-        case 'agotado': setClause = sql`agotado = ${value}`; break;
-        case 'course': setClause = sql`course = ${value}`; break;
-        case 'ubicacion': setClause = sql`ubicacion = ${value}`; break;
-        case 'carousel_sort': setClause = sql`carousel_sort = ${value}`; break;
-        case 'sort_order': setClause = sql`sort_order = ${value}`; break;
-        default: return NextResponse.json({ error: 'Campo no permitido' }, { status: 400 });
-      }
-      await sql`UPDATE products SET ${setClause} WHERE id = ${id} AND tenant_id = ${tenantId}`;
+      const fieldMap: Record<string, any> = {
+        name: { name: value },
+        show_qr: { showQr: value },
+        sort_order: { sortOrder: value },
+      };
+      const setValues = fieldMap[field];
+      if (!setValues) return NextResponse.json({ error: 'Campo no permitido' }, { status: 400 });
+      await db.update(categories)
+        .set(setValues)
+        .where(and(eq(categories.id, id), eq(categories.tenantId, tenantId)));
       return NextResponse.json({ ok: true });
     }
 
     if (action === 'delete-product') {
-      await sql`DELETE FROM products WHERE id = ${data.id} AND tenant_id = ${tenantId}`;
+      await db.delete(products)
+        .where(and(eq(products.id, data.id), eq(products.tenantId, tenantId)));
       return NextResponse.json({ ok: true });
     }
 
     if (action === 'reorder-carousel') {
       for (const item of data) {
-        if (item.carousel_sort === null || item.carousel_sort === undefined) {
-          await sql`UPDATE products SET carousel_sort = NULL WHERE id = ${item.id} AND tenant_id = ${tenantId}`;
-        } else {
-          await sql`UPDATE products SET carousel_sort = ${item.carousel_sort} WHERE id = ${item.id} AND tenant_id = ${tenantId}`;
-        }
+        await db.update(products)
+          .set({ carouselSort: item.carousel_sort ?? null })
+          .where(and(eq(products.id, item.id), eq(products.tenantId, tenantId)));
       }
       return NextResponse.json({ ok: true });
     }

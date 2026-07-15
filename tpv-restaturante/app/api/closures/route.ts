@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/lib/db';
+import { eq, sql, desc } from 'drizzle-orm';
+import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
+import { closures } from '../../../db/schema';
 
 export async function GET(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
-    const rows = await sql`
-      SELECT * FROM closures
-      WHERE tenant_id = ${tenantId}
-      ORDER BY closed_at DESC
-    `;
+    const rows = await db.select().from(closures)
+      .where(eq(closures.tenantId, tenantId))
+      .orderBy(desc(closures.closedAt));
     return NextResponse.json(rows);
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
@@ -18,28 +19,42 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
-    
     const body = await req.json() as any;
+
     if (body.action === 'delete') {
-      await sql`DELETE FROM closures WHERE id = ${body.id} AND tenant_id = ${tenantId}`;
+      await db.delete(closures)
+        .where(eq(closures.id, body.id));
       return NextResponse.json({ ok: true });
     }
-    const { id, date, total, ticket_count, avg_ticket, methods, employees, sales_ids, closed_at, employee_name, cuadratura, cuadratura_expected, cuadratura_counted, cuadratura_diff } = body;
-    await sql`
-      INSERT INTO closures (id, tenant_id, date, total, ticket_count, avg_ticket, methods, employees, sales_ids, closed_at, employee_name, cuadratura)
-      VALUES (${id}, ${tenantId}, ${date}, ${total}, ${ticket_count}, ${avg_ticket}, ${JSON.stringify(methods)}, ${JSON.stringify(employees)}, ${sales_ids}, ${closed_at}, ${employee_name}, ${cuadratura ? JSON.stringify({ denoms: cuadratura, expected: cuadratura_expected, counted: cuadratura_counted, diff: cuadratura_diff }) : '[]'})
-      ON CONFLICT (tenant_id, id) DO UPDATE SET
-        total = EXCLUDED.total,
-        ticket_count = EXCLUDED.ticket_count,
-        avg_ticket = EXCLUDED.avg_ticket,
-        methods = EXCLUDED.methods,
-        employees = EXCLUDED.employees,
-        sales_ids = EXCLUDED.sales_ids,
-        closed_at = EXCLUDED.closed_at,
-        employee_name = EXCLUDED.employee_name,
-        cuadratura = EXCLUDED.cuadratura
-    `;
+
+    await db.insert(closures).values({
+      id: body.id, tenantId, date: body.date,
+      total: body.total, ticketCount: body.ticket_count,
+      avgTicket: body.avg_ticket,
+      methods: body.methods,
+      employees: body.employees,
+      salesIds: body.sales_ids,
+      closedAt: body.closed_at,
+      employeeName: body.employee_name,
+      cuadratura: body.cuadratura
+        ? { denoms: body.cuadratura, expected: body.cuadratura_expected, counted: body.cuadratura_counted, diff: body.cuadratura_diff }
+        : [],
+    }).onConflictDoUpdate({
+      target: [closures.id, closures.tenantId],
+      set: {
+        total: sql`EXCLUDED.total`,
+        ticketCount: sql`EXCLUDED.ticket_count`,
+        avgTicket: sql`EXCLUDED.avg_ticket`,
+        methods: sql`EXCLUDED.methods`,
+        employees: sql`EXCLUDED.employees`,
+        salesIds: sql`EXCLUDED.sales_ids`,
+        closedAt: sql`EXCLUDED.closed_at`,
+        employeeName: sql`EXCLUDED.employee_name`,
+        cuadratura: sql`EXCLUDED.cuadratura`,
+      },
+    });
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });

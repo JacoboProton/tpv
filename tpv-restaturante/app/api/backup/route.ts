@@ -1,35 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '../../../lib/db';
+import { eq, sql } from 'drizzle-orm';
+import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
+import { categories, products, tables, orders, sales, employees, accessLogs, stockLog, cancelledOrders, offers, settings, modifierGroups, productStock, deliveryRunners, deliveryOrders, deliveryTracking } from '../../../db/schema';
 
 export async function GET(req: NextRequest) {
   try {
     const tenantId = getTenantId(req);
-    const [categories, products, tables, orders, sales, employees, accessLogs, stockLog, cancelledOrders, offers, settings, modifiers, productStock, deliveryRunners, deliveryOrders, deliveryTracking] =
+    const db = getDb();
+    const [categoriesRows, productsRows, tablesRows, ordersRows, salesRows, employeesRows, accessLogsRows, stockLogRows, cancelledOrdersRows, offersRows, settingsRows, modifiersRows, productStockRows, deliveryRunnersRows, deliveryOrdersRows, deliveryTrackingRows] =
       await Promise.all([
-        sql`SELECT * FROM categories WHERE tenant_id = ${tenantId} ORDER BY name`,
-        sql`SELECT * FROM products WHERE tenant_id = ${tenantId} ORDER BY name`,
-        sql`SELECT * FROM tables WHERE tenant_id = ${tenantId} ORDER BY id`,
-        sql`SELECT * FROM orders WHERE tenant_id = ${tenantId} ORDER BY id`,
-        sql`SELECT * FROM sales WHERE tenant_id = ${tenantId} ORDER BY id`,
-        sql`SELECT * FROM employees WHERE tenant_id = ${tenantId} ORDER BY id`,
-        sql`SELECT * FROM access_logs WHERE tenant_id = ${tenantId} ORDER BY id`,
-        sql`SELECT * FROM stock_log WHERE tenant_id = ${tenantId} ORDER BY id`,
-        sql`SELECT * FROM cancelled_orders WHERE tenant_id = ${tenantId} ORDER BY id`,
-        sql`SELECT * FROM offers WHERE tenant_id = ${tenantId} ORDER BY id`,
-        sql`SELECT * FROM settings WHERE tenant_id = ${tenantId} ORDER BY key`,
-        sql`SELECT * FROM modifier_groups WHERE tenant_id = ${tenantId} ORDER BY id`,
-        sql`SELECT * FROM product_stock WHERE tenant_id = ${tenantId} ORDER BY product_id, location`,
-        sql`SELECT * FROM delivery_runners WHERE tenant_id = ${tenantId} ORDER BY id`,
-        sql`SELECT * FROM delivery_orders WHERE tenant_id = ${tenantId} ORDER BY id`,
-        sql`SELECT * FROM delivery_tracking WHERE tenant_id = ${tenantId} ORDER BY id`,
+        db.select().from(categories).where(eq(categories.tenantId, tenantId)).orderBy(categories.name),
+        db.select().from(products).where(eq(products.tenantId, tenantId)).orderBy(products.name),
+        db.select().from(tables).where(eq(tables.tenantId, tenantId)).orderBy(tables.id),
+        db.select().from(orders).where(eq(orders.tenantId, tenantId)).orderBy(orders.id),
+        db.select().from(sales).where(eq(sales.tenantId, tenantId)).orderBy(sales.id),
+        db.select().from(employees).where(eq(employees.tenantId, tenantId)).orderBy(employees.id),
+        db.select().from(accessLogs).where(eq(accessLogs.tenantId, tenantId)).orderBy(accessLogs.id),
+        db.select().from(stockLog).where(eq(stockLog.tenantId, tenantId)).orderBy(stockLog.id),
+        db.select().from(cancelledOrders).where(eq(cancelledOrders.tenantId, tenantId)).orderBy(cancelledOrders.id),
+        db.select().from(offers).where(eq(offers.tenantId, tenantId)).orderBy(offers.id),
+        db.select().from(settings).where(eq(settings.tenantId, tenantId)).orderBy(settings.key),
+        db.select().from(modifierGroups).where(eq(modifierGroups.tenantId, tenantId)).orderBy(modifierGroups.id),
+        db.select().from(productStock).where(eq(productStock.tenantId, tenantId)).orderBy(productStock.productId, productStock.location),
+        db.select().from(deliveryRunners).where(eq(deliveryRunners.tenantId, tenantId)).orderBy(deliveryRunners.id),
+        db.select().from(deliveryOrders).where(eq(deliveryOrders.tenantId, tenantId)).orderBy(deliveryOrders.id),
+        db.select().from(deliveryTracking).where(eq(deliveryTracking.tenantId, tenantId)).orderBy(deliveryTracking.id),
       ]);
 
     const data = {
-      categories, products, tables, orders, sales, employees,
-      accessLogs, stockLog, cancelledOrders,
-      offers, settings, modifiers, productStock,
-      deliveryRunners, deliveryOrders, deliveryTracking,
+      categories: categoriesRows, products: productsRows, tables: tablesRows, orders: ordersRows, sales: salesRows, employees: employeesRows,
+      accessLogs: accessLogsRows, stockLog: stockLogRows, cancelledOrders: cancelledOrdersRows,
+      offers: offersRows, settings: settingsRows, modifiers: modifiersRows, productStock: productStockRows,
+      deliveryRunners: deliveryRunnersRows, deliveryOrders: deliveryOrdersRows, deliveryTracking: deliveryTrackingRows,
     };
 
     const stats: Record<string, any> = {};

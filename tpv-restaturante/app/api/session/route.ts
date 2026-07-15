@@ -1,54 +1,54 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '../../../lib/db';
+import { eq, and, desc, sql } from 'drizzle-orm';
+import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
+import { sessions } from '../../../db/schema';
 
 export async function POST(req: NextRequest) {
   try {
     const tid = getTenantId(req);
     const body = await req.json() as any;
     const { action, employeeId, employeeRole, deviceId } = body;
+    const db = getDb();
 
     if (action === 'login') {
       if (!employeeId || !deviceId) {
         return NextResponse.json({ error: 'employeeId y deviceId requeridos' }, { status: 400 });
       }
 
-      // Check for existing active sessions on OTHER devices for this employee
-      const existing = await sql`
-        SELECT * FROM sessions
-        WHERE tenant_id = ${tid}
-          AND employee_id = ${employeeId}
-          AND active = true
-          AND device_id != ${deviceId}
-        ORDER BY last_seen DESC
-      `;
+      const existing = await db.select().from(sessions)
+        .where(and(
+          eq(sessions.tenantId, tid),
+          eq(sessions.employeeId, employeeId),
+          eq(sessions.active, true),
+          sql`${sessions.deviceId} != ${deviceId}`,
+        ))
+        .orderBy(desc(sessions.lastSeen));
 
-      // If non-admin and session exists on another device, return conflict
       if (existing.length > 0 && employeeRole !== 'admin' && !body.force) {
         return NextResponse.json({
           conflict: true,
-          existingDevice: existing[0].device_id,
-          existingSince: existing[0].created_at,
+          existingDevice: existing[0].deviceId,
+          existingSince: existing[0].createdAt,
           message: `El empleado ya está conectado en otro terminal`,
         });
       }
 
-      // Deactivate any old sessions for this employee
-      await sql`
-        UPDATE sessions SET active = false
-        WHERE tenant_id = ${tid}
-          AND employee_id = ${employeeId}
-          AND device_id != ${deviceId}
-      `;
+      await db.update(sessions).set({ active: false })
+        .where(and(
+          eq(sessions.tenantId, tid),
+          eq(sessions.employeeId, employeeId),
+          sql`${sessions.deviceId} != ${deviceId}`,
+        ));
 
-      // Upsert this session
       const now = Date.now();
-      await sql`
-        INSERT INTO sessions (tenant_id, employee_id, device_id, role, active, created_at, last_seen)
-        VALUES (${tid}, ${employeeId}, ${deviceId}, ${employeeRole}, true, ${now}, ${now})
-        ON CONFLICT (tenant_id, employee_id, device_id)
-        DO UPDATE SET active = true, last_seen = ${now}, role = ${employeeRole}
-      `;
+      await db.insert(sessions).values({
+        tenantId: tid, employeeId, deviceId, role: employeeRole,
+        active: true, createdAt: now, lastSeen: now,
+      }).onConflictDoUpdate({
+        target: [sessions.tenantId, sessions.employeeId, sessions.deviceId],
+        set: { active: true, lastSeen: now, role: employeeRole },
+      });
 
       return NextResponse.json({ ok: true });
     }
@@ -57,12 +57,12 @@ export async function POST(req: NextRequest) {
       if (!employeeId || !deviceId) {
         return NextResponse.json({ error: 'employeeId y deviceId requeridos' }, { status: 400 });
       }
-      await sql`
-        UPDATE sessions SET active = false
-        WHERE tenant_id = ${tid}
-          AND employee_id = ${employeeId}
-          AND device_id = ${deviceId}
-      `;
+      await db.update(sessions).set({ active: false })
+        .where(and(
+          eq(sessions.tenantId, tid),
+          eq(sessions.employeeId, employeeId),
+          eq(sessions.deviceId, deviceId),
+        ));
       return NextResponse.json({ ok: true });
     }
 
@@ -70,22 +70,21 @@ export async function POST(req: NextRequest) {
       if (!employeeId || !deviceId) {
         return NextResponse.json({ error: 'employeeId y deviceId requeridos' }, { status: 400 });
       }
-      // Check if session is still valid (not taken over by another device)
-      const session = await sql`
-        SELECT active FROM sessions
-        WHERE tenant_id = ${tid}
-          AND employee_id = ${employeeId}
-          AND device_id = ${deviceId}
-      `;
+      const session = await db.select({ active: sessions.active }).from(sessions)
+        .where(and(
+          eq(sessions.tenantId, tid),
+          eq(sessions.employeeId, employeeId),
+          eq(sessions.deviceId, deviceId),
+        ));
       if (session.length === 0 || !session[0].active) {
         return NextResponse.json({ invalidated: true, message: 'Sesión cerrada en otro terminal' });
       }
-      await sql`
-        UPDATE sessions SET last_seen = ${Date.now()}
-        WHERE tenant_id = ${tid}
-          AND employee_id = ${employeeId}
-          AND device_id = ${deviceId}
-      `;
+      await db.update(sessions).set({ lastSeen: Date.now() })
+        .where(and(
+          eq(sessions.tenantId, tid),
+          eq(sessions.employeeId, employeeId),
+          eq(sessions.deviceId, deviceId),
+        ));
       return NextResponse.json({ ok: true });
     }
 

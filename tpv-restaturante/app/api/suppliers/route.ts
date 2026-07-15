@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '../../../lib/db';
+import { eq } from 'drizzle-orm';
+import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
+import { suppliers } from '../../../db/schema';
 
 export async function GET(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
-    const rows = await sql`SELECT * FROM suppliers WHERE tenant_id = ${tenantId} ORDER BY name`;
-    return NextResponse.json(rows.map(r => ({
-      id: r.id, name: r.name, contact: r.contact, phone: r.phone,
-      email: r.email, nif: r.nif, address: r.address, paymentTerms: r.payment_terms || '',
-      notes: r.notes, active: r.active, createdAt: Number(r.created_at),
-    })));
+    const rows = await db.select().from(suppliers)
+      .where(eq(suppliers.tenantId, tenantId));
+    return NextResponse.json(rows);
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
@@ -18,20 +18,26 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
     const body = await req.json() as any;
     if (body.action === 'save') {
       const { id, name, contact, phone, email, nif, address, paymentTerms, notes, active } = body;
       if (id) {
-        await sql`UPDATE suppliers SET name=${name}, contact=${contact || ''}, phone=${phone || ''},
-          email=${email || ''}, nif=${nif || ''}, address=${address || ''},
-          payment_terms=${paymentTerms || ''}, notes=${notes || ''},
-          active=${active !== false} WHERE id=${id} AND tenant_id = ${tenantId}`;
+        await db.update(suppliers).set({
+          name, contact: contact || '', phone: phone || '',
+          email: email || '', nif: nif || '', address: address || '',
+          paymentTerms: paymentTerms || '', notes: notes || '',
+          active: active !== false,
+        }).where(eq(suppliers.id, id));
       } else {
         const newId = 'sup_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
-        await sql`INSERT INTO suppliers (id, name, contact, phone, email, nif, address, payment_terms, notes, active, created_at, tenant_id)
-          VALUES (${newId}, ${name}, ${contact || ''}, ${phone || ''}, ${email || ''}, ${nif || ''},
-          ${address || ''}, ${paymentTerms || ''}, ${notes || ''}, ${active !== false}, ${Date.now()}, ${tenantId})`;
+        await db.insert(suppliers).values({
+          id: newId, name, contact: contact || '', phone: phone || '',
+          email: email || '', nif: nif || '', address: address || '',
+          paymentTerms: paymentTerms || '', notes: notes || '',
+          active: active !== false, createdAt: Date.now(), tenantId,
+        });
         return NextResponse.json({ ok: true, id: newId });
       }
       return NextResponse.json({ ok: true });

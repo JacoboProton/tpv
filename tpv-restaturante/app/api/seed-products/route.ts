@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '../../../lib/db';
+import { eq, and } from 'drizzle-orm';
+import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
+import { products } from '../../../db/schema';
 
 const NEW_PRODUCTS = [
   { id: 'p17', name: 'Café solo',         category: 'Bebidas',    price: 1.8,  stock: 50, lowStock: 10, ubicacion: 'Bar',     discount: 0, course: '', allergens: [],      image: '/uploads/cafe-solo.svg' },
@@ -22,14 +24,18 @@ const NEW_PRODUCTS = [
 export async function POST(req: NextRequest) {
   try {
     const tenantId = getTenantId(req);
+    const db = getDb();
     let added = 0;
     for (const p of NEW_PRODUCTS) {
-      const existing = await sql`SELECT id FROM products WHERE id = ${p.id} AND tenant_id = ${tenantId}`;
+      const existing = await db.select({ id: products.id }).from(products)
+        .where(and(eq(products.id, p.id), eq(products.tenantId, tenantId)));
       if (existing.length === 0) {
-        await sql`
-          INSERT INTO products (id, name, category, price, stock, low_stock, ubicacion, discount, course, allergens, image, tenant_id)
-          VALUES (${p.id}, ${p.name}, ${p.category}, ${p.price}, ${p.stock}, ${p.lowStock}, ${p.ubicacion}, ${p.discount}, ${p.course}, ${p.allergens}, ${p.image}, ${tenantId})
-        `;
+        await db.insert(products).values({
+          id: p.id, name: p.name, category: p.category, price: String(p.price),
+          stock: p.stock, lowStock: p.lowStock, ubicacion: p.ubicacion,
+          discount: String(p.discount), course: p.course,
+          allergens: p.allergens, image: p.image, tenantId,
+        });
         added++;
       }
     }

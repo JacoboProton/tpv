@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '../../../lib/db';
+import { eq, and, sql } from 'drizzle-orm';
+import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
+import { products, productStock } from '../../../db/schema';
 
 const SPLIT: Record<string, { loc: string; keep: number }> = {
   Bebidas:    { loc: 'Bar',    keep: 25 },
@@ -12,47 +14,70 @@ const SPLIT: Record<string, { loc: string; keep: number }> = {
 export async function POST(req: NextRequest) {
   const tenantId = getTenantId(req);
   try {
-    const products = await sql`SELECT id, name, category, ubicacion FROM products WHERE tenant_id = ${tenantId}`;
-    let moved = [];
-    for (const p of products) {
+    const db = getDb();
+    const productList = await db.select({
+      id: products.id, name: products.name, category: products.category, ubicacion: products.ubicacion,
+    }).from(products).where(eq(products.tenantId, tenantId));
+
+    let moved: string[] = [];
+    for (const p of productList) {
       const s = SPLIT[p.category];
       if (!s) continue;
       const servingLoc = s.loc;
       const keep = s.keep;
 
-      // Stock actual del producto (de todas las ubicaciones)
-      const stockRows = await sql`SELECT location, stock, low_stock FROM product_stock WHERE product_id = ${p.id} AND tenant_id = ${tenantId}`;
+      const stockRows = await db.select({
+        location: productStock.location, stock: productStock.stock,
+        lowStock: productStock.lowStock,
+      }).from(productStock)
+        .where(and(eq(productStock.productId, p.id), eq(productStock.tenantId, tenantId)));
+
       const totalStock = stockRows.reduce((sum: any, r: any) => sum + r.stock, 0);
       if (totalStock === 0) continue;
 
       const servingRow = stockRows.find(r => r.location === servingLoc);
       const almacenRow = stockRows.find(r => r.location === 'Almacén');
 
-      // Stock a mantener en la ubicación de servicio
       const servingStock = Math.min(keep, totalStock);
       const almacenStock = totalStock - servingStock;
 
-      // Actualizar o insertar serving location
       if (servingRow) {
-        await sql`UPDATE product_stock SET stock = ${servingStock}, low_stock = ${servingRow.low_stock} WHERE product_id = ${p.id} AND location = ${servingLoc} AND tenant_id = ${tenantId}`;
+        await db.update(productStock).set({ stock: servingStock })
+          .where(and(
+            eq(productStock.productId, p.id),
+            eq(productStock.location, servingLoc),
+            eq(productStock.tenantId, tenantId),
+          ));
       } else if (servingStock > 0) {
-        await sql`INSERT INTO product_stock (product_id, tenant_id, location, stock, low_stock) VALUES (${p.id}, ${tenantId}, ${servingLoc}, ${servingStock}, 5)`;
+        await db.insert(productStock).values({
+          productId: p.id, tenantId, location: servingLoc, stock: servingStock, lowStock: 5,
+        });
       }
 
-      // Actualizar o insertar Almacén
       if (almacenStock > 0) {
-        const lowStock = almacenRow ? almacenRow.low_stock : 20;
+        const lowStock = almacenRow ? almacenRow.lowStock : 20;
         if (almacenRow) {
-          await sql`UPDATE product_stock SET stock = ${almacenStock}, low_stock = ${lowStock} WHERE product_id = ${p.id} AND location = 'Almacén' AND tenant_id = ${tenantId}`;
+          await db.update(productStock).set({ stock: almacenStock, lowStock })
+            .where(and(
+              eq(productStock.productId, p.id),
+              eq(productStock.location, 'Almacén'),
+              eq(productStock.tenantId, tenantId),
+            ));
         } else {
-          await sql`INSERT INTO product_stock (product_id, tenant_id, location, stock, low_stock) VALUES (${p.id}, ${tenantId}, 'Almacén', ${almacenStock}, 20)`;
+          await db.insert(productStock).values({
+            productId: p.id, tenantId, location: 'Almacén', stock: almacenStock, lowStock: 20,
+          });
         }
       }
 
-      // Limpiar otras ubicaciones que no sean servingLoc ni Almacén
       for (const r of stockRows) {
         if (r.location !== servingLoc && r.location !== 'Almacén') {
-          await sql`DELETE FROM product_stock WHERE product_id = ${p.id} AND location = ${r.location} AND tenant_id = ${tenantId}`;
+          await db.delete(productStock)
+            .where(and(
+              eq(productStock.productId, p.id),
+              eq(productStock.location, r.location),
+              eq(productStock.tenantId, tenantId),
+            ));
         }
       }
 
