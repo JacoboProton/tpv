@@ -56,4 +56,4 @@ services:
       - key: NEXT_PUBLIC_TPV_API_KEY
         sync: false
       - key: CRON_SECRET
-        sync: false
+        value: f1d6fead0bd147a1f0088745a8935c09aadbae5d1b797ebe969703b3764e05b6

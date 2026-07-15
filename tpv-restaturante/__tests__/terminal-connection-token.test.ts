@@ -1,4 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { NextRequest } from 'next/server';
+
+function mockReq(): NextRequest {
+  return new Request('http://localhost', {
+    headers: { 'x-forwarded-for': '127.0.0.1' },
+  }) as unknown as NextRequest;
+}
 
 const mockConnectionTokens = { create: vi.fn() };
 const mockLocations = {
@@ -29,8 +36,7 @@ describe('terminal-connection-token API route', () => {
     delete process.env.STRIPE_SECRET_KEY;
 
     const { POST } = await import('../app/api/stripe/terminal-connection-token/route');
-    // @ts-expect-error - pre-existing: test calls POST() without req
-    const res = await POST();
+    const res = await POST(mockReq());
     const body = await res.json();
 
     expect(res.status).toBe(500);
@@ -46,8 +52,7 @@ describe('terminal-connection-token API route', () => {
     mockConnectionTokens.create.mockResolvedValue({ secret: 'ct_secret_123' });
 
     const { POST } = await import('../app/api/stripe/terminal-connection-token/route');
-    // @ts-expect-error - pre-existing: test calls POST() without req
-    const res = await POST();
+    const res = await POST(mockReq());
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -73,8 +78,7 @@ describe('terminal-connection-token API route', () => {
     mockConnectionTokens.create.mockResolvedValue({ secret: 'ct_secret_456' });
 
     const { POST } = await import('../app/api/stripe/terminal-connection-token/route');
-    // @ts-expect-error - pre-existing: test calls POST() without req
-    const res = await POST();
+    const res = await POST(mockReq());
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -97,14 +101,12 @@ describe('terminal-connection-token API route', () => {
     mockConnectionTokens.create.mockResolvedValue({ secret: 'ct_secret_789' });
 
     const { POST } = await import('../app/api/stripe/terminal-connection-token/route');
-    // @ts-expect-error - pre-existing: test calls POST() without req
-    const res1 = await POST();
+    const res1 = await POST(mockReq());
     const body1 = await res1.json();
     expect(body1.locationId).toBe('loc_cached');
     expect(mockLocations.create).toHaveBeenCalledTimes(1);
 
-    // @ts-expect-error - pre-existing: test calls POST() without req
-    const res2 = await POST();
+    const res2 = await POST(mockReq());
     const body2 = await res2.json();
     expect(body2.locationId).toBe('loc_cached');
     expect(mockLocations.create).toHaveBeenCalledTimes(1);
