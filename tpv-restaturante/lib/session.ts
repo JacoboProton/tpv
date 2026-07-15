@@ -9,7 +9,7 @@ function getDeviceId(): string {
   return id;
 }
 
-export async function sessionLogin(employeeId: string, employeeRole: string): Promise<unknown> {
+export async function sessionLogin(employeeId: string, employeeRole: string, _force?: boolean): Promise<unknown> {
   const res = await fetch('/api/session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
