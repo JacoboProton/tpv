@@ -96,6 +96,13 @@ export function middleware(req: NextRequest) {
   const role = req.headers.get('x-employee-role');
   const employeeId = req.headers.get('x-employee-id');
 
+  // Permitir peticiones con API key válida para carga inicial (antes del login)
+  // excepto rutas de administrador que siempre requieren rol admin
+  const hasApiKey = !!(expected && key === expected && key);
+  if (hasApiKey && !isAdminPath(pathname)) {
+    return corsNext(req);
+  }
+
   if (isAdminPath(pathname)) {
     if (!employeeId || !role || role !== 'admin') {
       return errorResponse(req, 403, { error: 'Solo administradores' });

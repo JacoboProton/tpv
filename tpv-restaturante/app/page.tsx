@@ -252,7 +252,7 @@ export default function App() {
 
   async function loadAll() {
     try {
-      await runMigrate();
+      await runMigrate().catch(() => {});
 
       const tnts: any[] = await fetch('/api/tenants').then(r => r.json()).catch(() => []);
 
