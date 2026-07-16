@@ -239,6 +239,45 @@ Work Log:
 - Corrido postcheck.py de nuevo: 0 errores, 2 warnings menores (line-spacing esperado por headings, Consolas font fallback benigno)
 - Documento final: 90.6 KB, formato Microsoft Word 2007+
 
+---
+
+## Drizzle ORM Migration — Completo
+
+**Agente:** opencode (deepseek-v4-flash-free)
+**Ámbito:** `F:/tpv/tpv-restaturante/` — migración completa de postgres.js raw SQL a Drizzle ORM
+**Trabajo realizado:**
+
+### Fase 1: Rutas API (76 rutas convertidas)
+Todas las rutas `app/api/*/route.ts` convertidas de `import { sql } from '@/lib/db'` a Drizzle ORM vía `getDb()` + `db.select()/insert()/update()/delete()` y `sql` tagged template de drizzle-orm. Las últimas 15 rutas convertidas: floor, invoice/pdf, invoice/send, stripe/reconciliation, stripe/terminal-connection-token, stripe/webhook, webhooks/ubereats, webhooks/glovo, verifactu (main + regenerate + retry + verify).
+
+### Fase 2: Librerías
+- `lib/floor.ts` — 4 helpers convertidos (upsertTableQueries, upsertOrderQueries, upsertFloorPlanQuery, fetchFullFloor)
+- `lib/payment-logger.ts` — usa `db.insert()` de Drizzle
+- `lib/fiskaly.ts` — 4 queries convertidas a Drizzle query builder
+- `lib/run-migrations.ts` — usa `db.execute(sql\`...\`)` de Drizzle
+- `lib/rbac.ts` — convertido de postgres.js sql a `getDb()` + drizzle `sql`
+
+### Fase 3: Legacy removal
+- `lib/migrate.ts` (1672 líneas DDL) eliminado. `backupAll()` extraído a `lib/backup.ts`
+- `lib/db.ts` eliminado (postgres.js client, sin consumidores restantes)
+- `@neondatabase/serverless` eliminado. Driver reemplazado por `pg` + `drizzle-orm/node-postgres`
+
+### Fase 4: Migraciones Drizzle
+- Migración inicial generada: `db/migrations/0000_perfect_ares.sql` (1530 líneas, 115 tablas)
+- `lib/run-migrations.ts` ahora usa `migrate()` oficial de `drizzle-orm/node-postgres/migrator`
+- Scripts npm añadidos: `db:pull`, `db:generate`, `db:migrate`, `db:push`
+
+### Fase 5: Docker
+- `scripts/docker-entrypoint.sh` ejecuta `drizzle-kit push --force` automáticamente al arrancar
+- Dockerfile copia `drizzle.config.ts`, `db/`, entrypoint
+- Build y arranque verificado end-to-end: BD fresca → push crea tablas → API responde
+
+### Estado final
+- **tsc --noEmit**: ✅ limpio
+- **Tests**: 184/187 pasan (3 pre-existing por falta de DATABASE_URL en test)
+- **Total APIs**: 76/76 convertidas a Drizzle
+- **Docker**: ✅ build + up verificado
+
 Stage Summary:
 - Deliverable: /home/z/my-project/download/Informe_Tecnico_TPV_La_Comanda.docx
 - 12 secciones, 96 headings (H1-H3), 7 tablas de datos, 1 diagrama textual

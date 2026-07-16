@@ -6,7 +6,7 @@ Sistema de TPV profesional para restaurantes con POS web, app móvil para camare
 
 - **Next.js 16** (App Router, Turbopak)
 - **React 19**, Tailwind 4, Lucide icons
-- **PostgreSQL** via `@neondatabase/serverless` (HTTP) — sin ORM
+- **PostgreSQL** via `pg` + **Drizzle ORM**
 - **Supabase Realtime** — sincronización en vivo POS/KDS/móvil
 - **Expo / React Native** — app móvil para camareros (`mobile/`)
 - **Vitest 4** con jsdom
@@ -17,8 +17,8 @@ Sistema de TPV profesional para restaurantes con POS web, app móvil para camare
 
 - `app/page.jsx` — SPA central (~2500 líneas), orquesta todas las vistas vía estado `view`
 - Vistas agrupadas en sidebar por bloques con códigos de color
-- API routes en `app/api/*/route.js` con `@neondatabase/serverless`
-- Migraciones automáticas en `lib/migrate.js` (idempotentes)
+- API routes en `app/api/*/route.ts` con Drizzle ORM (`lib/drizzle.ts`)
+- Migraciones con Drizzle Kit (`drizzle-kit generate` / `push` / `migrate`)
 - Seed data en `components/constants.js` (catalogo, sala, empleados)
 - `tenant_id` en todas las tablas core para multi-local
 
@@ -99,6 +99,10 @@ npm run dev          # Next.js dev (port 3000)
 npm run build        # Production build
 npm run lint         # ESLint 9 flat config
 npm run test         # Vitest (jsdom)
+npm run db:push      # Sincronizar schema Drizzle → BD (fresh DB)
+npm run db:generate  # Generar migración SQL tras cambios en schema
+npm run db:migrate   # Aplicar migraciones pendientes
+npm run db:pull      # Introspeccionar BD → actualizar schema Drizzle
 ```
 
 ## Variables de Entorno
@@ -107,7 +111,7 @@ Ver `.env.example`. Claves mínimas:
 
 | Variable | Descripción |
 |----------|-------------|
-| `DATABASE_URL` | Conexión Neon PostgreSQL |
+| `DATABASE_URL` | Conexión PostgreSQL (Neon, local, etc.) |
 | `TPV_API_KEY` | Clave API para middleware |
 | `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto Supabase |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Clave anónima Supabase |
@@ -118,18 +122,16 @@ Ver `.env.example`. Claves mínimas:
 ## Docker
 
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
-PostgreSQL 16 + app en puerto 3000. Realtime requiere configurar variables Supabase.
+PostgreSQL 16 + app en puerto 3000.
+- Las tablas se crean automáticamente via `drizzle-kit push --force` en el entrypoint.
+- Realtime requiere configurar variables Supabase en `docker-compose.yml`.
 
 ## Testing
 
 ```bash
-npx vitest run           # Todos los tests
-npx vitest run __tests__/constants.test.js   # Tests específicos
+npx vitest run                    # Todos los tests (187 tests, 13 archivos)
+npx vitest run __tests__/constants.test.ts   # Tests específicos
 ```
-
-## Vercel
-
-Deploy automático con `git push` a `main`. Requiere variables de entorno configuradas en dashboard de Vercel.

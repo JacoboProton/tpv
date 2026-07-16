@@ -10,7 +10,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 - **Next.js 16** (App Router, Turbopak, `"use client"` only on `app/page.jsx`)
 - **React 19**, Tailwind 4 (`@import "tailwindcss"`, no `tailwind.config`), Lucide icons
-- **PostgreSQL** via `postgres.js` (raw SQL template strings, no ORM)
+- **PostgreSQL** via `pg` + **Drizzle ORM** (`drizzle-orm/node-postgres`)
 - **Supabase Realtime** (Broadcast) para sincronización KDS/POS en tiempo real
 - **Vitest 4** with jsdom, path alias `@/`
 - **ESC/POS** thermal printing with WebUSB
@@ -19,8 +19,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 - `app/page.jsx` is the **SPA entrypoint** — a single 2400+ line `"use client"` component orchestrating all views via `view` state. All state (floor, catalog, sales, employees) lives here.
 - Views are mounted conditionally: `{view === 'salon' && <SalonView .../>}`
-- API routes in `app/api/*/route.js` use `import { sql } from '@/lib/db'` directly. No ORM. Middleware (`app/middleware.js`) protects `/api/*` with `x-tpv-key` header.
-- DB migrations auto-run on first load via `lib/migrate.js` (idempotent `CREATE TABLE IF NOT EXISTS`, `ALTER TABLE ADD COLUMN IF NOT EXISTS`).
+- API routes in `app/api/*/route.ts` use Drizzle ORM (`import { getDb } from '@/lib/drizzle'`). Middleware (`app/middleware.js`) protects `/api/*` with `x-tpv-key` header.
+- DB schema managed via Drizzle Kit: `db:schema.ts` auto-generated from `drizzle-kit pull`. Use `drizzle-kit generate` for migrations, `drizzle-kit push` for fresh DB sync.
+- Seed data functions in `components/constants.js` (`seedCatalog`, `seedFloor`, `seedEmployees`). Called when DB returns empty.
 - Seed data functions in `components/constants.js` (`seedCatalog`, `seedFloor`, `seedEmployees`). Called when DB returns empty.
 
 ## Offline architecture
@@ -36,10 +37,12 @@ This version has breaking changes — APIs, conventions, and file structure may 
 npm run dev          # next dev (port 3000)
 npm run build        # Production build
 npm run lint         # ESLint 9 flat config
-npm run test         # Vitest (jsdom)
+npm run test         # Vitest (jsdom) — 187 tests, 13 files
+npm run db:push      # Sync Drizzle schema → DB (fresh DB / dev)
+npm run db:generate  # Generate migration SQL after schema changes
+npm run db:migrate   # Apply pending migrations
+npm run db:pull      # Introspect DB → update Drizzle schema
 ```
-
-Test: `npx vitest run __tests__/constants.test.js`
 
 ## Conventions
 
@@ -83,7 +86,7 @@ Test: `npx vitest run __tests__/constants.test.js`
 ## Testing quirks
 
 - Tests use **Vitest** (not Jest), run via `npm run test` or `npx vitest run`.
-- 4 test files: `constants.test.js`, `offline.test.js`, `thermal-printer.test.js`, `verifactu.test.js` (86 tests total).
+- 13 test files, 187 tests total (6 web + 7 mobile).
 - `getDailyMenu("happy_hour")` test may return happy hour instead of undefined — happy hour is all-day in test seed.
 
 ## Tailwind 4 notes
@@ -101,11 +104,10 @@ Test: `npx vitest run __tests__/constants.test.js`
 
 ## Online Reservations
 
-- `app/api/reservations/availability/route.js` — `GET /api/reservations/availability?date=YYYY-MM-DD&pax=N` returns `{ slots: [{time, available, paxRemaining}], isClosed, isBlocked, totalSeats, existingPax, availableSeats }`. Checks settings (schedule, closed days, blocked dates, interval, duration, max pax, online toggle), tables capacity, overlapping reservations, and past-time filtering.
-- `app/api/reservations/route.js` — Full CRUD (`GET`, `POST`, `DELETE`). Supports recurring reservations via `recurring=1` param. POST creates reservation with auto-assigned `res_` ID. Valid sources: `manual`, `online`, `qr`.
+- `app/api/reservations/availability/route.ts` — `GET /api/reservations/availability?date=YYYY-MM-DD&pax=N` returns `{ slots: [{time, available, paxRemaining}], isClosed, isBlocked, totalSeats, existingPax, availableSeats }`. Checks settings (schedule, closed days, blocked dates, interval, duration, max pax, online toggle), tables capacity, overlapping reservations, and past-time filtering.
+- `app/api/reservations/route.ts` — Full CRUD (`GET`, `POST`, `DELETE`). Supports recurring reservations via `recurring=1` param. POST creates reservation with auto-assigned `res_` ID. Valid sources: `manual`, `online`, `qr`.
 - `components/ReservasView.jsx` — Admin view: calendar (month/week/day), availability checker, status flow (pendiente→confirmada→sentada→noshow/cancelada), deposit tracking, recurring reservation support.
 - `components/ReservaSettingsView.jsx` — Settings: schedule type (simple/advanced with shifts), closed days, blocked dates, interval, duration, max pax, auto-confirm, deposits, WhatsApp confirm/reminder, review request.
-- `lib/migrate.js:594-662` — `reservations` table, `reservation_recurring` table, 20+ reservation settings keys seeded.
 
 ## env vars
 
@@ -113,9 +115,9 @@ See `.env.example` / README. Key: `TPV_API_KEY` and `NEXT_PUBLIC_TPV_API_KEY` mu
 
 ## Docker (punto débil #2 resuelto)
 
-- `docker-compose up --build` levanta PostgreSQL 16 + app en puerto 3000.
+- `docker compose up --build` levanta PostgreSQL 16 + app en puerto 3000.
 - `DATABASE_URL` apunta a `postgres://tpv:tpv_local_dev@postgres:5432/tpv_restaurant`.
-- Las migraciones se ejecutan automáticamente al arrancar.
+- `scripts/docker-entrypoint.sh` corre `drizzle-kit push --force` automáticamente al arrancar (crea tablas en BD fresca).
 - Fiskaly/Stripe no están configurados en `docker-compose.yml` — añadir como `environment:` si se necesitan.
 - `output: 'standalone'` en `next.config.ts` — necesario para el multi-stage build.
 - `server.js` escucha en `0.0.0.0:3000` (variable `HOST`).
