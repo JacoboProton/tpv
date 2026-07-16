@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { sql } from '../../../../lib/db';
+import { eq, and } from 'drizzle-orm';
+import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
 import { rateLimit } from '../../../../lib/rate-limit';
+import { settings } from '../../../../db/schema';
 
 function getStripe() {
   if (!process.env.STRIPE_SECRET_KEY) return null;
@@ -14,14 +16,16 @@ function env(key: string, fallback: string) {
 }
 
 async function getOrCreateLocation(stripe: Stripe, tenantId: string) {
-  // Persistir en BD en lugar de memoria volátil
+  const db = getDb();
   try {
-    const rows = await sql`SELECT value FROM settings WHERE key = 'stripe_terminal_location_id' AND tenant_id = ${tenantId} LIMIT 1`;
+    const rows = await db.select({ value: settings.value })
+      .from(settings)
+      .where(and(eq(settings.key, 'stripe_terminal_location_id'), eq(settings.tenantId, tenantId)))
+      .limit(1);
     if (rows.length > 0 && rows[0].value) {
       return rows[0].value;
     }
   } catch {}
-  // L1 cache en memoria como respaldo mientras dure el proceso
   const g = globalThis as Record<string, unknown>;
   if (typeof globalThis !== 'undefined' && g.__stripeLocationId) {
     return g.__stripeLocationId as string;
@@ -29,7 +33,7 @@ async function getOrCreateLocation(stripe: Stripe, tenantId: string) {
   const existing = await stripe.terminal.locations.list({ limit: 1 });
   if (existing.data.length > 0) {
     const id = existing.data[0].id;
-    try { await sql`INSERT INTO settings (key, value, tenant_id) VALUES ('stripe_terminal_location_id', ${id}, ${tenantId}) ON CONFLICT (key, tenant_id) DO UPDATE SET value = EXCLUDED.value`; } catch {}
+    try { await db.insert(settings).values({ key: 'stripe_terminal_location_id', value: id, tenantId }).onConflictDoUpdate({ target: [settings.key, settings.tenantId], set: { value: id } }); } catch {}
     if (typeof globalThis !== 'undefined') (globalThis as Record<string, unknown>).__stripeLocationId = id;
     return id;
   }
@@ -43,7 +47,7 @@ async function getOrCreateLocation(stripe: Stripe, tenantId: string) {
       postal_code: env('STRIPE_LOCATION_POSTAL_CODE', '28001'),
     },
   });
-  try { await sql`INSERT INTO settings (key, value, tenant_id) VALUES ('stripe_terminal_location_id', ${loc.id}, ${tenantId}) ON CONFLICT (key, tenant_id) DO UPDATE SET value = EXCLUDED.value`; } catch {}
+  try { await db.insert(settings).values({ key: 'stripe_terminal_location_id', value: loc.id, tenantId }).onConflictDoUpdate({ target: [settings.key, settings.tenantId], set: { value: loc.id } }); } catch {}
   if (typeof globalThis !== 'undefined') (globalThis as Record<string, unknown>).__stripeLocationId = loc.id;
   return loc.id;
 }

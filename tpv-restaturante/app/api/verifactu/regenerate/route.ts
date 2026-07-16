@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '../../../../lib/db';
+import { eq, desc } from 'drizzle-orm';
+import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
 import { requireAdminPin } from '../../../../lib/rbac';
 import { registerSaleInFiskaly } from '../../../../lib/fiskaly';
 import { generateRegistroFactura, formatFecha } from '../../../../lib/verifactu';
+import { verifactuRegistros, sales, backups } from '../../../../db/schema';
 
 export async function POST(req: NextRequest) {
   try {
+    const db = getDb();
     const body = await req.json() as any;
     const adminCheck = await requireAdminPin(req, body.adminPin);
     if (!adminCheck.authorized) {
@@ -15,55 +18,47 @@ export async function POST(req: NextRequest) {
 
     const tenantId = getTenantId(req);
 
-    // 1a. Backup existing verifactu registros before deleting
-    const existingRegs = await sql`
-      SELECT * FROM verifactu_registros WHERE tenant_id = ${tenantId}
-    `;
+    const existingRegs = await db.select().from(verifactuRegistros)
+      .where(eq(verifactuRegistros.tenantId, tenantId));
     if (existingRegs.length > 0) {
       const backupId = 'backup_verifactu_' + Date.now();
-      await sql`
-        INSERT INTO backups (id, data, created_at)
-        VALUES (${backupId}, ${JSON.stringify(existingRegs)}, ${Date.now()})
-        ON CONFLICT (id) DO NOTHING
-      `;
+      await db.insert(backups).values({
+        id: backupId,
+        data: existingRegs,
+        createdAt: Date.now(),
+      }).onConflictDoNothing();
     }
 
-    // 1. Obtener todas las ventas
-    const sales = await sql`
-      SELECT * FROM sales WHERE tenant_id = ${tenantId} ORDER BY closed_at ASC
-    `;
+    const allSales = await db.select().from(sales)
+      .where(eq(sales.tenantId, tenantId))
+      .orderBy(sales.closedAt);
 
-    if (sales.length === 0) {
+    if (allSales.length === 0) {
       return NextResponse.json({ error: 'No hay ventas para regenerar' }, { status: 400 });
     }
 
-    // 2. Borrar todos los registros Verifactu existentes
-    await sql`DELETE FROM verifactu_registros WHERE tenant_id = ${tenantId}`;
+    await db.delete(verifactuRegistros)
+      .where(eq(verifactuRegistros.tenantId, tenantId));
 
-    // 3. Registrar cada venta de nuevo con el NIF correcto
     const results = [];
     let previousHash = '0';
     const year = new Date().getFullYear();
 
-    for (let i = 0; i < sales.length; i++) {
-      const sale = sales[i];
+    for (let i = 0; i < allSales.length; i++) {
+      const sale = allSales[i];
       try {
-        // Generar número de serie
         const seq = i + 1;
         const numSerie = `VERI-${year}-${String(seq).padStart(6, '0')}`;
 
-        // Calcular importes
-        const total = Number(sale.total ?? sale.total_with_tip ?? 0);
+        const total = Number(sale.total ?? sale.totalWithTip ?? 0);
         const importeTotal = Number(total.toFixed(2));
         const baseImponible = Number((importeTotal / 1.07).toFixed(2));
         const cuotaIva = Number((importeTotal - baseImponible).toFixed(2));
-        
-        // Manejar fecha correctamente (huso horario local de Canarias)
-        const closedAt = sale.closed_at ? Number(sale.closed_at) : Date.now();
+
+        const closedAt = sale.closedAt ? Number(sale.closedAt) : Date.now();
         const fechaExpedicion = formatFecha(closedAt);
         const now = Date.now();
 
-        // Intentar registrar en Fiskaly
         let fiskalyInvoiceId = null;
         let verificationUrl = null;
         let qrUrl = null;
@@ -73,20 +68,23 @@ export async function POST(req: NextRequest) {
         let fechaHoraFirma = null;
 
         try {
-          const fiskalyResult = await registerSaleInFiskaly(sale, numSerie);
+          const fiskalySale = {
+            id: sale.id, total: Number(sale.total ?? 0), totalWithTip: Number(sale.totalWithTip ?? sale.total ?? 0),
+            closedAt: sale.closedAt ? Number(sale.closedAt) : Date.now(),
+            items: (sale.items ?? []) as any[],
+          };
+          const fiskalyResult = await registerSaleInFiskaly(fiskalySale, numSerie);
           fiskalyInvoiceId = (fiskalyResult as any).fiskalyInvoiceId;
           verificationUrl = (fiskalyResult as any).verificationUrl;
           qrUrl = (fiskalyResult as any).qrUrl;
           estado = 'registrado';
 
-          // Adaptar objeto de DB al formato esperado por generateRegistroFactura
           const saleForVerifactu = {
-            ...sale,
-            closedAt: sale.closed_at ? Number(sale.closed_at) : Date.now(),
-            totalWithTip: sale.total_with_tip ? Number(sale.total_with_tip) : Number(sale.total),
+            id: sale.id, closedAt: sale.closedAt ? Number(sale.closedAt) : Date.now(),
+            totalWithTip: sale.totalWithTip ? Number(sale.totalWithTip) : Number(sale.total),
             total: sale.total ? Number(sale.total) : 0,
-            tableName: sale.table_name,
-            items: sale.items || [],
+            tableName: sale.tableName ?? undefined,
+            items: (sale.items ?? []) as any[],
           };
 
           const localResult = generateRegistroFactura(saleForVerifactu, previousHash, numSerie);
@@ -96,16 +94,15 @@ export async function POST(req: NextRequest) {
           if (!qrUrl) qrUrl = localResult.qrUrl;
         } catch (fkErr) {
           console.error(`Fiskaly fallback a simulación local para venta ${sale.id}:`, (fkErr as Error).message);
-          
+
           const saleForVerifactu = {
-            ...sale,
-            closedAt: sale.closed_at ? Number(sale.closed_at) : Date.now(),
-            totalWithTip: sale.total_with_tip ? Number(sale.total_with_tip) : Number(sale.total),
+            id: sale.id, closedAt: sale.closedAt ? Number(sale.closedAt) : Date.now(),
+            totalWithTip: sale.totalWithTip ? Number(sale.totalWithTip) : Number(sale.total),
             total: sale.total ? Number(sale.total) : 0,
-            tableName: sale.table_name,
-            items: sale.items || [],
+            tableName: sale.tableName ?? undefined,
+            items: (sale.items ?? []) as any[],
           };
-          
+
           const fallback = generateRegistroFactura(saleForVerifactu, previousHash, numSerie);
           hash = fallback.hash;
           xml = fallback.xml;
@@ -114,21 +111,25 @@ export async function POST(req: NextRequest) {
           estado = 'simulado';
         }
 
-        // Guardar en base de datos
-        const inserted = await sql`
-          INSERT INTO verifactu_registros
-            (sale_id, num_serie, fecha_expedicion, importe_total, base_imponible,
-             cuota_iva, huella_anterior, huella, xml_registro, qr_url, estado, created_at,
-             fiskaly_invoice_id, verification_url, fecha_hora_firma, payment_intent_id, tenant_id)
-          VALUES (
-            ${sale.id}, ${numSerie}, ${fechaExpedicion},
-            ${importeTotal}, ${baseImponible}, ${cuotaIva},
-            ${previousHash}, ${hash}, ${xml}, ${qrUrl || ''}, ${estado}, ${now},
-            ${fiskalyInvoiceId}, ${verificationUrl}, ${fechaHoraFirma},
-            ${sale.payment_intent_id ?? ''}, ${tenantId}
-          )
-          RETURNING *
-        `;
+        const inserted = await db.insert(verifactuRegistros).values({
+          saleId: sale.id,
+          numSerie,
+          fechaExpedicion,
+          importeTotal: String(importeTotal),
+          baseImponible: String(baseImponible),
+          cuotaIva: String(cuotaIva),
+          huellaAnterior: previousHash,
+          huella: hash,
+          xmlRegistro: xml,
+          qrUrl: qrUrl || '',
+          estado,
+          createdAt: now,
+          fiskalyInvoiceId,
+          verificationUrl,
+          fechaHoraFirma,
+          paymentIntentId: sale.paymentIntentId ?? '',
+          tenantId,
+        }).returning();
 
         previousHash = hash;
         results.push({ saleId: sale.id, success: true, numSerie });
@@ -138,12 +139,12 @@ export async function POST(req: NextRequest) {
     }
 
     const successCount = results.filter(r => r.success).length;
-    
+
     return NextResponse.json({
-      message: `Regenerados ${successCount}/${sales.length} registros Verifactu`,
-      total: sales.length,
+      message: `Regenerados ${successCount}/${allSales.length} registros Verifactu`,
+      total: allSales.length,
       success: successCount,
-      failed: sales.length - successCount,
+      failed: allSales.length - successCount,
       results,
     });
   } catch (err) {

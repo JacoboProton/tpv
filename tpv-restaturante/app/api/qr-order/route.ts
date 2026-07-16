@@ -1,27 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '../../../lib/db';
+import { and, desc, eq, sql } from 'drizzle-orm';
+import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
+import { qrOrders, orders, tables, deliveryOrders } from '../../../db/schema';
 
 function makeId(prefix = 'qo') { return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 
 export async function POST(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
     const body = await req.json() as any;
 
     if (body.action === 'status') {
-      const rows = await sql`SELECT * FROM qr_orders WHERE id = ${body.orderId} AND tenant_id = ${tenantId}`;
-      if (rows.length === 0) return NextResponse.json({ error: 'not_found' }, { status: 404 });
-      const r = rows[0];
+      const [r] = await db.select().from(qrOrders)
+        .where(and(eq(qrOrders.id, body.orderId), eq(qrOrders.tenantId, tenantId))).limit(1);
+      if (!r) return NextResponse.json({ error: 'not_found' }, { status: 404 });
       return NextResponse.json({
-        id: r.id, tableId: r.table_id, orderStatus: r.order_status,
+        id: r.id, tableId: r.tableId, orderStatus: r.orderStatus,
         modality: r.modality, items: r.items, amount: Number(r.amount),
-        deliveryCost: Number(r.delivery_cost || 0),
-        createdAt: r.created_at, updatedAt: r.updated_at,
+        deliveryCost: Number(r.deliveryCost || 0),
+        createdAt: r.createdAt, updatedAt: r.updatedAt,
       });
     }
 
-    // Submit order
     const {
       tableId, items, amount, customerName, customerPhone, customerEmail,
       notes, modality, address, addressLat, addressLng, zoneId, deliveryCost, scheduledAt,
@@ -34,7 +36,7 @@ export async function POST(req: NextRequest) {
     const orderId = makeId('qo');
     const now = Date.now();
 
-    const orderItems = items.map((it: any, i: any) => ({
+    const orderItems = items.map((it: any, i: number) => ({
       id: 'i_' + now + '_' + i + Math.random().toString(36).slice(2, 6),
       productId: it.productId, name: it.name, price: it.price,
       qty: it.qty || 1, notes: it.notes || '', modifiers: it.modifiers || [],
@@ -45,46 +47,43 @@ export async function POST(req: NextRequest) {
     const tpvOrderId = makeId('o');
     const empName = modality === 'dinein' ? 'QR' : modality === 'pickup' ? 'Recogida' : 'Domicilio';
 
-    // For dine-in, write to orders table so TPV picks it up
     if (tableId && modality === 'dinein') {
-      await sql`
-        INSERT INTO orders (id, table_id, items, created_at, employee_name, tenant_id)
-        VALUES (${tpvOrderId}, ${tableId}, ${JSON.stringify(orderItems)}, ${now}, ${empName}, ${tenantId})
-      `;
-      const table = await sql`SELECT order_ids FROM tables WHERE id = ${tableId} AND tenant_id = ${tenantId}`;
-      const existingIds = table[0]?.order_ids || [];
+      await db.insert(orders).values({
+        id: tpvOrderId, tableId, items: orderItems,
+        createdAt: now, employeeName: empName, tenantId,
+      });
+      const [table] = await db.select({ orderIds: tables.orderIds }).from(tables)
+        .where(and(eq(tables.id, tableId), eq(tables.tenantId, tenantId))).limit(1);
+      const existingIds = Array.isArray(table?.orderIds) ? table.orderIds : [];
       const newIds = [...existingIds.filter((x: any) => x), tpvOrderId];
-      await sql`
-        UPDATE tables SET status = 'ocupada', order_id = ${tpvOrderId}, order_ids = ${JSON.stringify(newIds)}
-        WHERE id = ${tableId} AND tenant_id = ${tenantId}
-      `;
+      await db.update(tables).set({
+        status: 'ocupada', orderId: tpvOrderId, orderIds: newIds,
+      }).where(and(eq(tables.id, tableId), eq(tables.tenantId, tenantId)));
     }
 
-    // Insert into qr_orders for tracking
     const qrTableId = tableId || 'online';
-    await sql`
-      INSERT INTO qr_orders (id, table_id, items, order_status, modality, amount, delivery_cost,
-        customer_name, customer_phone, customer_email, notes, address, address_lat, address_lng,
-        zone_id, scheduled_at, accepted, created_at, updated_at, tenant_id)
-      VALUES (${orderId}, ${qrTableId}, ${JSON.stringify(orderItems)},
-        ${body.paymentRequired ? 'paid' : 'pending'},
-        ${modality || 'dinein'}, ${amount || 0}, ${deliveryCost || 0},
-        ${customerName || ''}, ${customerPhone || ''}, ${customerEmail || ''},
-        ${notes || ''}, ${address || ''}, ${addressLat || null}, ${addressLng || null},
-        ${zoneId || ''}, ${scheduledAt || null},
-        ${body.autoAccept !== false}, ${now}, ${now}, ${tenantId})
-    `;
+    await db.insert(qrOrders).values({
+      id: orderId, tableId: qrTableId, items: orderItems,
+      orderStatus: body.paymentRequired ? 'paid' : 'pending',
+      modality: modality || 'dinein', amount: String(amount || 0),
+      deliveryCost: String(deliveryCost || 0),
+      customerName: customerName || '', customerPhone: customerPhone || '',
+      customerEmail: customerEmail || '', notes: notes || '',
+      address: address || '', addressLat: addressLat ?? null, addressLng: addressLng ?? null,
+      zoneId: zoneId || '', scheduledAt: scheduledAt ?? null,
+      accepted: body.autoAccept !== false,
+      createdAt: now, updatedAt: now, tenantId,
+    });
 
-    // Create delivery order entry for pickup/delivery
     if (modality === 'pickup' || modality === 'delivery') {
       const delId = 'del_' + Date.now();
-      await sql`
-        INSERT INTO delivery_orders (id, order_id, table_id, customer_name, customer_phone, address,
-          address_lat, address_lng, notes, items, status, created_at, estimated_at, tenant_id)
-        VALUES (${delId}, ${orderId}, ${qrTableId}, ${customerName || ''}, ${customerPhone || ''},
-          ${address || ''}, ${addressLat || null}, ${addressLng || null},
-          ${notes || ''}, ${JSON.stringify(orderItems)}, 'pending', ${now}, ${scheduledAt || null}, ${tenantId})
-      `;
+      await db.insert(deliveryOrders).values({
+        id: delId, orderId, tableId: qrTableId,
+        customerName: customerName || '', customerPhone: customerPhone || '',
+        address: address || '', addressLat: addressLat ?? null, addressLng: addressLng ?? null,
+        notes: notes || '', items: orderItems, status: 'pending',
+        createdAt: now, estimatedAt: scheduledAt ?? null, tenantId,
+      });
     }
 
     return NextResponse.json({
@@ -98,57 +97,55 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     if (id) {
-      const rows = await sql`SELECT * FROM qr_orders WHERE id = ${id} AND tenant_id = ${tenantId}`;
-      if (rows.length === 0) return NextResponse.json({ error: 'not_found' }, { status: 404 });
-      const r = rows[0];
+      const [r] = await db.select().from(qrOrders)
+        .where(and(eq(qrOrders.id, id), eq(qrOrders.tenantId, tenantId))).limit(1);
+      if (!r) return NextResponse.json({ error: 'not_found' }, { status: 404 });
       return NextResponse.json({
-        id: r.id, tableId: r.table_id, orderStatus: r.order_status,
+        id: r.id, tableId: r.tableId, orderStatus: r.orderStatus,
         modality: r.modality, items: r.items, amount: Number(r.amount),
-        deliveryCost: Number(r.delivery_cost || 0), customerName: r.customer_name,
-        customerPhone: r.customer_phone, customerEmail: r.customer_email,
-        address: r.address, addressLat: r.address_lat, addressLng: r.address_lng,
-        zoneId: r.zone_id, notes: r.notes, accepted: r.accepted,
-        scheduledAt: r.scheduled_at, createdAt: r.created_at, updatedAt: r.updated_at,
+        deliveryCost: Number(r.deliveryCost || 0), customerName: r.customerName,
+        customerPhone: r.customerPhone, customerEmail: r.customerEmail,
+        address: r.address, addressLat: r.addressLat, addressLng: r.addressLng,
+        zoneId: r.zoneId, notes: r.notes, accepted: r.accepted,
+        scheduledAt: r.scheduledAt, createdAt: r.createdAt, updatedAt: r.updatedAt,
       });
     }
     const tableId = searchParams.get('tableId');
     if (tableId) {
-      const rows = await sql`
-        SELECT * FROM qr_orders WHERE table_id = ${tableId} AND order_status != 'cancelled' AND tenant_id = ${tenantId}
-        ORDER BY created_at DESC LIMIT 20
-      `;
-      return NextResponse.json(rows.map(r => ({
-        id: r.id, tableId: r.table_id, modality: r.modality,
-        orderStatus: r.order_status, amount: Number(r.amount),
-        createdAt: r.created_at,
-      })));
+      const rows = await db.select({
+        id: qrOrders.id, tableId: qrOrders.tableId, modality: qrOrders.modality,
+        orderStatus: qrOrders.orderStatus, amount: qrOrders.amount, createdAt: qrOrders.createdAt,
+      }).from(qrOrders)
+        .where(sql`${eq(qrOrders.tableId, tableId)} AND ${qrOrders.orderStatus} != 'cancelled' AND ${eq(qrOrders.tenantId, tenantId)}`)
+        .orderBy(desc(qrOrders.createdAt)).limit(20);
+      return NextResponse.json(rows.map(r => ({ ...r, amount: Number(r.amount) })));
     }
     const modality = searchParams.get('modality');
     if (modality) {
-      const rows = await sql`
-        SELECT * FROM qr_orders WHERE modality = ${modality} AND tenant_id = ${tenantId} ORDER BY created_at DESC LIMIT 50
-      `;
-      return NextResponse.json(rows.map(r => ({
-        id: r.id, modality: r.modality, orderStatus: r.order_status,
-        customerName: r.customer_name, amount: Number(r.amount),
-        createdAt: r.created_at,
-      })));
+      const rows = await db.select({
+        id: qrOrders.id, modality: qrOrders.modality,
+        orderStatus: qrOrders.orderStatus, customerName: qrOrders.customerName,
+        amount: qrOrders.amount, createdAt: qrOrders.createdAt,
+      }).from(qrOrders)
+        .where(sql`${eq(qrOrders.modality, modality)} AND ${eq(qrOrders.tenantId, tenantId)}`)
+        .orderBy(desc(qrOrders.createdAt)).limit(50);
+      return NextResponse.json(rows.map(r => ({ ...r, amount: Number(r.amount) })));
     }
-    // List all recent orders
-    const allRows = await sql`
-      SELECT * FROM qr_orders WHERE tenant_id = ${tenantId} ORDER BY created_at DESC LIMIT 100
-    `;
+    const allRows = await db.select().from(qrOrders)
+      .where(eq(qrOrders.tenantId, tenantId))
+      .orderBy(desc(qrOrders.createdAt)).limit(100);
     return NextResponse.json(allRows.map(r => ({
-      id: r.id, tableId: r.table_id, modality: r.modality, orderStatus: r.order_status,
-      customerName: r.customer_name, customerPhone: r.customer_phone,
-      customerEmail: r.customer_email, address: r.address, zoneId: r.zone_id,
-      deliveryCost: Number(r.delivery_cost || 0), amount: Number(r.amount),
+      id: r.id, tableId: r.tableId, modality: r.modality, orderStatus: r.orderStatus,
+      customerName: r.customerName, customerPhone: r.customerPhone,
+      customerEmail: r.customerEmail, address: r.address, zoneId: r.zoneId,
+      deliveryCost: Number(r.deliveryCost || 0), amount: Number(r.amount),
       items: r.items, notes: r.notes, accepted: r.accepted,
-      scheduledAt: r.scheduled_at, createdAt: r.created_at, updatedAt: r.updated_at,
+      scheduledAt: r.scheduledAt, createdAt: r.createdAt, updatedAt: r.updatedAt,
     })));
   } catch (err: any) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
@@ -157,22 +154,26 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
     const body = await req.json() as any;
     const { action, id } = body;
 
     if (action === 'status') {
-      await sql`UPDATE qr_orders SET order_status = ${body.status}, updated_at = ${Date.now()} WHERE id = ${id} AND tenant_id = ${tenantId}`;
+      await db.update(qrOrders).set({ orderStatus: body.status, updatedAt: Date.now() })
+        .where(and(eq(qrOrders.id, id), eq(qrOrders.tenantId, tenantId)));
       return NextResponse.json({ ok: true });
     }
 
     if (action === 'accept') {
-      await sql`UPDATE qr_orders SET accepted = true, order_status = 'confirmed', updated_at = ${Date.now()} WHERE id = ${id} AND tenant_id = ${tenantId}`;
+      await db.update(qrOrders).set({ accepted: true, orderStatus: 'confirmed', updatedAt: Date.now() })
+        .where(and(eq(qrOrders.id, id), eq(qrOrders.tenantId, tenantId)));
       return NextResponse.json({ ok: true });
     }
 
     if (action === 'update_items') {
-      await sql`UPDATE qr_orders SET items = ${JSON.stringify(body.items)}, updated_at = ${Date.now()} WHERE id = ${id} AND tenant_id = ${tenantId}`;
+      await db.update(qrOrders).set({ items: body.items, updatedAt: Date.now() })
+        .where(and(eq(qrOrders.id, id), eq(qrOrders.tenantId, tenantId)));
       return NextResponse.json({ ok: true });
     }
 

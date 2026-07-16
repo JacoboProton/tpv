@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '../../../../lib/db';
+import { eq, and, asc } from 'drizzle-orm';
+import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
 import { registerSaleInFiskaly } from '../../../../lib/fiskaly';
-import { generateRegistroFactura, formatFecha } from '../../../../lib/verifactu';
+import { generateRegistroFactura } from '../../../../lib/verifactu';
+import { verifactuRegistros, sales } from '../../../../db/schema';
 
-// POST /api/verifactu/retry
-// Retries Fiskaly registration for all 'simulado' records
 export async function POST(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
-    const simulados = await sql`
-      SELECT * FROM verifactu_registros WHERE estado = 'simulado' AND tenant_id = ${tenantId} ORDER BY id ASC
-    `;
+    const simulados = await db.select().from(verifactuRegistros)
+      .where(and(eq(verifactuRegistros.estado, 'simulado'), eq(verifactuRegistros.tenantId, tenantId)))
+      .orderBy(asc(verifactuRegistros.id));
 
     if (simulados.length === 0) {
       return NextResponse.json({
@@ -25,56 +26,53 @@ export async function POST(req: NextRequest) {
 
     for (const reg of simulados) {
       try {
-        // Fetch the original sale
-        const sales = await sql`
-          SELECT * FROM sales WHERE id = ${reg.sale_id} AND tenant_id = ${tenantId} LIMIT 1
-        `;
-        if (sales.length === 0) {
-          results.push({ saleId: reg.sale_id, success: false, error: 'Venta no encontrada' });
+        const saleRows = await db.select().from(sales)
+          .where(and(eq(sales.id, reg.saleId), eq(sales.tenantId, tenantId)))
+          .limit(1);
+        if (saleRows.length === 0) {
+          results.push({ saleId: reg.saleId, success: false, error: 'Venta no encontrada' });
           continue;
         }
 
         const sale = {
-          ...sales[0],
-          closedAt: sales[0].closed_at ? Number(sales[0].closed_at) : Date.now(),
-          totalWithTip: sales[0].total_with_tip ? Number(sales[0].total_with_tip) : Number(sales[0].total),
-          total: sales[0].total ? Number(sales[0].total) : 0,
-          tableName: sales[0].table_name,
-          items: sales[0].items || [],
+          id: saleRows[0].id, closedAt: saleRows[0].closedAt ? Number(saleRows[0].closedAt) : Date.now(),
+          totalWithTip: saleRows[0].totalWithTip ? Number(saleRows[0].totalWithTip) : Number(saleRows[0].total),
+          total: saleRows[0].total ? Number(saleRows[0].total) : 0,
+          tableName: saleRows[0].tableName ?? undefined,
+          items: (saleRows[0].items ?? []) as any[],
         };
 
-        const fiskalyResult = await registerSaleInFiskaly(sale, reg.num_serie);
+        const fiskalyResult = await registerSaleInFiskaly(sale, reg.numSerie);
 
-        // Recalcular hash y XML con el nuevo estado
-        const localResult = generateRegistroFactura(sale, reg.huella_anterior, reg.num_serie, {
-          importeTotal: Number(reg.importe_total),
-          baseImponible: Number(reg.base_imponible),
-          cuotaIGIC: Number(reg.cuota_iva),
-          fechaExpedicion: reg.fecha_expedicion,
+        const localResult = generateRegistroFactura(sale, reg.huellaAnterior, reg.numSerie, {
+          importeTotal: Number(reg.importeTotal),
+          baseImponible: Number(reg.baseImponible),
+          cuotaIGIC: Number(reg.cuotaIva),
+          fechaExpedicion: reg.fechaExpedicion,
         });
 
-        await sql`
-          UPDATE verifactu_registros SET
-            estado = 'registrado',
-            fiskaly_invoice_id = ${(fiskalyResult as any).fiskalyInvoiceId},
-            verification_url = ${(fiskalyResult as any).verificationUrl},
-            qr_url = ${(fiskalyResult as any).qrUrl},
-            huella = ${localResult.hash},
-            xml_registro = ${localResult.xml},
-            fecha_hora_firma = ${localResult.fechaHoraFirma}
-          WHERE id = ${reg.id} AND tenant_id = ${tenantId}
-        `;
+        await db.update(verifactuRegistros)
+          .set({
+            estado: 'registrado',
+            fiskalyInvoiceId: (fiskalyResult as any).fiskalyInvoiceId,
+            verificationUrl: (fiskalyResult as any).verificationUrl,
+            qrUrl: (fiskalyResult as any).qrUrl,
+            huella: localResult.hash,
+            xmlRegistro: localResult.xml,
+            fechaHoraFirma: localResult.fechaHoraFirma,
+          })
+          .where(and(eq(verifactuRegistros.id, reg.id), eq(verifactuRegistros.tenantId, tenantId)));
 
         results.push({
-          saleId: reg.sale_id,
-          numSerie: reg.num_serie,
+          saleId: reg.saleId,
+          numSerie: reg.numSerie,
           success: true,
           fiskalyInvoiceId: (fiskalyResult as any).fiskalyInvoiceId,
         });
       } catch (err) {
         results.push({
-          saleId: reg.sale_id,
-          numSerie: reg.num_serie,
+          saleId: reg.saleId,
+          numSerie: reg.numSerie,
           success: false,
           error: (err as Error).message,
         });

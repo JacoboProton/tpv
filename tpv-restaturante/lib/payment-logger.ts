@@ -1,4 +1,5 @@
-import { sql } from './db';
+import { getDb } from './drizzle';
+import { paymentLogs } from '../db/schema';
 
 interface PaymentLogOptions {
   eventId?: string | null;
@@ -17,27 +18,22 @@ interface PaymentLogOptions {
 
 export async function logPayment(opts: PaymentLogOptions): Promise<void> {
   try {
-    await sql`
-      INSERT INTO payment_logs (
-        event_id, payment_intent_id, operation, amount_cents, currency,
-        status, table_id, table_name, employee_name, source, error,
-        stripe_response, created_at
-      ) VALUES (
-        ${opts.eventId ?? null},
-        ${opts.paymentIntentId ?? null},
-        ${opts.operation},
-        ${opts.amountCents ?? 0},
-        ${opts.currency ?? 'eur'},
-        ${opts.status ?? 'ok'},
-        ${opts.tableId ?? null},
-        ${opts.tableName ?? null},
-        ${opts.employeeName ?? null},
-        ${opts.source ?? null},
-        ${opts.error ?? null},
-        ${opts.stripeResponse ? JSON.stringify(opts.stripeResponse).slice(0, 2000) : null},
-        ${Date.now()}
-      )
-    `;
+    const db = getDb();
+    await db.insert(paymentLogs).values({
+      eventId: opts.eventId ?? null,
+      paymentIntentId: opts.paymentIntentId ?? null,
+      operation: opts.operation,
+      amountCents: opts.amountCents ?? 0,
+      currency: opts.currency ?? 'eur',
+      status: opts.status ?? 'ok',
+      tableId: opts.tableId ?? null,
+      tableName: opts.tableName ?? null,
+      employeeName: opts.employeeName ?? null,
+      source: opts.source ?? null,
+      error: opts.error ?? null,
+      stripeResponse: opts.stripeResponse ? JSON.stringify(opts.stripeResponse).slice(0, 2000) : null,
+      createdAt: Date.now(),
+    });
   } catch (e) {
     console.error('[PaymentLogger] Error al guardar log:', (e as Error).message);
   }

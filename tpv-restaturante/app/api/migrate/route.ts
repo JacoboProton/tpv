@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { runMigrations } from '../../../lib/migrate';
+import { NextResponse } from 'next/server';
+import { runPendingMigrations } from '../../../lib/run-migrations';
 
 export async function POST() {
   try {
-    await runMigrations();
+    await runPendingMigrations();
     return NextResponse.json({ ok: true, message: 'Migraciones ejecutadas correctamente' });
   } catch (err) {
     console.error('Error en migración:', err);

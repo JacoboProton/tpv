@@ -1,17 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
-import { sql } from '../../../../lib/db';
+import { eq, and } from 'drizzle-orm';
+import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
 import { getCachedSettings, setCachedSettings } from '../../../../lib/settings-cache';
+import { settings, sales } from '../../../../db/schema';
 
 async function getSettings(tenantId: string) {
   const cached = getCachedSettings();
   if (cached) return cached;
-  const rows = await sql`SELECT key, value FROM settings WHERE tenant_id = ${tenantId}`;
-  const settings = Object.fromEntries(rows.map(r => [r.key, r.value]));
-  setCachedSettings(settings);
-  return settings;
+  const db = getDb();
+  const rows = await db.select({ key: settings.key, value: settings.value })
+    .from(settings)
+    .where(eq(settings.tenantId, tenantId));
+  const result: Record<string, unknown> = {};
+  for (const r of rows) result[r.key] = r.value;
+  setCachedSettings(result);
+  return result;
 }
 
 const FONT = 'Helvetica';
@@ -20,45 +26,45 @@ function loadFont(doc: any) {
   (doc as any).setFont(FONT);
 }
 
-// POST /api/invoice/pdf
-// body: { saleId } or { sale }
 export async function POST(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
     const { saleId, sale: inlineSale } = await req.json() as any;
     let sale;
     if (inlineSale) {
       sale = inlineSale;
     } else if (saleId) {
-      const rows = await sql`SELECT * FROM sales WHERE id = ${saleId} AND tenant_id = ${tenantId} LIMIT 1`;
+      const rows = await db.select().from(sales)
+        .where(and(eq(sales.id, saleId), eq(sales.tenantId, tenantId)))
+        .limit(1);
       if (rows.length === 0) return NextResponse.json({ error: 'Venta no encontrada' }, { status: 404 });
       const r = rows[0];
       sale = {
-        id: r.id, tableName: r.table_name, employeeName: r.employee_name,
+        id: r.id, tableName: r.tableName, employeeName: r.employeeName,
         items: r.items, total: Number(r.total), tip: Number(r.tip || 0),
         discount: Number(r.discount || 0),
-        invoiceNumber: r.invoice_number || r.id,
-        invoiceName: r.invoice_name, invoiceNif: r.invoice_nif,
-        invoiceAddress: r.invoice_address, invoiceEmail: r.invoice_email,
-        closedAt: Number(r.closed_at), paymentMethod: r.payment_method,
-        totalWithTip: Number(r.total_with_tip || r.total || 0),
+        invoiceNumber: r.invoiceNumber || r.id,
+        invoiceName: r.invoiceName, invoiceNif: r.invoiceNif,
+        invoiceAddress: r.invoiceAddress, invoiceEmail: r.invoiceEmail,
+        closedAt: Number(r.closedAt), paymentMethod: r.paymentMethod,
+        totalWithTip: Number(r.totalWithTip || r.total || 0),
       };
     } else {
       return NextResponse.json({ error: 'saleId o sale requerido' }, { status: 400 });
     }
 
-    const settings = await getSettings(tenantId);
-    const cif = settings?.companyCif || '';
-    const address = settings?.companyAddress || '';
-    const phone = settings?.companyPhone || '';
-    const name = settings?.restaurantName || 'FACTURA';
-    const footer = settings?.footerText || 'Gracias por su visita';
+    const settingsData = await getSettings(tenantId) as Record<string, string>;
+    const cif = settingsData?.companyCif || '';
+    const address = settingsData?.companyAddress || '';
+    const phone = settingsData?.companyPhone || '';
+    const name = settingsData?.restaurantName || 'FACTURA';
+    const footer = settingsData?.footerText || 'Gracias por su visita';
 
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     loadFont(doc);
     const pageW = 210;
 
-    // ---- Header ----
     (doc as any).setFontSize(18);
     (doc as any).text(name, pageW / 2, 20, { align: 'center' });
     (doc as any).setFontSize(8);
@@ -72,7 +78,6 @@ export async function POST(req: NextRequest) {
     (doc as any).line(14, y + 2, pageW - 14, y + 2);
     y += 6;
 
-    // Invoice number + date
     (doc as any).setFontSize(13);
     (doc as any).setFont(FONT, 'bold');
     (doc as any).text(sale.invoiceNumber || sale.id, pageW / 2, y, { align: 'center' });
@@ -85,7 +90,6 @@ export async function POST(req: NextRequest) {
     (doc as any).text(dateStr, pageW / 2, y, { align: 'center' });
     y += 8;
 
-    // ---- Client box ----
     const clientLines = [];
     clientLines.push(`Cliente: ${sale.invoiceName || '—'}`);
     clientLines.push(`NIF: ${sale.invoiceNif || '—'}`);
@@ -102,7 +106,6 @@ export async function POST(req: NextRequest) {
     }
     y = cy + 6;
 
-    // ---- Items table ----
     const items = (sale.items || []).filter((i: any) => !i.voided);
     const bodyRows = items.map((i: any) => [
       i.name?.slice(0, 40) || '',
@@ -143,7 +146,6 @@ export async function POST(req: NextRequest) {
     });
     y = (doc as any).lastAutoTable.finalY + 6;
 
-    // ---- Extra info ----
     if (sale.tip > 0) {
       (doc as any).setFontSize(9);
       (doc as any).text(`Propina (NO fiscal): +${sale.tip.toFixed(2)} €`, pageW - 14, y, { align: 'right' });
@@ -160,14 +162,12 @@ export async function POST(req: NextRequest) {
       y += 5;
     }
 
-    // ---- Footer ----
     (doc as any).setDrawSize(0.3);
     (doc as any).line(14, y + 2, pageW - 14, y + 2);
     (doc as any).setFontSize(8);
     (doc as any).setTextColor(136, 136, 136);
     (doc as any).text(footer, pageW / 2, y + 6, { align: 'center' });
 
-    // ---- Generate ----
     const pdfBuffer = Buffer.from((doc as any).output('arraybuffer'));
     const base64 = pdfBuffer.toString('base64');
 

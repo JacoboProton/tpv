@@ -1,12 +1,12 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '../../../../lib/db';
+import { eq, and } from 'drizzle-orm';
+import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
+import { sales } from '../../../../db/schema';
 
-// POST /api/invoice/send
-// body: { saleId, pdfBase64, filename, to? }
 export async function POST(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
     const { saleId, pdfBase64, filename, to } = await req.json() as any;
 
@@ -16,16 +16,18 @@ export async function POST(req: NextRequest) {
 
     let email = to;
     if (!email) {
-      const rows = await sql`SELECT invoice_email FROM sales WHERE id = ${saleId} AND tenant_id = ${tenantId} LIMIT 1`;
+      const rows = await db.select({ invoiceEmail: sales.invoiceEmail })
+        .from(sales)
+        .where(and(eq(sales.id, saleId), eq(sales.tenantId, tenantId)))
+        .limit(1);
       if (rows.length === 0) return NextResponse.json({ error: 'Venta no encontrada' }, { status: 404 });
-      email = rows[0].invoice_email;
+      email = rows[0].invoiceEmail;
     }
 
     if (!email) {
       return NextResponse.json({ error: 'No hay email de destino' }, { status: 400 });
     }
 
-    // Try to send via SMTP if configured
     const smtpHost = process.env.SMTP_HOST;
     const smtpPort = process.env.SMTP_PORT;
     const smtpUser = process.env.SMTP_USER;
@@ -33,6 +35,7 @@ export async function POST(req: NextRequest) {
 
     if (smtpHost && smtpUser) {
       try {
+        // @ts-expect-error - nodemailer has no types
         const { createTransport } = await import('nodemailer');
         const transporter = createTransport({
           host: smtpHost,
@@ -55,7 +58,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Without SMTP config, return the PDF for download (frontend handles it)
     return NextResponse.json({
       ok: true,
       method: 'download',

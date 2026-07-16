@@ -1,4 +1,5 @@
-import { sql } from '@/lib/db';
+import { sql } from 'drizzle-orm';
+import { getDb } from '@/lib/drizzle';
 
 const SESSION_TTL = 12 * 60 * 60 * 1000;
 
@@ -43,23 +44,25 @@ export async function getSessionEmployee(req: Request): Promise<SessionEmployee 
 
     if (!employeeId || !deviceId) return null;
 
-    const rows = await sql`
+    const db = getDb();
+    const result = await db.execute(sql`
       SELECT employee_id, role, last_seen FROM sessions
       WHERE tenant_id = ${tenantId}
         AND employee_id = ${employeeId}
         AND device_id = ${deviceId}
         AND active = true
       LIMIT 1
-    ` as unknown as Array<{ employee_id: string; role: string; last_seen: string }>;
+    `);
+    const rows = result.rows as Array<{ employee_id: string; role: string; last_seen: string }>;
 
     if (rows.length === 0) return null;
     const session = rows[0];
 
     if (Date.now() - Number(session.last_seen) > SESSION_TTL) {
-      await sql`
+      await db.execute(sql`
         UPDATE sessions SET active = false
         WHERE tenant_id = ${tenantId} AND employee_id = ${employeeId} AND device_id = ${deviceId}
-      `;
+      `);
       return null;
     }
 
@@ -92,10 +95,12 @@ export function requireRole(allowedRoles: string[]) {
 export async function requireAdminPin(req: Request, adminPin: string | null): Promise<AuthResult> {
   if (!adminPin) return { authorized: false, error: 'PIN de administrador requerido', status: 400 };
   const tenantId = req.headers.get('x-tenant-id') || 'default';
-  const rows = await sql`
+  const db = getDb();
+  const pinResult = await db.execute(sql`
     SELECT pin_hash FROM employees
     WHERE tenant_id = ${tenantId} AND role = 'admin'
-  ` as unknown as Array<{ pin_hash: string }>;
+  `);
+  const rows = pinResult.rows as Array<{ pin_hash: string }>;
   const { compareSync } = await import('bcryptjs');
   const match = rows.some(r => compareSync(adminPin, r.pin_hash));
   if (!match) return { authorized: false, error: 'PIN de administrador incorrecto', status: 403 };

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '../../../../lib/db';
+import { getDb } from '../../../../lib/drizzle';
 import { verifyWebhookSignature } from '../../../../lib/verify-webhook';
 import { getTenantId } from '../../../../lib/tenant';
+import { deliveryOrders } from '../../../../db/schema';
 
 function normalizeUberProducts(items: any) {
   if (!items || !Array.isArray(items)) return [];
@@ -18,7 +19,6 @@ function normalizeUberProducts(items: any) {
   }));
 }
 
-// UberEats sends a verification challenge
 export async function GET(req: NextRequest) {
   console.log('[UberEats webhook] Verification from', req.headers.get('x-forwarded-for'));
   const challenge = new URL(req.url).searchParams.get('challenge');
@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
     const rawBody = await req.text();
     const signature = req.headers.get('x-uber-signature') || req.headers.get('x-postmates-signature') || '';
@@ -42,7 +43,6 @@ export async function POST(req: NextRequest) {
     const event = body.event || '';
     const data = body.data || body;
 
-    // Only process order creation
     if (event !== 'orders.create' && event !== 'orders.upsert' && !data.items && !data.products) {
       return NextResponse.json({ ok: true, ignored: true });
     }
@@ -60,15 +60,21 @@ export async function POST(req: NextRequest) {
     const delId = 'del_' + Date.now();
     const now = Date.now();
 
-    await sql`
-      INSERT INTO delivery_orders (tenant_id, id, customer_name, customer_phone, address, address_lat, address_lng,
-        notes, items, status, source, platform_order_id, created_at)
-      VALUES (${tenantId}, ${delId}, ${customer.name || customer.diner_name || ''},
-        ${customer.phone || customer.phone_number || ''},
-        ${address}, ${lat}, ${lng},
-        ${data.notes || data.special_instructions || ''}, ${JSON.stringify(items)},
-        'pending', 'ubereats', ${String(orderId)}, ${now})
-    `;
+    await db.insert(deliveryOrders).values({
+      tenantId,
+      id: delId,
+      customerName: customer.name || customer.diner_name || '',
+      customerPhone: customer.phone || customer.phone_number || '',
+      address,
+      addressLat: lat != null ? String(lat) : null,
+      addressLng: lng != null ? String(lng) : null,
+      notes: data.notes || data.special_instructions || '',
+      items,
+      status: 'pending',
+      source: 'ubereats',
+      platformOrderId: String(orderId),
+      createdAt: now,
+    });
 
     return NextResponse.json({ ok: true, id: delId });
   } catch (err: any) {

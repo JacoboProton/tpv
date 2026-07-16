@@ -1,16 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { sql } from '../../../../lib/db';
+import { and, eq, ne, isNotNull } from 'drizzle-orm';
+import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
+import { sales } from '../../../../db/schema';
 
 function getStripe() {
   if (!process.env.STRIPE_SECRET_KEY) return null;
   return new Stripe(process.env.STRIPE_SECRET_KEY);
 }
 
-// GET /api/stripe/reconciliation?days=90
 export async function GET(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
     const stripe = getStripe();
     if (!stripe) {
@@ -20,9 +22,8 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const days = Math.min(parseInt(searchParams.get('days') || '90', 10), 365);
     const since = Math.floor((Date.now() - days * 86400000) / 1000);
-    const source = searchParams.get('source') || ''; // optional filter: la-comanda-tpv, la-comanda-tpv-nfc
+    const source = searchParams.get('source') || '';
 
-    // 1. Fetch PaymentIntents from Stripe
     const allPIs = [];
     let lastId = null;
     for (let i = 0; i < 5; i++) {
@@ -34,26 +35,31 @@ export async function GET(req: NextRequest) {
       lastId = batch.data[batch.data.length - 1].id;
     }
 
-    // Filter by source metadata if specified
     const filteredPIs = source
       ? allPIs.filter((pi: any) => pi.metadata?.source === source)
       : allPIs;
 
-    // 2. Fetch sales with payment_intent_id from DB
-    const sales = await sql`
-      SELECT id, payment_intent_id, total, total_with_tip, tip, refunds,
-             dispute_status, dispute_data
-      FROM sales
-      WHERE payment_intent_id != '' AND payment_intent_id IS NOT NULL
-        AND tenant_id = ${tenantId}
-    `;
+    const saleRows = await db.select({
+      id: sales.id,
+      paymentIntentId: sales.paymentIntentId,
+      total: sales.total,
+      totalWithTip: sales.totalWithTip,
+      tip: sales.tip,
+      refunds: sales.refunds,
+      disputeStatus: sales.disputeStatus,
+      disputeData: sales.disputeData,
+    }).from(sales)
+      .where(and(
+        ne(sales.paymentIntentId, ''),
+        isNotNull(sales.paymentIntentId),
+        eq(sales.tenantId, tenantId)
+      ));
 
     const saleMap = new Map();
-    for (const s of sales) {
-      saleMap.set(s.payment_intent_id, s);
+    for (const s of saleRows) {
+      saleMap.set(s.paymentIntentId, s);
     }
 
-    // 3. Compare
     const orphans = [];
     const mismatches = [];
     const refundMismatches = [];
@@ -63,7 +69,6 @@ export async function GET(req: NextRequest) {
       const sale = saleMap.get(pi.id);
 
       if (!sale) {
-        // Stripe has this PI but no sale in DB
         if (pi.metadata?.source) {
           orphans.push({
             paymentIntentId: pi.id,
@@ -77,8 +82,7 @@ export async function GET(req: NextRequest) {
         continue;
       }
 
-      // Amount comparison (stripe amount is in cents, sale total is in euros)
-      const saleTotalCents = Math.round((Number(sale.total_with_tip || sale.total || 0)) * 100);
+      const saleTotalCents = Math.round((Number(sale.totalWithTip || sale.total || 0)) * 100);
       const piAmountCents = pi.amount;
 
       if (Math.abs(saleTotalCents - piAmountCents) > 1) {
@@ -91,7 +95,6 @@ export async function GET(req: NextRequest) {
         });
       }
 
-      // Refund comparison
       const piAny = pi as any;
       const saleAny = sale as any;
       const stripeRefunds = piAny.refunds?.data || piAny.refunds || [];
@@ -114,31 +117,29 @@ export async function GET(req: NextRequest) {
         });
       }
 
-      // Dispute check
-      if (sale.dispute_status && sale.dispute_status !== '' && sale.dispute_status !== 'dispute_won') {
+      if (sale.disputeStatus && sale.disputeStatus !== '' && sale.disputeStatus !== 'dispute_won') {
         disputed.push({
           paymentIntentId: pi.id,
           saleId: sale.id,
-          status: sale.dispute_status,
-          data: sale.dispute_data,
+          status: sale.disputeStatus,
+          data: sale.disputeData,
         });
       }
     }
 
-    // Sales with payment_intent_id not found in Stripe
     const piIdsInStripe = new Set(filteredPIs.map((pi: any) => pi.id));
-    const salesNotInStripe = sales
-      .filter((s: any) => !piIdsInStripe.has(s.payment_intent_id))
+    const salesNotInStripe = saleRows
+      .filter((s: any) => !piIdsInStripe.has(s.paymentIntentId))
       .map((s: any) => ({
         saleId: s.id,
-        paymentIntentId: s.payment_intent_id,
-        total: Number(s.total_with_tip || s.total || 0),
+        paymentIntentId: s.paymentIntentId,
+        total: Number(s.totalWithTip || s.total || 0),
       }));
 
     return NextResponse.json({
       summary: {
         totalPIsInStripe: filteredPIs.length,
-        totalSalesWithPI: sales.length,
+        totalSalesWithPI: saleRows.length,
         orphans: orphans.length,
         mismatches: mismatches.length,
         refundMismatches: refundMismatches.length,

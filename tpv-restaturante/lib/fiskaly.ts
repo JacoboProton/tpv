@@ -1,5 +1,7 @@
 import { randomUUID } from 'crypto';
-import { sql } from './db';
+import { eq } from 'drizzle-orm';
+import { getDb } from './drizzle';
+import { fiskalyConfig } from '../db/schema';
 
 const BASE_URL = process.env.FISKALY_ENVIRONMENT === 'LIVE'
   ? 'https://live.es.sign.fiskaly.com/api/v1'
@@ -20,9 +22,10 @@ const TOKEN_CONFIG_KEY = 'fiskaly_saved_token';
 
 async function loadTokenFromDb(): Promise<TokenCache | null> {
   try {
-    const rows = await sql`
-      SELECT value FROM fiskaly_config WHERE key = ${TOKEN_CONFIG_KEY}
-    ` as unknown as Array<{ value: string }>;
+    const db = getDb();
+    const rows = await db.select({ value: fiskalyConfig.value })
+      .from(fiskalyConfig)
+      .where(eq(fiskalyConfig.key, TOKEN_CONFIG_KEY));
     if (rows.length > 0) return JSON.parse(rows[0].value);
   } catch { /* ignore */ }
   return null;
@@ -30,11 +33,15 @@ async function loadTokenFromDb(): Promise<TokenCache | null> {
 
 async function saveTokenToDb(token: TokenCache): Promise<void> {
   try {
-    await sql`
-      INSERT INTO fiskaly_config (key, value, updated_at)
-      VALUES (${TOKEN_CONFIG_KEY}, ${JSON.stringify(token)}, ${Date.now()})
-      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = ${Date.now()}
-    `;
+    const db = getDb();
+    await db.insert(fiskalyConfig).values({
+      key: TOKEN_CONFIG_KEY,
+      value: JSON.stringify(token),
+      updatedAt: Date.now(),
+    }).onConflictDoUpdate({
+      target: fiskalyConfig.key,
+      set: { value: JSON.stringify(token), updatedAt: Date.now() },
+    });
   } catch { /* ignore */ }
 }
 
@@ -175,7 +182,9 @@ interface FiskalyConfig {
 }
 
 export async function getFiskalyConfig(): Promise<FiskalyConfig> {
-  const rows = await sql`SELECT key, value FROM fiskaly_config` as unknown as Array<{ key: string; value: string }>;
+  const db = getDb();
+  const rows = await db.select({ key: fiskalyConfig.key, value: fiskalyConfig.value })
+    .from(fiskalyConfig);
   const cfg: FiskalyConfig = {};
   for (const r of rows) cfg[r.key] = r.value;
   return cfg;
@@ -187,18 +196,19 @@ export async function setupFiskaly(legalName?: string): Promise<unknown> {
     return { status: 'already_setup', config: existing };
   }
 
+  const db = getDb();
   await createOrUpdateTaxpayer(legalName);
 
   const c = await createClient() as { content?: { id?: string; signer?: { id?: string } }; id?: string };
   const clientId = c.content?.id || c.id;
   if (!clientId) throw new Error('No client ID in response: ' + JSON.stringify(c));
-  await sql`INSERT INTO fiskaly_config (key, value, updated_at) VALUES ('client_id', ${clientId}, ${Date.now()})
-    ON CONFLICT (key) DO UPDATE SET value = ${clientId}, updated_at = ${Date.now()}`;
+  await db.insert(fiskalyConfig).values({ key: 'client_id', value: clientId, updatedAt: Date.now() })
+    .onConflictDoUpdate({ target: fiskalyConfig.key, set: { value: clientId, updatedAt: Date.now() } });
 
   const signerId = c.content?.signer?.id || null;
   if (signerId) {
-    await sql`INSERT INTO fiskaly_config (key, value, updated_at) VALUES ('signer_id', ${signerId}, ${Date.now()})
-      ON CONFLICT (key) DO UPDATE SET value = ${signerId}, updated_at = ${Date.now()}`;
+    await db.insert(fiskalyConfig).values({ key: 'signer_id', value: signerId, updatedAt: Date.now() })
+      .onConflictDoUpdate({ target: fiskalyConfig.key, set: { value: signerId, updatedAt: Date.now() } });
   }
 
   return {

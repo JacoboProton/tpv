@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '../../../lib/db';
+import { eq, and, like, desc, sql } from 'drizzle-orm';
+import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { registerSaleInFiskaly } from '../../../lib/fiskaly';
 import { generateRegistroFactura, formatFecha } from '../../../lib/verifactu';
+import { verifactuRegistros } from '../../../db/schema';
 
 export async function GET(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
-    const rows = await sql`
-      SELECT * FROM verifactu_registros WHERE tenant_id = ${tenantId} ORDER BY id DESC
-    `;
+    const rows = await db.select().from(verifactuRegistros)
+      .where(eq(verifactuRegistros.tenantId, tenantId))
+      .orderBy(desc(verifactuRegistros.id));
     return NextResponse.json(rows);
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
@@ -18,31 +21,31 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
     const { saleId, sale } = await req.json() as any;
     if (!saleId || !sale) {
       return NextResponse.json({ error: 'saleId y sale son requeridos' }, { status: 400 });
     }
 
-    const existing = await sql`
-      SELECT id FROM verifactu_registros WHERE sale_id = ${saleId} AND tenant_id = ${tenantId}
-    `;
+    const existing = await db.select({ id: verifactuRegistros.id }).from(verifactuRegistros)
+      .where(and(eq(verifactuRegistros.saleId, saleId), eq(verifactuRegistros.tenantId, tenantId)));
     if (existing.length > 0) {
-      const row = await sql`
-        SELECT * FROM verifactu_registros WHERE sale_id = ${saleId} AND tenant_id = ${tenantId} LIMIT 1
-      `;
+      const row = await db.select().from(verifactuRegistros)
+        .where(and(eq(verifactuRegistros.saleId, saleId), eq(verifactuRegistros.tenantId, tenantId)))
+        .limit(1);
       return NextResponse.json(row[0], { status: 200 });
     }
 
     const year = new Date(sale.closedAt ?? Date.now()).getFullYear();
-    const countRows = await sql`
-      SELECT COUNT(*) as cnt FROM verifactu_registros
-      WHERE num_serie LIKE ${'VERI-' + year + '-%'} AND tenant_id = ${tenantId}
-    `;
+    const countRows = await db.select({ cnt: sql<string>`COUNT(*)` }).from(verifactuRegistros)
+      .where(and(
+        like(verifactuRegistros.numSerie, `VERI-${year}-%`),
+        eq(verifactuRegistros.tenantId, tenantId)
+      ));
     const seq = parseInt(countRows[0].cnt, 10) + 1;
     const numSerie = `VERI-${year}-${String(seq).padStart(6, '0')}`;
 
-    // La propina no es fiscal, se excluye de la base imponible
     const importeTotal = Number((sale.total ?? sale.totalWithTip ?? 0).toFixed(2));
     const baseImponible = Number((importeTotal / 1.07).toFixed(2));
     const cuotaIva = Number((importeTotal - baseImponible).toFixed(2));
@@ -55,11 +58,12 @@ export async function POST(req: NextRequest) {
     let estado = 'pendiente';
     let hash = '0';
     let xml = '';
-    let fechaHoraFirma = null; // se persiste para poder verificar la cadena después
+    let fechaHoraFirma = null;
 
-    const lastRows = await sql`
-      SELECT huella FROM verifactu_registros WHERE tenant_id = ${tenantId} ORDER BY id DESC LIMIT 1
-    `;
+    const lastRows = await db.select({ huella: verifactuRegistros.huella }).from(verifactuRegistros)
+      .where(eq(verifactuRegistros.tenantId, tenantId))
+      .orderBy(desc(verifactuRegistros.id))
+      .limit(1);
     const previousHash = lastRows.length > 0 ? lastRows[0].huella : '0';
 
     try {
@@ -94,20 +98,25 @@ export async function POST(req: NextRequest) {
       estado = 'simulado';
     }
 
-    const inserted = await sql`
-      INSERT INTO verifactu_registros
-        (sale_id, num_serie, fecha_expedicion, importe_total, base_imponible,
-         cuota_iva, huella_anterior, huella, xml_registro, qr_url, estado, created_at,
-         fiskaly_invoice_id, verification_url, fecha_hora_firma, payment_intent_id, tenant_id)
-      VALUES (
-        ${saleId}, ${numSerie}, ${fechaExpedicion},
-        ${importeTotal}, ${baseImponible}, ${cuotaIva},
-        ${previousHash}, ${hash}, ${xml}, ${qrUrl || ''}, ${estado}, ${now},
-        ${fiskalyInvoiceId}, ${verificationUrl}, ${fechaHoraFirma},
-        ${sale.paymentIntentId ?? ''}, ${tenantId}
-      )
-      RETURNING *
-    `;
+    const inserted = await db.insert(verifactuRegistros).values({
+      saleId,
+      numSerie,
+      fechaExpedicion,
+      importeTotal: String(importeTotal),
+      baseImponible: String(baseImponible),
+      cuotaIva: String(cuotaIva),
+      huellaAnterior: previousHash,
+      huella: hash,
+      xmlRegistro: xml,
+      qrUrl: qrUrl || '',
+      estado,
+      createdAt: now,
+      fiskalyInvoiceId,
+      verificationUrl,
+      fechaHoraFirma,
+      paymentIntentId: sale.paymentIntentId ?? '',
+      tenantId,
+    }).returning();
 
     return NextResponse.json(inserted[0], { status: 201 });
   } catch (err) {

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { sql } from '../../../../lib/db';
+import { eq, and, sql } from 'drizzle-orm';
+import { getDb } from '../../../../lib/drizzle';
 import { logPayment } from '../../../../lib/payment-logger';
+import { sales, webhookEvents, qrOrders } from '../../../../db/schema';
 
 function getStripe() {
   if (!process.env.STRIPE_SECRET_KEY) return null;
@@ -10,72 +12,77 @@ function getStripe() {
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 async function ensureEventTracked(eventId: string, eventType: string) {
-  const result = await sql`
-    INSERT INTO webhook_events (event_id, type, status, created_at)
-    VALUES (${eventId}, ${eventType}, 'processing', ${Date.now()})
-    ON CONFLICT (event_id) DO UPDATE
-    SET status = CASE
-      WHEN webhook_events.status = 'failed' THEN 'processing'
-      ELSE webhook_events.status
-    END
-    RETURNING status
-  `;
+  const db = getDb();
+  const result = await db.insert(webhookEvents).values({
+    eventId,
+    type: eventType,
+    status: 'processing',
+    createdAt: Date.now(),
+  }).onConflictDoUpdate({
+    target: webhookEvents.eventId,
+    set: {
+      status: sql`CASE WHEN ${webhookEvents.status} = 'failed' THEN 'processing' ELSE ${webhookEvents.status} END`,
+    },
+  }).returning({ status: webhookEvents.status });
   return result[0]?.status;
 }
 
 async function markProcessed(eventId: string) {
-  await sql`
-    UPDATE webhook_events SET status = 'processed', processed_at = ${Date.now()}, error = NULL
-    WHERE event_id = ${eventId}
-  `;
+  const db = getDb();
+  await db.update(webhookEvents)
+    .set({ status: 'processed', processedAt: Date.now(), error: null })
+    .where(eq(webhookEvents.eventId, eventId));
 }
 
 async function markFailed(eventId: string, eventData: any, errorMessage: string) {
-  await sql`
-    UPDATE webhook_events SET status = 'failed', body = ${JSON.stringify(eventData)}, error = ${errorMessage}
-    WHERE event_id = ${eventId}
-  `;
+  const db = getDb();
+  await db.update(webhookEvents)
+    .set({ status: 'failed', body: eventData, error: errorMessage })
+    .where(eq(webhookEvents.eventId, eventId));
 }
 
 async function handlePaymentIntentSucceeded(pi: any) {
+  const db = getDb();
   const { tableId, qrOrderId, source, tenantId } = pi.metadata || {};
   const tid = tenantId || 'default';
 
   console.log(`[Stripe Webhook] payment_intent.succeeded: ${pi.id} (${(pi.amount / 100).toFixed(2)}€) mesa=${tableId} source=${source}`);
 
   if (qrOrderId) {
-    await sql`
-      UPDATE qr_orders
-      SET order_status = 'paid', payment_intent_id = ${pi.id}, updated_at = ${Date.now()}
-      WHERE id = ${qrOrderId} AND order_status = 'pending' AND tenant_id = ${tid}
-    `;
+    await db.update(qrOrders)
+      .set({ orderStatus: 'paid', paymentIntentId: pi.id, updatedAt: Date.now() })
+      .where(and(eq(qrOrders.id, qrOrderId), eq(qrOrders.orderStatus, 'pending'), eq(qrOrders.tenantId, tid)));
   } else if (tableId) {
-    const existing = await sql`
-      SELECT id FROM sales WHERE payment_intent_id = ${pi.id} AND tenant_id = ${tid} LIMIT 1
-    `;
+    const existing = await db.select({ id: sales.id }).from(sales)
+      .where(and(eq(sales.paymentIntentId, pi.id), eq(sales.tenantId, tid)))
+      .limit(1);
     if (existing.length === 0) {
-      await sql`
-        INSERT INTO sales (id, table_id, table_name, items, subtotal, discount, discount_amount, total, tip, tip_method, total_with_tip, payment_intent_id, employee_name, closed_at, payment_method, invoice_nif, invoice_name, invoice_address, invoice_number, tenant_id)
-        VALUES (
-          'stub_' || ${pi.id},
-          ${tableId},
-          ${pi.metadata?.tableName || ''},
-          '[]'::jsonb,
-          ${(pi.amount / 100).toFixed(2)},
-          0, 0, ${(pi.amount / 100).toFixed(2)},
-          0, '', ${(pi.amount / 100).toFixed(2)},
-          ${pi.id},
-          ${pi.metadata?.employeeName || ''},
-          ${Date.now()},
-          'tarjeta',
-          '', '', '', '', ${tid}
-        )
-        ON CONFLICT (id) DO NOTHING
-      `;
+      await db.insert(sales).values({
+        id: 'stub_' + pi.id,
+        tableId,
+        tableName: pi.metadata?.tableName || '',
+        items: [],
+        subtotal: (pi.amount / 100).toFixed(2),
+        discount: '0',
+        discountAmount: '0',
+        total: (pi.amount / 100).toFixed(2),
+        tip: '0',
+        tipMethod: '',
+        totalWithTip: (pi.amount / 100).toFixed(2),
+        paymentIntentId: pi.id,
+        employeeName: pi.metadata?.employeeName || '',
+        closedAt: Date.now(),
+        paymentMethod: 'tarjeta',
+        invoiceNif: '',
+        invoiceName: '',
+        invoiceAddress: '',
+        invoiceNumber: '',
+        tenantId: tid,
+      }).onConflictDoNothing();
     } else {
-      await sql`
-        UPDATE sales SET stripe_confirmed = true WHERE payment_intent_id = ${pi.id} AND tenant_id = ${tid}
-      `;
+      await db.update(sales)
+        .set({ stripeConfirmed: true })
+        .where(and(eq(sales.paymentIntentId, pi.id), eq(sales.tenantId, tid)));
     }
   }
 }
@@ -85,6 +92,7 @@ async function handlePaymentIntentFailed(failed: any) {
 }
 
 async function handleChargeDisputeCreated(dispute: any) {
+  const db = getDb();
   const piId = dispute.payment_intent?.id || dispute.charge?.payment_intent;
   const amount = dispute.amount;
   const metadata = dispute.metadata || {};
@@ -92,10 +100,10 @@ async function handleChargeDisputeCreated(dispute: any) {
   console.error(`[Stripe Webhook] ⚠️ CHARGEBACK CREADO: dispute=${dispute.id} pi=${piId} amount=${(amount / 100).toFixed(2)}€ reason=${dispute.reason}`);
 
   if (piId) {
-    await sql`
-      UPDATE sales SET
-        dispute_status = 'disputed',
-        dispute_data = ${JSON.stringify({
+    await db.update(sales)
+      .set({
+        disputeStatus: 'disputed',
+        disputeData: {
           id: dispute.id,
           reason: dispute.reason,
           status: dispute.status,
@@ -103,9 +111,9 @@ async function handleChargeDisputeCreated(dispute: any) {
           currency: dispute.currency,
           evidence_due_by: dispute.evidence_details?.due_by,
           created: Date.now(),
-        })}
-      WHERE payment_intent_id = ${piId} AND tenant_id = ${tid}
-    `;
+        },
+      })
+      .where(and(eq(sales.paymentIntentId, piId), eq(sales.tenantId, tid)));
   }
 
   logPayment({
@@ -121,6 +129,7 @@ async function handleChargeDisputeCreated(dispute: any) {
 }
 
 async function handleChargeDisputeClosed(dispute: any) {
+  const db = getDb();
   const piId = dispute.payment_intent?.id || dispute.charge?.payment_intent;
   const closedStatus = dispute.status;
   const metadata = dispute.metadata || {};
@@ -128,19 +137,19 @@ async function handleChargeDisputeClosed(dispute: any) {
   console.error(`[Stripe Webhook] ⚠️ CHARGEBACK ${closedStatus === 'won' ? 'GANADO' : 'PERDIDO'}: dispute=${dispute.id} pi=${piId} status=${closedStatus}`);
 
   if (piId) {
-    await sql`
-      UPDATE sales SET
-        dispute_status = CASE WHEN ${closedStatus} = 'won' THEN 'dispute_won' ELSE 'dispute_lost' END,
-        dispute_data = ${JSON.stringify({
+    await db.update(sales)
+      .set({
+        disputeStatus: closedStatus === 'won' ? 'dispute_won' : 'dispute_lost',
+        disputeData: {
           id: dispute.id,
           reason: dispute.reason,
           status: closedStatus,
           amount: dispute.amount,
           currency: dispute.currency,
           closed: Date.now(),
-        })}
-      WHERE payment_intent_id = ${piId} AND tenant_id = ${tid}
-    `;
+        },
+      })
+      .where(and(eq(sales.paymentIntentId, piId), eq(sales.tenantId, tid)));
   }
 
   logPayment({
@@ -182,7 +191,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Firma inválida' }, { status: 400 });
     }
 
-    // Idempotency: track event in DB; skip if already processed
     const status = await ensureEventTracked(event.id, event.type);
     if (status === 'processed' || status === 'processing') {
       return NextResponse.json({ received: true, skipped: true });

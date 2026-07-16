@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
-import { backupAll } from '../../../lib/migrate';
+import { backupAll } from '../../../lib/backup';
 import { getTenantId } from '../../../lib/tenant';
 
 export async function GET(req: NextRequest) {

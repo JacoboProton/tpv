@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '../../../../lib/db';
+import { getDb } from '../../../../lib/drizzle';
 import { verifyWebhookSignature } from '../../../../lib/verify-webhook';
 import { getTenantId } from '../../../../lib/tenant';
+import { deliveryOrders } from '../../../../db/schema';
 
 function normalizeGlovoProducts(products: any) {
   if (!products || !Array.isArray(products)) return [];
@@ -18,7 +19,6 @@ function normalizeGlovoProducts(products: any) {
   }));
 }
 
-// Glovo sends a verification ping on setup
 export async function GET(req: NextRequest) {
   console.log('[Glovo webhook] Verification GET from', req.headers.get('x-forwarded-for'));
   return NextResponse.json({ status: 'ok', webhook: 'active' });
@@ -26,6 +26,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const db = getDb();
     const tenantId = getTenantId(req);
     const rawBody = await req.text();
     const signature = req.headers.get('x-glovo-signature') || '';
@@ -49,14 +50,21 @@ export async function POST(req: NextRequest) {
     const delId = 'del_' + Date.now();
     const now = Date.now();
 
-    await sql`
-      INSERT INTO delivery_orders (tenant_id, id, customer_name, customer_phone, address, address_lat, address_lng,
-        notes, items, status, source, platform_order_id, created_at)
-      VALUES (${tenantId}, ${delId}, ${customer.name || ''}, ${customer.phone || customer.phone_number || ''},
-        ${address}, ${lat}, ${lng},
-        ${body.notes || body.comment || ''}, ${JSON.stringify(products)},
-        'pending', 'glovo', ${String(orderId)}, ${now})
-    `;
+    await db.insert(deliveryOrders).values({
+      tenantId,
+      id: delId,
+      customerName: customer.name || '',
+      customerPhone: customer.phone || customer.phone_number || '',
+      address,
+      addressLat: lat != null ? String(lat) : null,
+      addressLng: lng != null ? String(lng) : null,
+      notes: body.notes || body.comment || '',
+      items: products,
+      status: 'pending',
+      source: 'glovo',
+      platformOrderId: String(orderId),
+      createdAt: now,
+    });
 
     return NextResponse.json({ ok: true, id: delId });
   } catch (err: any) {
