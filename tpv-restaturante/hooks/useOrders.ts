@@ -2,16 +2,22 @@
 
 import { useState, useMemo, useCallback, useRef } from 'react'
 import { clone, round2, euros } from '../components/constants'
-import {
-  saveFloor, saveCatalog, addSale, saveCancelledOrder,
-  saveStockLog, registerVerifactu,
-  saveEmployees,
-} from '../lib/api'
+import { addSale, saveCancelledOrder, registerVerifactu } from '../lib/api'
 import { enqueueMutation, cacheSet } from '../lib/offline'
+import { saveCatalog } from '../infrastructure/database/catalog-repository'
+import { saveFloor } from '../infrastructure/database/floor-repository'
+import { saveStockLog } from '../infrastructure/database/stock-log-repository'
+import { saveEmployees } from '../infrastructure/database/employees-repository'
 import { broadcastFloorUpdate, broadcastReadyNotification } from '../lib/realtime'
 import { printESCPOS, escposOpenDrawer, isPrinterConnected } from '../lib/thermal-printer'
 import { buildTicketHtml, printTicketHtml } from '../lib/ticket-template'
 import { sha256 } from '../lib/crypto'
+import { eventBus } from '../lib/event-bus'
+import { calculateOfferDiscount } from '../domain/pricing/offers'
+import { calculateOrderTotals } from '../domain/order/order'
+import { buildPayments, isFiado, hasPendingBizum, formatPaymentMethod } from '../domain/payments/payments'
+import { closeTableOrders, isDebtPayment as checkDebtPayment } from '../domain/tables/table'
+import { deductStock } from '../domain/inventory/stock'
 
 declare const API_KEY: string
 
@@ -290,6 +296,7 @@ export function useOrders({
     const table = next.tables.find((t: any) => t.id === selectedTableId)
     const activeOid = activeTicketId || table.orderIds?.[0] || table.orderId
     let order = activeOid ? next.orders[activeOid] : null
+    let isNewOrder = false
 
     if (!order) {
       const orderId = 'o_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
@@ -300,6 +307,7 @@ export function useOrders({
       table.orderId = orderId
       table.status = 'ocupada'
       setActiveTicketId(orderId)
+      isNewOrder = true
     }
     const basePrice = product.price || catalog?.products?.find((p: any) => p.id === product.id)?.price || 0
     const effectivePrice = round2(basePrice + extraPrice)
@@ -313,6 +321,13 @@ export function useOrders({
         qty: 1, sent: false, ready: false, sentAt: null, notes: '', modifiers,
         course: product.course || '',
         ubicacion: (product.ubicacion || prod?.ubicacion || 'Bar'),
+      })
+    }
+    if (isNewOrder) {
+      eventBus.emit('order:created', {
+        orderId: order.id, tableId: table.id, tableName: table.name,
+        items: order.items.map((i: any) => ({ productId: i.productId, name: i.name, qty: i.qty })),
+        employeeName: currentUser?.name || null, createdAt: order.createdAt,
       })
     }
     persistFloor(next)
@@ -397,7 +412,15 @@ export function useOrders({
     const next = clone(floor)
     const order = next.orders[ctx.activeOid]
     const item = order.items.find((i: any) => i.id === itemId)
-    if (item && !item.sent) { item.sent = true; item.sentAt = Date.now(); persistFloor(next); showToast(`${item.name} enviado a cocina`) }
+    if (item && !item.sent) {
+      item.sent = true; item.sentAt = Date.now(); persistFloor(next)
+      eventBus.emit('item:sent', {
+        orderId: ctx.activeOid, itemId,
+        productName: item.name, course: item.course || '',
+        tableName: ctx.table?.name || '',
+      })
+      showToast(`${item.name} enviado a cocina`)
+    }
   }, [floor, getContext, persistFloor, showToast])
 
   const updateItemCourse = useCallback((itemId: string, course?: string) => {
@@ -857,174 +880,56 @@ export function useOrders({
 
   // ---------- closeBill ----------
   const closeBill = useCallback(() => {
-    const nextFloor = clone(floor)
-    const table = nextFloor.tables.find((t: any) => t.id === selectedTableId)
-    const order = nextFloor.orders[table.orderId]
-    const wasDebt = table.isFiado && order.items.length === 1 && order.items[0].productId === null
+    if (!selectedTableId || !floor) return
+    const table = floor.tables.find((t: any) => t.id === selectedTableId)
+    const order = floor.orders[table.orderId]
+    if (!table || !order) return
 
-    const unsentItems = order.items.filter((i: any) => !i.sent && !i.voided)
-    const pendingItems = order.items.filter((i: any) => i.sent && !i.ready && !i.voided && !i.served)
-    if (unsentItems.length > 0 || pendingItems.length > 0) {
-      const parts = []
-      if (unsentItems.length > 0) parts.push(`${unsentItems.length} artículo(s) sin enviar a cocina`)
-      if (pendingItems.length > 0) parts.push(`${pendingItems.length} artículo(s) en preparación`)
-      if (!window.confirm(`Hay ${parts.join(' y ')}. ¿Seguro que quieres cobrar?`)) return
-    }
-
-    const nextCatalog = clone(catalog)
-    order.items.forEach((item: any) => {
-      if (item.productId) {
-        const p = nextCatalog.products.find((pr: any) => pr.id === item.productId)
-        if (p) {
-          const locs = Object.keys(p.stockByLocation || {})
-          const location = locs.length > 0 ? locs[0] : (p.ubicacion || 'Bar')
-          const entry = (p.stockByLocation || {})[location] || { stock: p.stock || 0 }
-          entry.stock = Math.max(0, (entry.stock || 0) - item.qty)
-          if (!p.stockByLocation) p.stockByLocation = {}
-          p.stockByLocation[location] = entry
-        }
-      }
+    const { nextFloor, nextCatalog, sale, stockLogs, warnings, wasDebt } = executeCloseOrder({
+      floor,
+      selectedTableId,
+      order,
+      catalog,
+      modifierData,
+      offers,
+      orderDiscount,
+      tipAmount,
+      tipMethod,
+      paymentSplits,
+      paymentIntentId,
+      currentUser,
+      invoice: { nif: invoiceNif, name: invoiceName, address: invoiceAddress, email: invoiceEmail },
+      trainingMode,
     })
 
-    const modOptMap: Record<string, any> = {}
-    for (const g of modifierData.groups) {
-      for (const o of g.options || []) {
-        modOptMap[o.id] = o
-      }
-    }
-    order.items.forEach((item: any) => {
-      if (item.modifiers) {
-        for (const m of item.modifiers) {
-          const opt = modOptMap[m.optionId]
-          if (opt?.stockDeduct && opt.stockArticleId) {
-            const p = nextCatalog.products.find((pr: any) => pr.id === opt.stockArticleId)
-            if (p) {
-              const locs = Object.keys(p.stockByLocation || {})
-              const location = locs.length > 0 ? locs[0] : (p.ubicacion || 'Bar')
-              const entry = (p.stockByLocation || {})[location] || { stock: p.stock || 0 }
-              entry.stock = Math.max(0, (entry.stock || 0) - (opt.stockQuantity || 0) * item.qty)
-              if (!p.stockByLocation) p.stockByLocation = {}
-              p.stockByLocation[location] = entry
-            }
-          }
-        }
-      }
-    })
-
-    order.items.forEach((item: any) => {
-      if (item.productId) {
-        const p = nextCatalog.products.find((pr: any) => pr.id === item.productId)
-        if (p) {
-          const locs = Object.keys(p.stockByLocation || {})
-          const location = locs.length > 0 ? locs[0] : (p.ubicacion || 'Bar')
-          const entry = p.stockByLocation?.[location] || { stock: 0 }
-          saveStockLog({
-            productId: item.productId, productName: item.name,
-            oldStock: (entry.stock || 0) + item.qty, newStock: entry.stock || 0,
-            reason: 'venta', employeeName: currentUser?.name, createdAt: Date.now(),
-          }).catch(() => {})
-        }
-      }
-    })
-
-    order.items.forEach((item: any) => {
-      if (item.modifiers) {
-        for (const m of item.modifiers) {
-          const opt = modOptMap[m.optionId]
-          if (opt?.stockDeduct && opt.stockArticleId) {
-            const p = nextCatalog.products.find((pr: any) => pr.id === opt.stockArticleId)
-            if (p) {
-              const locs = Object.keys(p.stockByLocation || {})
-              const location = locs.length > 0 ? locs[0] : (p.ubicacion || 'Bar')
-              const entry = p.stockByLocation?.[location] || { stock: 0 }
-              const qty = (opt.stockQuantity || 0) * item.qty
-              saveStockLog({
-                productId: opt.stockArticleId, productName: p.name,
-                oldStock: (entry.stock || 0) + qty, newStock: entry.stock || 0,
-                reason: 'venta (modificador)', employeeName: currentUser?.name, createdAt: Date.now(),
-              }).catch(() => {})
-            }
-          }
-        }
-      }
-    })
-
-    const now = new Date()
-    const currentDay = now.getDay() === 0 ? 7 : now.getDay()
-    const currentHour = now.getHours()
-    let offerDiscountAmount = 0
-    for (const offer of offers) {
-      if (!offer.active) continue
-      if (!offer.days.includes(currentDay)) continue
-      if (currentHour < offer.startHour || currentHour >= offer.endHour) continue
-      for (const item of order.items) {
-        if (item.productId && offer.productIds.includes(item.productId)) {
-          offerDiscountAmount += round2(item.price * item.qty * (offer.discountPct / 100))
-        }
-      }
-    }
-    const subtotal = order.items.reduce((s: any, i: any) => s + i.price * i.qty, 0)
-    const discountAmount = round2(round2(subtotal * (orderDiscount / 100)) + offerDiscountAmount)
-    const total = round2(subtotal - discountAmount)
-    const totalWithTip = round2(total + tipAmount)
-    const payments = paymentSplits.map((s: any) => {
-      const p: { method: string; amount: number; confirmed?: boolean } = { method: s.method, amount: round2(s.amount) }
-      if (s.method === 'bizum') p.confirmed = false
-      return p
-    })
-    const isFiado = payments.some((p: any) => p.method === 'fiado')
-    const hasPendingBizum = payments.some((p: any) => p.method === 'bizum' && p.confirmed === false)
-    const methodLabels: Record<string, string> = { efectivo: 'Efectivo', tarjeta: 'Tarjeta', bizum: 'Bizum', fiado: 'Fiado' }
-    const methodLabel = payments.map((p: any) => methodLabels[p.method] || p.method).join(' + ')
-
-    const wantInvoice = invoiceNif.trim() && invoiceName.trim()
-    const invNum = wantInvoice ? 'INV-' + new Date().getFullYear() + '-' + String(Date.now()).slice(-5) : ''
-    const sale = {
-      id: 's_' + Date.now(), tableId: table.id, tableName: table.name,
-      items: order.items.map((i: any) => ({ id: i.id, productId: i.productId, name: i.name, qty: i.qty, price: i.price || 0, voided: !!i.voided })),
-      subtotal, discount: orderDiscount, discountAmount, total, tip: tipAmount, tipMethod, totalWithTip,
-      invoiceNif: wantInvoice ? invoiceNif : '', invoiceName: wantInvoice ? invoiceName : '',
-      invoiceAddress: wantInvoice ? invoiceAddress : '', invoiceEmail: wantInvoice ? invoiceEmail : '',
-      invoiceNumber: invNum, invoiceCreated: wantInvoice, invoiceCreatedAt: wantInvoice ? Date.now() : null,
-      paymentIntentId, payments: isFiado ? [{ method: 'fiado', amount: totalWithTip }] : payments,
-      paymentMethod: methodLabel, isFiado, hasPendingBizum, isDebtPayment: wasDebt,
-      offerDiscount: offerDiscountAmount,
-      employeeId: currentUser?.id || null, employeeName: currentUser?.name || 'Sin asignar',
-      closedAt: Date.now(), ticketNumber: Date.now(),
+    if (warnings.length > 0) {
+      if (!window.confirm(`${warnings.join(' ')} ¿Seguro que quieres cobrar?`)) return
     }
 
-    const closedOrder = { ...order, closedAt: Date.now() }
-    if (!nextFloor.history) nextFloor.history = {}
-    if (!nextFloor.history[table.id]) nextFloor.history[table.id] = []
-    nextFloor.history[table.id].push(closedOrder)
-    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
-    nextFloor.history[table.id] = nextFloor.history[table.id].filter((h: any) => (h.closedAt || h.createdAt) >= todayStart.getTime())
-
-    const closedOid = table.orderId
-    delete nextFloor.orders[closedOid]
-    table.orderId = null
-    table.orderIds = (table.orderIds || []).filter((id: any) => id !== closedOid)
-    if (table.orderIds.length === 0) {
-      table.status = 'libre'; table.isFiado = false
-    } else {
-      table.orderId = table.orderIds[0]
-      table.status = table.orderIds.length > 1 ? 'unidas' : 'ocupada'
-    }
+    stockLogs.forEach(log => saveStockLog(log).catch(() => {}))
 
     const tipStr = tipAmount > 0 ? ` (+${euros(tipAmount)} propina)` : ''
     const discStr = orderDiscount > 0 ? ` (${orderDiscount}% desc)` : ''
-    const offerStr = offerDiscountAmount > 0 ? ` (oferta -${euros(offerDiscountAmount)})` : ''
+    const offerStr = sale.offerDiscount > 0 ? ` (oferta -${euros(sale.offerDiscount)})` : ''
 
     if (trainingMode) {
       resetPaymentState()
       setSelectedTableId(null)
-      showToast(`🎓 Formación — Cobrado: ${euros(totalWithTip)}${tipStr}${discStr}${offerStr}`)
+      showToast(`🎓 Formación — Cobrado: ${euros(sale.totalWithTip)}${tipStr}${discStr}${offerStr}`)
       return
     }
 
     persistFloor(nextFloor)
     setCatalog(nextCatalog)
     persistSales([...sales, sale])
+
+    eventBus.emit('order:closed', {
+      saleId: sale.id, tableId: table.id, tableName: table.name,
+      items: sale.items, subtotal: sale.subtotal, discount: orderDiscount, total: sale.total, tip: tipAmount, totalWithTip: sale.totalWithTip,
+      paymentMethod: sale.paymentMethod, payments: sale.payments, isFiado: sale.isFiado, isDebtPayment: wasDebt,
+      employeeId: currentUser?.id || null, employeeName: currentUser?.name || null,
+      closedAt: sale.closedAt,
+    })
 
     registerVerifactu(sale.id, sale).then(() => {
       showToast(`✅ Factura electrónica registrada (${sale.invoiceNumber || sale.id})`)
@@ -1037,18 +942,18 @@ export function useOrders({
     setSelectedTableId(null)
 
     showToast(
-      wasDebt ? `Deuda pagada: ${euros(totalWithTip)}${discStr}${offerStr}${tipStr}`
-        : isFiado ? `Fiado: ${euros(totalWithTip)}${discStr}${offerStr}${tipStr}`
-          : `Cobrado: ${euros(totalWithTip)}${discStr}${offerStr}${tipStr}`
+      wasDebt ? `Deuda pagada: ${euros(sale.totalWithTip)}${discStr}${offerStr}${tipStr}`
+        : sale.isFiado ? `Fiado: ${euros(sale.totalWithTip)}${discStr}${offerStr}${tipStr}`
+          : `Cobrado: ${euros(sale.totalWithTip)}${discStr}${offerStr}${tipStr}`
     )
 
-    if (payments.some((p: any) => p.method === 'efectivo') && isPrinterConnected()) {
+    if (sale.payments.some((p: any) => p.method === 'efectivo') && isPrinterConnected()) {
       printESCPOS(escposOpenDrawer()).catch(() => {})
     }
   }, [floor, catalog, sales, selectedTableId, orderDiscount, tipAmount, tipMethod,
       paymentSplits, paymentIntentId, invoiceNif, invoiceName, invoiceAddress, invoiceEmail,
       modifierData, offers, trainingMode, currentUser, persistFloor,
-      setCatalog, persistSales, showToast])
+      setCatalog, persistSales, showToast, resetPaymentState, setSelectedTableId])
 
   const resetPaymentState = useCallback(() => {
     setPaying(false)

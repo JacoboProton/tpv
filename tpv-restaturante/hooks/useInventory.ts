@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { saveCatalog, saveOffers, saveCombos, saveMealMenus, savePriceRules } from '../lib/api'
 import { enqueueMutation } from '../lib/offline'
 import { clone } from '../components/constants'
+import { eventBus } from '../lib/event-bus'
 
 interface UseInventoryProps {
   catalog: any
@@ -51,7 +52,19 @@ export function useInventory({ catalog, setCatalog, offers, setOffers, combos, s
     const next = clone(catalog)
     const p = next.products.find((p: any) => p.id === id)
     if (field === 'stockByLocation') {
+      const old = catalog?.products?.find((op: any) => op.id === id)?.stockByLocation
       p.stockByLocation = value
+      for (const [loc, entry] of Object.entries(value || {}) as any) {
+        const oldEntry = (old || {})[loc] || { stock: 0 }
+        const delta = entry.stock - oldEntry.stock
+        if (delta !== 0) {
+          eventBus.emit('stock:changed', {
+            productId: id, productName: p.name,
+            ubicacion: loc, delta, newStock: entry.stock,
+            reason: 'manual',
+          })
+        }
+      }
     } else {
       p[field] = (field === 'name' || field === 'category' || field === 'ubicacion') ? value : Number(value)
     }

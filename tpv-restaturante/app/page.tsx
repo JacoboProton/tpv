@@ -53,6 +53,7 @@ import ComandaDrawer        from '../components/ComandaDrawer';
 import PaymentModal         from '../components/PaymentModal';
 import ModifierSelector     from '../components/ModifierSelector';
 import CommandPalette       from '../components/CommandPalette';
+import { EventLog }          from '../modules/debug/EventLog';
 import SettingsModal        from '../components/SettingsModal';
 import DrawerModal          from '../components/DrawerModal';
 
@@ -688,6 +689,16 @@ export default function App() {
         onBack={() => setMenuMode('menu')} colors={C}
       />{qrBlock}</>
     );
+    return (
+      <><MenuPrincipal
+        employees={employees}
+        onLoginClick={() => { setEntryPoint('entrada'); setMenuMode('login'); }}
+        onAlmacenClick={() => { setEntryPoint('almacen'); setMenuMode('login'); }}
+        onCajaClick={() => { setEntryPoint('caja'); setMenuMode('login'); }}
+        onConfigClick={() => { setEntryPoint('config'); setMenuMode('login'); }}
+        colors={C}
+      />{qrBlock}</>
+    );
   }
 
   const navGroups = [
@@ -772,7 +783,7 @@ export default function App() {
           </div>
           <nav className="flex flex-col gap-3 p-2 overflow-y-auto flex-1">
             {navGroups.map((group: any) => {
-              if (group.adminOnly && currentUser.role !== 'admin') return null;
+              if (group.adminOnly && currentUser?.role !== 'admin') return null;
               const filtered = group.items;
               if (filtered.length === 0) return null;
               return (
@@ -876,8 +887,8 @@ export default function App() {
               {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
             <span style={{ color: C.muted }} className="text-xs hidden md:flex items-center gap-1">
-              {currentUser.role === 'admin' && <ShieldCheck className="w-3.5 h-3.5" style={{ color: C.brassLight }} />}
-              {currentUser.name}
+              {currentUser?.role === 'admin' && <ShieldCheck className="w-3.5 h-3.5" style={{ color: C.brassLight }} />}
+              {currentUser?.name}
             </span>
             <button onClick={() => setMenuMode('menu')} title="Menu" style={{ color: C.muted }} className="p-2 rounded-lg hover:opacity-80"><LayoutGrid className="w-4 h-4" /></button>
             <button onClick={logout} title="Cerrar sesion" style={{ color: C.muted }} className="p-2 rounded-lg hover:opacity-80"><LogOut className="w-4 h-4" /></button>
@@ -1145,6 +1156,7 @@ export default function App() {
       )}
 
       {/* ── Modal confirmación abrir cajón ── */}
+      <EventLog />
       <CommandPalette
         isOpen={showCommands}
         onClose={() => setShowCommands(false)}

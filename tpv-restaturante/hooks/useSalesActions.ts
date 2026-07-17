@@ -3,6 +3,7 @@
 import { useCallback } from 'react'
 import { enqueueMutation } from '../lib/offline'
 import { clone, euros } from '../components/constants'
+import { eventBus } from '../lib/event-bus'
 
 interface UseSalesActionsProps {
   sales: any[]
@@ -21,6 +22,10 @@ export function useSalesActions({ sales, setSales, currentUser, showToast }: Use
     const refundWithEmployee = { ...refund, employeeName: currentUser?.name || '—' }
     sale.refunds.push(refundWithEmployee)
     setSales(next)
+    eventBus.emit('payment:refunded', {
+      saleId, amount: refundWithEmployee.amount, reason: refundWithEmployee.reason || '',
+      employeeName: currentUser?.name || '—', timestamp: Date.now(),
+    })
     const refundBody = JSON.stringify({ saleId, refund: refundWithEmployee })
     fetch('/api/sales/refund', {
       method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: refundBody,
@@ -47,6 +52,10 @@ export function useSalesActions({ sales, setSales, currentUser, showToast }: Use
     sale.payments = confirmed
     delete sale.hasPendingBizum
     setSales(next)
+    eventBus.emit('payment:completed', {
+      saleId, tableId: sale.tableId || '', amount: sale.totalWithTip || sale.total || 0,
+      method: 'bizum', employeeName: currentUser?.name || null, timestamp: Date.now(),
+    })
     fetch('/api/sales', {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ saleId, payments: confirmed }),
