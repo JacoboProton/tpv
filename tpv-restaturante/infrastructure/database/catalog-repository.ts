@@ -19,7 +19,7 @@ export interface CatalogProduct {
   type?: string
   inventariable?: boolean
   discount?: number
-  stockByLocation?: Record<string, { stock: number; lowStock: number }>
+  stockByLocation?: Record<string, { stock: number; lowStock?: number }>
   stock?: number
   lowStock?: number
   course?: string
