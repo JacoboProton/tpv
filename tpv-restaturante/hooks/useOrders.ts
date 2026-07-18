@@ -17,6 +17,7 @@ import { calculateOfferDiscount } from '../domain/pricing/offers'
 import { calculateOrderTotals } from '../domain/order/order'
 import { calculateIgic } from '../domain/invoice/invoice'
 import { expandMenu, expandCombo } from '../domain/order/menu-expansion'
+import { calculateOrderSubtotal } from '../domain/order/line-totals'
 import { executeCloseOrder } from '../application/CloseOrder/close-order'
 import { buildPayments, isFiado, hasPendingBizum, formatPaymentMethod } from '../domain/payments/payments'
 import { closeTableOrders, isDebtPayment as checkDebtPayment } from '../domain/tables/table'
@@ -81,15 +82,7 @@ export function useOrders({
   const activeOrderId = activeTicketId || selectedTable?.orderIds?.[0] || selectedTable?.orderId
   const selectedOrder = activeOrderId ? floor?.orders?.[activeOrderId] : null
 
-  const orderTotal = selectedOrder ? selectedOrder.items.reduce((s: any, i: any) => {
-    if (i.voided) return s
-    const p = catalog?.products?.find((pr: any) => pr.id === i.productId)
-    const disc = p?.discount || 0
-    const effectivePrice = i.overridePrice != null ? i.overridePrice : i.price
-    const lineDisc = i.lineDiscount || 0
-    const lineTotal = effectivePrice * (1 - (lineDisc > 0 ? lineDisc : disc) / 100) * i.qty
-    return s + (i.isCourtesy ? 0 : lineTotal)
-  }, 0) : 0
+  const orderTotal = selectedOrder ? calculateOrderSubtotal(selectedOrder.items, catalog) : 0
   const discountedTotal = round2(orderTotal * (1 - orderDiscount / 100))
   const finalTotal = round2(discountedTotal + tipAmount)
   const splitsUsed = round2(paymentSplits.reduce((s: any, p: any) => s + (Number(p.amount) || 0), 0))
