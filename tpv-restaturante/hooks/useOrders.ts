@@ -17,6 +17,7 @@ import { calculateOfferDiscount } from '../domain/pricing/offers'
 import { calculateOrderTotals } from '../domain/order/order'
 import { buildPayments, isFiado, hasPendingBizum, formatPaymentMethod } from '../domain/payments/payments'
 import { closeTableOrders, isDebtPayment as checkDebtPayment } from '../domain/tables/table'
+import { executeCloseOrder } from '@/application/CloseOrder/close-order'
 import { deductStock } from '../domain/inventory/stock'
 
 declare const API_KEY: string
