@@ -16,6 +16,7 @@ import { eventBus } from '../lib/event-bus'
 import { calculateOfferDiscount } from '../domain/pricing/offers'
 import { calculateOrderTotals } from '../domain/order/order'
 import { calculateIgic } from '../domain/invoice/invoice'
+import { expandMenu, expandCombo } from '../domain/order/menu-expansion'
 import { buildPayments, isFiado, hasPendingBizum, formatPaymentMethod } from '../domain/payments/payments'
 import { closeTableOrders, isDebtPayment as checkDebtPayment } from '../domain/tables/table'
 import { deductStock } from '../domain/inventory/stock'
@@ -182,8 +183,6 @@ export function useOrders({
   // ---------- Item operations ----------
   const addItem = useCallback((product: any) => {
     if (product.isMenu && product.menuData) {
-      const menu = product.menuData
-      const sel = product.menuSel
       const next = clone(floor)
       const table = next.tables.find((t: any) => t.id === selectedTableId)
       let order = table.orderId ? next.orders[table.orderId] : null
@@ -194,34 +193,26 @@ export function useOrders({
         table.orderId = orderId
         table.status = 'ocupada'
       }
-      if (sel && sel.length > 0) {
-        for (const s of sel) {
-          const p = catalog.products.find((pr: any) => pr.id === s.productId)
-          if (!p) continue
-          const existing = order.items.find((i: any) => i.productId === p.id && !i.sent && !i.isCombo && !i.isMenuItem)
-          if (existing) existing.qty += 1
-          else {
-            order.items.push({
-              id: 'i_' + Date.now() + Math.random().toString(16).slice(2),
-              productId: p.id, name: p.name + ` (${menu.name})`, price: 0,
-              qty: 1, sent: false, ready: false, sentAt: null, notes: '', modifiers: [],
-              course: p.course || '', isMenuItem: true,
-              ubicacion: p.ubicacion || 'Bar',
-            })
-          }
+      const menuItems = expandMenu(product, catalog, product.menuSel)
+      for (const mi of menuItems) {
+        if (mi.productId && !mi.isMenuPrice) {
+          const existing = order.items.find((i: any) => i.productId === mi.productId && !i.sent && !i.isCombo && !i.isMenuItem)
+          if (existing) { existing.qty += mi.qty; continue }
         }
+        order.items.push({
+          id: 'i_' + Date.now() + Math.random().toString(16).slice(2),
+          ...mi,
+          sent: mi.isMenuPrice,
+          ready: mi.isMenuPrice,
+          sentAt: mi.isMenuPrice ? Date.now() : null,
+          notes: '',
+          modifiers: [],
+        })
       }
-      order.items.push({
-        id: 'i_' + Date.now() + Math.random().toString(16).slice(2),
-        productId: null, name: `→ Menú: ${menu.name}`, price: menu.price,
-        qty: 1, sent: true, ready: true, sentAt: Date.now(), notes: '', modifiers: [],
-        course: '', isMenuPrice: true,
-      })
       persistFloor(next)
       return
     }
     if (product.isCombo && product.comboData) {
-      const combo = product.comboData
       const next = clone(floor)
       const table = next.tables.find((t: any) => t.id === selectedTableId)
       let order = table.orderId ? next.orders[table.orderId] : null
@@ -232,46 +223,22 @@ export function useOrders({
         table.orderId = orderId
         table.status = 'ocupada'
       }
-      const sel = product.comboSel
-      if (sel && sel.length > 0) {
-        for (const s of sel) {
-          const p = catalog.products.find((pr: any) => pr.id === s.productId)
-          if (!p) continue
-          const existing = order.items.find((i: any) => i.productId === p.id && !i.sent && !i.isCombo)
-          if (existing) existing.qty += 1
-          else {
-            order.items.push({
-              id: 'i_' + Date.now() + Math.random().toString(16).slice(2),
-              productId: p.id, name: p.name + ` (${combo.name})`, price: 0,
-              qty: 1, sent: false, ready: false, sentAt: null, notes: '', modifiers: [],
-              course: p.course || '', isComboItem: true,
-            })
-          }
+      const comboItems = expandCombo(product, catalog, product.comboSel)
+      for (const ci of comboItems) {
+        if (ci.productId && !ci.isComboPrice) {
+          const existing = order.items.find((i: any) => i.productId === ci.productId && !i.sent && !i.isCombo)
+          if (existing) { existing.qty += ci.qty; continue }
         }
-      } else if (combo.slots && combo.slots.length > 0) {
-      } else {
-        for (const item of combo.items || []) {
-          const p = catalog.products.find((pr: any) => pr.id === item.product_id)
-          if (!p) continue
-          const qty = item.quantity || 1
-          const existing = order.items.find((i: any) => i.productId === p.id && !i.sent && !i.isCombo)
-          if (existing) existing.qty += qty
-          else {
-            order.items.push({
-              id: 'i_' + Date.now() + Math.random().toString(16).slice(2),
-              productId: p.id, name: p.name + (combo.name ? ` (${combo.name})` : ''), price: 0,
-              qty, sent: false, ready: false, sentAt: null, notes: '', modifiers: [],
-              course: p.course || '', isComboItem: true,
-            })
-          }
-        }
+        order.items.push({
+          id: 'i_' + Date.now() + Math.random().toString(16).slice(2),
+          ...ci,
+          sent: ci.isComboPrice,
+          ready: ci.isComboPrice,
+          sentAt: ci.isComboPrice ? Date.now() : null,
+          notes: '',
+          modifiers: [],
+        })
       }
-      order.items.push({
-        id: 'i_' + Date.now() + Math.random().toString(16).slice(2),
-        productId: null, name: `→ Combo: ${combo.name}`, price: combo.price,
-        qty: 1, sent: true, ready: true, sentAt: Date.now(), notes: '', modifiers: [],
-        course: '', isComboPrice: true,
-      })
       persistFloor(next)
       return
     }
