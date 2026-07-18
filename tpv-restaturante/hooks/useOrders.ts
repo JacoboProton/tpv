@@ -20,6 +20,7 @@ import { expandMenu, expandCombo } from '../domain/order/menu-expansion'
 import { calculateOrderSubtotal } from '../domain/order/line-totals'
 import { calculatePersonalDiscountAmount, applyDiscountRates, removeDiscountRates, buildEmployeeMonthlyUsage, buildEmployeeMonthlyUsageDecrement } from '../domain/pricing/personal-discount'
 import { executeCloseOrder } from '../application/CloseOrder/close-order'
+import { moveTableOrder, mergeTables as mergeTableOrders, reopenOrder as reopenTableOrder } from '../domain/tables/table-operations'
 import { buildPayments, isFiado, hasPendingBizum, formatPaymentMethod } from '../domain/payments/payments'
 import { closeTableOrders, isDebtPayment as checkDebtPayment } from '../domain/tables/table'
 import { deductStock } from '../domain/inventory/stock'
@@ -549,87 +550,29 @@ export function useOrders({
 
   const moveTable = useCallback((tableId: string, destTableId: string) => {
     if (tableId === destTableId) { showToast('No puedes mover una mesa sobre sí misma'); return }
-    const next = clone(floor)
-    const src = next.tables.find((t: any) => t.id === tableId)
+    const src = floor.tables.find((t: any) => t.id === tableId)
+    if (!src?.orderId) { showToast('La mesa origen no tiene pedido'); return }
+    const next = moveTableOrder(floor, tableId, destTableId)
+    if (next === floor) return
     const dst = next.tables.find((t: any) => t.id === destTableId)
-    if (!src || !dst || !src.orderId) { showToast('La mesa origen no tiene pedido'); return }
-    if (!next.orders[src.orderId]) { showToast('Pedido no encontrado'); return }
-    if (dst.orderId) {
-      const srcOrder = next.orders[src.orderId]
-      const dstOrder = next.orders[dst.orderId]
-      dstOrder.items = [...dstOrder.items, ...srcOrder.items]
-      delete next.orders[src.orderId]
-    } else {
-      next.orders[src.orderId].tableId = destTableId
-      dst.orderId = src.orderId
-    }
-    src.orderId = null
-    src.status = 'libre'
-    src.mergedTableIds = null
-    dst.status = dst.orderId ? 'unidas' : 'ocupada'
     persistFloor(next)
     setSelectedTableId(destTableId)
-    showToast(`Pedido movido a ${dst.name}`)
+    showToast(`Pedido movido a ${dst?.name}`)
   }, [floor, persistFloor, showToast])
 
   const mergeTables = useCallback((tableId: string, sourceTableIds: string[]) => {
-    const next = clone(floor)
+    const next = mergeTableOrders(floor, tableId, sourceTableIds, currentUser?.name)
+    if (next === floor) return
     const dst = next.tables.find((t: any) => t.id === tableId)
-    if (!dst) return
-    let dstOrder = dst.orderId ? next.orders[dst.orderId] : null
-    if (!dstOrder) {
-      const newOrderId = 'ord_' + Date.now()
-      dstOrder = { id: newOrderId, tableId, items: [], createdAt: Date.now(), employeeName: currentUser?.name || '' }
-      next.orders[newOrderId] = dstOrder
-      dst.orderId = newOrderId
-    }
-    dst.status = 'unidas'
-    dst.mergedTableIds = sourceTableIds.filter((id: any) => id !== tableId)
-
-    for (const srcId of sourceTableIds) {
-      if (srcId === tableId) continue
-      const src = next.tables.find((t: any) => t.id === srcId)
-      if (!src || !src.orderId) continue
-      const srcOrder = next.orders[src.orderId]
-      if (!srcOrder) continue
-      dstOrder.items = [...dstOrder.items, ...srcOrder.items]
-      delete next.orders[src.orderId]
-      src.orderId = null
-      src.status = 'libre'
-    }
-
-    const mergedNames = sourceTableIds
-      .filter((id: any) => id !== tableId)
-      .map((id: any) => next.tables.find((t: any) => t.id === id)?.name || id)
-      .filter(Boolean)
-    if (mergedNames.length > 0) {
-      dstOrder._mergedFrom = [tableId, ...sourceTableIds.filter((id: any) => id !== tableId)]
-      dstOrder._mergedLabel = `Unidas: ${dst.name} + ${mergedNames.join(' + ')}`
-    }
-
     persistFloor(next)
-    showToast(`Pedidos fusionados en ${dst.name}`)
+    showToast(`Pedidos fusionados en ${dst?.name}`)
   }, [floor, currentUser, persistFloor, showToast])
 
   const reopenOrder = useCallback((tableId: string, historyEntry: any) => {
-    const next = clone(floor)
-    const table = next.tables.find((t: any) => t.id === tableId)
-    if (!table) return
-    const reopenedId = historyEntry.id + '_reopened'
-    next.orders[reopenedId] = {
-      ...historyEntry, id: reopenedId, tableId,
-      reopenedAt: Date.now(),
-      items: historyEntry.items.map((i: any) => ({ ...i, sent: false, ready: false })),
-    }
-    if (!table.orderIds) table.orderIds = []
-    table.orderIds.push(reopenedId)
-    table.orderId = reopenedId
-    table.status = 'ocupada'
-    if (next.history?.[tableId]) {
-      next.history[tableId] = next.history[tableId].filter((h: any) => h.id !== historyEntry.id)
-    }
-    persistFloor(next)
-    setActiveTicketId(reopenedId)
+    const result = reopenTableOrder(floor, tableId, historyEntry)
+    if (!result.orderId) return
+    persistFloor(result.floor)
+    setActiveTicketId(result.orderId)
     showToast('Pedido reabierto')
   }, [floor, persistFloor, showToast])
 
