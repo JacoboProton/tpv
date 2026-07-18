@@ -19,6 +19,11 @@ export interface CloseOrderItem {
   served?: boolean
 }
 
+export interface CloseOrderModifierGroup {
+  id: string
+  options: CloseOrderModifierOption[]
+}
+
 export interface CloseOrderModifierOption {
   id: string
   stockDeduct?: boolean
@@ -39,7 +44,7 @@ export interface CloseOrderInput {
   selectedTableId: string
   order: any
   catalog: any
-  modifierData: { groups: CloseOrderModifierOption[] }
+  modifierData: { groups: CloseOrderModifierGroup[] }
   offers: any
   orderDiscount: number
   tipAmount: number
