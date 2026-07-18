@@ -848,6 +848,19 @@ export function useOrders({
   }, [selectedOrder])
 
   // ---------- closeBill ----------
+  const resetPaymentState = useCallback(() => {
+    setPaying(false)
+    setPaymentSplits([])
+    setOrderDiscount(0)
+    setTipAmount(0)
+    setTipMethod('efectivo')
+    setPaymentIntentId('')
+    setInvoiceNif('')
+    setInvoiceName('')
+    setInvoiceAddress('')
+    setInvoiceEmail('')
+  }, [])
+
   const closeBill = useCallback(() => {
     if (!selectedTableId || !floor) return
     const table = floor.tables.find((t: any) => t.id === selectedTableId)
@@ -923,19 +936,6 @@ export function useOrders({
       paymentSplits, paymentIntentId, invoiceNif, invoiceName, invoiceAddress, invoiceEmail,
       modifierData, offers, trainingMode, currentUser, persistFloor,
       setCatalog, persistSales, showToast, resetPaymentState, setSelectedTableId])
-
-  const resetPaymentState = useCallback(() => {
-    setPaying(false)
-    setPaymentSplits([])
-    setOrderDiscount(0)
-    setTipAmount(0)
-    setTipMethod('efectivo')
-    setPaymentIntentId('')
-    setInvoiceNif('')
-    setInvoiceName('')
-    setInvoiceAddress('')
-    setInvoiceEmail('')
-  }, [])
 
   // ---------- Printing ----------
   const handlePrint = useCallback(() => {
