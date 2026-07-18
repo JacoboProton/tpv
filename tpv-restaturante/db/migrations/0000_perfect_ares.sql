@@ -1,10 +1,10 @@
-CREATE TYPE "public"."KitchenStatus" AS ENUM('PENDING', 'IN_PROGRESS', 'DONE');--> statement-breakpoint
-CREATE TYPE "public"."level" AS ENUM('pro', 'intermedio', 'iniciacion');--> statement-breakpoint
-CREATE TYPE "public"."Plan" AS ENUM('FREE', 'BASIC', 'PRO', 'PREMIUM');--> statement-breakpoint
-CREATE TYPE "public"."Role" AS ENUM('OWNER', 'ADMIN', 'MANAGER', 'CASHIER', 'WAITER', 'KITCHEN', 'BAR');--> statement-breakpoint
-CREATE TYPE "public"."Station" AS ENUM('KITCHEN', 'BAR');--> statement-breakpoint
-CREATE TYPE "public"."TicketStatus" AS ENUM('OPEN', 'PAID', 'CANCELLED');--> statement-breakpoint
-CREATE TABLE "access_logs" (
+DO $$ BEGIN CREATE TYPE "public"."KitchenStatus" AS ENUM('PENDING', 'IN_PROGRESS', 'DONE'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."level" AS ENUM('pro', 'intermedio', 'iniciacion'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."Plan" AS ENUM('FREE', 'BASIC', 'PRO', 'PREMIUM'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."Role" AS ENUM('OWNER', 'ADMIN', 'MANAGER', 'CASHIER', 'WAITER', 'KITCHEN', 'BAR'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."Station" AS ENUM('KITCHEN', 'BAR'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."TicketStatus" AS ENUM('OPEN', 'PAID', 'CANCELLED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "access_logs" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"employee_id" text NOT NULL,
 	"employee_name" text NOT NULL,
@@ -14,7 +14,7 @@ CREATE TABLE "access_logs" (
 	"tenant_id" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "albaran_lines" (
+CREATE TABLE IF NOT EXISTS "albaran_lines" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"albaran_id" text NOT NULL,
 	"product_id" text NOT NULL,
@@ -36,7 +36,7 @@ CREATE TABLE "albaran_lines" (
 	"tenant_id" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "albaranes" (
+CREATE TABLE IF NOT EXISTS "albaranes" (
 	"id" text PRIMARY KEY NOT NULL,
 	"supplier_id" text NOT NULL,
 	"supplier_name" text NOT NULL,
@@ -64,19 +64,19 @@ CREATE TABLE "albaranes" (
 	CONSTRAINT "albaranes_status_check" CHECK (status = ANY (ARRAY['draft'::text, 'confirmed'::text, 'anulado'::text]))
 );
 --> statement-breakpoint
-CREATE TABLE "Attendance" (
+CREATE TABLE IF NOT EXISTS "Attendance" (
 	"id" text PRIMARY KEY NOT NULL,
 	"userId" text NOT NULL,
 	"checkIn" timestamp(3) NOT NULL,
 	"checkOut" timestamp(3)
 );
 --> statement-breakpoint
-CREATE TABLE "auto_order_settings" (
+CREATE TABLE IF NOT EXISTS "auto_order_settings" (
 	"key" text PRIMARY KEY NOT NULL,
 	"value" text DEFAULT '' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "backpacks" (
+CREATE TABLE IF NOT EXISTS "backpacks" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"description" text,
@@ -86,13 +86,13 @@ CREATE TABLE "backpacks" (
 	"image_url" text
 );
 --> statement-breakpoint
-CREATE TABLE "backups" (
+CREATE TABLE IF NOT EXISTS "backups" (
 	"id" text PRIMARY KEY NOT NULL,
 	"data" jsonb NOT NULL,
 	"created_at" bigint NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "bearings" (
+CREATE TABLE IF NOT EXISTS "bearings" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"description" text,
@@ -102,7 +102,7 @@ CREATE TABLE "bearings" (
 	"image_url" text
 );
 --> statement-breakpoint
-CREATE TABLE "belts" (
+CREATE TABLE IF NOT EXISTS "belts" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"description" text,
@@ -112,7 +112,7 @@ CREATE TABLE "belts" (
 	"image_url" text
 );
 --> statement-breakpoint
-CREATE TABLE "buffet_config" (
+CREATE TABLE IF NOT EXISTS "buffet_config" (
 	"id" text PRIMARY KEY DEFAULT 'default' NOT NULL,
 	"enabled" boolean DEFAULT false,
 	"time_limit" integer DEFAULT 90,
@@ -129,7 +129,7 @@ CREATE TABLE "buffet_config" (
 	"tenant_id" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "buffet_rounds" (
+CREATE TABLE IF NOT EXISTS "buffet_rounds" (
 	"id" text PRIMARY KEY NOT NULL,
 	"session_id" text NOT NULL,
 	"round_number" integer NOT NULL,
@@ -140,7 +140,7 @@ CREATE TABLE "buffet_rounds" (
 	"status" text DEFAULT 'pending' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "buffet_sessions" (
+CREATE TABLE IF NOT EXISTS "buffet_sessions" (
 	"id" text PRIMARY KEY NOT NULL,
 	"table_id" text NOT NULL,
 	"table_name" text NOT NULL,
@@ -170,7 +170,7 @@ CREATE TABLE "buffet_sessions" (
 	"tenant_id" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "buffet_waste" (
+CREATE TABLE IF NOT EXISTS "buffet_waste" (
 	"id" text PRIMARY KEY NOT NULL,
 	"session_id" text NOT NULL,
 	"table_id" text NOT NULL,
@@ -181,7 +181,7 @@ CREATE TABLE "buffet_waste" (
 	"employee_id" text
 );
 --> statement-breakpoint
-CREATE TABLE "bushings" (
+CREATE TABLE IF NOT EXISTS "bushings" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"description" text,
@@ -191,7 +191,7 @@ CREATE TABLE "bushings" (
 	"image_url" text
 );
 --> statement-breakpoint
-CREATE TABLE "cancelled_orders" (
+CREATE TABLE IF NOT EXISTS "cancelled_orders" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"order_id" text,
 	"table_id" text,
@@ -204,7 +204,7 @@ CREATE TABLE "cancelled_orders" (
 	"tenant_id" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "caps" (
+CREATE TABLE IF NOT EXISTS "caps" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"description" text,
@@ -214,7 +214,7 @@ CREATE TABLE "caps" (
 	"image_url" text
 );
 --> statement-breakpoint
-CREATE TABLE "categories" (
+CREATE TABLE IF NOT EXISTS "categories" (
 	"id" serial NOT NULL,
 	"name" text NOT NULL,
 	"sort_order" integer DEFAULT 0,
@@ -227,12 +227,12 @@ CREATE TABLE "categories" (
 	CONSTRAINT "categories_tenant_id_id_uniq" UNIQUE("id","tenant_id")
 );
 --> statement-breakpoint
-CREATE TABLE "Category" (
+CREATE TABLE IF NOT EXISTS "Category" (
 	"id" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "clockin_corrections" (
+CREATE TABLE IF NOT EXISTS "clockin_corrections" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"clockin_id" integer DEFAULT 0,
 	"employee_id" text NOT NULL,
@@ -244,7 +244,7 @@ CREATE TABLE "clockin_corrections" (
 	"created_at" bigint NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "clockin_logs" (
+CREATE TABLE IF NOT EXISTS "clockin_logs" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"employee_id" text NOT NULL,
 	"employee_name" text NOT NULL,
@@ -259,7 +259,7 @@ CREATE TABLE "clockin_logs" (
 	"tenant_id" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "closures" (
+CREATE TABLE IF NOT EXISTS "closures" (
 	"id" text PRIMARY KEY NOT NULL,
 	"tenant_id" text DEFAULT 'default' NOT NULL,
 	"date" text NOT NULL,
@@ -274,7 +274,7 @@ CREATE TABLE "closures" (
 	"cuadratura" jsonb DEFAULT '[]'::jsonb
 );
 --> statement-breakpoint
-CREATE TABLE "combo_items" (
+CREATE TABLE IF NOT EXISTS "combo_items" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"combo_id" text NOT NULL,
 	"product_id" text NOT NULL,
@@ -283,7 +283,7 @@ CREATE TABLE "combo_items" (
 	CONSTRAINT "combo_items_combo_id_product_id_key" UNIQUE("combo_id","product_id")
 );
 --> statement-breakpoint
-CREATE TABLE "combo_slot_items" (
+CREATE TABLE IF NOT EXISTS "combo_slot_items" (
 	"id" text PRIMARY KEY NOT NULL,
 	"slot_id" text NOT NULL,
 	"product_id" text NOT NULL,
@@ -292,7 +292,7 @@ CREATE TABLE "combo_slot_items" (
 	"tenant_id" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "combo_slots" (
+CREATE TABLE IF NOT EXISTS "combo_slots" (
 	"id" text PRIMARY KEY NOT NULL,
 	"combo_id" text NOT NULL,
 	"name" text NOT NULL,
@@ -302,7 +302,7 @@ CREATE TABLE "combo_slots" (
 	"tenant_id" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "combos" (
+CREATE TABLE IF NOT EXISTS "combos" (
 	"id" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"description" text DEFAULT '' NOT NULL,
@@ -315,7 +315,7 @@ CREATE TABLE "combos" (
 	CONSTRAINT "combos_tenant_id_id_uniq" UNIQUE("id","tenant_id")
 );
 --> statement-breakpoint
-CREATE TABLE "delivery_orders" (
+CREATE TABLE IF NOT EXISTS "delivery_orders" (
 	"id" text PRIMARY KEY NOT NULL,
 	"order_id" text,
 	"table_id" text,
@@ -337,7 +337,7 @@ CREATE TABLE "delivery_orders" (
 	"tenant_id" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "delivery_runners" (
+CREATE TABLE IF NOT EXISTS "delivery_runners" (
 	"id" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"phone" text DEFAULT '' NOT NULL,
@@ -346,7 +346,7 @@ CREATE TABLE "delivery_runners" (
 	"tenant_id" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "delivery_tracking" (
+CREATE TABLE IF NOT EXISTS "delivery_tracking" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"delivery_id" text NOT NULL,
 	"status" text NOT NULL,
@@ -357,7 +357,7 @@ CREATE TABLE "delivery_tracking" (
 	"tenant_id" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "delivery_zones" (
+CREATE TABLE IF NOT EXISTS "delivery_zones" (
 	"id" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"radius_km" numeric(10, 2) DEFAULT '0',
@@ -369,7 +369,7 @@ CREATE TABLE "delivery_zones" (
 	"tenant_id" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "elbow_pads" (
+CREATE TABLE IF NOT EXISTS "elbow_pads" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"description" text,
@@ -379,7 +379,7 @@ CREATE TABLE "elbow_pads" (
 	"image_url" text
 );
 --> statement-breakpoint
-CREATE TABLE "employee_shifts" (
+CREATE TABLE IF NOT EXISTS "employee_shifts" (
 	"id" text PRIMARY KEY NOT NULL,
 	"employee_id" text NOT NULL,
 	"employee_name" text NOT NULL,
@@ -393,7 +393,7 @@ CREATE TABLE "employee_shifts" (
 	"tenant_id" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "employee_turns" (
+CREATE TABLE IF NOT EXISTS "employee_turns" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"employee_id" text NOT NULL,
 	"employee_name" text NOT NULL,
@@ -403,7 +403,7 @@ CREATE TABLE "employee_turns" (
 	"tenant_id" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "employees" (
+CREATE TABLE IF NOT EXISTS "employees" (
 	"id" text NOT NULL,
 	"name" text NOT NULL,
 	"pin" text DEFAULT '' NOT NULL,
@@ -426,20 +426,20 @@ CREATE TABLE "employees" (
 	CONSTRAINT "employees_tenant_id_id_uniq" UNIQUE("id","tenant_id")
 );
 --> statement-breakpoint
-CREATE TABLE "fiskaly_config" (
+CREATE TABLE IF NOT EXISTS "fiskaly_config" (
 	"key" text PRIMARY KEY NOT NULL,
 	"value" text NOT NULL,
 	"updated_at" bigint DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "floor_plan" (
+CREATE TABLE IF NOT EXISTS "floor_plan" (
 	"id" integer PRIMARY KEY DEFAULT 1 NOT NULL,
 	"zones" jsonb DEFAULT '[]'::jsonb,
 	"background" jsonb,
 	CONSTRAINT "floor_plan_id_check" CHECK (id = 1)
 );
 --> statement-breakpoint
-CREATE TABLE "gestoria_authorization" (
+CREATE TABLE IF NOT EXISTS "gestoria_authorization" (
 	"id" integer PRIMARY KEY DEFAULT 1 NOT NULL,
 	"accountant_name" text DEFAULT '',
 	"accountant_nif" text DEFAULT '',
@@ -452,7 +452,7 @@ CREATE TABLE "gestoria_authorization" (
 	CONSTRAINT "gestoria_authorization_id_check" CHECK (id = 1)
 );
 --> statement-breakpoint
-CREATE TABLE "gestoria_document_lines" (
+CREATE TABLE IF NOT EXISTS "gestoria_document_lines" (
 	"id" text PRIMARY KEY NOT NULL,
 	"document_id" text NOT NULL,
 	"description" text NOT NULL,
@@ -469,7 +469,7 @@ CREATE TABLE "gestoria_document_lines" (
 	CONSTRAINT "gestoria_document_lines_zone_check" CHECK (zone = ANY (ARRAY['spain'::text, 'eu'::text, 'outside_eu'::text]))
 );
 --> statement-breakpoint
-CREATE TABLE "gestoria_documents" (
+CREATE TABLE IF NOT EXISTS "gestoria_documents" (
 	"id" text PRIMARY KEY NOT NULL,
 	"type" text NOT NULL,
 	"file_name" text DEFAULT '',
@@ -484,7 +484,7 @@ CREATE TABLE "gestoria_documents" (
 	CONSTRAINT "gestoria_documents_type_check" CHECK (type = ANY (ARRAY['expense'::text, 'income'::text]))
 );
 --> statement-breakpoint
-CREATE TABLE "gestoria_payrolls" (
+CREATE TABLE IF NOT EXISTS "gestoria_payrolls" (
 	"id" text PRIMARY KEY NOT NULL,
 	"employee_name" text NOT NULL,
 	"employee_nif" text NOT NULL,
@@ -500,14 +500,14 @@ CREATE TABLE "gestoria_payrolls" (
 	"tenant_id" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "gestoria_settings" (
+CREATE TABLE IF NOT EXISTS "gestoria_settings" (
 	"key" text NOT NULL,
 	"value" text NOT NULL,
 	"tenant_id" text DEFAULT 'default' NOT NULL,
 	CONSTRAINT "gestoria_settings_pkey" PRIMARY KEY("key","tenant_id")
 );
 --> statement-breakpoint
-CREATE TABLE "gestoria_tax_models" (
+CREATE TABLE IF NOT EXISTS "gestoria_tax_models" (
 	"id" text PRIMARY KEY NOT NULL,
 	"model_code" text NOT NULL,
 	"year" integer NOT NULL,
@@ -522,7 +522,7 @@ CREATE TABLE "gestoria_tax_models" (
 	CONSTRAINT "gestoria_tax_models_status_check" CHECK (status = ANY (ARRAY['draft'::text, 'reviewed'::text, 'presented'::text]))
 );
 --> statement-breakpoint
-CREATE TABLE "griptapes" (
+CREATE TABLE IF NOT EXISTS "griptapes" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"description" text,
@@ -532,7 +532,7 @@ CREATE TABLE "griptapes" (
 	"image_url" text
 );
 --> statement-breakpoint
-CREATE TABLE "hardware" (
+CREATE TABLE IF NOT EXISTS "hardware" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"description" text,
@@ -542,7 +542,7 @@ CREATE TABLE "hardware" (
 	"image_url" text
 );
 --> statement-breakpoint
-CREATE TABLE "helmets" (
+CREATE TABLE IF NOT EXISTS "helmets" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"description" text,
@@ -552,14 +552,14 @@ CREATE TABLE "helmets" (
 	"image_url" text
 );
 --> statement-breakpoint
-CREATE TABLE "Ingredient" (
+CREATE TABLE IF NOT EXISTS "Ingredient" (
 	"id" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"unit" text NOT NULL,
 	"stock" double precision DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "kds_audit_log" (
+CREATE TABLE IF NOT EXISTS "kds_audit_log" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"action" text NOT NULL,
 	"details" jsonb DEFAULT '{}'::jsonb,
@@ -567,7 +567,7 @@ CREATE TABLE "kds_audit_log" (
 	"tenant_id" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "kds_pairings" (
+CREATE TABLE IF NOT EXISTS "kds_pairings" (
 	"id" text NOT NULL,
 	"code" text NOT NULL,
 	"label" text DEFAULT '',
@@ -580,7 +580,7 @@ CREATE TABLE "kds_pairings" (
 	CONSTRAINT "kds_pairings_tenant_id_id_uniq" UNIQUE("id","tenant_id")
 );
 --> statement-breakpoint
-CREATE TABLE "KitchenItem" (
+CREATE TABLE IF NOT EXISTS "KitchenItem" (
 	"id" text PRIMARY KEY NOT NULL,
 	"status" "KitchenStatus" DEFAULT 'PENDING' NOT NULL,
 	"station" "Station" NOT NULL,
@@ -588,7 +588,7 @@ CREATE TABLE "KitchenItem" (
 	"createdAt" timestamp(3) DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "knee_pads" (
+CREATE TABLE IF NOT EXISTS "knee_pads" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"description" text,
@@ -598,7 +598,7 @@ CREATE TABLE "knee_pads" (
 	"image_url" text
 );
 --> statement-breakpoint
-CREATE TABLE "meal_menu_course_items" (
+CREATE TABLE IF NOT EXISTS "meal_menu_course_items" (
 	"id" text PRIMARY KEY NOT NULL,
 	"course_id" text NOT NULL,
 	"product_id" text NOT NULL,
@@ -607,7 +607,7 @@ CREATE TABLE "meal_menu_course_items" (
 	"tenant_id" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "meal_menu_courses" (
+CREATE TABLE IF NOT EXISTS "meal_menu_courses" (
 	"id" text PRIMARY KEY NOT NULL,
 	"menu_id" text NOT NULL,
 	"name" text NOT NULL,
@@ -615,7 +615,7 @@ CREATE TABLE "meal_menu_courses" (
 	"tenant_id" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "meal_menu_schedules" (
+CREATE TABLE IF NOT EXISTS "meal_menu_schedules" (
 	"id" text PRIMARY KEY NOT NULL,
 	"menu_id" text NOT NULL,
 	"day_of_week" integer NOT NULL,
@@ -624,7 +624,7 @@ CREATE TABLE "meal_menu_schedules" (
 	"tenant_id" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "meal_menus" (
+CREATE TABLE IF NOT EXISTS "meal_menus" (
 	"id" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"description" text DEFAULT '' NOT NULL,
@@ -639,7 +639,7 @@ CREATE TABLE "meal_menus" (
 	"tenant_id" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "_migrations" (
+CREATE TABLE IF NOT EXISTS "_migrations" (
 	"name" text PRIMARY KEY NOT NULL,
 	"description" text DEFAULT '' NOT NULL,
 	"applied_at" bigint NOT NULL,
@@ -649,7 +649,7 @@ CREATE TABLE "_migrations" (
 	"error" text DEFAULT ''
 );
 --> statement-breakpoint
-CREATE TABLE "modifier_groups" (
+CREATE TABLE IF NOT EXISTS "modifier_groups" (
 	"id" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"type" text DEFAULT 'single' NOT NULL,
@@ -657,7 +657,7 @@ CREATE TABLE "modifier_groups" (
 	"tenant_id" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "modifier_options" (
+CREATE TABLE IF NOT EXISTS "modifier_options" (
 	"id" text PRIMARY KEY NOT NULL,
 	"group_id" text NOT NULL,
 	"name" text NOT NULL,
@@ -670,7 +670,7 @@ CREATE TABLE "modifier_options" (
 	"tenant_id" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "modifier_recipe_ingredients" (
+CREATE TABLE IF NOT EXISTS "modifier_recipe_ingredients" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"modifier_recipe_id" text NOT NULL,
 	"ingredient_id" text NOT NULL,
@@ -681,7 +681,7 @@ CREATE TABLE "modifier_recipe_ingredients" (
 	"total_cost" numeric(10, 4) DEFAULT '0' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "modifier_recipes" (
+CREATE TABLE IF NOT EXISTS "modifier_recipes" (
 	"id" text PRIMARY KEY NOT NULL,
 	"modifier_option_id" text NOT NULL,
 	"modifier_name" text NOT NULL,
@@ -689,7 +689,7 @@ CREATE TABLE "modifier_recipes" (
 	"updated_at" bigint DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "offers" (
+CREATE TABLE IF NOT EXISTS "offers" (
 	"id" text NOT NULL,
 	"name" text NOT NULL,
 	"type" text DEFAULT 'menu' NOT NULL,
@@ -705,7 +705,7 @@ CREATE TABLE "offers" (
 	CONSTRAINT "offers_tenant_id_id_uniq" UNIQUE("id","tenant_id")
 );
 --> statement-breakpoint
-CREATE TABLE "orders" (
+CREATE TABLE IF NOT EXISTS "orders" (
 	"id" text NOT NULL,
 	"table_id" text NOT NULL,
 	"items" jsonb DEFAULT '[]'::jsonb NOT NULL,
@@ -717,7 +717,7 @@ CREATE TABLE "orders" (
 	CONSTRAINT "orders_tenant_id_id_uniq" UNIQUE("id","tenant_id")
 );
 --> statement-breakpoint
-CREATE TABLE "pants" (
+CREATE TABLE IF NOT EXISTS "pants" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"description" text,
@@ -727,7 +727,7 @@ CREATE TABLE "pants" (
 	"image_url" text
 );
 --> statement-breakpoint
-CREATE TABLE "patches" (
+CREATE TABLE IF NOT EXISTS "patches" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"description" text,
@@ -737,7 +737,7 @@ CREATE TABLE "patches" (
 	"image_url" text
 );
 --> statement-breakpoint
-CREATE TABLE "payment_logs" (
+CREATE TABLE IF NOT EXISTS "payment_logs" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"event_id" text,
 	"payment_intent_id" text,
@@ -754,7 +754,7 @@ CREATE TABLE "payment_logs" (
 	"created_at" bigint NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "Product" (
+CREATE TABLE IF NOT EXISTS "Product" (
 	"id" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"price" double precision NOT NULL,
@@ -763,7 +763,7 @@ CREATE TABLE "Product" (
 	"categoryId" text NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "product_batches" (
+CREATE TABLE IF NOT EXISTS "product_batches" (
 	"id" text PRIMARY KEY NOT NULL,
 	"product_id" text NOT NULL,
 	"albaran_id" text,
@@ -779,14 +779,14 @@ CREATE TABLE "product_batches" (
 	CONSTRAINT "product_batches_status_check" CHECK (status = ANY (ARRAY['active'::text, 'depleted'::text, 'expired'::text]))
 );
 --> statement-breakpoint
-CREATE TABLE "product_modifiers" (
+CREATE TABLE IF NOT EXISTS "product_modifiers" (
 	"product_id" text NOT NULL,
 	"group_id" text NOT NULL,
 	"tenant_id" text DEFAULT 'default' NOT NULL,
 	CONSTRAINT "product_modifiers_pkey" PRIMARY KEY("group_id","product_id")
 );
 --> statement-breakpoint
-CREATE TABLE "product_price_rules" (
+CREATE TABLE IF NOT EXISTS "product_price_rules" (
 	"id" text PRIMARY KEY NOT NULL,
 	"product_id" text NOT NULL,
 	"name" text NOT NULL,
@@ -800,7 +800,7 @@ CREATE TABLE "product_price_rules" (
 	"tenant_id" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "product_stock" (
+CREATE TABLE IF NOT EXISTS "product_stock" (
 	"product_id" text NOT NULL,
 	"location" text NOT NULL,
 	"stock" integer DEFAULT 0 NOT NULL,
@@ -809,7 +809,7 @@ CREATE TABLE "product_stock" (
 	CONSTRAINT "product_stock_pkey" PRIMARY KEY("location","product_id")
 );
 --> statement-breakpoint
-CREATE TABLE "production_ingredients" (
+CREATE TABLE IF NOT EXISTS "production_ingredients" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"production_id" text NOT NULL,
 	"ingredient_id" text NOT NULL,
@@ -820,7 +820,7 @@ CREATE TABLE "production_ingredients" (
 	"tenant_id" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "productions" (
+CREATE TABLE IF NOT EXISTS "productions" (
 	"id" text PRIMARY KEY NOT NULL,
 	"product_id" text NOT NULL,
 	"product_name" text NOT NULL,
@@ -841,7 +841,7 @@ CREATE TABLE "productions" (
 	CONSTRAINT "productions_status_check" CHECK (status = ANY (ARRAY['active'::text, 'anulado'::text]))
 );
 --> statement-breakpoint
-CREATE TABLE "products" (
+CREATE TABLE IF NOT EXISTS "products" (
 	"id" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"category" text NOT NULL,
@@ -866,7 +866,7 @@ CREATE TABLE "products" (
 	CONSTRAINT "products_tenant_id_id_uniq" UNIQUE("id","tenant_id")
 );
 --> statement-breakpoint
-CREATE TABLE "purchase_order_lines" (
+CREATE TABLE IF NOT EXISTS "purchase_order_lines" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"order_id" text NOT NULL,
 	"product_id" text NOT NULL,
@@ -878,7 +878,7 @@ CREATE TABLE "purchase_order_lines" (
 	"tenant_id" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "purchase_orders" (
+CREATE TABLE IF NOT EXISTS "purchase_orders" (
 	"id" text PRIMARY KEY NOT NULL,
 	"supplier_id" text NOT NULL,
 	"supplier_name" text NOT NULL,
@@ -892,7 +892,7 @@ CREATE TABLE "purchase_orders" (
 	CONSTRAINT "purchase_orders_status_check" CHECK (status = ANY (ARRAY['draft'::text, 'sent'::text, 'partial'::text, 'received'::text]))
 );
 --> statement-breakpoint
-CREATE TABLE "qr_calls" (
+CREATE TABLE IF NOT EXISTS "qr_calls" (
 	"id" text NOT NULL,
 	"table_id" text NOT NULL,
 	"table_name" text DEFAULT '',
@@ -904,7 +904,7 @@ CREATE TABLE "qr_calls" (
 	CONSTRAINT "qr_calls_tenant_id_id_uniq" UNIQUE("id","tenant_id")
 );
 --> statement-breakpoint
-CREATE TABLE "qr_orders" (
+CREATE TABLE IF NOT EXISTS "qr_orders" (
 	"id" text PRIMARY KEY NOT NULL,
 	"table_id" text NOT NULL,
 	"items" jsonb DEFAULT '[]'::jsonb NOT NULL,
@@ -929,7 +929,7 @@ CREATE TABLE "qr_orders" (
 	CONSTRAINT "qr_orders_order_status_new_check" CHECK (order_status = ANY (ARRAY['pending'::text, 'paid'::text, 'confirmed'::text, 'preparing'::text, 'ready'::text, 'en_camino'::text, 'delivered'::text, 'cancelled'::text]))
 );
 --> statement-breakpoint
-CREATE TABLE "recipe_ingredients" (
+CREATE TABLE IF NOT EXISTS "recipe_ingredients" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"recipe_id" text NOT NULL,
 	"ingredient_id" text NOT NULL,
@@ -941,14 +941,14 @@ CREATE TABLE "recipe_ingredients" (
 	"tenant_id" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "RecipeItem" (
+CREATE TABLE IF NOT EXISTS "RecipeItem" (
 	"id" text PRIMARY KEY NOT NULL,
 	"productId" text NOT NULL,
 	"ingredientId" text NOT NULL,
 	"quantity" double precision NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "recipes" (
+CREATE TABLE IF NOT EXISTS "recipes" (
 	"id" text PRIMARY KEY NOT NULL,
 	"product_id" text NOT NULL,
 	"product_name" text NOT NULL,
@@ -959,7 +959,7 @@ CREATE TABLE "recipes" (
 	CONSTRAINT "recipes_product_id_key" UNIQUE("product_id")
 );
 --> statement-breakpoint
-CREATE TABLE "reservation_recurring" (
+CREATE TABLE IF NOT EXISTS "reservation_recurring" (
 	"id" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"weekday" integer NOT NULL,
@@ -974,7 +974,7 @@ CREATE TABLE "reservation_recurring" (
 	CONSTRAINT "reservation_recurring_weekday_check" CHECK ((weekday >= 0) AND (weekday <= 6))
 );
 --> statement-breakpoint
-CREATE TABLE "reservations" (
+CREATE TABLE IF NOT EXISTS "reservations" (
 	"id" text PRIMARY KEY NOT NULL,
 	"date" text NOT NULL,
 	"time" text NOT NULL,
@@ -997,7 +997,7 @@ CREATE TABLE "reservations" (
 	CONSTRAINT "reservations_status_check" CHECK (status = ANY (ARRAY['pendiente'::text, 'confirmada'::text, 'sentada'::text, 'noshow'::text, 'cancelada'::text]))
 );
 --> statement-breakpoint
-CREATE TABLE "riser_pads" (
+CREATE TABLE IF NOT EXISTS "riser_pads" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"description" text,
@@ -1007,7 +1007,7 @@ CREATE TABLE "riser_pads" (
 	"image_url" text
 );
 --> statement-breakpoint
-CREATE TABLE "sales" (
+CREATE TABLE IF NOT EXISTS "sales" (
 	"id" text PRIMARY KEY NOT NULL,
 	"table_id" text,
 	"table_name" text,
@@ -1042,7 +1042,7 @@ CREATE TABLE "sales" (
 	"ticket_number" integer
 );
 --> statement-breakpoint
-CREATE TABLE "Session" (
+CREATE TABLE IF NOT EXISTS "Session" (
 	"id" text PRIMARY KEY NOT NULL,
 	"userId" text NOT NULL,
 	"expiresAt" timestamp(3) NOT NULL,
@@ -1052,7 +1052,7 @@ CREATE TABLE "Session" (
 	"updatedAt" timestamp(3) NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "sessions" (
+CREATE TABLE IF NOT EXISTS "sessions" (
 	"tenant_id" text NOT NULL,
 	"employee_id" text NOT NULL,
 	"device_id" text NOT NULL,
@@ -1063,14 +1063,14 @@ CREATE TABLE "sessions" (
 	CONSTRAINT "unique_session" UNIQUE("device_id","employee_id","tenant_id")
 );
 --> statement-breakpoint
-CREATE TABLE "settings" (
+CREATE TABLE IF NOT EXISTS "settings" (
 	"key" text NOT NULL,
 	"value" text NOT NULL,
 	"tenant_id" text DEFAULT 'default' NOT NULL,
 	CONSTRAINT "settings_pkey" PRIMARY KEY("key","tenant_id")
 );
 --> statement-breakpoint
-CREATE TABLE "Shift" (
+CREATE TABLE IF NOT EXISTS "Shift" (
 	"id" text PRIMARY KEY NOT NULL,
 	"userId" text NOT NULL,
 	"start" timestamp(3) NOT NULL,
@@ -1078,7 +1078,7 @@ CREATE TABLE "Shift" (
 	"storeId" text
 );
 --> statement-breakpoint
-CREATE TABLE "shift_objectives" (
+CREATE TABLE IF NOT EXISTS "shift_objectives" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"day_of_week" integer NOT NULL,
 	"start_time" text NOT NULL,
@@ -1088,7 +1088,7 @@ CREATE TABLE "shift_objectives" (
 	"max_people" integer DEFAULT 3
 );
 --> statement-breakpoint
-CREATE TABLE "skate_shoes" (
+CREATE TABLE IF NOT EXISTS "skate_shoes" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"description" text,
@@ -1098,7 +1098,7 @@ CREATE TABLE "skate_shoes" (
 	"image_url" text
 );
 --> statement-breakpoint
-CREATE TABLE "skates" (
+CREATE TABLE IF NOT EXISTS "skates" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"description" text,
@@ -1108,7 +1108,7 @@ CREATE TABLE "skates" (
 	"image_url" text
 );
 --> statement-breakpoint
-CREATE TABLE "socks" (
+CREATE TABLE IF NOT EXISTS "socks" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"description" text,
@@ -1118,7 +1118,7 @@ CREATE TABLE "socks" (
 	"image_url" text
 );
 --> statement-breakpoint
-CREATE TABLE "stickers" (
+CREATE TABLE IF NOT EXISTS "stickers" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"description" text,
@@ -1128,7 +1128,7 @@ CREATE TABLE "stickers" (
 	"image_url" text
 );
 --> statement-breakpoint
-CREATE TABLE "stock_log" (
+CREATE TABLE IF NOT EXISTS "stock_log" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"product_id" text NOT NULL,
 	"product_name" text NOT NULL,
@@ -1142,7 +1142,7 @@ CREATE TABLE "stock_log" (
 	"tenant_id" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "StockMovement" (
+CREATE TABLE IF NOT EXISTS "StockMovement" (
 	"id" text PRIMARY KEY NOT NULL,
 	"ingredientId" text NOT NULL,
 	"quantity" double precision NOT NULL,
@@ -1150,14 +1150,14 @@ CREATE TABLE "StockMovement" (
 	"createdAt" timestamp(3) DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "Store" (
+CREATE TABLE IF NOT EXISTS "Store" (
 	"id" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"address" text,
 	"tenantId" text NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "sunglasses" (
+CREATE TABLE IF NOT EXISTS "sunglasses" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"description" text,
@@ -1167,7 +1167,7 @@ CREATE TABLE "sunglasses" (
 	"image_url" text
 );
 --> statement-breakpoint
-CREATE TABLE "supplier_catalog" (
+CREATE TABLE IF NOT EXISTS "supplier_catalog" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"supplier_id" text NOT NULL,
 	"product_id" text NOT NULL,
@@ -1182,7 +1182,7 @@ CREATE TABLE "supplier_catalog" (
 	CONSTRAINT "supplier_catalog_supplier_id_product_id_key" UNIQUE("product_id","supplier_id")
 );
 --> statement-breakpoint
-CREATE TABLE "supplier_price_history" (
+CREATE TABLE IF NOT EXISTS "supplier_price_history" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"catalog_id" integer NOT NULL,
 	"supplier_id" text NOT NULL,
@@ -1195,7 +1195,7 @@ CREATE TABLE "supplier_price_history" (
 	CONSTRAINT "supplier_price_history_source_check" CHECK (source = ANY (ARRAY['manual'::text, 'receipt'::text]))
 );
 --> statement-breakpoint
-CREATE TABLE "suppliers" (
+CREATE TABLE IF NOT EXISTS "suppliers" (
 	"id" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"contact" text DEFAULT '',
@@ -1210,7 +1210,7 @@ CREATE TABLE "suppliers" (
 	"tenant_id" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "t_shirts" (
+CREATE TABLE IF NOT EXISTS "t_shirts" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"description" text,
@@ -1220,7 +1220,7 @@ CREATE TABLE "t_shirts" (
 	"image_url" text
 );
 --> statement-breakpoint
-CREATE TABLE "tables" (
+CREATE TABLE IF NOT EXISTS "tables" (
 	"id" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"status" text DEFAULT 'libre' NOT NULL,
@@ -1245,7 +1245,7 @@ CREATE TABLE "tables" (
 	CONSTRAINT "tables_tenant_id_id_uniq" UNIQUE("id","tenant_id")
 );
 --> statement-breakpoint
-CREATE TABLE "Tenant" (
+CREATE TABLE IF NOT EXISTS "Tenant" (
 	"id" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"plan" "Plan" DEFAULT 'FREE' NOT NULL,
@@ -1253,7 +1253,7 @@ CREATE TABLE "Tenant" (
 	"createdAt" timestamp(3) DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "tenants" (
+CREATE TABLE IF NOT EXISTS "tenants" (
 	"id" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"slug" text NOT NULL,
@@ -1268,7 +1268,7 @@ CREATE TABLE "tenants" (
 	CONSTRAINT "tenants_slug_key" UNIQUE("slug")
 );
 --> statement-breakpoint
-CREATE TABLE "Ticket" (
+CREATE TABLE IF NOT EXISTS "Ticket" (
 	"id" text PRIMARY KEY NOT NULL,
 	"total" double precision DEFAULT 0 NOT NULL,
 	"status" "TicketStatus" DEFAULT 'OPEN' NOT NULL,
@@ -1277,14 +1277,14 @@ CREATE TABLE "Ticket" (
 	"createdAt" timestamp(3) DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "ticket_counters" (
+CREATE TABLE IF NOT EXISTS "ticket_counters" (
 	"tenant_id" text NOT NULL,
 	"year" integer NOT NULL,
 	"counter" integer DEFAULT 0 NOT NULL,
 	CONSTRAINT "ticket_counters_pkey" PRIMARY KEY("tenant_id","year")
 );
 --> statement-breakpoint
-CREATE TABLE "TicketItem" (
+CREATE TABLE IF NOT EXISTS "TicketItem" (
 	"id" text PRIMARY KEY NOT NULL,
 	"quantity" integer NOT NULL,
 	"price" double precision NOT NULL,
@@ -1292,7 +1292,7 @@ CREATE TABLE "TicketItem" (
 	"productId" text NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "time_off_requests" (
+CREATE TABLE IF NOT EXISTS "time_off_requests" (
 	"id" text PRIMARY KEY NOT NULL,
 	"employee_id" text NOT NULL,
 	"employee_name" text NOT NULL,
@@ -1307,7 +1307,7 @@ CREATE TABLE "time_off_requests" (
 	"resolved_at" bigint
 );
 --> statement-breakpoint
-CREATE TABLE "tool_bags" (
+CREATE TABLE IF NOT EXISTS "tool_bags" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"description" text,
@@ -1317,7 +1317,7 @@ CREATE TABLE "tool_bags" (
 	"image_url" text
 );
 --> statement-breakpoint
-CREATE TABLE "tools" (
+CREATE TABLE IF NOT EXISTS "tools" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"description" text,
@@ -1327,7 +1327,7 @@ CREATE TABLE "tools" (
 	"image_url" text
 );
 --> statement-breakpoint
-CREATE TABLE "trucks" (
+CREATE TABLE IF NOT EXISTS "trucks" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"description" text,
@@ -1337,7 +1337,7 @@ CREATE TABLE "trucks" (
 	"image_url" text
 );
 --> statement-breakpoint
-CREATE TABLE "User" (
+CREATE TABLE IF NOT EXISTS "User" (
 	"id" text PRIMARY KEY NOT NULL,
 	"email" text NOT NULL,
 	"name" text NOT NULL,
@@ -1351,7 +1351,7 @@ CREATE TABLE "User" (
 	"updatedAt" timestamp(3) DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "users" (
+CREATE TABLE IF NOT EXISTS "users" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"email" text NOT NULL,
@@ -1359,7 +1359,7 @@ CREATE TABLE "users" (
 	CONSTRAINT "users_email_unique" UNIQUE("email")
 );
 --> statement-breakpoint
-CREATE TABLE "verifactu_registros" (
+CREATE TABLE IF NOT EXISTS "verifactu_registros" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"sale_id" text NOT NULL,
 	"num_serie" text NOT NULL,
@@ -1382,7 +1382,7 @@ CREATE TABLE "verifactu_registros" (
 	CONSTRAINT "verifactu_registros_sale_id_key" UNIQUE("sale_id")
 );
 --> statement-breakpoint
-CREATE TABLE "waitlist" (
+CREATE TABLE IF NOT EXISTS "waitlist" (
 	"id" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"phone" text DEFAULT '',
@@ -1402,7 +1402,7 @@ CREATE TABLE "waitlist" (
 	CONSTRAINT "waitlist_status_check" CHECK (status = ANY (ARRAY['waiting'::text, 'called'::text, 'seated'::text, 'cancelled'::text, 'noshow'::text]))
 );
 --> statement-breakpoint
-CREATE TABLE "webhook_events" (
+CREATE TABLE IF NOT EXISTS "webhook_events" (
 	"event_id" text PRIMARY KEY NOT NULL,
 	"type" text NOT NULL,
 	"status" text DEFAULT 'received' NOT NULL,
@@ -1413,7 +1413,7 @@ CREATE TABLE "webhook_events" (
 	"tenant_id" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "wheels" (
+CREATE TABLE IF NOT EXISTS "wheels" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"description" text,
@@ -1423,109 +1423,109 @@ CREATE TABLE "wheels" (
 	"image_url" text
 );
 --> statement-breakpoint
-ALTER TABLE "albaran_lines" ADD CONSTRAINT "albaran_lines_albaran_id_fkey" FOREIGN KEY ("albaran_id") REFERENCES "public"."albaranes"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "Attendance" ADD CONSTRAINT "Attendance_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."User"("id") ON DELETE restrict ON UPDATE cascade;--> statement-breakpoint
-ALTER TABLE "buffet_rounds" ADD CONSTRAINT "buffet_rounds_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "public"."buffet_sessions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "buffet_sessions" ADD CONSTRAINT "buffet_sessions_table_id_fkey" FOREIGN KEY ("table_id") REFERENCES "public"."tables"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "buffet_waste" ADD CONSTRAINT "buffet_waste_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "public"."buffet_sessions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "combo_items" ADD CONSTRAINT "combo_items_combo_id_fkey" FOREIGN KEY ("combo_id") REFERENCES "public"."combos"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "combo_items" ADD CONSTRAINT "combo_items_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "combo_slot_items" ADD CONSTRAINT "combo_slot_items_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "combo_slot_items" ADD CONSTRAINT "combo_slot_items_slot_id_fkey" FOREIGN KEY ("slot_id") REFERENCES "public"."combo_slots"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "combo_slots" ADD CONSTRAINT "combo_slots_combo_id_fkey" FOREIGN KEY ("combo_id") REFERENCES "public"."combos"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "delivery_tracking" ADD CONSTRAINT "delivery_tracking_delivery_id_fkey" FOREIGN KEY ("delivery_id") REFERENCES "public"."delivery_orders"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "gestoria_document_lines" ADD CONSTRAINT "gestoria_document_lines_document_id_fkey" FOREIGN KEY ("document_id") REFERENCES "public"."gestoria_documents"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "KitchenItem" ADD CONSTRAINT "KitchenItem_ticketItemId_fkey" FOREIGN KEY ("ticketItemId") REFERENCES "public"."TicketItem"("id") ON DELETE restrict ON UPDATE cascade;--> statement-breakpoint
-ALTER TABLE "meal_menu_course_items" ADD CONSTRAINT "meal_menu_course_items_course_id_fkey" FOREIGN KEY ("course_id") REFERENCES "public"."meal_menu_courses"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "meal_menu_course_items" ADD CONSTRAINT "meal_menu_course_items_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "meal_menu_courses" ADD CONSTRAINT "meal_menu_courses_menu_id_fkey" FOREIGN KEY ("menu_id") REFERENCES "public"."meal_menus"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "meal_menu_schedules" ADD CONSTRAINT "meal_menu_schedules_menu_id_fkey" FOREIGN KEY ("menu_id") REFERENCES "public"."meal_menus"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "modifier_options" ADD CONSTRAINT "modifier_options_group_id_fkey" FOREIGN KEY ("group_id") REFERENCES "public"."modifier_groups"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "modifier_recipe_ingredients" ADD CONSTRAINT "modifier_recipe_ingredients_ingredient_id_fkey" FOREIGN KEY ("ingredient_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "modifier_recipe_ingredients" ADD CONSTRAINT "modifier_recipe_ingredients_modifier_recipe_id_fkey" FOREIGN KEY ("modifier_recipe_id") REFERENCES "public"."modifier_recipes"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "Product" ADD CONSTRAINT "Product_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "public"."Category"("id") ON DELETE restrict ON UPDATE cascade;--> statement-breakpoint
-ALTER TABLE "product_batches" ADD CONSTRAINT "product_batches_albaran_id_fkey" FOREIGN KEY ("albaran_id") REFERENCES "public"."albaranes"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "product_batches" ADD CONSTRAINT "product_batches_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "product_modifiers" ADD CONSTRAINT "product_modifiers_group_id_fkey" FOREIGN KEY ("group_id") REFERENCES "public"."modifier_groups"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "product_price_rules" ADD CONSTRAINT "product_price_rules_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "product_stock" ADD CONSTRAINT "product_stock_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "production_ingredients" ADD CONSTRAINT "production_ingredients_ingredient_id_fkey" FOREIGN KEY ("ingredient_id") REFERENCES "public"."products"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "production_ingredients" ADD CONSTRAINT "production_ingredients_production_id_fkey" FOREIGN KEY ("production_id") REFERENCES "public"."productions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "productions" ADD CONSTRAINT "productions_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "purchase_order_lines" ADD CONSTRAINT "purchase_order_lines_order_id_fkey" FOREIGN KEY ("order_id") REFERENCES "public"."purchase_orders"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "recipe_ingredients" ADD CONSTRAINT "recipe_ingredients_ingredient_id_fkey" FOREIGN KEY ("ingredient_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "recipe_ingredients" ADD CONSTRAINT "recipe_ingredients_recipe_id_fkey" FOREIGN KEY ("recipe_id") REFERENCES "public"."recipes"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "RecipeItem" ADD CONSTRAINT "RecipeItem_ingredientId_fkey" FOREIGN KEY ("ingredientId") REFERENCES "public"."Ingredient"("id") ON DELETE restrict ON UPDATE cascade;--> statement-breakpoint
-ALTER TABLE "RecipeItem" ADD CONSTRAINT "RecipeItem_productId_fkey" FOREIGN KEY ("productId") REFERENCES "public"."Product"("id") ON DELETE restrict ON UPDATE cascade;--> statement-breakpoint
-ALTER TABLE "recipes" ADD CONSTRAINT "recipes_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "Session" ADD CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."User"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
-ALTER TABLE "Shift" ADD CONSTRAINT "Shift_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "public"."Store"("id") ON DELETE set null ON UPDATE cascade;--> statement-breakpoint
-ALTER TABLE "Shift" ADD CONSTRAINT "Shift_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."User"("id") ON DELETE restrict ON UPDATE cascade;--> statement-breakpoint
-ALTER TABLE "StockMovement" ADD CONSTRAINT "StockMovement_ingredientId_fkey" FOREIGN KEY ("ingredientId") REFERENCES "public"."Ingredient"("id") ON DELETE restrict ON UPDATE cascade;--> statement-breakpoint
-ALTER TABLE "Store" ADD CONSTRAINT "Store_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "public"."Tenant"("id") ON DELETE restrict ON UPDATE cascade;--> statement-breakpoint
-ALTER TABLE "supplier_catalog" ADD CONSTRAINT "supplier_catalog_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "supplier_catalog" ADD CONSTRAINT "supplier_catalog_supplier_id_fkey" FOREIGN KEY ("supplier_id") REFERENCES "public"."suppliers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "supplier_price_history" ADD CONSTRAINT "supplier_price_history_catalog_id_fkey" FOREIGN KEY ("catalog_id") REFERENCES "public"."supplier_catalog"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "Ticket" ADD CONSTRAINT "Ticket_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "public"."User"("id") ON DELETE restrict ON UPDATE cascade;--> statement-breakpoint
-ALTER TABLE "Ticket" ADD CONSTRAINT "Ticket_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "public"."Store"("id") ON DELETE restrict ON UPDATE cascade;--> statement-breakpoint
-ALTER TABLE "TicketItem" ADD CONSTRAINT "TicketItem_productId_fkey" FOREIGN KEY ("productId") REFERENCES "public"."Product"("id") ON DELETE restrict ON UPDATE cascade;--> statement-breakpoint
-ALTER TABLE "TicketItem" ADD CONSTRAINT "TicketItem_ticketId_fkey" FOREIGN KEY ("ticketId") REFERENCES "public"."Ticket"("id") ON DELETE restrict ON UPDATE cascade;--> statement-breakpoint
-ALTER TABLE "User" ADD CONSTRAINT "User_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "public"."Store"("id") ON DELETE set null ON UPDATE cascade;--> statement-breakpoint
-ALTER TABLE "User" ADD CONSTRAINT "User_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "public"."Tenant"("id") ON DELETE restrict ON UPDATE cascade;--> statement-breakpoint
-CREATE INDEX "idx_access_logs_tenant" ON "access_logs" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_albaran_lines_tenant" ON "albaran_lines" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_albaranes_tenant" ON "albaranes" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_buffet_config_tenant" ON "buffet_config" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_buffet_rounds_session" ON "buffet_rounds" USING btree ("session_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_buffet_sessions_status" ON "buffet_sessions" USING btree ("status" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_buffet_sessions_table" ON "buffet_sessions" USING btree ("table_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_buffet_sessions_tenant" ON "buffet_sessions" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_buffet_waste_session" ON "buffet_waste" USING btree ("session_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_cancelled_orders_tenant" ON "cancelled_orders" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_categories_tenant" ON "categories" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_clockin_logs_tenant" ON "clockin_logs" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_closures_date" ON "closures" USING btree ("date" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_combo_items_tenant" ON "combo_items" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_combo_slot_items_tenant" ON "combo_slot_items" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_combo_slots_tenant" ON "combo_slots" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_combos_tenant" ON "combos" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_delivery_orders_tenant" ON "delivery_orders" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_delivery_runners_tenant" ON "delivery_runners" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_delivery_zones_tenant" ON "delivery_zones" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_employee_shifts_tenant" ON "employee_shifts" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_shifts_date" ON "employee_shifts" USING btree ("date" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_shifts_employee" ON "employee_shifts" USING btree ("employee_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_employee_turns_tenant" ON "employee_turns" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_employees_tenant" ON "employees" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_meal_menus_tenant" ON "meal_menus" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_modifier_groups_tenant" ON "modifier_groups" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_offers_tenant" ON "offers" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_orders_tenant" ON "orders" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE UNIQUE INDEX "Product_barcode_key" ON "Product" USING btree ("barcode" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_batches_expiry" ON "product_batches" USING btree ("expiry_date" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_batches_location" ON "product_batches" USING btree ("location" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_batches_product" ON "product_batches" USING btree ("product_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_batches_status" ON "product_batches" USING btree ("status" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_product_price_rules_tenant" ON "product_price_rules" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_product_stock_tenant" ON "product_stock" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_production_ingredients_tenant" ON "production_ingredients" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_productions_tenant" ON "productions" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_products_tenant" ON "products" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_purchase_order_lines_tenant" ON "purchase_order_lines" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_purchase_orders_tenant" ON "purchase_orders" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_qr_orders_tenant" ON "qr_orders" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_recipe_ingredients_tenant" ON "recipe_ingredients" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_recipes_tenant" ON "recipes" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_reservations_tenant" ON "reservations" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_sales_tenant" ON "sales" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE UNIQUE INDEX "Session_userId_id_key" ON "Session" USING btree ("userId" text_ops,"id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_settings_tenant" ON "settings" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_stock_log_tenant" ON "stock_log" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE UNIQUE INDEX "idx_supplier_catalog_preferred" ON "supplier_catalog" USING btree ("product_id" text_ops) WHERE (is_preferred = true);--> statement-breakpoint
-CREATE INDEX "idx_supplier_catalog_tenant" ON "supplier_catalog" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_suppliers_tenant" ON "suppliers" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_tables_tenant" ON "tables" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE UNIQUE INDEX "User_email_key" ON "User" USING btree ("email" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_verifactu_registros_tenant" ON "verifactu_registros" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_waitlist_tenant" ON "waitlist" USING btree ("tenant_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_webhook_events_status" ON "webhook_events" USING btree ("status" text_ops);
+DO $$ BEGIN ALTER TABLE "albaran_lines" ADD CONSTRAINT "albaran_lines_albaran_id_fkey" FOREIGN KEY ("albaran_id") REFERENCES "public"."albaranes"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "Attendance" ADD CONSTRAINT "Attendance_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."User"("id") ON DELETE restrict ON UPDATE cascade; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "buffet_rounds" ADD CONSTRAINT "buffet_rounds_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "public"."buffet_sessions"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "buffet_sessions" ADD CONSTRAINT "buffet_sessions_table_id_fkey" FOREIGN KEY ("table_id") REFERENCES "public"."tables"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "buffet_waste" ADD CONSTRAINT "buffet_waste_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "public"."buffet_sessions"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "combo_items" ADD CONSTRAINT "combo_items_combo_id_fkey" FOREIGN KEY ("combo_id") REFERENCES "public"."combos"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "combo_items" ADD CONSTRAINT "combo_items_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "combo_slot_items" ADD CONSTRAINT "combo_slot_items_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "combo_slot_items" ADD CONSTRAINT "combo_slot_items_slot_id_fkey" FOREIGN KEY ("slot_id") REFERENCES "public"."combo_slots"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "combo_slots" ADD CONSTRAINT "combo_slots_combo_id_fkey" FOREIGN KEY ("combo_id") REFERENCES "public"."combos"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "delivery_tracking" ADD CONSTRAINT "delivery_tracking_delivery_id_fkey" FOREIGN KEY ("delivery_id") REFERENCES "public"."delivery_orders"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "gestoria_document_lines" ADD CONSTRAINT "gestoria_document_lines_document_id_fkey" FOREIGN KEY ("document_id") REFERENCES "public"."gestoria_documents"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "KitchenItem" ADD CONSTRAINT "KitchenItem_ticketItemId_fkey" FOREIGN KEY ("ticketItemId") REFERENCES "public"."TicketItem"("id") ON DELETE restrict ON UPDATE cascade; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "meal_menu_course_items" ADD CONSTRAINT "meal_menu_course_items_course_id_fkey" FOREIGN KEY ("course_id") REFERENCES "public"."meal_menu_courses"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "meal_menu_course_items" ADD CONSTRAINT "meal_menu_course_items_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "meal_menu_courses" ADD CONSTRAINT "meal_menu_courses_menu_id_fkey" FOREIGN KEY ("menu_id") REFERENCES "public"."meal_menus"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "meal_menu_schedules" ADD CONSTRAINT "meal_menu_schedules_menu_id_fkey" FOREIGN KEY ("menu_id") REFERENCES "public"."meal_menus"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "modifier_options" ADD CONSTRAINT "modifier_options_group_id_fkey" FOREIGN KEY ("group_id") REFERENCES "public"."modifier_groups"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "modifier_recipe_ingredients" ADD CONSTRAINT "modifier_recipe_ingredients_ingredient_id_fkey" FOREIGN KEY ("ingredient_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "modifier_recipe_ingredients" ADD CONSTRAINT "modifier_recipe_ingredients_modifier_recipe_id_fkey" FOREIGN KEY ("modifier_recipe_id") REFERENCES "public"."modifier_recipes"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "Product" ADD CONSTRAINT "Product_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "public"."Category"("id") ON DELETE restrict ON UPDATE cascade; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "product_batches" ADD CONSTRAINT "product_batches_albaran_id_fkey" FOREIGN KEY ("albaran_id") REFERENCES "public"."albaranes"("id") ON DELETE set null ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "product_batches" ADD CONSTRAINT "product_batches_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "product_modifiers" ADD CONSTRAINT "product_modifiers_group_id_fkey" FOREIGN KEY ("group_id") REFERENCES "public"."modifier_groups"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "product_price_rules" ADD CONSTRAINT "product_price_rules_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "product_stock" ADD CONSTRAINT "product_stock_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "production_ingredients" ADD CONSTRAINT "production_ingredients_ingredient_id_fkey" FOREIGN KEY ("ingredient_id") REFERENCES "public"."products"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "production_ingredients" ADD CONSTRAINT "production_ingredients_production_id_fkey" FOREIGN KEY ("production_id") REFERENCES "public"."productions"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "productions" ADD CONSTRAINT "productions_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "purchase_order_lines" ADD CONSTRAINT "purchase_order_lines_order_id_fkey" FOREIGN KEY ("order_id") REFERENCES "public"."purchase_orders"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "recipe_ingredients" ADD CONSTRAINT "recipe_ingredients_ingredient_id_fkey" FOREIGN KEY ("ingredient_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "recipe_ingredients" ADD CONSTRAINT "recipe_ingredients_recipe_id_fkey" FOREIGN KEY ("recipe_id") REFERENCES "public"."recipes"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "RecipeItem" ADD CONSTRAINT "RecipeItem_ingredientId_fkey" FOREIGN KEY ("ingredientId") REFERENCES "public"."Ingredient"("id") ON DELETE restrict ON UPDATE cascade; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "RecipeItem" ADD CONSTRAINT "RecipeItem_productId_fkey" FOREIGN KEY ("productId") REFERENCES "public"."Product"("id") ON DELETE restrict ON UPDATE cascade; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "recipes" ADD CONSTRAINT "recipes_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "Session" ADD CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."User"("id") ON DELETE cascade ON UPDATE cascade; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "Shift" ADD CONSTRAINT "Shift_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "public"."Store"("id") ON DELETE set null ON UPDATE cascade; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "Shift" ADD CONSTRAINT "Shift_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."User"("id") ON DELETE restrict ON UPDATE cascade; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "StockMovement" ADD CONSTRAINT "StockMovement_ingredientId_fkey" FOREIGN KEY ("ingredientId") REFERENCES "public"."Ingredient"("id") ON DELETE restrict ON UPDATE cascade; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "Store" ADD CONSTRAINT "Store_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "public"."Tenant"("id") ON DELETE restrict ON UPDATE cascade; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "supplier_catalog" ADD CONSTRAINT "supplier_catalog_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "supplier_catalog" ADD CONSTRAINT "supplier_catalog_supplier_id_fkey" FOREIGN KEY ("supplier_id") REFERENCES "public"."suppliers"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "supplier_price_history" ADD CONSTRAINT "supplier_price_history_catalog_id_fkey" FOREIGN KEY ("catalog_id") REFERENCES "public"."supplier_catalog"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "Ticket" ADD CONSTRAINT "Ticket_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "public"."User"("id") ON DELETE restrict ON UPDATE cascade; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "Ticket" ADD CONSTRAINT "Ticket_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "public"."Store"("id") ON DELETE restrict ON UPDATE cascade; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "TicketItem" ADD CONSTRAINT "TicketItem_productId_fkey" FOREIGN KEY ("productId") REFERENCES "public"."Product"("id") ON DELETE restrict ON UPDATE cascade; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "TicketItem" ADD CONSTRAINT "TicketItem_ticketId_fkey" FOREIGN KEY ("ticketId") REFERENCES "public"."Ticket"("id") ON DELETE restrict ON UPDATE cascade; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "User" ADD CONSTRAINT "User_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "public"."Store"("id") ON DELETE set null ON UPDATE cascade; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "User" ADD CONSTRAINT "User_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "public"."Tenant"("id") ON DELETE restrict ON UPDATE cascade; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_access_logs_tenant" ON "access_logs" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_albaran_lines_tenant" ON "albaran_lines" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_albaranes_tenant" ON "albaranes" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_buffet_config_tenant" ON "buffet_config" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_buffet_rounds_session" ON "buffet_rounds" USING btree ("session_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_buffet_sessions_status" ON "buffet_sessions" USING btree ("status" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_buffet_sessions_table" ON "buffet_sessions" USING btree ("table_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_buffet_sessions_tenant" ON "buffet_sessions" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_buffet_waste_session" ON "buffet_waste" USING btree ("session_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_cancelled_orders_tenant" ON "cancelled_orders" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_categories_tenant" ON "categories" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_clockin_logs_tenant" ON "clockin_logs" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_closures_date" ON "closures" USING btree ("date" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_combo_items_tenant" ON "combo_items" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_combo_slot_items_tenant" ON "combo_slot_items" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_combo_slots_tenant" ON "combo_slots" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_combos_tenant" ON "combos" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_delivery_orders_tenant" ON "delivery_orders" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_delivery_runners_tenant" ON "delivery_runners" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_delivery_zones_tenant" ON "delivery_zones" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_employee_shifts_tenant" ON "employee_shifts" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_shifts_date" ON "employee_shifts" USING btree ("date" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_shifts_employee" ON "employee_shifts" USING btree ("employee_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_employee_turns_tenant" ON "employee_turns" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_employees_tenant" ON "employees" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_meal_menus_tenant" ON "meal_menus" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_modifier_groups_tenant" ON "modifier_groups" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_offers_tenant" ON "offers" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_orders_tenant" ON "orders" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "Product_barcode_key" ON "Product" USING btree ("barcode" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_batches_expiry" ON "product_batches" USING btree ("expiry_date" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_batches_location" ON "product_batches" USING btree ("location" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_batches_product" ON "product_batches" USING btree ("product_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_batches_status" ON "product_batches" USING btree ("status" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_product_price_rules_tenant" ON "product_price_rules" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_product_stock_tenant" ON "product_stock" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_production_ingredients_tenant" ON "production_ingredients" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_productions_tenant" ON "productions" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_products_tenant" ON "products" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_purchase_order_lines_tenant" ON "purchase_order_lines" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_purchase_orders_tenant" ON "purchase_orders" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_qr_orders_tenant" ON "qr_orders" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_recipe_ingredients_tenant" ON "recipe_ingredients" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_recipes_tenant" ON "recipes" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_reservations_tenant" ON "reservations" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_sales_tenant" ON "sales" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "Session_userId_id_key" ON "Session" USING btree ("userId" text_ops,"id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_settings_tenant" ON "settings" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_stock_log_tenant" ON "stock_log" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_supplier_catalog_preferred" ON "supplier_catalog" USING btree ("product_id" text_ops) WHERE (is_preferred = true);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_supplier_catalog_tenant" ON "supplier_catalog" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_suppliers_tenant" ON "suppliers" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_tables_tenant" ON "tables" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "User_email_key" ON "User" USING btree ("email" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_verifactu_registros_tenant" ON "verifactu_registros" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_waitlist_tenant" ON "waitlist" USING btree ("tenant_id" text_ops);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_webhook_events_status" ON "webhook_events" USING btree ("status" text_ops);
