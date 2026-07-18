@@ -24,6 +24,8 @@ import {
 import { onNetworkChange, enqueueMutation, getMutations, cacheGet, cacheSet } from '../lib/offline';
 import { connectRealtime, broadcastFloorUpdate, disconnectRealtime } from '../lib/realtime';
 import { escposOpenDrawer, printESCPOS, isPrinterConnected } from '../lib/thermal-printer';
+import { createDebtOrder } from '../domain/payments/debt';
+import { normalizeTableFields, migrateTo3ColumnLayout } from '../domain/tables/floor-layout';
 
 
 
@@ -397,59 +399,13 @@ export default function App() {
         setFloor(seed);
       } else {
         // Normalize orderIds for backward compatibility
-        flr.tables.forEach((t: any) => {
-          if (!t.orderIds && t.orderId) t.orderIds = [t.orderId];
-          if (!t.orderIds) t.orderIds = [];
-        });
+        const normalized = normalizeTableFields(flr.tables);
+        flr.tables = normalized;
 
         // Migrate to 3-column layout (mesas izq, barras centro, domicilio der)
         if (flr.tables.filter((t: any) => t.type === 'barra').length < 6) {
-          const mesas = flr.tables.filter((t: any) => t.type === 'mesa');
-          const barras = flr.tables.filter((t: any) => t.type === 'barra');
-          const others = flr.tables.filter((t: any) => t.type !== 'mesa' && t.type !== 'barra' && t.type !== 'llevar' && t.type !== 'domicilio');
-
-          // Reposition existing mesas
-          mesas.forEach((t: any, i: any) => {
-            t.x = 60 + (i % 4) * 140;
-            t.y = 60 + Math.floor(i / 4) * 140;
-          });
-          for (let i = mesas.length; i < 9; i++) {
-            mesas.push({
-              id: `t${i + 1}`, name: `Mesa ${i + 1}`, status: 'libre', orderId: null, orderIds: [],
-              reserved: null, isFiado: false, type: 'mesa',
-              x: 60 + (i % 4) * 140, y: 60 + Math.floor(i / 4) * 140,
-              width: 80, height: 80, radius: 40, shape: 'rect', rotation: 0,
-              seats: 4, zone: 'z1', layer: 0, color: '',
-            });
-          }
-
-          // Reposition existing barras
-          barras.forEach((t: any, i: any) => {
-            t.x = 600; t.y = 60 + i * 80; t.width = 140; t.height = 50; t.radius = 25;
-          });
-          // Add missing barras up to 6
-          for (let i = barras.length; i < 6; i++) {
-            barras.push({
-              id: `t${10 + i}`, name: `Barra ${i + 1}`, status: 'libre', orderId: null, orderIds: [],
-              reserved: null, isFiado: false, type: 'barra',
-              x: 600, y: 60 + i * 80, width: 140, height: 50, radius: 25,
-              shape: 'rect', rotation: 0, seats: 4, zone: 'z3', layer: 0, color: '',
-            });
-          }
-
-          // Replace delivery items with new layout
-          const newDelivery = [
-            { id: 't16', name: 'Para llevar', type: 'llevar', x: 810, y: 60 },
-            { id: 't17', name: 'Domicilio', type: 'domicilio', x: 810, y: 140 },
-            { id: 't18', name: 'Domicilio 2', type: 'domicilio', x: 810, y: 220 },
-            { id: 't19', name: 'Domicilio 3', type: 'domicilio', x: 810, y: 300 },
-          ].map((d: any) => ({
-            ...d, status: 'libre', orderId: null, orderIds: [], reserved: null, isFiado: false,
-            width: 90, height: 50, radius: 25, shape: 'rect', rotation: 0, seats: 0,
-            zone: '', layer: 0, color: '',
-          }));
-
-          flr.tables = [...mesas, ...barras, ...newDelivery, ...others];
+          const migrated = migrateTo3ColumnLayout(flr);
+          Object.assign(flr, migrated);
           await saveFloor(flr);
         }
 
@@ -543,7 +499,6 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // ---------- Persistencia → Neon ----------
   // ---------- Mesa seleccionada ----------
   // Crear orden de deuda si la mesa esta en fiado sin orden activa
   useEffect(() => {
@@ -552,16 +507,7 @@ export default function App() {
       .filter((s: any) => s.tableId === selectedTableId && s.isFiado)
       .sort((a: any, b: any) => b.closedAt - a.closedAt)[0];
     if (!lastFiadoSale) return;
-    const nextFloor = clone(floor);
-    const table = nextFloor.tables.find((t: any) => t.id === selectedTableId);
-    const debtOrderId = 'debt_' + Date.now();
-    nextFloor.orders[debtOrderId] = {
-      id: debtOrderId, tableId: selectedTableId,
-      items: [{ id: 'debt_item', productId: null, name: 'Deuda fiada', price: lastFiadoSale.totalWithTip, qty: 1, sent: true, ready: true, sentAt: null, notes: '' }],
-      createdAt: Date.now(), employeeName: 'Deuda anterior',
-    };
-    table.orderId = debtOrderId;
-    debtFloorRef.current = nextFloor;
+    debtFloorRef.current = createDebtOrder(floor, selectedTableId, lastFiadoSale);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTableId, currentUser]);
 

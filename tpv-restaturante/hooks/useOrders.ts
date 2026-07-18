@@ -21,6 +21,7 @@ import { calculateOrderSubtotal } from '../domain/order/line-totals'
 import { calculatePersonalDiscountAmount, applyDiscountRates, removeDiscountRates, buildEmployeeMonthlyUsage, buildEmployeeMonthlyUsageDecrement } from '../domain/pricing/personal-discount'
 import { executeCloseOrder } from '../application/CloseOrder/close-order'
 import { moveTableOrder, mergeTables as mergeTableOrders, reopenOrder as reopenTableOrder } from '../domain/tables/table-operations'
+import { createTicket, deleteTicket, renameTicket as renameTicketOp, linkCustomer as linkCustomerOp, unlinkCustomer as unlinkCustomerOp } from '../domain/orders/multi-ticket'
 import { buildPayments, isFiado, hasPendingBizum, formatPaymentMethod } from '../domain/payments/payments'
 import { closeTableOrders, isDebtPayment as checkDebtPayment } from '../domain/tables/table'
 import { deductStock } from '../domain/inventory/stock'
@@ -578,22 +579,11 @@ export function useOrders({
 
   // ---------- Multi-ticket ----------
   const createNewTicket = useCallback((tableId: string) => {
-    const next = clone(floor)
-    const table = next.tables.find((t: any) => t.id === tableId)
-    if (!table) return
-    const orderId = 'o_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
-    const ticketNum = (table.orderIds?.length || 0) + 1
-    next.orders[orderId] = {
-      id: orderId, tableId, items: [], createdAt: Date.now(),
-      employeeName: currentUser?.name || '', label: `#${ticketNum}`,
-    }
-    if (!table.orderIds) table.orderIds = []
-    table.orderIds.push(orderId)
-    table.orderId = orderId
-    if (table.status === 'libre') table.status = 'ocupada'
-    persistFloor(next)
-    setActiveTicketId(orderId)
-    showToast(`Nuevo ticket #${ticketNum} creado`)
+    const result = createTicket(floor, tableId, currentUser?.name)
+    if (!result.orderId) return
+    persistFloor(result.floor)
+    setActiveTicketId(result.orderId)
+    showToast(`Nuevo ticket #${result.ticketNum} creado`)
   }, [floor, currentUser, persistFloor, showToast])
 
   const switchTicket = useCallback((_tableId: string, orderId: string) => {
@@ -601,42 +591,23 @@ export function useOrders({
   }, [])
 
   const deleteEmptyTicket = useCallback((tableId: string, orderId: string) => {
-    const next = clone(floor)
-    const table = next.tables.find((t: any) => t.id === tableId)
-    const order = next.orders[orderId]
-    if (!table || !order || order.items.length > 0) return
-    delete next.orders[orderId]
-    table.orderIds = (table.orderIds || []).filter((id: any) => id !== orderId)
-    if (table.orderIds.length === 0) {
-      table.orderId = null
-      if (!table.reserved) table.status = 'libre'
-    } else {
-      table.orderId = table.orderIds[0]
-    }
-    persistFloor(next)
-    setActiveTicketId(table.orderId || null)
+    const result = deleteTicket(floor, tableId, orderId)
+    if (result.activeOrderId === null) return
+    persistFloor(result.floor)
+    setActiveTicketId(result.activeOrderId)
     showToast('Ticket vacío eliminado')
   }, [floor, persistFloor, showToast])
 
-  const renameTicket = useCallback((tableId: string, orderId: string, label: string) => {
-    const next = clone(floor)
-    const order = next.orders[orderId]
-    if (order) order.label = label
-    persistFloor(next)
+  const renameTicket = useCallback((_tableId: string, orderId: string, label: string) => {
+    persistFloor(renameTicketOp(floor, orderId, label))
   }, [floor, persistFloor])
 
   const linkCustomer = useCallback((orderId: string, customer: any) => {
-    const next = clone(floor)
-    const order = next.orders[orderId]
-    if (order) order.customer = customer
-    persistFloor(next)
+    persistFloor(linkCustomerOp(floor, orderId, customer))
   }, [floor, persistFloor])
 
   const unlinkCustomer = useCallback((orderId: string) => {
-    const next = clone(floor)
-    const order = next.orders[orderId]
-    if (order) order.customer = null
-    persistFloor(next)
+    persistFloor(unlinkCustomerOp(floor, orderId))
   }, [floor, persistFloor])
 
   // ---------- Personal discount ----------
