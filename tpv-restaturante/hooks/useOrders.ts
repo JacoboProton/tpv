@@ -18,6 +18,7 @@ import { calculateOrderTotals } from '../domain/order/order'
 import { calculateIgic } from '../domain/invoice/invoice'
 import { expandMenu, expandCombo } from '../domain/order/menu-expansion'
 import { calculateOrderSubtotal } from '../domain/order/line-totals'
+import { calculatePersonalDiscountAmount, applyDiscountRates, removeDiscountRates, buildEmployeeMonthlyUsage, buildEmployeeMonthlyUsageDecrement } from '../domain/pricing/personal-discount'
 import { executeCloseOrder } from '../application/CloseOrder/close-order'
 import { buildPayments, isFiado, hasPendingBizum, formatPaymentMethod } from '../domain/payments/payments'
 import { closeTableOrders, isDebtPayment as checkDebtPayment } from '../domain/tables/table'
@@ -697,18 +698,7 @@ export function useOrders({
 
   // ---------- Personal discount ----------
   const calcPersonalDiscountAmount = useCallback((order: any, rates: Record<string, number>) => {
-    let totalDiscount = 0
-    for (const item of order.items) {
-      if (item.voided) continue
-      const p = catalog?.products?.find((pr: any) => pr.id === item.productId)
-      if (!p) continue
-      const rate = rates[p.category] || 0
-      if (rate <= 0) continue
-      const effectivePrice = item.overridePrice != null ? item.overridePrice : item.price
-      const full = effectivePrice * item.qty
-      totalDiscount += full * rate / 100
-    }
-    return round2(totalDiscount)
+    return calculatePersonalDiscountAmount(order.items, rates, catalog)
   }, [catalog])
 
   const applyPersonalDiscount = useCallback(async (orderId: string, employeePin: string): Promise<boolean> => {
@@ -741,26 +731,12 @@ export function useOrders({
       return false
     }
 
-    for (const item of order.items) {
-      if (item.voided) continue
-      const p = catalog?.products?.find((pr: any) => pr.id === item.productId)
-      if (!p) continue
-      const rate = rates[p.category] || 0
-      if (rate <= 0) { item.lineDiscount = 0; continue }
-      item.lineDiscount = rate
-      item.isCourtesy = false
-    }
-
+    order.items = applyDiscountRates(order.items, rates, catalog)
     order.personalDiscountEmployeeId = emp.id
     order.personalDiscountEmployeeName = emp.name
     order.personalDiscountApplied = true
 
-    const empNext = employees.map((e: any) => {
-      if (e.id === emp.id) {
-        return { ...e, monthlyUsedMonth: currentMonth, monthlyUsed: (used + discountAmount) }
-      }
-      return e
-    })
+    const empNext = buildEmployeeMonthlyUsage(employees, emp.id, discountAmount, now)
     persistFloor(next)
     setEmployees(empNext)
     showToast(`Descuento personal aplicado — ${emp.name} (${euros(discountAmount)})`)
@@ -779,24 +755,9 @@ export function useOrders({
 
     const discountAmount = calcPersonalDiscountAmount(order, rates)
     const now = new Date()
-    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 
-    const empNext = employees.map((e: any) => {
-      if (e.id === empId) {
-        const used = e.monthlyUsedMonth === currentMonth ? (e.monthlyUsed || 0) : 0
-        return { ...e, monthlyUsedMonth: currentMonth, monthlyUsed: Math.max(0, used - discountAmount) }
-      }
-      return e
-    })
-
-    for (const item of order.items) {
-      const p = catalog?.products?.find((pr: any) => pr.id === item.productId)
-      if (!p) continue
-      const rate = rates[p.category] || 0
-      if (rate > 0 && item.lineDiscount === rate) {
-        item.lineDiscount = 0
-      }
-    }
+    const empNext = buildEmployeeMonthlyUsageDecrement(employees, empId, discountAmount, now)
+    order.items = removeDiscountRates(order.items, rates, catalog)
 
     delete order.personalDiscountApplied
     delete order.personalDiscountEmployeeId
