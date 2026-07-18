@@ -15,6 +15,7 @@ import { sha256 } from '../lib/crypto'
 import { eventBus } from '../lib/event-bus'
 import { calculateOfferDiscount } from '../domain/pricing/offers'
 import { calculateOrderTotals } from '../domain/order/order'
+import { calculateIgic } from '../domain/invoice/invoice'
 import { buildPayments, isFiado, hasPendingBizum, formatPaymentMethod } from '../domain/payments/payments'
 import { closeTableOrders, isDebtPayment as checkDebtPayment } from '../domain/tables/table'
 import { deductStock } from '../domain/inventory/stock'
@@ -976,8 +977,7 @@ export function useOrders({
     const subtotal = items.reduce((s: any, i: any) => s + i.price * i.qty, 0)
     const discountAmount = round2(subtotal * (orderDiscount / 100))
     const totalConIgic = subtotal - discountAmount
-    const baseImponible = round2(totalConIgic / 1.07)
-    const cuotaIgic = round2(totalConIgic - baseImponible)
+    const { baseImponible, cuotaIgic } = calculateIgic(totalConIgic)
     const totalWithTip = totalConIgic + tipAmount
     const { restaurantName, companyCif, companyAddress, companyPhone, logoUrl, footerText, ticketWidth } = ticketSettings
     const html = buildTicketHtml({
@@ -998,8 +998,7 @@ export function useOrders({
     if (!sale) return
     const { restaurantName, companyCif, companyAddress, companyPhone, footerText } = ticketSettings
     const totalConIva = sale.total || 0
-    const baseImponible = round2(totalConIva / 1.07)
-    const cuotaIgic = round2(totalConIva - baseImponible)
+    const { baseImponible, cuotaIgic } = calculateIgic(totalConIva)
     const itemsHtml = (sale.items || []).filter((i: any) => !i.voided).map((i: any) =>
       `<tr><td style="padding:3px 0">${i.name.replace(/</g, '&lt;')}</td><td style="text-align:center;width:40px">${i.qty}</td><td style="text-align:right;width:70px">${euros(i.price)}</td><td style="text-align:right;width:80px">${euros((i.price || 0) * (i.qty || 0))}</td></tr>`
     ).join('')

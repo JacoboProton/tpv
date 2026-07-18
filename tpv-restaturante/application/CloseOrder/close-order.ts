@@ -5,6 +5,7 @@ import { closeTableOrders, isDebtPayment } from '@/domain/tables/table'
 import { deductStock } from '@/domain/inventory/stock'
 import { clone } from '@/components/constants'
 import type { CatalogProduct } from '@/infrastructure/database/catalog-repository'
+import { generateInvoiceNumber } from '@/domain/invoice/invoice'
 
 export interface CloseOrderItem {
   id: string
@@ -168,7 +169,7 @@ export function executeCloseOrder(input: CloseOrderInput): CloseOrderResult {
   const methodLabel = formatPaymentMethod(payments)
 
   const wantInvoice = invoice.nif.trim() && invoice.name.trim()
-  const invNum = wantInvoice ? 'INV-' + new Date().getFullYear() + '-' + String(Date.now()).slice(-5) : ''
+  const invNum = wantInvoice ? generateInvoiceNumber() : ''
   const sale = {
     id: 's_' + Date.now(),
     tableId: table.id,

@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback } from 'react'
-import { euros, round2 } from '../components/constants'
+import { euros } from '../components/constants'
+import { calculateIgic } from '../domain/invoice/invoice'
 
 function btoa(str: string): string {
   if (typeof window.btoa === 'function') return window.btoa(str)
@@ -26,8 +27,7 @@ export function useInvoice({ ticketSettings, showToast }: UseInvoiceProps) {
     if (!sale) return
     const { restaurantName, companyCif, companyAddress, companyPhone, footerText } = ticketSettings
     const totalConIva = sale.total || 0
-    const baseImponible = round2(totalConIva / 1.07)
-    const cuotaIgic = round2(totalConIva - baseImponible)
+    const { baseImponible, cuotaIgic } = calculateIgic(totalConIva)
     const itemsHtml = (sale.items || []).filter((i: any) => !i.voided).map((i: any) =>
       `<tr><td style="padding:3px 0">${i.name.replace(/</g,'&lt;')}</td><td style="text-align:center;width:40px">${i.qty}</td><td style="text-align:right;width:70px">${euros(i.price)}</td><td style="text-align:right;width:80px">${euros((i.price || 0) * (i.qty || 0))}</td></tr>`
     ).join('')
