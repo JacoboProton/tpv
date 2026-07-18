@@ -19,6 +19,14 @@ export interface CloseOrderItem {
   served?: boolean
 }
 
+// IMPORTANTE: CloseOrderModifierGroup debe existir separado de CloseOrderModifierOption.
+// modifierData.groups son GRUPOS que contienen 'options', no opciones directas.
+// No colapsar a CloseOrderModifierOption[]: rompe el type-check (close-order.ts:146, g.options).
+export interface CloseOrderModifierGroup {
+  id: string
+  options: CloseOrderModifierOption[]
+}
+
 export interface CloseOrderModifierOption {
   id: string
   stockDeduct?: boolean
@@ -39,7 +47,7 @@ export interface CloseOrderInput {
   selectedTableId: string
   order: any
   catalog: any
-  modifierData: { groups: CloseOrderModifierOption[] }
+  modifierData: { groups: CloseOrderModifierGroup[] }
   offers: any
   orderDiscount: number
   tipAmount: number

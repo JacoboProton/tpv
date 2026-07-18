@@ -1,9 +1,9 @@
-CREATE TYPE "public"."KitchenStatus" AS ENUM('PENDING', 'IN_PROGRESS', 'DONE');--> statement-breakpoint
-CREATE TYPE "public"."level" AS ENUM('pro', 'intermedio', 'iniciacion');--> statement-breakpoint
-CREATE TYPE "public"."Plan" AS ENUM('FREE', 'BASIC', 'PRO', 'PREMIUM');--> statement-breakpoint
-CREATE TYPE "public"."Role" AS ENUM('OWNER', 'ADMIN', 'MANAGER', 'CASHIER', 'WAITER', 'KITCHEN', 'BAR');--> statement-breakpoint
-CREATE TYPE "public"."Station" AS ENUM('KITCHEN', 'BAR');--> statement-breakpoint
-CREATE TYPE "public"."TicketStatus" AS ENUM('OPEN', 'PAID', 'CANCELLED');--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."KitchenStatus" AS ENUM('PENDING', 'IN_PROGRESS', 'DONE'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."level" AS ENUM('pro', 'intermedio', 'iniciacion'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."Plan" AS ENUM('FREE', 'BASIC', 'PRO', 'PREMIUM'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."Role" AS ENUM('OWNER', 'ADMIN', 'MANAGER', 'CASHIER', 'WAITER', 'KITCHEN', 'BAR'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."Station" AS ENUM('KITCHEN', 'BAR'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."TicketStatus" AS ENUM('OPEN', 'PAID', 'CANCELLED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
 CREATE TABLE "access_logs" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"employee_id" text NOT NULL,
