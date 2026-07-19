@@ -13,8 +13,6 @@ import { useOrderTickets } from './useOrderTickets'
 import { useOrderTables } from './useOrderTables'
 import { useOrderPayments } from './useOrderPayments'
 
-declare const API_KEY: string
-
 export type View = 'salon' | 'comandas' | 'cocina' | 'inventario' | 'almacen' | 'albaranes' | 'informes' | 'empleados' | 'ofertas' | 'combos' | 'menus' | 'carrusel' | 'precios' | 'reparto' | 'pedidos' | 'fiados' | 'gestoria' | 'pairing' | 'audit' | 'turnos' | 'registro-horario' | 'solicitudes' | 'pedidos-compra' | 'reservas' | 'waitlist' | 'onlineorders' | 'buffet' | 'tickets' | 'pagos' | 'kds' | 'barra' | 'carta' | 'produccion' | 'login'
 
 interface UseOrdersProps {

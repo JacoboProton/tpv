@@ -12,7 +12,7 @@ import { executeCloseOrder } from '../application/CloseOrder/close-order'
 import { applyPersonalDiscount as applyPersonalDiscountOp, removePersonalDiscount as removePersonalDiscountOp } from '../application/ApplyPersonalDiscount/apply-personal-discount'
 import { isPrinterConnected, printESCPOS, escposOpenDrawer } from '../lib/thermal-printer'
 
-declare const API_KEY: string
+const API_KEY = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_TPV_API_KEY) || ''
 
 export function useOrderPayments(
   floor: any,

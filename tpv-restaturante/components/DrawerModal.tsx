@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { escposOpenDrawer, printESCPOS, isPrinterConnected } from '../lib/thermal-printer'
 import { sha256 } from '../lib/crypto'
 
-declare const API_KEY: string
+const API_KEY = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_TPV_API_KEY) || ''
 
 interface Props {
   C: Record<string, string>

@@ -10,8 +10,6 @@ import { type Theme, THEMES, clone } from '../components/constants';
 import { fetchModifiers } from '../lib/api';
 import { escposOpenDrawer, printESCPOS, isPrinterConnected } from '../lib/thermal-printer';
 
-declare const API_KEY: string;
-
 declare global {
   interface Window {
     __tpvToastTimer: number;
