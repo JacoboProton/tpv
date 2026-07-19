@@ -3,6 +3,8 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { broadcastReadyNotification } from '../lib/realtime'
 import { playKitchenAlert, showKitchenNotification, requestNotificationPermission } from '../lib/sound'
+import { countPendingKitchenItems, formatItemPreview } from '../domain/kitchen/kitchen'
+import { toggleProductAgotado } from '../domain/catalog/product-operations'
 
 interface UseKitchenProps {
   floor: any
@@ -29,9 +31,7 @@ export function useKitchen({
 
   useEffect(() => {
     if (!floor) return
-    const pending = (Object.values(floor.orders || {}) as any[]).reduce((sum: any, o: any) =>
-      sum + o.items.filter((i: any) => i.sent && !i.ready).length, 0
-    )
+    const pending = countPendingKitchenItems(floor)
     if (pending > prevPendingRef.current && prevPendingRef.current > 0) {
       playKitchenAlert()
       showKitchenNotification(pending - prevPendingRef.current)
@@ -56,8 +56,8 @@ export function useKitchen({
   }, [setFloor, persistFloor])
 
   const agotarProducto = useCallback(async (productId: string, agotado: boolean) => {
-    const next = { ...catalog, products: (catalog.products as any[]).map((p: any) => p.id === productId ? { ...p, agotado } : p) }
-    setCatalog(next as any)
+    const next = toggleProductAgotado(catalog, productId, agotado)
+    setCatalog(next)
     try { await fetch('/api/catalog', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(next) }) } catch {}
   }, [catalog, setCatalog])
 
@@ -66,11 +66,10 @@ export function useKitchen({
   }, [handlePrint])
 
   const handleReadyNotification = useCallback((payload: { itemNames: string[], tableName: string }) => {
-    const items = payload.itemNames.slice(0, 3).join(', ')
-    const suffix = payload.itemNames.length > 3 ? ` y ${payload.itemNames.length - 3} más` : ''
-    showToast(`🍽️ ${payload.tableName}: ${items}${suffix}`)
+    const preview = formatItemPreview(payload.itemNames)
+    showToast(`🍽️ ${payload.tableName}: ${preview}`)
     if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification('🍽️ Plato listo', { body: `${payload.tableName}: ${items}${suffix}` })
+      new Notification('🍽️ Plato listo', { body: `${payload.tableName}: ${preview}` })
     }
   }, [showToast])
 

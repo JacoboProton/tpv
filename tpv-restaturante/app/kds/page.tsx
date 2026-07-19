@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Monitor, Clock } from 'lucide-react';
-import KDSView from '../../components/KDSView';
+import KDSView from '../../modules/kitchen/KDSView';
 import { connectRealtime, broadcastFloorUpdate, broadcastReadyNotification, disconnectRealtime } from '../../lib/realtime';
 import type { Theme } from '@/components/constants';
 

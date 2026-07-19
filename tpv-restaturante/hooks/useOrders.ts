@@ -1,30 +1,17 @@
 "use client"
 
 import { useState, useMemo, useCallback, useRef } from 'react'
-import { clone, round2, euros } from '../components/constants'
-import { addSale, saveCancelledOrder, registerVerifactu } from '../lib/api'
+import { round2, euros } from '../components/constants'
+import { addSale } from '../lib/api'
 import { enqueueMutation, cacheSet } from '../lib/offline'
-import { saveCatalog } from '../infrastructure/database/catalog-repository'
 import { saveFloor } from '../infrastructure/database/floor-repository'
-import { saveStockLog } from '../infrastructure/database/stock-log-repository'
-import { saveEmployees } from '../infrastructure/database/employees-repository'
 import { broadcastFloorUpdate, broadcastReadyNotification } from '../lib/realtime'
-import { printESCPOS, escposOpenDrawer, isPrinterConnected } from '../lib/thermal-printer'
 import { buildTicketHtml, printTicketHtml } from '../lib/ticket-template'
-import { sha256 } from '../lib/crypto'
-import { eventBus } from '../lib/event-bus'
-import { calculateOfferDiscount } from '../domain/pricing/offers'
-import { calculateOrderTotals } from '../domain/order/order'
 import { calculateIgic } from '../domain/invoice/invoice'
-import { expandMenu, expandCombo } from '../domain/order/menu-expansion'
-import { calculateOrderSubtotal } from '../domain/order/line-totals'
-import { calculatePersonalDiscountAmount, applyDiscountRates, removeDiscountRates, buildEmployeeMonthlyUsage, buildEmployeeMonthlyUsageDecrement } from '../domain/pricing/personal-discount'
-import { executeCloseOrder } from '../application/CloseOrder/close-order'
-import { moveTableOrder, mergeTables as mergeTableOrders, reopenOrder as reopenTableOrder } from '../domain/tables/table-operations'
-import { createTicket, deleteTicket, renameTicket as renameTicketOp, linkCustomer as linkCustomerOp, unlinkCustomer as unlinkCustomerOp } from '../domain/orders/multi-ticket'
-import { buildPayments, isFiado, hasPendingBizum, formatPaymentMethod } from '../domain/payments/payments'
-import { closeTableOrders, isDebtPayment as checkDebtPayment } from '../domain/tables/table'
-import { deductStock } from '../domain/inventory/stock'
+import { useOrderItems } from './useOrderItems'
+import { useOrderTickets } from './useOrderTickets'
+import { useOrderTables } from './useOrderTables'
+import { useOrderPayments } from './useOrderPayments'
 
 declare const API_KEY: string
 
@@ -55,28 +42,13 @@ export function useOrders({
   ticketSettings, offers, trainingMode, showToast,
 }: UseOrdersProps) {
 
-  // ---------- Selected table state ----------
   const [selectedTableId, setSelectedTableId] = useState<any>(null as any)
   const [activeTicketId, setActiveTicketId] = useState<any>(null as any)
   const [activeCategory, setActiveCategory] = useState<string>('Todos')
 
-  // Payment state
-  const [paying, setPaying] = useState<boolean>(false)
-  const [paymentSplits, setPaymentSplits] = useState<any[]>([] as any[])
-  const [orderDiscount, setOrderDiscount] = useState<number>(0)
-  const [tipAmount, setTipAmount] = useState<number>(0)
-  const [tipMethod, setTipMethod] = useState<string>('efectivo')
-  const [paymentIntentId, setPaymentIntentId] = useState<string>('')
-  const [invoiceNif, setInvoiceNif] = useState<string>('')
-  const [invoiceName, setInvoiceName] = useState<string>('')
-  const [invoiceAddress, setInvoiceAddress] = useState<string>('')
-  const [invoiceEmail, setInvoiceEmail] = useState<string>('')
-
-  // Modifier selector state
   const [showModifierSelector, setShowModifierSelector] = useState<any>(null as any)
   const [editingItemModifiers, setEditingItemModifiers] = useState<any>(null as any)
 
-  // Sales queue for offline persistence
   const salesQueue = useRef<any[]>([])
   const salesProcessing = useRef<boolean>(false)
 
@@ -84,13 +56,6 @@ export function useOrders({
   const selectedTable = floor ? floor.tables.find((t: any) => t.id === selectedTableId) : null
   const activeOrderId = activeTicketId || selectedTable?.orderIds?.[0] || selectedTable?.orderId
   const selectedOrder = activeOrderId ? floor?.orders?.[activeOrderId] : null
-
-  const orderTotal = selectedOrder ? calculateOrderSubtotal(selectedOrder.items, catalog) : 0
-  const discountedTotal = round2(orderTotal * (1 - orderDiscount / 100))
-  const finalTotal = round2(discountedTotal + tipAmount)
-  const splitsUsed = round2(paymentSplits.reduce((s: any, p: any) => s + (Number(p.amount) || 0), 0))
-  const remaining = round2(finalTotal - splitsUsed)
-  const canConfirm = paymentSplits.length > 0 && Math.abs(remaining) < 0.005
 
   const pendingBarCount = useMemo(() =>
     floor ? (Object.values(floor.orders) as any[]).reduce((s: any, o: any) =>
@@ -159,7 +124,7 @@ export function useOrders({
     salesProcessing.current = false
   }, [setSales, showToast])
 
-  const persistSales = useCallback(async (next: any) => {
+  const persistSales = useCallback((next: any) => {
     setSales(next)
     cacheSet('sales', next)
     const newSale = next[next.length - 1]
@@ -167,643 +132,31 @@ export function useOrders({
     processSalesQueue()
   }, [setSales, processSalesQueue])
 
-  // ---------- Order mutation helpers ----------
-  const getContext = useCallback(() => {
-    if (!selectedTableId || !floor) return null
-    const table = floor.tables.find((t: any) => t.id === selectedTableId)
-    if (!table) return null
-    const activeOid = activeTicketId || table.orderIds?.[0] || table.orderId
-    const order = activeOid ? floor.orders[activeOid] : null
-    return { table, order, activeOid }
-  }, [selectedTableId, floor, activeTicketId])
-
-  // ---------- Item operations ----------
-  const addItem = useCallback((product: any) => {
-    if (product.isMenu && product.menuData) {
-      const next = clone(floor)
-      const table = next.tables.find((t: any) => t.id === selectedTableId)
-      let order = table.orderId ? next.orders[table.orderId] : null
-      if (!order) {
-        const orderId = 'o_' + Date.now()
-        order = { id: orderId, tableId: table.id, items: [], createdAt: Date.now(), employeeName: currentUser?.name || '-' }
-        next.orders[orderId] = order
-        table.orderId = orderId
-        table.status = 'ocupada'
-      }
-      const menuItems = expandMenu(product, catalog, product.menuSel)
-      for (const mi of menuItems) {
-        if (mi.productId && !mi.isMenuPrice) {
-          const existing = order.items.find((i: any) => i.productId === mi.productId && !i.sent && !i.isCombo && !i.isMenuItem)
-          if (existing) { existing.qty += mi.qty; continue }
-        }
-        order.items.push({
-          id: 'i_' + Date.now() + Math.random().toString(16).slice(2),
-          ...mi,
-          sent: mi.isMenuPrice,
-          ready: mi.isMenuPrice,
-          sentAt: mi.isMenuPrice ? Date.now() : null,
-          notes: '',
-          modifiers: [],
-        })
-      }
-      persistFloor(next)
-      return
-    }
-    if (product.isCombo && product.comboData) {
-      const next = clone(floor)
-      const table = next.tables.find((t: any) => t.id === selectedTableId)
-      let order = table.orderId ? next.orders[table.orderId] : null
-      if (!order) {
-        const orderId = 'o_' + Date.now()
-        order = { id: orderId, tableId: table.id, items: [], createdAt: Date.now(), employeeName: currentUser?.name || '-' }
-        next.orders[orderId] = order
-        table.orderId = orderId
-        table.status = 'ocupada'
-      }
-      const comboItems = expandCombo(product, catalog, product.comboSel)
-      for (const ci of comboItems) {
-        if (ci.productId && !ci.isComboPrice) {
-          const existing = order.items.find((i: any) => i.productId === ci.productId && !i.sent && !i.isCombo)
-          if (existing) { existing.qty += ci.qty; continue }
-        }
-        order.items.push({
-          id: 'i_' + Date.now() + Math.random().toString(16).slice(2),
-          ...ci,
-          sent: ci.isComboPrice,
-          ready: ci.isComboPrice,
-          sentAt: ci.isComboPrice ? Date.now() : null,
-          notes: '',
-          modifiers: [],
-        })
-      }
-      persistFloor(next)
-      return
-    }
-    handleAddItemWithModifiers(product)
-  }, [floor, catalog, selectedTableId, currentUser, persistFloor])
-
-  const getModifierGroupsForProduct = useCallback((productId: string) => {
-    const groupIds = modifierData.productModifiers[productId] || []
-    return modifierData.groups.filter((g: any) => groupIds.includes(g.id))
-  }, [modifierData])
-
-  const handleAddItemWithModifiers = useCallback((product: any) => {
-    const groups = getModifierGroupsForProduct(product.id)
-    if (groups.length > 0) {
-      setShowModifierSelector({ product, groups })
-    } else {
-      addItemWithPrice(product, [], 0)
-    }
-  }, [getModifierGroupsForProduct])
-
-  const addItemWithPrice = useCallback((product: any, modifiers: any[], extraPrice: number) => {
-    const next = clone(floor)
-    const table = next.tables.find((t: any) => t.id === selectedTableId)
-    const activeOid = activeTicketId || table.orderIds?.[0] || table.orderId
-    let order = activeOid ? next.orders[activeOid] : null
-    let isNewOrder = false
-
-    if (!order) {
-      const orderId = 'o_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
-      order = { id: orderId, tableId: table.id, items: [], createdAt: Date.now(), employeeName: currentUser?.name || '-' }
-      next.orders[orderId] = order
-      if (!table.orderIds) table.orderIds = []
-      table.orderIds.push(orderId)
-      table.orderId = orderId
-      table.status = 'ocupada'
-      setActiveTicketId(orderId)
-      isNewOrder = true
-    }
-    const basePrice = product.price || catalog?.products?.find((p: any) => p.id === product.id)?.price || 0
-    const effectivePrice = round2(basePrice + extraPrice)
-    const existing = order.items.find((i: any) => i.productId === product.id && !i.sent && JSON.stringify(i.modifiers) === JSON.stringify(modifiers))
-    if (existing) existing.qty += 1
-    else {
-      const prod = catalog?.products?.find((p: any) => p.id === product.id)
-      order.items.push({
-        id: 'i_' + Date.now() + Math.random().toString(16).slice(2),
-        productId: product.id, name: product.name, price: effectivePrice,
-        qty: 1, sent: false, ready: false, sentAt: null, notes: '', modifiers,
-        course: product.course || '',
-        ubicacion: (product.ubicacion || prod?.ubicacion || 'Bar'),
-      })
-    }
-    if (isNewOrder) {
-      eventBus.emit('order:created', {
-        orderId: order.id, tableId: table.id, tableName: table.name,
-        items: order.items.map((i: any) => ({ productId: i.productId, name: i.name, qty: i.qty })),
-        employeeName: currentUser?.name || null, createdAt: order.createdAt,
-      })
-    }
-    persistFloor(next)
-  }, [floor, catalog, selectedTableId, activeTicketId, currentUser, persistFloor])
-
-  const confirmModifiersAndAdd = useCallback((modifiers: any[]) => {
-    const product = showModifierSelector.product
-    const extraPrice = modifiers.reduce((s: any, m: any) => s + (m.priceDelta || 0), 0)
-    setShowModifierSelector(null)
-
-    if (editingItemModifiers) {
-      const next = clone(floor)
-      const table = next.tables.find((t: any) => t.id === selectedTableId)
-      const order = next.orders[table.orderId]
-      const item = order.items.find((i: any) => i.id === editingItemModifiers.item.id)
-      if (item) {
-        item.modifiers = modifiers
-        const basePrice = product.price || catalog?.products?.find((p: any) => p.id === product.id)?.price || 0
-        item.price = round2(basePrice + extraPrice)
-      }
-      persistFloor(next)
-      setEditingItemModifiers(null)
-      return
-    }
-    addItemWithPrice(product, modifiers, extraPrice)
-  }, [showModifierSelector, editingItemModifiers, floor, catalog, selectedTableId, persistFloor])
-
-  const changeQty = useCallback((itemId: string, delta: number) => {
-    const ctx = getContext()
-    if (!ctx?.order) return
-    const next = clone(floor)
-    const order = next.orders[ctx.activeOid]
-    const item = order.items.find((i: any) => i.id === itemId)
-    if (!item || item.sent) return
-    item.qty += delta
-    if (item.qty <= 0) order.items = order.items.filter((i: any) => i.id !== itemId)
-    persistFloor(next)
-  }, [floor, getContext, persistFloor])
-
-  const updateItemNotes = useCallback((itemId: string, notes: string) => {
-    const ctx = getContext()
-    if (!ctx?.order) return
-    const next = clone(floor)
-    const order = next.orders[ctx.activeOid]
-    const item = order.items.find((i: any) => i.id === itemId)
-    if (item) item.notes = notes
-    persistFloor(next)
-  }, [floor, getContext, persistFloor])
-
-  const removeItem = useCallback((itemId: string) => {
-    const next = clone(floor)
-    const table = next.tables.find((t: any) => t.id === selectedTableId)
-    const activeOid = activeTicketId || table.orderIds?.[0] || table.orderId
-    const order = activeOid ? next.orders[activeOid] : null
-    if (!order) return
-    order.items = order.items.filter((i: any) => i.id !== itemId)
-    if (order.items.length === 0 && (table.orderIds?.length || 0) <= 1) {
-      delete next.orders[activeOid]
-      table.orderIds = (table.orderIds || []).filter((id: any) => id !== activeOid)
-      table.orderId = table.orderIds?.[0] || null
-      if (!table.orderId) table.status = 'libre'
-    }
-    persistFloor(next)
-  }, [floor, selectedTableId, activeTicketId, persistFloor])
-
-  const sendToKitchenCourse = useCallback((course?: string) => {
-    const ctx = getContext()
-    if (!ctx?.order) return
-    const next = clone(floor)
-    const order = next.orders[ctx.activeOid]
-    let count = 0
-    order.items.forEach((i: any) => {
-      if (!i.sent && (!course || i.course === course)) { i.sent = true; i.sentAt = Date.now(); count++ }
-    })
-    persistFloor(next)
-    if (count) showToast(`${course || 'Todo'} enviado a cocina (${count} ${count === 1 ? 'linea' : 'lineas'})`)
-  }, [floor, getContext, persistFloor, showToast])
-
-  const sendItemToKitchen = useCallback((itemId: string) => {
-    const ctx = getContext()
-    if (!ctx?.order) return
-    const next = clone(floor)
-    const order = next.orders[ctx.activeOid]
-    const item = order.items.find((i: any) => i.id === itemId)
-    if (item && !item.sent) {
-      item.sent = true; item.sentAt = Date.now(); persistFloor(next)
-      eventBus.emit('item:sent', {
-        orderId: ctx.activeOid, itemId,
-        productName: item.name, course: item.course || '',
-        tableName: ctx.table?.name || '',
-      })
-      showToast(`${item.name} enviado a cocina`)
-    }
-  }, [floor, getContext, persistFloor, showToast])
-
-  const updateItemCourse = useCallback((itemId: string, course?: string) => {
-    const ctx = getContext()
-    if (!ctx?.order) return
-    const next = clone(floor)
-    const order = next.orders[ctx.activeOid]
-    const item = order.items.find((i: any) => i.id === itemId)
-    if (item) item.course = course
-    persistFloor(next)
-  }, [floor, getContext, persistFloor])
-
-  const editItemModifiers = useCallback((item: any, product: any) => {
-    const groups = getModifierGroupsForProduct(product.id)
-    if (groups.length === 0) return
-    setEditingItemModifiers({ item, product, groups })
-    setShowModifierSelector({ product, groups })
-  }, [getModifierGroupsForProduct])
-
-  const toggleCuenta = useCallback(() => {
-    const ctx = getContext()
-    if (!ctx?.table) return
-    const next = clone(floor)
-    const table = next.tables.find((t: any) => t.id === selectedTableId)
-    table.status = table.status === 'cuenta' ? 'ocupada' : 'cuenta'
-    persistFloor(next)
-  }, [floor, selectedTableId, getContext, persistFloor])
-
-  const markReady = useCallback((orderId: string, ubicacion?: string) => {
-    const next = clone(floor)
-    const order = next.orders[orderId]
-    if (!order) return
-    let readyItems = order.items.filter((i: any) => i.sent && !i.ready)
-    if (ubicacion) readyItems = readyItems.filter((i: any) => (i.ubicacion || 'Cocina') === ubicacion)
-    if (readyItems.length === 0) return
-    readyItems.forEach((i: any) => i.ready = true)
-    persistFloor(next)
-    const table = next.tables.find((t: any) => t.id === order.tableId)
-    const names: string[] = [...new Set(readyItems.map((i: any) => i.name))] as string[]
-    broadcastReadyNotification(table?.name || order.tableId, names, order.employeeName, tenantId)
-  }, [floor, persistFloor, broadcastReadyNotification, tenantId])
-
-  const voidSentItem = useCallback((itemId: string, reason: string) => {
-    const ctx = getContext()
-    if (!ctx?.order) return
-    const next = clone(floor)
-    const order = next.orders[ctx.activeOid]
-    const item = order.items.find((i: any) => i.id === itemId)
-    if (item) {
-      item.voided = true
-      item.voidReason = reason
-      item.voidedBy = currentUser?.name
-      item.voidedAt = Date.now()
-    }
-    persistFloor(next)
-  }, [floor, getContext, currentUser, persistFloor])
-
-  // ---------- Discount operations ----------
-  const setItemDiscount = useCallback((itemId: string, pct: number) => {
-    const ctx = getContext()
-    if (!ctx?.order) return
-    const next = clone(floor)
-    const order = next.orders[ctx.activeOid]
-    const item = order.items.find((i: any) => i.id === itemId)
-    if (item) { item.lineDiscount = pct; item.isCourtesy = false }
-    persistFloor(next)
-  }, [floor, getContext, persistFloor])
-
-  const removeItemDiscount = useCallback((itemId: string) => {
-    const ctx = getContext()
-    if (!ctx?.order) return
-    const next = clone(floor)
-    const order = next.orders[ctx.activeOid]
-    const item = order.items.find((i: any) => i.id === itemId)
-    if (item) item.lineDiscount = 0
-    persistFloor(next)
-  }, [floor, getContext, persistFloor])
-
-  const setItemCourtesy = useCallback((itemId: string) => {
-    const ctx = getContext()
-    if (!ctx?.order) return
-    const next = clone(floor)
-    const order = next.orders[ctx.activeOid]
-    const item = order.items.find((i: any) => i.id === itemId)
-    if (item) { item.isCourtesy = true; item.lineDiscount = 0 }
-    persistFloor(next)
-  }, [floor, getContext, persistFloor])
-
-  const removeItemCourtesy = useCallback((itemId: string) => {
-    const ctx = getContext()
-    if (!ctx?.order) return
-    const next = clone(floor)
-    const order = next.orders[ctx.activeOid]
-    const item = order.items.find((i: any) => i.id === itemId)
-    if (item) item.isCourtesy = false
-    persistFloor(next)
-  }, [floor, getContext, persistFloor])
-
-  const setItemPrice = useCallback((itemId: string, newPrice: number) => {
-    const ctx = getContext()
-    if (!ctx?.order) return
-    const next = clone(floor)
-    const order = next.orders[ctx.activeOid]
-    const item = order.items.find((i: any) => i.id === itemId)
-    if (item) { item.overridePrice = Math.max(0, newPrice) }
-    persistFloor(next)
-  }, [floor, getContext, persistFloor])
-
-  // ---------- Table operations ----------
-  const cancelTable = useCallback(() => {
-    const next = clone(floor)
-    const table = next.tables.find((t: any) => t.id === selectedTableId)
-    if (!table) return
-    if (table.orderId) {
-      const order = next.orders[table.orderId]
-      saveCancelledOrder({
-        tableId: table.id, tableName: table.name,
-        orderId: table.orderId,
-        items: order.items,
-        total: order.items.reduce((s: any, i: any) => s + i.price * i.qty, 0),
-        employeeName: currentUser?.name,
-        cancelledAt: Date.now(),
-      }).catch(() => {})
-      delete next.orders[table.orderId]
-    }
-    table.status = 'libre'
-    table.isFiado = false
-    table.orderId = null
-    table.orderIds = []
-    persistFloor(next)
-    setSelectedTableId(null)
-    showToast(`${table.name} cancelada y liberada`)
-  }, [floor, selectedTableId, currentUser, persistFloor, showToast])
-
-  const voidTable = useCallback((reason: string = '') => {
-    const next = clone(floor)
-    const table = next.tables.find((t: any) => t.id === selectedTableId)
-    if (!table) return
-    const orderIds = [...(table.orderIds || [])]
-    for (const oid of orderIds) {
-      const order = next.orders[oid]
-      if (order) {
-        const sentItems = order.items.filter((i: any) => i.sent)
-        if (sentItems.length > 0) {
-          saveCancelledOrder({
-            tableId: table.id, tableName: table.name, orderId: oid,
-            items: sentItems, total: sentItems.reduce((s: any, i: any) => s + i.price * i.qty, 0),
-            employeeName: currentUser?.name, reason: reason || 'vaciar mesa', cancelledAt: Date.now(),
-          }).catch(() => {})
-        }
-        delete next.orders[oid]
-      }
-    }
-    table.orderIds = []
-    table.orderId = null
-    table.status = 'libre'
-    table.isFiado = false
-    persistFloor(next)
-    setSelectedTableId(null)
-    setActiveTicketId(null)
-    showToast(`${table.name} liberada`)
-  }, [floor, selectedTableId, currentUser, persistFloor, showToast])
-
-  const moveTable = useCallback((tableId: string, destTableId: string) => {
-    if (tableId === destTableId) { showToast('No puedes mover una mesa sobre sí misma'); return }
-    const src = floor.tables.find((t: any) => t.id === tableId)
-    if (!src?.orderId) { showToast('La mesa origen no tiene pedido'); return }
-    const next = moveTableOrder(floor, tableId, destTableId)
-    if (next === floor) return
-    const dst = next.tables.find((t: any) => t.id === destTableId)
-    persistFloor(next)
-    setSelectedTableId(destTableId)
-    showToast(`Pedido movido a ${dst?.name}`)
-  }, [floor, persistFloor, showToast])
-
-  const mergeTables = useCallback((tableId: string, sourceTableIds: string[]) => {
-    const next = mergeTableOrders(floor, tableId, sourceTableIds, currentUser?.name)
-    if (next === floor) return
-    const dst = next.tables.find((t: any) => t.id === tableId)
-    persistFloor(next)
-    showToast(`Pedidos fusionados en ${dst?.name}`)
-  }, [floor, currentUser, persistFloor, showToast])
-
-  const reopenOrder = useCallback((tableId: string, historyEntry: any) => {
-    const result = reopenTableOrder(floor, tableId, historyEntry)
-    if (!result.orderId) return
-    persistFloor(result.floor)
-    setActiveTicketId(result.orderId)
-    showToast('Pedido reabierto')
-  }, [floor, persistFloor, showToast])
-
-  // ---------- Multi-ticket ----------
-  const createNewTicket = useCallback((tableId: string) => {
-    const result = createTicket(floor, tableId, currentUser?.name)
-    if (!result.orderId) return
-    persistFloor(result.floor)
-    setActiveTicketId(result.orderId)
-    showToast(`Nuevo ticket #${result.ticketNum} creado`)
-  }, [floor, currentUser, persistFloor, showToast])
-
-  const switchTicket = useCallback((_tableId: string, orderId: string) => {
-    setActiveTicketId(orderId)
-  }, [])
-
-  const deleteEmptyTicket = useCallback((tableId: string, orderId: string) => {
-    const result = deleteTicket(floor, tableId, orderId)
-    if (result.activeOrderId === null) return
-    persistFloor(result.floor)
-    setActiveTicketId(result.activeOrderId)
-    showToast('Ticket vacío eliminado')
-  }, [floor, persistFloor, showToast])
-
-  const renameTicket = useCallback((_tableId: string, orderId: string, label: string) => {
-    persistFloor(renameTicketOp(floor, orderId, label))
-  }, [floor, persistFloor])
-
-  const linkCustomer = useCallback((orderId: string, customer: any) => {
-    persistFloor(linkCustomerOp(floor, orderId, customer))
-  }, [floor, persistFloor])
-
-  const unlinkCustomer = useCallback((orderId: string) => {
-    persistFloor(unlinkCustomerOp(floor, orderId))
-  }, [floor, persistFloor])
-
-  // ---------- Personal discount ----------
-  const calcPersonalDiscountAmount = useCallback((order: any, rates: Record<string, number>) => {
-    return calculatePersonalDiscountAmount(order.items, rates, catalog)
-  }, [catalog])
-
-  const applyPersonalDiscount = useCallback(async (orderId: string, employeePin: string): Promise<boolean> => {
-    const r = await fetch('/api/employees', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-tpv-key': API_KEY },
-      body: JSON.stringify({ action: 'verify', pin: employeePin, pinHash: await sha256(employeePin) }),
-    })
-    if (!r.ok) { showToast('PIN incorrecto'); return false }
-    const emp = await r.json()
-    if (!emp.personalDiscountEnabled) { showToast(`${emp.name} no tiene activado el descuento de personal`); return false }
-
-    const next = clone(floor)
-    const order = next.orders[orderId]
-    if (!order) return false
-
-    const ratesRaw = ticketSettings.personalDiscountRates
-    let rates: Record<string, number> = {}
-    try { rates = typeof ratesRaw === 'string' ? JSON.parse(ratesRaw) : ratesRaw || {} } catch { rates = {} }
-
-    const discountAmount = calcPersonalDiscountAmount(order, rates)
-    if (discountAmount <= 0) { showToast('Ningún artículo recibe descuento según las tasas configuradas'); return false }
-
-    const now = new Date()
-    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-    const used = emp.monthlyUsedMonth === currentMonth ? (emp.monthlyUsed || 0) : 0
-    const remaining = emp.monthlyLimit - used
-    if (discountAmount > remaining) {
-      showToast(`${emp.name} no tiene suficiente saldo: necesita ${euros(discountAmount)} pero le queda ${euros(remaining)}`)
-      return false
-    }
-
-    order.items = applyDiscountRates(order.items, rates, catalog)
-    order.personalDiscountEmployeeId = emp.id
-    order.personalDiscountEmployeeName = emp.name
-    order.personalDiscountApplied = true
-
-    const empNext = buildEmployeeMonthlyUsage(employees, emp.id, discountAmount, now)
-    persistFloor(next)
-    setEmployees(empNext)
-    showToast(`Descuento personal aplicado — ${emp.name} (${euros(discountAmount)})`)
-    return true
-  }, [floor, catalog, ticketSettings, employees, persistFloor, showToast])
-
-  const removePersonalDiscount = useCallback((orderId: string) => {
-    const next = clone(floor)
-    const order = next.orders[orderId]
-    if (!order || !order.personalDiscountApplied) return
-
-    const empId = order.personalDiscountEmployeeId
-    const ratesRaw = ticketSettings.personalDiscountRates
-    let rates: Record<string, number> = {}
-    try { rates = typeof ratesRaw === 'string' ? JSON.parse(ratesRaw) : ratesRaw || {} } catch { rates = {} }
-
-    const discountAmount = calcPersonalDiscountAmount(order, rates)
-    const now = new Date()
-
-    const empNext = buildEmployeeMonthlyUsageDecrement(employees, empId, discountAmount, now)
-    order.items = removeDiscountRates(order.items, rates, catalog)
-
-    delete order.personalDiscountApplied
-    delete order.personalDiscountEmployeeId
-    delete order.personalDiscountEmployeeName
-
-    persistFloor(next)
-    setEmployees(empNext)
-    showToast('Descuento personal retirado')
-  }, [floor, ticketSettings, catalog, employees, persistFloor, showToast])
-
-  // ---------- Payment ----------
-  const addSplit = useCallback((method: string) => {
-    if (method === 'fiado') {
-      setPaymentSplits([{ id: 'sp_fiado', method: 'fiado', amount: finalTotal }])
-    } else {
-      const used = round2(paymentSplits.reduce((s: any, p: any) => s + (p.method === 'fiado' ? 0 : p.amount), 0))
-      const rem = round2(finalTotal - used)
-      if (rem <= 0) return
-      setPaymentSplits((prev: any) => [...prev.filter((p: any) => p.method !== 'fiado'), { id: 'sp_' + Date.now(), method, amount: rem, itemIds: [] }])
-    }
-  }, [finalTotal, paymentSplits])
-
-  const updateSplitAmount = useCallback((id: string, value: string) => {
-    const amount = value === '' ? 0 : Math.max(0, parseFloat(value))
-    setPaymentSplits((prev: any) => prev.map((p: any) => p.id === id ? { ...p, amount: isNaN(amount) ? 0 : amount } : p))
-  }, [])
-
-  const removeSplit = useCallback((id: string) => {
-    setPaymentSplits((prev: any) => prev.filter((p: any) => p.id !== id))
-  }, [])
-
-  const toggleSplitItem = useCallback((splitId: string, itemId: string) => {
-    setPaymentSplits((prev: any) => prev.map((p: any) => {
-      if (p.id !== splitId) return p
-      const ids = p.itemIds || []
-      const next = ids.includes(itemId) ? ids.filter((id: any) => id !== itemId) : [...ids, itemId]
-      const itemAmount = (selectedOrder?.items || [])
-        .filter((i: any) => next.includes(i.id))
-        .reduce((s: any, i: any) => s + i.price * i.qty, 0)
-      return { ...p, itemIds: next, amount: itemAmount > 0 ? itemAmount : p.amount }
-    }))
-  }, [selectedOrder])
-
-  // ---------- closeBill ----------
-  const resetPaymentState = useCallback(() => {
-    setPaying(false)
-    setPaymentSplits([])
-    setOrderDiscount(0)
-    setTipAmount(0)
-    setTipMethod('efectivo')
-    setPaymentIntentId('')
-    setInvoiceNif('')
-    setInvoiceName('')
-    setInvoiceAddress('')
-    setInvoiceEmail('')
-  }, [])
-
-  const closeBill = useCallback(() => {
-    if (!selectedTableId || !floor) return
-    const table = floor.tables.find((t: any) => t.id === selectedTableId)
-    const order = floor.orders[table.orderId]
-    if (!table || !order) return
-
-    const { nextFloor, nextCatalog, sale, stockLogs, warnings, wasDebt } = executeCloseOrder({
-      floor,
-      selectedTableId,
-      order,
-      catalog,
-      modifierData,
-      offers,
-      orderDiscount,
-      tipAmount,
-      tipMethod,
-      paymentSplits,
-      paymentIntentId,
-      currentUser,
-      invoice: { nif: invoiceNif, name: invoiceName, address: invoiceAddress, email: invoiceEmail },
-      trainingMode,
-    })
-
-    if (warnings.length > 0) {
-      if (!window.confirm(`${warnings.join(' ')} ¿Seguro que quieres cobrar?`)) return
-    }
-
-    stockLogs.forEach(log => saveStockLog(log).catch(() => {}))
-
-    const tipStr = tipAmount > 0 ? ` (+${euros(tipAmount)} propina)` : ''
-    const discStr = orderDiscount > 0 ? ` (${orderDiscount}% desc)` : ''
-    const offerStr = sale.offerDiscount > 0 ? ` (oferta -${euros(sale.offerDiscount)})` : ''
-
-    if (trainingMode) {
-      resetPaymentState()
-      setSelectedTableId(null)
-      showToast(`🎓 Formación — Cobrado: ${euros(sale.totalWithTip)}${tipStr}${discStr}${offerStr}`)
-      return
-    }
-
-    persistFloor(nextFloor)
-    setCatalog(nextCatalog)
-    persistSales([...sales, sale])
-
-    eventBus.emit('order:closed', {
-      saleId: sale.id, tableId: table.id, tableName: table.name,
-      items: sale.items, subtotal: sale.subtotal, discount: orderDiscount, total: sale.total, tip: tipAmount, totalWithTip: sale.totalWithTip,
-      paymentMethod: sale.paymentMethod, payments: sale.payments, isFiado: sale.isFiado, isDebtPayment: wasDebt,
-      employeeId: currentUser?.id || null, employeeName: currentUser?.name || null,
-      closedAt: sale.closedAt,
-    })
-
-    registerVerifactu(sale.id, sale).then(() => {
-      showToast(`✅ Factura electrónica registrada (${sale.invoiceNumber || sale.id})`)
-    }).catch(err => {
-      console.warn('Verifactu:', err)
-      showToast('⚠️ Error al registrar factura electrónica — revisa Gestoría')
-    })
-
-    resetPaymentState()
-    setSelectedTableId(null)
-
-    showToast(
-      wasDebt ? `Deuda pagada: ${euros(sale.totalWithTip)}${discStr}${offerStr}${tipStr}`
-        : sale.isFiado ? `Fiado: ${euros(sale.totalWithTip)}${discStr}${offerStr}${tipStr}`
-          : `Cobrado: ${euros(sale.totalWithTip)}${discStr}${offerStr}${tipStr}`
-    )
-
-    if (sale.payments.some((p: any) => p.method === 'efectivo') && isPrinterConnected()) {
-      printESCPOS(escposOpenDrawer()).catch(() => {})
-    }
-  }, [floor, catalog, sales, selectedTableId, orderDiscount, tipAmount, tipMethod,
-      paymentSplits, paymentIntentId, invoiceNif, invoiceName, invoiceAddress, invoiceEmail,
-      modifierData, offers, trainingMode, currentUser, persistFloor,
-      setCatalog, persistSales, showToast, resetPaymentState, setSelectedTableId])
+  // ---------- Sub-hooks ----------
+  const orderItems = useOrderItems(
+    floor, selectedTableId, activeTicketId, catalog, currentUser, modifierData,
+    showModifierSelector, editingItemModifiers,
+    setShowModifierSelector, setEditingItemModifiers,
+    setActiveTicketId, persistFloor, showToast, broadcastReadyNotification, tenantId,
+  )
+
+  const orderTickets = useOrderTickets(
+    floor, persistFloor, setActiveTicketId, showToast, currentUser,
+  )
+
+  const orderTables = useOrderTables(
+    floor, selectedTableId, activeTicketId, currentUser,
+    persistFloor, setSelectedTableId, setActiveTicketId, showToast,
+  )
+
+  const orderPayments = useOrderPayments(
+    floor, catalog, offers, sales, modifierData, currentUser, employees,
+    trainingMode, selectedTableId, selectedOrder,
+    persistFloor, persistSales, setSelectedTableId, setCatalog, setEmployees,
+    showToast, ticketSettings,
+  )
+
+  const { orderDiscount, tipAmount, tipMethod } = orderPayments
 
   // ---------- Printing ----------
   const handlePrint = useCallback(() => {
@@ -893,91 +246,19 @@ export function useOrders({
   const debtFloorRef = useRef<any>(null as any)
 
   return {
-    // State
     selectedTableId, setSelectedTableId,
     activeTicketId, setActiveTicketId,
     activeCategory, setActiveCategory,
-    paying, setPaying,
-    paymentSplits, setPaymentSplits,
-    orderDiscount, setOrderDiscount,
-    tipAmount, setTipAmount,
-    tipMethod, setTipMethod,
-    paymentIntentId, setPaymentIntentId,
-    invoiceNif, setInvoiceNif,
-    invoiceName, setInvoiceName,
-    invoiceAddress, setInvoiceAddress,
-    invoiceEmail, setInvoiceEmail,
     showModifierSelector, setShowModifierSelector,
     editingItemModifiers, setEditingItemModifiers,
     debtFloorRef,
-
-    // Computed
-    selectedTable,
-    activeOrderId,
-    selectedOrder,
-    orderTotal,
-    discountedTotal,
-    finalTotal,
-    splitsUsed,
-    remaining,
-    canConfirm,
-    pendingBarCount,
-    pendingCocinaCount,
-
-    // Persistence
-    persistFloor,
-    persistSales,
-
-    // Order item operations
-    addItem,
-    addItemWithPrice,
-    handleAddItemWithModifiers,
-    confirmModifiersAndAdd,
-    changeQty,
-    updateItemNotes,
-    removeItem,
-    sendToKitchenCourse,
-    sendItemToKitchen,
-    updateItemCourse,
-    editItemModifiers,
-    toggleCuenta,
-    markReady,
-    voidSentItem,
-    getModifierGroupsForProduct,
-
-    // Discount operations
-    setItemDiscount,
-    removeItemDiscount,
-    setItemCourtesy,
-    removeItemCourtesy,
-    setItemPrice,
-    calcPersonalDiscountAmount,
-    applyPersonalDiscount,
-    removePersonalDiscount,
-
-    // Table operations
-    cancelTable,
-    voidTable,
-    moveTable,
-    mergeTables,
-    reopenOrder,
-    createNewTicket,
-    switchTicket,
-    deleteEmptyTicket,
-    renameTicket,
-    linkCustomer,
-    unlinkCustomer,
-
-    // Payment
-    addSplit,
-    updateSplitAmount,
-    removeSplit,
-    toggleSplitItem,
-    closeBill,
-    resetPaymentState,
-
-    // Printing
-    handlePrint,
-    handlePrintInvoice,
+    selectedTable, activeOrderId, selectedOrder,
+    pendingBarCount, pendingCocinaCount,
+    persistFloor, persistSales,
+    ...orderItems,
+    ...orderTickets,
+    ...orderTables,
+    ...orderPayments,
+    handlePrint, handlePrintInvoice,
   }
 }

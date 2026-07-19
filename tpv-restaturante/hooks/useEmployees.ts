@@ -5,6 +5,8 @@ import { saveEmployees } from '../lib/api'
 import { sessionLogin, sessionKeepalive, sessionLogout, startKeepalive } from '../lib/session'
 import { enqueueMutation } from '../lib/offline'
 import { clone } from '../components/constants'
+import { sha256 } from '../lib/crypto'
+import { createEmployee, canDeleteEmployee, buildTrainingFloor } from '../domain/employees/employee-operations'
 
 interface UseEmployeesProps {
   employees: any[]
@@ -12,11 +14,6 @@ interface UseEmployeesProps {
   showToast: (msg: string) => void
   floor: any
   setFloor: (f: any) => void
-}
-
-async function sha256(s: string): Promise<string> {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s))
-  return Array.from(new Uint8Array(buf)).map((b: any) => b.toString(16).padStart(2, '0')).join('')
 }
 
 export function useEmployees({
@@ -44,7 +41,7 @@ export function useEmployees({
   }, [setEmployees, showToast])
 
   const addEmployee = useCallback((emp: any) => {
-    persistEmployees([...employees, { id: 'e_' + Date.now(), ...emp }])
+    persistEmployees([...employees, createEmployee(emp)])
   }, [employees, persistEmployees])
 
   const updateEmployeeField = useCallback((id: string, f: string, value: any) => {
@@ -52,9 +49,8 @@ export function useEmployees({
   }, [employees, persistEmployees])
 
   const deleteEmployee = useCallback((id: string) => {
-    const admins = employees.filter((e: any) => e.role === 'admin')
-    const target = employees.find((e: any) => e.id === id)
-    if (target?.role === 'admin' && admins.length <= 1) { showToast('Tiene que quedar al menos un administrador'); return }
+    const result = canDeleteEmployee(employees, id)
+    if (!result.allowed) { showToast(result.error!); return }
     persistEmployees(employees.filter((e: any) => e.id !== id))
   }, [employees, persistEmployees, showToast])
 
@@ -68,11 +64,7 @@ export function useEmployees({
       showToast('Modo formación desactivado')
     } else {
       setSavedFloor(clone(floor))
-      const tables = (floor?.tables || []).map((t: any) => ({
-        ...t, orderId: null, orderIds: [], status: 'libre', reserved: null, isFiado: false,
-      }))
-      const training = { ...clone(floor), tables, orders: {}, history: {} }
-      setFloor(training)
+      setFloor(buildTrainingFloor(floor))
       setTrainingMode(true)
       showToast('🎓 Modo formación activado — los tickets no afectan a facturación real')
     }
@@ -90,17 +82,6 @@ export function useEmployees({
     setLoginSelected(null)
     setPinInput('')
   }, [currentUser])
-
-  const pressDigit = useCallback(async (d: string) => {
-    setPinInput(prev => {
-      if (prev.length >= 4) return prev
-      const next = prev + d
-      if (next.length === 4) {
-        executeLogin(next)
-      }
-      return next
-    })
-  }, [])
 
   const executeLogin = useCallback(async (pin: string) => {
     try {
@@ -140,6 +121,15 @@ export function useEmployees({
       setPinInput('')
     }
   }, [showToast, logout])
+
+  const pressDigit = useCallback(async (d: string) => {
+    setPinInput(prev => {
+      if (prev.length >= 4) return prev
+      const next = prev + d
+      if (next.length === 4) executeLogin(next)
+      return next
+    })
+  }, [executeLogin])
 
   const deleteDigit = useCallback(() => {
     setPinInput(p => p.slice(0, -1))

@@ -5,6 +5,7 @@ import { saveCatalog, saveOffers, saveCombos, saveMealMenus, savePriceRules } fr
 import { enqueueMutation } from '../lib/offline'
 import { clone } from '../components/constants'
 import { eventBus } from '../lib/event-bus'
+import { createProduct, ensureCategoryExists, removeProduct, detectStockChanges, addProductToCatalog, setProductField, getLowStockProducts } from '../domain/catalog/product-operations'
 
 interface UseInventoryProps {
   catalog: any
@@ -21,10 +22,7 @@ export function useInventory({ catalog, setCatalog, offers, setOffers, combos, s
   const [newProductOpen, setNewProductOpen] = useState<boolean>(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<any>(null)
 
-  const lowStockProducts = useMemo(
-    () => (catalog ? catalog.products.filter((p: any) => p.stock <= p.lowStock) : []),
-    [catalog]
-  )
+  const lowStockProducts = useMemo(() => getLowStockProducts(catalog), [catalog])
 
   const persistCatalog = useCallback(async (next: any) => {
     setCatalog(next)
@@ -36,45 +34,20 @@ export function useInventory({ catalog, setCatalog, offers, setOffers, combos, s
   }, [setCatalog, showToast])
 
   const addProduct = useCallback((p: any) => {
-    const next = clone(catalog)
-    const loc = p.ubicacion || 'Bar'
-    next.products.push({
-      id: 'p_' + Date.now(), name: p.name, category: p.category, price: Number(p.price),
-      ubicacion: loc, discount: 0,
-      stockByLocation: { [loc]: { stock: Number(p.stock), lowStock: Number(p.lowStock) } },
-    })
-    if (!next.categories.includes(p.category)) next.categories.push(p.category)
-    persistCatalog(next)
+    persistCatalog(addProductToCatalog(catalog, p))
     setNewProductOpen(false)
   }, [catalog, persistCatalog])
 
   const updateProductField = useCallback((id: string, field: string, value: any) => {
-    const next = clone(catalog)
-    const p = next.products.find((p: any) => p.id === id)
-    if (field === 'stockByLocation') {
-      const old = catalog?.products?.find((op: any) => op.id === id)?.stockByLocation
-      p.stockByLocation = value
-      for (const [loc, entry] of Object.entries(value || {}) as any) {
-        const oldEntry = (old || {})[loc] || { stock: 0 }
-        const delta = entry.stock - oldEntry.stock
-        if (delta !== 0) {
-          eventBus.emit('stock:changed', {
-            productId: id, productName: p.name,
-            ubicacion: loc, delta, newStock: entry.stock,
-            reason: 'manual',
-          })
-        }
-      }
-    } else {
-      p[field] = (field === 'name' || field === 'category' || field === 'ubicacion') ? value : Number(value)
-    }
+    const next = setProductField(catalog, id, field, value)
+    if (!next) return
+    const deltas = detectStockChanges(catalog, next, id)
+    deltas.forEach(d => eventBus.emit('stock:changed', { ...d, reason: 'manual' }))
     persistCatalog(next)
   }, [catalog, persistCatalog])
 
   const deleteProduct = useCallback((id: string) => {
-    const next = clone(catalog)
-    next.products = next.products.filter((p: any) => p.id !== id)
-    persistCatalog(next)
+    persistCatalog(removeProduct(catalog, id))
     setConfirmDeleteId(null)
   }, [catalog, persistCatalog])
 

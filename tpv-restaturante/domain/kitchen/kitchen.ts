@@ -42,3 +42,15 @@ export function hasPendingItems(items: KitchenItem[]): boolean {
 export function countPendingLines(items: KitchenItem[]): number {
   return items.filter(i => !i.sent && !i.voided).length
 }
+
+export function countPendingKitchenItems(floor: any): number {
+  return (Object.values(floor.orders || {}) as any[]).reduce((sum: number, o: any) =>
+    sum + o.items.filter((i: any) => i.sent && !i.ready).length, 0
+  )
+}
+
+export function formatItemPreview(itemNames: string[], max: number = 3): string {
+  const items = itemNames.slice(0, max).join(', ')
+  const suffix = itemNames.length > max ? ` y ${itemNames.length - max} más` : ''
+  return `${items}${suffix}`
+}

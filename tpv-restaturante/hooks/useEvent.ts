@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
-import { eventBus } from '../lib/event-bus'
+import { eventBus, type EventMap } from '../lib/event-bus'
 
-export function useEvent(event: string, handler: (...args: any[]) => void) {
+export function useEvent<K extends keyof EventMap>(event: K, handler: (data: EventMap[K]) => void) {
   useEffect(() => {
     return eventBus.on(event, handler)
   }, [event, handler])
