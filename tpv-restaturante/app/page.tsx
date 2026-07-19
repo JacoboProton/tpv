@@ -222,6 +222,13 @@ export default function App() {
     return <><MenuPrincipal employees={employees} onLoginClick={() => { setEntryPoint('entrada'); setMenuMode('login'); }} onAlmacenClick={() => { setEntryPoint('almacen'); setMenuMode('login'); }} onCajaClick={() => { setEntryPoint('caja'); setMenuMode('login'); }} onConfigClick={() => { setEntryPoint('config'); setMenuMode('login'); }} colors={C} />{qrBlock}</>;
   }
 
+  if (!floor) return (
+    <div style={{ background: C.base, minHeight: '100vh' }}
+      className="flex items-center justify-center p-6">
+      <div className="animate-pulse text-sm" style={{ color: C.muted }}>Cargando datos del salón…</div>
+    </div>
+  );
+
   return (
     <div style={{ background: C.base, color: C.cream, minHeight: '100vh' }} className="flex">
       <Sidebar menuMode={menuMode} currentUser={currentUser} tenants={tenants} tenantId={tenantId} setTenantId={setTenantId} view={view} setView={setView} colors={C} lowStockProducts={lowStockProducts} pendingBarCount={pendingBarCount} pendingCocinaCount={pendingCocinaCount} />

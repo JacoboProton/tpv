@@ -26,7 +26,7 @@ export default function PedidosScreen() {
   const totalPending = readyCount + cookingCount;
 
   function getTableName(tableId: string) {
-    return floor?.tables.find(t => t.id === tableId)?.name || tableId;
+    return floor?.tables?.find(t => t.id === tableId)?.name || tableId;
   }
 
   return (

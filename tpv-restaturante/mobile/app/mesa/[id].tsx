@@ -212,7 +212,7 @@ export default function MesaScreen() {
     }
   }
 
-  const table = floor?.tables.find(t => t.id === tableId);
+  const table = floor?.tables?.find(t => t.id === tableId);
   const activeOrders = (table?.orderIds?.map(oid => floor?.orders?.[oid]).filter(Boolean) as Order[]) || [];
   const allItems = activeOrders.flatMap(o => o.items);
 
