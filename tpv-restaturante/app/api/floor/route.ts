@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { and, eq, inArray } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { broadcastFloorUpdateServer } from '../../../lib/realtime';
 import { FloorPutBodySchema } from '../../../lib/schemas/floorSchema';
-import { tables, orders } from '../../../db/schema';
-import { upsertTableQueries, upsertOrderQueries, upsertFloorPlanQuery, fetchFullFloor } from '../../../lib/floor';
+import { putFloorInTransaction, deleteTablesInTransaction, deleteOrdersInTransaction, fetchFullFloor } from '../../../lib/floor';
 
 export async function GET(req: NextRequest) {
   try {
@@ -27,22 +26,9 @@ export async function PUT(req: NextRequest) {
     await FloorPutBodySchema.parseAsync({ tables: bodyTables, orders: bodyOrders, zones, background });
     const tenantId = getTenantId(req);
 
-    const rawQueries = [
-      ...upsertTableQueries(bodyTables as any[], tenantId),
-      ...upsertOrderQueries(bodyOrders as any, tenantId),
-    ];
-
-    if (zones || background) {
-      rawQueries.push(upsertFloorPlanQuery(zones, background));
-    }
-
-    if (rawQueries.length > 0) {
-      await db.transaction(async (tx) => {
-        for (const q of rawQueries) {
-          await tx.execute(q as any);
-        }
-      });
-    }
+    await db.transaction(async (tx) => {
+      await putFloorInTransaction(tx, bodyTables as any[], bodyOrders as any, zones, background, tenantId);
+    });
 
     const fullFloor = await fetchFullFloor(tenantId);
     await broadcastFloorUpdateServer(fullFloor, tenantId).catch(() => {});
@@ -62,42 +48,15 @@ export async function PATCH(req: NextRequest) {
     };
     const { updatedTables, deletedTableIds, updatedOrders, deletedOrderIds } = body;
     const tenantId = getTenantId(req);
-    const rawQueries: any[] = [];
 
-    if (deletedTableIds && deletedTableIds.length > 0) {
-      rawQueries.push(
-        db.delete(tables)
-          .where(and(eq(tables.tenantId, tenantId), inArray(tables.id, deletedTableIds)))
-          .toSQL()
-      );
-    }
-
-    if (deletedOrderIds && deletedOrderIds.length > 0) {
-      rawQueries.push(
-        db.delete(orders)
-          .where(and(eq(orders.tenantId, tenantId), inArray(orders.id, deletedOrderIds)))
-          .toSQL()
-      );
-    }
-
-    if (updatedTables && updatedTables.length > 0) {
-      rawQueries.push(...upsertTableQueries(updatedTables as any[], tenantId));
-    }
-    if (updatedOrders && Object.keys(updatedOrders).length > 0) {
-      rawQueries.push(...upsertOrderQueries(updatedOrders as any, tenantId));
-    }
-
-    if (rawQueries.length > 0) {
-      await db.transaction(async (tx) => {
-        for (const q of rawQueries) {
-          await tx.execute(q);
-        }
-      });
-    }
+    await db.transaction(async (tx) => {
+      await deleteTablesInTransaction(tx, deletedTableIds, tenantId);
+      await deleteOrdersInTransaction(tx, deletedOrderIds, tenantId);
+      await putFloorInTransaction(tx, (updatedTables || []) as any[], (updatedOrders || {}) as any, null, null, tenantId);
+    });
 
     const fullFloor = await fetchFullFloor(tenantId);
     await broadcastFloorUpdateServer(fullFloor, tenantId).catch(() => {});
-
     return NextResponse.json({ ok: true });
   } catch (err) {
     const msg = (err as Error).message;
