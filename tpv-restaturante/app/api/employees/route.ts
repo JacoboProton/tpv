@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { and, eq, sql, not, inArray } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import bcrypt from 'bcryptjs';
 import { createHash } from 'crypto';
 import { employees } from '../../../db/schema';
+import { apiOk, apiError, apiBadRequest, apiNotFound } from '../../../lib/infrastructure/response';
 
 function sha256(s: string): string {
   return createHash('sha256').update(s, 'utf8').digest('hex');
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
     const tenantId = getTenantId(req);
     const rows = await db.select().from(employees)
       .where(eq(employees.tenantId, tenantId));
-    return NextResponse.json(rows.map(r => ({
+    return apiOk(rows.map(r => ({
       id: r.id, name: r.name, role: r.role,
       personalDiscountEnabled: r.personalDiscountEnabled,
       monthlyLimit: Number(r.monthlyLimit || 0),
@@ -28,11 +29,7 @@ export async function GET(req: NextRequest) {
       whatsappLinked: r.whatsappLinked, createdAt: r.createdAt,
       hasPin: !!r.pinHash,
     })));
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+  } catch (err) { return apiError(err); }
 }
 
 export async function PUT(req: NextRequest) {
@@ -75,12 +72,8 @@ export async function PUT(req: NextRequest) {
           .where(and(eq(employees.tenantId, tenantId), not(inArray(employees.id, ids))));
       }
     });
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk();
+  } catch (err) { return apiError(err); }
 }
 
 export async function POST(req: NextRequest) {
@@ -103,12 +96,12 @@ export async function POST(req: NextRequest) {
           .set({ whatsappCode: c.code })
           .where(and(eq(employees.id, c.employeeId), eq(employees.tenantId, tenantId)));
       }
-      return NextResponse.json({ ok: true, codes });
+      return apiOk({ ok: true, codes });
     }
 
     if (action === 'verify') {
       const { pin, pinHash } = body as Record<string, unknown>;
-      if (!pin && !pinHash) return NextResponse.json({ error: 'PIN requerido' }, { status: 400 });
+      if (!pin && !pinHash) return apiBadRequest('PIN requerido');
       const emps = await db.select().from(employees)
         .where(eq(employees.tenantId, tenantId));
       const emp = emps.find(r => {
@@ -125,8 +118,8 @@ export async function POST(req: NextRequest) {
         }
         return false;
       });
-      if (!emp) return NextResponse.json({ error: 'PIN invalido' }, { status: 401 });
-      return NextResponse.json({
+      if (!emp) return apiError(new Error('PIN invalido'), 401);
+      return apiOk({
         id: emp.id, name: emp.name, role: emp.role,
         personalDiscountEnabled: emp.personalDiscountEnabled,
         monthlyLimit: Number(emp.monthlyLimit || 0),
@@ -140,17 +133,13 @@ export async function POST(req: NextRequest) {
       const [emp] = await db.select({ id: employees.id, name: employees.name })
         .from(employees)
         .where(and(eq(employees.tenantId, tenantId), eq(employees.whatsappCode, code as string)));
-      if (!emp) return NextResponse.json({ error: 'Codigo invalido' }, { status: 404 });
+      if (!emp) return apiNotFound('Codigo invalido');
       await db.update(employees)
         .set({ whatsappLinked: true, whatsappCode: '' })
         .where(and(eq(employees.id, emp.id), eq(employees.tenantId, tenantId)));
-      return NextResponse.json({ ok: true, employeeId: emp.id, employeeName: emp.name });
+      return apiOk({ ok: true, employeeId: emp.id, employeeName: emp.name });
     }
 
-    return NextResponse.json({ error: 'unknown action' }, { status: 400 });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiBadRequest('unknown action');
+  } catch (err) { return apiError(err); }
 }

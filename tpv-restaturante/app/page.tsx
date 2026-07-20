@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  AlertTriangle,
   WifiOff, Bell,
 } from 'lucide-react';
 
 import { type Theme, THEMES, clone } from '../components/constants';
+import { FatalError } from '../components/FatalError';
+import { LoginGuard } from '../components/LoginGuard';
 import { fetchModifiers } from '../lib/api';
 import { escposOpenDrawer, printESCPOS, isPrinterConnected } from '../lib/thermal-printer';
 
@@ -198,32 +199,9 @@ export default function App() {
     </div>
   );
 
-  if (fatalError) return (
-    <div style={{ background: C.base, color: C.cream, minHeight: '100vh' }} className="flex items-center justify-center p-6">
-      <div className="text-center max-w-sm">
-        <AlertTriangle style={{ color: C.wineLight }} className="w-10 h-10 mx-auto mb-3" />
-        <p className="font-semibold mb-1">No se ha podido conectar con la base de datos</p>
-        <p style={{ color: C.muted }} className="text-sm">Revisa la conexion con la base de datos y recarga la pagina.</p>
-        {fatalError.length > 0 && (
-          <pre style={{ color: C.wineLight, fontSize: 11, wordBreak: 'break-all', whiteSpace: 'pre-wrap' }} className="mt-4 text-left bg-black/20 p-3 rounded max-h-48 overflow-y-auto">{fatalError}</pre>
-        )}
-      </div>
-    </div>
-  );
+  if (fatalError) return <FatalError error={fatalError} colors={C} />;
 
-  if (!currentUser) {
-    const qrBlock = (
-      <div style={{ position: 'fixed', bottom: 24, right: 24, background: '#fff', border: `3px solid ${C.brass}`, borderRadius: 16 }}
-        className="p-3 flex flex-col items-center gap-1 shadow-2xl z-50">
-        <img src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent('https://tpv-sigma.vercel.app/descargar')}`}
-          alt="QR App Móvil" className="w-40 h-40" />
-        <span className="text-xs font-semibold" style={{ color: '#333' }}>Descargar App</span>
-      </div>
-    );
-    if (menuMode === 'menu') return <><MenuPrincipal employees={employees} onLoginClick={() => { setEntryPoint('entrada'); setMenuMode('login'); }} onAlmacenClick={() => { setEntryPoint('almacen'); setMenuMode('login'); }} onCajaClick={() => { setEntryPoint('caja'); setMenuMode('login'); }} onConfigClick={() => { setEntryPoint('config'); setMenuMode('login'); }} colors={C} />{qrBlock}</>;
-    if (menuMode === 'login') return <><LoginScreen employees={employees} loginSelected={loginSelected} setLoginSelected={setLoginSelected} pinInput={pinInput} setPinInput={setPinInput} onDigit={pressDigit} onDelete={deleteDigit} onBack={() => setMenuMode('menu')} colors={C} />{qrBlock}</>;
-    return <><MenuPrincipal employees={employees} onLoginClick={() => { setEntryPoint('entrada'); setMenuMode('login'); }} onAlmacenClick={() => { setEntryPoint('almacen'); setMenuMode('login'); }} onCajaClick={() => { setEntryPoint('caja'); setMenuMode('login'); }} onConfigClick={() => { setEntryPoint('config'); setMenuMode('login'); }} colors={C} />{qrBlock}</>;
-  }
+  if (!currentUser) return <LoginGuard employees={employees} menuMode={menuMode} setMenuMode={setMenuMode} entryPoint={entryPoint} setEntryPoint={setEntryPoint} loginSelected={loginSelected} setLoginSelected={setLoginSelected} pinInput={pinInput} setPinInput={setPinInput} pressDigit={pressDigit} deleteDigit={deleteDigit} colors={C} />;
 
   if (!floor) return (
     <div style={{ background: C.base, minHeight: '100vh' }}

@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { eq, sql, and } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { products, categories, productStock, combos, comboSlots, comboSlotItems, productPriceRules, mealMenus, mealMenuCourses, mealMenuCourseItems, mealMenuSchedules } from '../../../db/schema';
+import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
 
 export async function GET(req: NextRequest) {
   try {
@@ -112,16 +113,12 @@ export async function GET(req: NextRequest) {
     }));
 
     const priceRulesNormalized = priceRuleRows.map(r => ({ ...r, active: !!r.active }));
-    return NextResponse.json({
+    return apiOk({
       categories: catRows, products: productsMapped,
       combos: combosMapped, mealMenus: mealMenusMapped,
       priceRules: priceRulesNormalized,
     });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+  } catch (err) { return apiError(err); }
 }
 
 export async function PUT(req: NextRequest) {
@@ -225,12 +222,8 @@ export async function PUT(req: NextRequest) {
       }
     });
 
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk();
+  } catch (err) { return apiError(err); }
 }
 
 export async function PATCH(req: NextRequest) {
@@ -245,7 +238,7 @@ export async function PATCH(req: NextRequest) {
           .set({ sortOrder: cat.sort_order })
           .where(and(eq(categories.id, cat.id), eq(categories.tenantId, tenantId)));
       }
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
     if (action === 'toggle-product' || action === 'update-product') {
@@ -263,11 +256,11 @@ export async function PATCH(req: NextRequest) {
         sort_order: { carouselSort: value },
       };
       const setValues = fieldMap[field];
-      if (!setValues) return NextResponse.json({ error: 'Campo no permitido' }, { status: 400 });
+      if (!setValues) return apiBadRequest('Campo no permitido');
       await db.update(products)
         .set(setValues)
         .where(and(eq(products.id, id), eq(products.tenantId, tenantId)));
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
     if (action === 'toggle-category') {
@@ -278,17 +271,17 @@ export async function PATCH(req: NextRequest) {
         sort_order: { sortOrder: value },
       };
       const setValues = fieldMap[field];
-      if (!setValues) return NextResponse.json({ error: 'Campo no permitido' }, { status: 400 });
+      if (!setValues) return apiBadRequest('Campo no permitido');
       await db.update(categories)
         .set(setValues)
         .where(and(eq(categories.id, id), eq(categories.tenantId, tenantId)));
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
     if (action === 'delete-product') {
       await db.delete(products)
         .where(and(eq(products.id, data.id), eq(products.tenantId, tenantId)));
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
     if (action === 'reorder-carousel') {
@@ -297,13 +290,9 @@ export async function PATCH(req: NextRequest) {
           .set({ carouselSort: item.carousel_sort ?? null })
           .where(and(eq(products.id, item.id), eq(products.tenantId, tenantId)));
       }
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
-    return NextResponse.json({ error: 'Acción desconocida' }, { status: 400 });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiBadRequest('Acción desconocida');
+  } catch (err) { return apiError(err); }
 }
