@@ -1,11 +1,11 @@
 import { z } from 'zod';
 
 export const TableSchema = z.object({
-  id: z.number(),
+  id: z.union([z.string(), z.number()]),
   name: z.string(),
   status: z.string(),
-  orderId: z.number().nullable().optional(),
-  orderIds: z.array(z.number()).optional(),
+  orderId: z.union([z.string(), z.number()]).nullable().optional(),
+  orderIds: z.array(z.union([z.string(), z.number()])).optional(),
   reserved: z.string().nullable().optional(),
   reserved_for: z.string().optional(),
   isFiado: z.boolean().optional(),
@@ -24,8 +24,8 @@ export const TableSchema = z.object({
 });
 
 export const OrderSchema = z.object({
-  id: z.number(),
-  tableId: z.number().optional(),
+  id: z.union([z.string(), z.number()]),
+  tableId: z.union([z.string(), z.number()]).optional(),
   items: z.any(), // flexible for now
   createdAt: z.string().optional(),
   employeeName: z.string().nullable().optional(),
