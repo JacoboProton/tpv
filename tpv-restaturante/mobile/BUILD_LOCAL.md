@@ -34,7 +34,7 @@ Antes de build local, rellena estos valores en `app.json`:
 
 ```json
 "extra": {
-  "apiUrl": "https://tpv-sigma.vercel.app",
+  "apiUrl": "https://tpv-restaurante.onrender.com",
   "tpvApiKey": "tu-api-key",
   "supabaseUrl": "https://tu-proyecto.supabase.co",
   "supabaseKey": "tu-supabase-anon-key",

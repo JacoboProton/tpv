@@ -72,7 +72,7 @@ El código busca variables en este orden:
 
 | Variable | Descripción | Ejemplo |
 |----------|-------------|---------|
-| `EXPO_PUBLIC_API_URL` | URL del servidor Next.js | `https://tpv-sigma.vercel.app` |
+| `EXPO_PUBLIC_API_URL` | URL del servidor Next.js | `https://tpv-restaurante.onrender.com` |
 | `EXPO_PUBLIC_TPV_API_KEY` | Clave API para autenticación | `tu_clave_secreta` |
 | `EXPO_PUBLIC_SUPABASE_URL` | URL de proyecto Supabase | `https://xxx.supabase.co` |
 | `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Clave pública Supabase | `sb_publishable_xxx` |
