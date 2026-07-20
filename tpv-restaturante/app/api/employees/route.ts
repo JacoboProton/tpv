@@ -38,10 +38,10 @@ export async function PUT(req: NextRequest) {
     const db = getDb();
     const emps = await req.json() as any[];
     const tenantId = getTenantId(req);
-    const queries: any[] = [];
-    for (const e of emps) {
-      queries.push(
-        db.insert(employees).values({
+    const ids = emps.map((e: any) => e.id);
+    await db.transaction(async (tx) => {
+      for (const e of emps) {
+        await tx.insert(employees).values({
           tenantId, id: e.id, name: e.name, pin: '',
           pinHash: e.pin ? bcrypt.hashSync(sha256(e.pin), 10) : (e.pinHash || ''),
           role: e.role || 'camarero', position: e.position || '',
@@ -66,24 +66,13 @@ export async function PUT(req: NextRequest) {
             whatsappCode: sql`EXCLUDED.whatsapp_code`,
             whatsappLinked: sql`EXCLUDED.whatsapp_linked`,
           },
-        }).toSQL()
-      );
-    }
-    const ids = emps.map((e: any) => e.id);
-    if (ids.length > 0) {
-      queries.push(
-        db.delete(employees)
-          .where(and(eq(employees.tenantId, tenantId), not(inArray(employees.id, ids))))
-          .toSQL()
-      );
-    }
-    if (queries.length > 0) {
-      await db.transaction(async (tx) => {
-        for (const q of queries) {
-          await tx.execute(q);
-        }
-      });
-    }
+        });
+      }
+      if (ids.length > 0) {
+        await tx.delete(employees)
+          .where(and(eq(employees.tenantId, tenantId), not(inArray(employees.id, ids))));
+      }
+    });
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

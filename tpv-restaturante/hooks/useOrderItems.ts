@@ -38,7 +38,7 @@ export function useOrderItems(
 ) {
   const getContext = useCallback(() => {
     if (!selectedTableId || !floor) return null
-    const table = floor.tables.find((t: any) => t.id === selectedTableId)
+    const table = floor?.tables?.find((t: any) => t.id === selectedTableId)
     if (!table) return null
     const activeOid = activeTicketId || table.orderIds?.[0] || table.orderId
     const order = activeOid ? floor.orders[activeOid] : null

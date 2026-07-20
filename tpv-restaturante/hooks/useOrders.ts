@@ -51,17 +51,17 @@ export function useOrders({
   const salesProcessing = useRef<boolean>(false)
 
   // ---------- Computed ----------
-  const selectedTable = floor ? floor.tables.find((t: any) => t.id === selectedTableId) : null
+  const selectedTable = floor?.tables?.find((t: any) => t.id === selectedTableId) ?? null
   const activeOrderId = activeTicketId || selectedTable?.orderIds?.[0] || selectedTable?.orderId
   const selectedOrder = activeOrderId ? floor?.orders?.[activeOrderId] : null
 
   const pendingBarCount = useMemo(() =>
-    floor ? (Object.values(floor.orders) as any[]).reduce((s: any, o: any) =>
+    floor?.orders ? (Object.values(floor.orders) as any[]).reduce((s: any, o: any) =>
       s + o.items.filter((i: any) => i.sent && !i.ready && i.ubicacion === 'Bar').length, 0) : 0,
     [floor]
   )
   const pendingCocinaCount = useMemo(() =>
-    floor ? (Object.values(floor.orders) as any[]).reduce((s: any, o: any) =>
+    floor?.orders ? (Object.values(floor.orders) as any[]).reduce((s: any, o: any) =>
       s + o.items.filter((i: any) => i.sent && !i.ready && i.ubicacion !== 'Bar').length, 0) : 0,
     [floor]
   )

@@ -60,12 +60,12 @@ export default function SalonView({ floor, onSelect, persistFloor, colors: C, on
   }
 
   const occupiedCount = useMemo(() =>
-    floor.tables.filter(t => t.status === 'ocupada' || t.status === 'cuenta' || t.status === 'unidas').length,
+    (floor.tables ?? []).filter(t => t.status === 'ocupada' || t.status === 'cuenta' || t.status === 'unidas').length,
     [floor.tables],
   )
 
   const filteredTables = useMemo(() => {
-    let tables = floor.tables
+    let tables = floor.tables ?? []
     if (filterStatus !== 'todas') {
       tables = tables.filter(t => {
         let actualStatus = t.status
@@ -90,7 +90,7 @@ export default function SalonView({ floor, onSelect, persistFloor, colors: C, on
   ]
 
   function downloadAllQr() {
-    floor.tables.forEach(t => {
+    (floor.tables ?? []).forEach(t => {
       const a = document.createElement('a')
       a.href = `${window.location.origin}/api/qr?mesa=${encodeURIComponent(t.id)}`
       a.download = `qr-${t.id}.svg`

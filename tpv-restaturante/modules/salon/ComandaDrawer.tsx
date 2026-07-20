@@ -1705,7 +1705,7 @@ export default function ComandaDrawer({
                     <span style={{ color: C.muted }} className="text-xs">{t.type === 'barra' ? 'Barra' : 'Mesa'}</span>
                   </button>
                 ))}
-              {floor.tables.filter((t: TableInfo) => t.id !== currentTableId && t.status === 'libre' && !t.reserved_for).length === 0 && (
+              {(floor.tables ?? []).filter((t: TableInfo) => t.id !== currentTableId && t.status === 'libre' && !t.reserved_for).length === 0 && (
                 <p style={{ color: C.muted }} className="text-sm text-center py-4">No hay mesas libres disponibles.</p>
               )}
             </div>
@@ -1761,7 +1761,7 @@ export default function ComandaDrawer({
                     </button>
                   );
                 })}
-              {floor.tables.filter((t: TableInfo) => t.id !== currentTableId && !t.reserved_for && (t.status === 'ocupada' || t.status === 'cuenta' || t.status === 'unidas')).length === 0 && (
+              {(floor.tables ?? []).filter((t: TableInfo) => t.id !== currentTableId && !t.reserved_for && (t.status === 'ocupada' || t.status === 'cuenta' || t.status === 'unidas')).length === 0 && (
                 <p style={{ color: C.muted }} className="text-sm text-center py-4">No hay otras mesas con pedidos para unir.</p>
               )}
             </div>

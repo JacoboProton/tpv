@@ -269,7 +269,7 @@ export default function App() {
           onCancelTable={cancelTable}
           onSendToKitchenCourse={sendToKitchenCourse} onSendItemToKitchen={sendItemToKitchen} onToggleCuenta={toggleCuenta}
           onOpenPayment={() => { setPaymentSplits([]); setTipAmount(0); setTipMethod('efectivo'); setInvoiceNif(''); setInvoiceName(''); setInvoiceAddress(''); setInvoiceEmail(''); setPaying(true); }}
-          onResetTable={() => { const next = clone(floor); const table = next.tables.find((t: any) => t.id === selectedTableId); table.status = 'libre'; table.orderId = null; table.orderIds = []; persistFloor(next); setSelectedTableId(null); setActiveTicketId(null); }}
+          onResetTable={() => { const next = clone(floor); const table = next?.tables?.find((t: any) => t.id === selectedTableId); if (!table) return; table.status = 'libre'; table.orderId = null; table.orderIds = []; persistFloor(next); setSelectedTableId(null); setActiveTicketId(null); }}
           onUpdateNotes={updateItemNotes} onUpdateItemCourse={updateItemCourse} onEditItemModifiers={editItemModifiers}
           onSetItemDiscount={setItemDiscount} onRemoveItemDiscount={removeItemDiscount} onSetItemCourtesy={setItemCourtesy} onRemoveItemCourtesy={removeItemCourtesy} onSetItemPrice={setItemPrice as (itemId: string, price: number | null) => void}
           onVoidSentItem={voidSentItem}

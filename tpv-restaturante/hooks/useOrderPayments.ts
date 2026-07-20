@@ -98,7 +98,7 @@ export function useOrderPayments(
 
   const closeBill = useCallback(() => {
     if (!selectedTableId || !floor) return
-    const table = floor.tables.find((t: any) => t.id === selectedTableId)
+    const table = floor?.tables?.find((t: any) => t.id === selectedTableId)
     const order = floor.orders[table?.orderId]
     if (!table || !order) return
 

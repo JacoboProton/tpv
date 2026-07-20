@@ -45,7 +45,7 @@ export default function ComandasAbiertasView({ floor, colors: C }: ComandasAbier
     return () => clearInterval(timer);
   }, []);
 
-  const activeTables = floor.tables.filter(t => t.orderId && floor.orders[t.orderId]);
+  const activeTables = (floor.tables ?? []).filter(t => t.orderId && floor.orders[t.orderId]);
 
   if (activeTables.length === 0) {
     return (

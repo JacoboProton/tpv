@@ -90,7 +90,7 @@ export default function FloorEditor({ floor, persistFloor, colors: C }: {
   const dragRef = useRef<{ tableId: string; startX: number; startY: number; initX: number; initY: number; moved: boolean } | null>(null);
   const bgInputRef = useRef<HTMLInputElement>(null);
 
-  const selectedTable = floor.tables.find(t => t.id === selectedId) || null;
+  const selectedTable = (floor.tables ?? []).find(t => t.id === selectedId) || null;
 
   const pushUndo = useCallback(() => {
     setUndoStack(prev => {
@@ -101,7 +101,7 @@ export default function FloorEditor({ floor, persistFloor, colors: C }: {
     setRedoStack([]);
   }, [floor]);
 
-  const tablesWithDefaults = floor.tables.map(t => ({
+  const tablesWithDefaults = (floor.tables ?? []).map(t => ({
     ...t,
     x: t.x ?? 100 + Math.random() * 200,
     y: t.y ?? 100 + Math.random() * 200,
@@ -670,7 +670,7 @@ export default function FloorEditor({ floor, persistFloor, colors: C }: {
             })}
 
             {/* No tables hint */}
-            {floor.tables.length === 0 && (
+            {(floor.tables ?? []).length === 0 && (
               <div style={{
                 position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 flexDirection: 'column', gap: 8,
