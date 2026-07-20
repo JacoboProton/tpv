@@ -110,11 +110,14 @@ export async function POST(req: NextRequest) {
       const emp = emps.find(r => {
         const ph = r.pinHash ?? '';
         if (pinHash && bcrypt.compareSync(pinHash as string, ph)) return true;
-        if (pin && bcrypt.compareSync(pin as string, ph)) {
-          const newHash = bcrypt.hashSync(sha256(pin as string), 10);
-          db.update(employees).set({ pinHash: newHash })
-            .where(eq(employees.id, r.id)).catch(() => {});
-          return true;
+        if (pin) {
+          const serverHash = sha256(pin as string);
+          if (bcrypt.compareSync(serverHash, ph)) return true;
+          if (bcrypt.compareSync(pin as string, ph)) {
+            db.update(employees).set({ pinHash: bcrypt.hashSync(serverHash, 10) })
+              .where(eq(employees.id, r.id)).catch(() => {});
+            return true;
+          }
         }
         return false;
       });
