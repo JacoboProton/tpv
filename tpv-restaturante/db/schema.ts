@@ -1779,7 +1779,7 @@ export const productStock = pgTable("product_stock", {
 ]);
 
 export const categories = pgTable("categories", {
-	id: serial().notNull(),
+	id: text().notNull(),
 	name: text().notNull(),
 	sortOrder: integer("sort_order").default(0),
 	active: boolean().default(true),
