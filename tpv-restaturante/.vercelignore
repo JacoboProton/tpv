@@ -1,1 +1,6 @@
 mobile/
+.git/
+.next/
+node_modules/
+*.tsbuildinfo
+.kombai/
