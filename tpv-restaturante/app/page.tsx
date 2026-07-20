@@ -204,6 +204,9 @@ export default function App() {
         <AlertTriangle style={{ color: C.wineLight }} className="w-10 h-10 mx-auto mb-3" />
         <p className="font-semibold mb-1">No se ha podido conectar con la base de datos</p>
         <p style={{ color: C.muted }} className="text-sm">Revisa la conexion con la base de datos y recarga la pagina.</p>
+        {fatalError.length > 0 && (
+          <pre style={{ color: C.wineLight, fontSize: 11, wordBreak: 'break-all', whiteSpace: 'pre-wrap' }} className="mt-4 text-left bg-black/20 p-3 rounded max-h-48 overflow-y-auto">{fatalError}</pre>
+        )}
       </div>
     </div>
   );

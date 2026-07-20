@@ -33,11 +33,11 @@ export function useAppInit({
 }: UseAppInitProps) {
 
   const [loading, setLoading] = useState(true)
-  const [fatalError, setFatalError] = useState(false)
+  const [fatalError, setFatalError] = useState<string | null>(null)
 
   const loadAll = useCallback(async () => {
     setLoading(true)
-    setFatalError(false)
+    setFatalError(null)
     try {
       await runMigrate().catch(() => {})
 
@@ -107,7 +107,7 @@ export function useAppInit({
       setCombos(cmb)
     } catch (err) {
       console.error('Error cargando datos:', err)
-      setFatalError(true)
+      setFatalError((err as Error)?.message || String(err))
     } finally {
       setLoading(false)
     }
