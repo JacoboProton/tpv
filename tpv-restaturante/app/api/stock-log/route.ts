@@ -36,7 +36,9 @@ export async function GET(req: NextRequest) {
       hasMore: offset + limit < total,
     });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    const msg = (err as Error).message;
+    const cause = (err as Error).cause;
+    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
   }
 }
 
@@ -61,6 +63,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(record);
   } catch (err) {
     console.error('Error creando stock log:', err);
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    const msg = (err as Error).message;
+    const cause = (err as Error).cause;
+    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
   }
 }

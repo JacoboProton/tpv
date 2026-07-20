@@ -203,7 +203,7 @@ export default function App() {
       <div className="text-center max-w-sm">
         <AlertTriangle style={{ color: C.wineLight }} className="w-10 h-10 mx-auto mb-3" />
         <p className="font-semibold mb-1">No se ha podido conectar con la base de datos</p>
-        <p style={{ color: C.muted }} className="text-sm">Revisa la conexion con Neon y recarga la pagina.</p>
+        <p style={{ color: C.muted }} className="text-sm">Revisa la conexion con la base de datos y recarga la pagina.</p>
       </div>
     </div>
   );

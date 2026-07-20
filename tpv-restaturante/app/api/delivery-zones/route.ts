@@ -12,7 +12,9 @@ export async function GET(req: NextRequest) {
       .where(eq(deliveryZones.tenantId, tenantId));
     return NextResponse.json(rows);
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    const msg = (err as Error).message;
+    const cause = (err as Error).cause;
+    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
   }
 }
 
@@ -32,7 +34,9 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ ok: true, id });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    const msg = (err as Error).message;
+    const cause = (err as Error).cause;
+    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
   }
 }
 
@@ -49,7 +53,9 @@ export async function PUT(req: NextRequest) {
     }).where(eq(deliveryZones.id, body.id));
     return NextResponse.json({ ok: true });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    const msg = (err as Error).message;
+    const cause = (err as Error).cause;
+    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
   }
 }
 
@@ -61,6 +67,8 @@ export async function DELETE(req: NextRequest) {
     await db.delete(deliveryZones).where(and(eq(deliveryZones.id, id), eq(deliveryZones.tenantId, tenantId)));
     return NextResponse.json({ ok: true });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    const msg = (err as Error).message;
+    const cause = (err as Error).cause;
+    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
   }
 }

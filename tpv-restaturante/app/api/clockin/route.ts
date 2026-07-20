@@ -82,7 +82,9 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    const msg = (err as Error).message;
+    const cause = (err as Error).cause;
+    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
   }
 }
 
@@ -118,7 +120,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, action });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    const msg = (err as Error).message;
+    const cause = (err as Error).cause;
+    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
   }
 }
 
@@ -188,6 +192,8 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    const msg = (err as Error).message;
+    const cause = (err as Error).cause;
+    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
   }
 }

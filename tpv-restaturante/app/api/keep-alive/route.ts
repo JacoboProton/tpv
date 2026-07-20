@@ -11,6 +11,8 @@ export async function GET() {
     await db.execute(sql`SELECT 1`);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    return NextResponse.json({ ok: false, error: (err as Error).message }, { status: 500 });
+    const msg = (err as Error).message;
+    const cause = (err as Error).cause;
+    return NextResponse.json({ ok: false, error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
   }
 }

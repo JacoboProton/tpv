@@ -19,7 +19,9 @@ export async function GET(req: NextRequest) {
       .orderBy(productPriceRules.productId, productPriceRules.name);
     return NextResponse.json(rules.map(r => ({ ...r, active: !!r.active })));
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    const msg = (err as Error).message;
+    const cause = (err as Error).cause;
+    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
   }
 }
 
@@ -39,6 +41,8 @@ export async function PUT(req: NextRequest) {
     }
     return NextResponse.json({ ok: true });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    const msg = (err as Error).message;
+    const cause = (err as Error).cause;
+    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
   }
 }

@@ -14,7 +14,9 @@ export async function GET() {
       config: r.config, createdAt: r.createdAt,
     })));
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    const msg = (err as Error).message;
+    const cause = (err as Error).cause;
+    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
   }
 }
 
@@ -34,7 +36,9 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ id, ok: true });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    const msg = (err as Error).message;
+    const cause = (err as Error).cause;
+    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
   }
 }
 
@@ -55,7 +59,9 @@ export async function PUT(req: NextRequest) {
     }).where(eq(tenants.id, id));
     return NextResponse.json({ ok: true });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    const msg = (err as Error).message;
+    const cause = (err as Error).cause;
+    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
   }
 }
 
@@ -67,6 +73,8 @@ export async function DELETE(req: NextRequest) {
     await db.delete(tenants).where(eq(tenants.id, id));
     return NextResponse.json({ ok: true });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    const msg = (err as Error).message;
+    const cause = (err as Error).cause;
+    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
   }
 }

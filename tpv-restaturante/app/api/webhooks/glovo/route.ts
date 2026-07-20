@@ -69,6 +69,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, id: delId });
   } catch (err: any) {
     console.error('[Glovo webhook] Error:', (err as Error).message);
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    const msg = (err as Error).message;
+    const cause = (err as Error).cause;
+    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
   }
 }

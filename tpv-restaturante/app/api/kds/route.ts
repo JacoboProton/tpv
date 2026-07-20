@@ -42,7 +42,9 @@ export async function GET(req: NextRequest) {
       expiresAt: r.expiresAt, createdAt: r.createdAt, revoked: r.revoked,
     })));
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    const msg = (err as Error).message;
+    const cause = (err as Error).cause;
+    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
   }
 }
 
@@ -82,7 +84,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ error: 'unknown action' }, { status: 400 });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    const msg = (err as Error).message;
+    const cause = (err as Error).cause;
+    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
   }
 }
 
@@ -96,6 +100,8 @@ export async function DELETE(req: NextRequest) {
     await db.update(kdsPairings).set({ revoked: true }).where(and(eq(kdsPairings.id, id), eq(kdsPairings.tenantId, tenantId)));
     return NextResponse.json({ ok: true });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    const msg = (err as Error).message;
+    const cause = (err as Error).cause;
+    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
   }
 }

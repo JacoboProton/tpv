@@ -7,6 +7,8 @@ export async function POST() {
     return NextResponse.json({ ok: true, message: 'Migraciones ejecutadas correctamente' });
   } catch (err) {
     console.error('Error en migración:', err);
-    return NextResponse.json({ ok: false, error: (err as Error).message }, { status: 500 });
+    const msg = (err as Error).message;
+    const cause = (err as Error).cause;
+    return NextResponse.json({ ok: false, error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
   }
 }

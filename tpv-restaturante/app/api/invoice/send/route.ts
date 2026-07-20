@@ -65,6 +65,8 @@ export async function POST(req: NextRequest) {
       message: 'SMTP no configurado. Descarga manual disponible.',
     });
   } catch (err: any) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    const msg = (err as Error).message;
+    const cause = (err as Error).cause;
+    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
   }
 }

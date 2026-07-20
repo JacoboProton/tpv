@@ -47,7 +47,9 @@ export async function GET(req: NextRequest) {
       createdAt: r.created_at, updatedAt: r.updated_at,
     })));
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    const msg = (err as Error).message;
+    const cause = (err as Error).cause;
+    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
   }
 }
 
@@ -90,7 +92,9 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ ok: true, id });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    const msg = (err as Error).message;
+    const cause = (err as Error).cause;
+    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
   }
 }
 
@@ -113,6 +117,8 @@ export async function DELETE(req: NextRequest) {
     await db.execute(sql`DELETE FROM reservations WHERE id = ${id} AND tenant_id = ${tenantId}`);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    const msg = (err as Error).message;
+    const cause = (err as Error).cause;
+    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
   }
 }
