@@ -243,12 +243,45 @@ export async function processPendingSales(): Promise<void> {
   }
 }
 
+export async function syncCachedSales(): Promise<void> {
+  try {
+    const cached = await AsyncStorage.getItem('tpv:sales');
+    if (!cached) return;
+    const local: Sale[] = JSON.parse(cached);
+    if (local.length === 0) return;
+    const data = await apiFetch<Sale[]>('/sales');
+    const serverIds = new Set(data.map(s => s.id));
+    const unsynced = local.filter(s => !serverIds.has(s.id));
+    if (unsynced.length === 0) return;
+    logInfo('Syncing cached sales to server', { count: unsynced.length });
+    const syncedIds = new Set<string>();
+    for (const sale of unsynced) {
+      try {
+        await apiFetch<{ ok: boolean }>('/sales', {
+          method: 'POST',
+          body: JSON.stringify(sale),
+        });
+        syncedIds.add(sale.id);
+        logDebug('Cached sale synced', { saleId: sale.id });
+      } catch (e) {
+        logWarn('Failed to sync cached sale', { error: e, saleId: sale.id });
+      }
+    }
+    if (syncedIds.size > 0) {
+      const remaining = local.filter(s => !syncedIds.has(s.id));
+      await AsyncStorage.setItem('tpv:sales', JSON.stringify(remaining));
+      logInfo('Synced sales removed from local cache', { synced: syncedIds.size, remaining: remaining.length });
+    }
+  } catch (e) {
+    logError('Error syncing cached sales', { error: e });
+  }
+}
+
 export async function fetchSales(): Promise<Sale[]> {
   try {
     const data = await apiFetch<Sale[]>('/sales');
-    // Trigger retry of pending sales — online again
     processPendingSales();
-    // Merge with local cache so recently-saved sales appear immediately
+    syncCachedSales();
     const cached = await AsyncStorage.getItem('tpv:sales');
     const local = cached ? JSON.parse(cached) : [];
     const ids = new Set(data.map(s => s.id));
