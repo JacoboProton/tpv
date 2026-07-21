@@ -1,13 +1,14 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Bell } from 'lucide-react';
 
 import { type Theme, THEMES, clone } from '../components/constants';
 import { FatalError } from '../components/FatalError';
 import { LoginGuard } from '../components/LoginGuard';
 import { LoadingSkeleton } from '../components/LoadingSkeleton';
 import { OfflineBanner } from '../components/OfflineBanner';
+import { FloorLoading } from '../components/FloorLoading';
+import { QrCallBanner } from '../components/QrCallBanner';
 import { fetchModifiers } from '../lib/api';
 import { escposOpenDrawer, printESCPOS, isPrinterConnected } from '../lib/thermal-printer';
 
@@ -189,18 +190,20 @@ export default function App() {
     fetchModifiers().then(data => { if (data) setModifierData(data); }).catch(() => {});
   }, [catalog]);
 
+  const dismissQrCalls = async () => {
+    for (const call of qrCalls) {
+      await fetch('/api/qr-calls', { method: 'PUT', body: JSON.stringify({ id: call.id }) });
+    }
+    setQrCalls([]);
+  };
+
   if (loading) return <LoadingSkeleton colors={C} />;
 
   if (fatalError) return <FatalError error={fatalError} colors={C} />;
 
   if (!currentUser) return <LoginGuard employees={employees} menuMode={menuMode} setMenuMode={setMenuMode} entryPoint={entryPoint} setEntryPoint={setEntryPoint} loginSelected={loginSelected} setLoginSelected={setLoginSelected} pinInput={pinInput} setPinInput={setPinInput} pressDigit={pressDigit} deleteDigit={deleteDigit} colors={C} />;
 
-  if (!floor) return (
-    <div style={{ background: C.base, minHeight: '100vh' }}
-      className="flex items-center justify-center p-6">
-      <div className="animate-pulse text-sm" style={{ color: C.muted }}>Cargando datos del salón…</div>
-    </div>
-  );
+  if (!floor) return <FloorLoading colors={C} />;
 
   return (
     <div style={{ background: C.base, color: C.cream, minHeight: '100vh' }} className="flex">
@@ -210,15 +213,7 @@ export default function App() {
 
       {isOffline && <OfflineBanner colors={C} pendingMutations={pendingMutations} />}
 
-      {qrCalls.length > 0 && (
-        <div style={{ background: C.brass, color: '#000' }} className="flex items-center justify-between px-4 py-2 text-xs font-medium no-print">
-          <span className="flex items-center gap-2"><Bell className="w-3.5 h-3.5" />{qrCalls.length === 1 ? `Mesa ${qrCalls[0].tableName || qrCalls[0].tableId} necesita atención` : `${qrCalls.length} mesas llaman al camarero`}</span>
-          <button onClick={async () => { for (const call of qrCalls) { await fetch('/api/qr-calls', { method: 'PUT', body: JSON.stringify({ id: call.id }) }); } setQrCalls([]); }}
-            className="px-2 py-0.5 rounded text-[10px] font-bold hover:opacity-80" style={{ background: 'rgba(0,0,0,0.2)' }}>
-            Atender
-          </button>
-        </div>
-      )}
+      <QrCallBanner qrCalls={qrCalls} colors={C} onDismiss={dismissQrCalls} />
 
       <TopBar colors={C} theme={theme} toggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} currentUser={currentUser} trainingMode={trainingMode} toggleTraining={toggleTraining} handlePrint={handlePrint} setShowSettings={setShowSettings} setMenuMode={setMenuMode} logout={logout} showToast={showToast} ticketSettings={ticketSettings} loadClockinSummary={loadClockinSummary} setShowClockinModal={setShowClockinModal} clockinSummary={clockinSummary} />
 
