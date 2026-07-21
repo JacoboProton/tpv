@@ -1,13 +1,13 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import {
-  WifiOff, Bell,
-} from 'lucide-react';
+import { Bell } from 'lucide-react';
 
 import { type Theme, THEMES, clone } from '../components/constants';
 import { FatalError } from '../components/FatalError';
 import { LoginGuard } from '../components/LoginGuard';
+import { LoadingSkeleton } from '../components/LoadingSkeleton';
+import { OfflineBanner } from '../components/OfflineBanner';
 import { fetchModifiers } from '../lib/api';
 import { escposOpenDrawer, printESCPOS, isPrinterConnected } from '../lib/thermal-printer';
 
@@ -189,15 +189,7 @@ export default function App() {
     fetchModifiers().then(data => { if (data) setModifierData(data); }).catch(() => {});
   }, [catalog]);
 
-  if (loading) return (
-    <div style={{ background: C.base, color: C.cream, minHeight: '100vh' }} className="p-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {Array.from({ length: 6 }).map((_: any, i) => (
-          <div key={i} className="h-32 rounded-xl animate-pulse" style={{ background: C.surface }} />
-        ))}
-      </div>
-    </div>
-  );
+  if (loading) return <LoadingSkeleton colors={C} />;
 
   if (fatalError) return <FatalError error={fatalError} colors={C} />;
 
@@ -216,12 +208,7 @@ export default function App() {
 
       <div className="flex flex-col flex-1 min-w-0" style={{ maxHeight: '100vh', overflowY: 'auto' }}>
 
-      {isOffline && (
-        <div style={{ background: C.wine, color: C.cream }} className="flex items-center justify-center gap-2 px-4 py-1.5 text-xs font-medium no-print">
-          <WifiOff className="w-3.5 h-3.5" /> Sin conexión — los cambios se guardarán cuando vuelva la red
-          {pendingMutations > 0 && <span className="ml-1">({pendingMutations} pendientes)</span>}
-        </div>
-      )}
+      {isOffline && <OfflineBanner colors={C} pendingMutations={pendingMutations} />}
 
       {qrCalls.length > 0 && (
         <div style={{ background: C.brass, color: '#000' }} className="flex items-center justify-between px-4 py-2 text-xs font-medium no-print">
