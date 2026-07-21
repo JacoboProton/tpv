@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { sql } from 'drizzle-orm';
+import { sql, eq } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { requireAdminPin } from '../../../lib/rbac';
@@ -15,8 +15,9 @@ export async function POST(req: NextRequest) {
     }
 
     const db = getDb();
+    const tenantId = getTenantId(req);
 
-    const backup = await db.select().from(orders);
+    const backup = await db.select().from(orders).where(eq(orders.tenantId, tenantId));
     const backupId = 'backup_orders_' + Date.now();
     await db.execute(sql`
       INSERT INTO backups (id, data, created_at)
@@ -24,16 +25,7 @@ export async function POST(req: NextRequest) {
       ON CONFLICT (id) DO NOTHING
     `);
 
-    await db.execute(sql`DROP TABLE IF EXISTS orders CASCADE`);
-    await db.execute(sql`
-      CREATE TABLE orders (
-        id            TEXT   PRIMARY KEY,
-        table_id      TEXT   NOT NULL,
-        items         JSONB  NOT NULL DEFAULT '[]',
-        created_at    BIGINT NOT NULL,
-        employee_name TEXT
-      )
-    `);
-    return apiOk({ message: 'Tabla orders recreada correctamente', backedUp: backup.length });
+    await db.delete(orders).where(eq(orders.tenantId, tenantId));
+    return apiOk({ message: `Órdenes del tenant ${tenantId} eliminadas`, backedUp: backup.length });
   } catch (err) { return apiError(err); }
 }
