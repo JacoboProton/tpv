@@ -9,6 +9,7 @@ export interface OrderCreatedEvent {
 
 export interface OrderClosedEvent {
   saleId: string
+  invoiceNumber?: string
   tableId: string
   tableName: string
   items: any[]

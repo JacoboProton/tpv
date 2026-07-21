@@ -2,7 +2,6 @@
 
 import { useState, useCallback } from 'react'
 import { round2, euros } from '../components/constants'
-import { registerVerifactu } from '../lib/api'
 import { saveStockLog } from '../infrastructure/database/stock-log-repository'
 import { eventBus } from '../lib/event-bus'
 import { sha256 } from '../lib/crypto'
@@ -10,7 +9,6 @@ import { calculateOrderSubtotal } from '../domain/order/line-totals'
 import { calculatePersonalDiscountAmount } from '../domain/pricing/personal-discount'
 import { executeCloseOrder } from '../application/CloseOrder/close-order'
 import { applyPersonalDiscount as applyPersonalDiscountOp, removePersonalDiscount as removePersonalDiscountOp } from '../application/ApplyPersonalDiscount/apply-personal-discount'
-import { isPrinterConnected, printESCPOS, escposOpenDrawer } from '../lib/thermal-printer'
 
 const API_KEY = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_TPV_API_KEY) || ''
 
@@ -141,18 +139,12 @@ export function useOrderPayments(
     persistSales([...sales, sale])
 
     eventBus.emit('order:closed', {
-      saleId: sale.id, tableId: table.id, tableName: table.name,
+      saleId: sale.id, invoiceNumber: sale.invoiceNumber,
+      tableId: table.id, tableName: table.name,
       items: sale.items, subtotal: sale.subtotal, discount: orderDiscount, total: sale.total, tip: tipAmount, totalWithTip: sale.totalWithTip,
       paymentMethod: sale.paymentMethod, payments: sale.payments, isFiado: sale.isFiado, isDebtPayment: wasDebt,
       employeeId: currentUser?.id || null, employeeName: currentUser?.name || null,
       closedAt: sale.closedAt,
-    })
-
-    registerVerifactu(sale.id, sale).then(() => {
-      showToast(`✅ Factura electrónica registrada (${sale.invoiceNumber || sale.id})`)
-    }).catch(err => {
-      console.warn('Verifactu:', err)
-      showToast('⚠️ Error al registrar factura electrónica — revisa Gestoría')
     })
 
     resetPaymentState()
@@ -163,10 +155,6 @@ export function useOrderPayments(
         : sale.isFiado ? `Fiado: ${euros(sale.totalWithTip)}${discStr}${offerStr}${tipStr}`
           : `Cobrado: ${euros(sale.totalWithTip)}${discStr}${offerStr}${tipStr}`
     )
-
-    if (sale.payments.some((p: any) => p.method === 'efectivo') && isPrinterConnected()) {
-      printESCPOS(escposOpenDrawer()).catch(() => {})
-    }
   }, [floor, catalog, sales, selectedTableId, orderDiscount, tipAmount, tipMethod,
       paymentSplits, paymentIntentId, invoiceNif, invoiceName, invoiceAddress, invoiceEmail,
       modifierData, offers, trainingMode, currentUser, persistFloor,

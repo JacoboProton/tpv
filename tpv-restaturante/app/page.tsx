@@ -9,6 +9,7 @@ import { LoadingSkeleton } from '../components/LoadingSkeleton';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { FloorLoading } from '../components/FloorLoading';
 import { QrCallBanner } from '../components/QrCallBanner';
+import { registerAllSubscribers } from '../application/subscribers';
 import { fetchModifiers } from '../lib/api';
 import { escposOpenDrawer, printESCPOS, isPrinterConnected } from '../lib/thermal-printer';
 
@@ -189,6 +190,10 @@ export default function App() {
     if (!catalog) return;
     fetchModifiers().then(data => { if (data) setModifierData(data); }).catch(() => {});
   }, [catalog]);
+
+  useEffect(() => {
+    registerAllSubscribers({ showToast });
+  }, [showToast]);
 
   const dismissQrCalls = async () => {
     for (const call of qrCalls) {
