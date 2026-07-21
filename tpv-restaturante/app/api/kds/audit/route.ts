@@ -28,8 +28,9 @@ export async function GET(req: NextRequest) {
     const db = getDb();
     const tenantId = getTenantId(req);
 
-    let filters = eq(kdsAuditLog.tenantId, tenantId);
-    if (action) filters = and(filters, eq(kdsAuditLog.action, action));
+    const filters = action
+      ? and(eq(kdsAuditLog.tenantId, tenantId), eq(kdsAuditLog.action, action))
+      : eq(kdsAuditLog.tenantId, tenantId);
 
     const rows = await db.select({
       id: kdsAuditLog.id, action: kdsAuditLog.action,
