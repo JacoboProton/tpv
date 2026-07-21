@@ -40,6 +40,7 @@ export interface PaymentCompletedEvent {
   tableId: string
   amount: number
   method: string
+  payments: any[]
   employeeName: string | null
   timestamp: number
 }

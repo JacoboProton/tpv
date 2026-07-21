@@ -160,9 +160,8 @@ export function useOrderItems(
         productName: result.itemName, course: result.course,
         tableName: result.tableName,
       })
-      showToast(`${result.itemName} enviado a cocina`)
     }
-  }, [floor, getContext, persistFloor, showToast])
+  }, [floor, getContext, persistFloor])
 
   const updateItemCourse = useCallback((itemId: string, course?: string) => {
     const ctx = getContext()

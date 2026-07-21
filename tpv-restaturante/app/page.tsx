@@ -184,7 +184,7 @@ export default function App() {
   } = inv;
 
   const { printInvoice, handleDownloadPdf, handleSendInvoiceEmail } = useInvoice({ ticketSettings, showToast });
-  const { handleRefund, handleConfirmBizum } = useSalesActions({ sales, setSales, currentUser, showToast });
+  const { handleRefund, handleConfirmBizum } = useSalesActions({ sales, setSales, currentUser });
 
   useEffect(() => {
     if (!catalog) return;
