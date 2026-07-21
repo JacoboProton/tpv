@@ -1,4 +1,5 @@
 import { registerOrderSubscribers } from './order-subscribers'
+import { registerStockSubscribers } from './stock-subscribers'
 
 let registered = false
 
@@ -8,4 +9,5 @@ export function registerAllSubscribers(deps: {
   if (registered) return
   registered = true
   registerOrderSubscribers(deps)
+  registerStockSubscribers(deps)
 }
