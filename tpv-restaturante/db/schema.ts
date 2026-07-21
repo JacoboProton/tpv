@@ -25,6 +25,7 @@ export const closures = pgTable("closures", {
 	cuadratura: jsonb().default([]),
 }, (table) => [
 	index("idx_closures_date").using("btree", table.date.asc().nullsLast().op("text_ops")),
+	index("idx_closures_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
 ]);
 
 export const product = pgTable("Product", {
@@ -67,6 +68,7 @@ export const user = pgTable("User", {
 			foreignColumns: [tenant.id],
 			name: "User_tenantId_fkey"
 		}).onUpdate("cascade").onDelete("restrict"),
+	index("idx_user_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
 ]);
 
 export const tenant = pgTable("Tenant", {
@@ -88,6 +90,7 @@ export const store = pgTable("Store", {
 			foreignColumns: [tenant.id],
 			name: "Store_tenantId_fkey"
 		}).onUpdate("cascade").onDelete("restrict"),
+	index("idx_store_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
 ]);
 
 export const category = pgTable("Category", {
@@ -187,6 +190,7 @@ export const stockMovement = pgTable("StockMovement", {
 			foreignColumns: [ingredient.id],
 			name: "StockMovement_ingredientId_fkey"
 		}).onUpdate("cascade").onDelete("restrict"),
+	index("idx_stockMovement_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
 ]);
 
 export const shift = pgTable("Shift", {
@@ -220,6 +224,7 @@ export const sessions = pgTable("sessions", {
 	lastSeen: bigint("last_seen", { mode: "number" }).notNull(),
 }, (table) => [
 	unique("unique_session").on(table.deviceId, table.employeeId, table.tenantId),
+	index("idx_sessions_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
 ]);
 
 export const attendance = pgTable("Attendance", {
@@ -295,6 +300,7 @@ export const webhookEvents = pgTable("webhook_events", {
 	tenantId: text("tenant_id").default('default').notNull(),
 }, (table) => [
 	index("idx_webhook_events_status").using("btree", table.status.asc().nullsLast().op("text_ops")),
+	index("idx_webhookEvents_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
 ]);
 
 export const backpacks = pgTable("backpacks", {
@@ -739,7 +745,10 @@ export const paymentLogs = pgTable("payment_logs", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	createdAt: bigint("created_at", { mode: "number" }).notNull(),
 	tenantId: text("tenant_id").default('default').notNull(),
-});
+}, (table) => [
+	index("idx_paymentLogs_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
+]);
+
 
 export const deliveryTracking = pgTable("delivery_tracking", {
 	id: serial().primaryKey().notNull(),
@@ -757,6 +766,7 @@ export const deliveryTracking = pgTable("delivery_tracking", {
 			foreignColumns: [deliveryOrders.id],
 			name: "delivery_tracking_delivery_id_fkey"
 		}).onDelete("cascade"),
+	index("idx_deliveryTracking_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
 ]);
 
 export const deliveryOrders = pgTable("delivery_orders", {
@@ -803,6 +813,7 @@ export const modifierOptions = pgTable("modifier_options", {
 			foreignColumns: [modifierGroups.id],
 			name: "modifier_options_group_id_fkey"
 		}).onDelete("cascade"),
+	index("idx_modifierOptions_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
 ]);
 
 export const backups = pgTable("backups", {
@@ -932,6 +943,7 @@ export const mealMenuSchedules = pgTable("meal_menu_schedules", {
 			foreignColumns: [mealMenus.id],
 			name: "meal_menu_schedules_menu_id_fkey"
 		}).onDelete("cascade"),
+	index("idx_mealMenuSchedules_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
 ]);
 
 export const mealMenuCourses = pgTable("meal_menu_courses", {
@@ -946,6 +958,7 @@ export const mealMenuCourses = pgTable("meal_menu_courses", {
 			foreignColumns: [mealMenus.id],
 			name: "meal_menu_courses_menu_id_fkey"
 		}).onDelete("cascade"),
+	index("idx_mealMenuCourses_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
 ]);
 
 export const gestoriaDocuments = pgTable("gestoria_documents", {
@@ -963,6 +976,7 @@ export const gestoriaDocuments = pgTable("gestoria_documents", {
 	tenantId: text("tenant_id").default('default').notNull(),
 }, (table) => [
 	check("gestoria_documents_type_check", sql`type = ANY (ARRAY['expense'::text, 'income'::text])`),
+	index("idx_gestoriaDocuments_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
 ]);
 
 export const combos = pgTable("combos", {
@@ -1021,6 +1035,7 @@ export const mealMenuCourseItems = pgTable("meal_menu_course_items", {
 			foreignColumns: [products.id],
 			name: "meal_menu_course_items_product_id_fkey"
 		}).onDelete("cascade"),
+	index("idx_mealMenuCourseItems_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
 ]);
 
 export const waitlist = pgTable("waitlist", {
@@ -1064,7 +1079,10 @@ export const gestoriaPayrolls = pgTable("gestoria_payrolls", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	createdAt: bigint("created_at", { mode: "number" }).notNull(),
 	tenantId: text("tenant_id").default('default').notNull(),
-});
+}, (table) => [
+	index("idx_gestoriaPayrolls_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
+]);
+
 
 export const gestoriaTaxModels = pgTable("gestoria_tax_models", {
 	id: text().primaryKey().notNull(),
@@ -1082,6 +1100,7 @@ export const gestoriaTaxModels = pgTable("gestoria_tax_models", {
 }, (table) => [
 	unique("gestoria_tax_models_tenant_id_model_code_year_quarter_key").on(table.modelCode, table.quarter, table.tenantId, table.year),
 	check("gestoria_tax_models_status_check", sql`status = ANY (ARRAY['draft'::text, 'reviewed'::text, 'presented'::text])`),
+	index("idx_gestoriaTaxModels_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
 ]);
 
 export const gestoriaAuthorization = pgTable("gestoria_authorization", {
@@ -1098,6 +1117,7 @@ export const gestoriaAuthorization = pgTable("gestoria_authorization", {
 	tenantId: text("tenant_id").default('default').notNull(),
 }, (table) => [
 	check("gestoria_authorization_id_check", sql`id = 1`),
+	index("idx_gestoriaAuthorization_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
 ]);
 
 export const kdsAuditLog = pgTable("kds_audit_log", {
@@ -1107,7 +1127,10 @@ export const kdsAuditLog = pgTable("kds_audit_log", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	createdAt: bigint("created_at", { mode: "number" }).notNull(),
 	tenantId: text("tenant_id").default('default').notNull(),
-});
+}, (table) => [
+	index("idx_kdsAuditLog_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
+]);
+
 
 export const reservationRecurring = pgTable("reservation_recurring", {
 	id: text().primaryKey().notNull(),
@@ -1125,6 +1148,7 @@ export const reservationRecurring = pgTable("reservation_recurring", {
 	createdAt: bigint("created_at", { mode: "number" }).notNull(),
 }, (table) => [
 	check("reservation_recurring_weekday_check", sql`(weekday >= 0) AND (weekday <= 6)`),
+	index("idx_reservationRecurring_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
 ]);
 
 export const reservations = pgTable("reservations", {
@@ -1175,6 +1199,7 @@ export const gestoriaDocumentLines = pgTable("gestoria_document_lines", {
 		}).onDelete("cascade"),
 	check("gestoria_document_lines_type_check", sql`type = ANY (ARRAY['good'::text, 'service'::text])`),
 	check("gestoria_document_lines_zone_check", sql`zone = ANY (ARRAY['spain'::text, 'eu'::text, 'outside_eu'::text])`),
+	index("idx_gestoriaDocumentLines_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
 ]);
 
 export const suppliers = pgTable("suppliers", {
@@ -1221,7 +1246,10 @@ export const timeOffRequests = pgTable("time_off_requests", {
 	createdAt: bigint("created_at", { mode: "number" }).notNull(),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	resolvedAt: bigint("resolved_at", { mode: "number" }),
-});
+}, (table) => [
+	index("idx_timeOffRequests_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
+]);
+
 
 export const employeeShifts = pgTable("employee_shifts", {
 	id: text().primaryKey().notNull(),
@@ -1357,6 +1385,7 @@ export const modifierRecipeIngredients = pgTable("modifier_recipe_ingredients", 
 			foreignColumns: [modifierRecipes.id],
 			name: "modifier_recipe_ingredients_modifier_recipe_id_fkey"
 		}).onDelete("cascade"),
+	index("idx_modifierRecipeIngredients_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
 ]);
 
 export const productionIngredients = pgTable("production_ingredients", {
@@ -1770,6 +1799,7 @@ export const productModifiers = pgTable("product_modifiers", {
 			name: "product_modifiers_group_id_fkey"
 		}).onDelete("cascade"),
 	primaryKey({ columns: [table.groupId, table.productId], name: "product_modifiers_pkey"}),
+	index("idx_productModifiers_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
 ]);
 
 export const gestoriaSettings = pgTable("gestoria_settings", {
@@ -1778,6 +1808,7 @@ export const gestoriaSettings = pgTable("gestoria_settings", {
 	tenantId: text("tenant_id").default('default').notNull(),
 }, (table) => [
 	primaryKey({ columns: [table.key, table.tenantId], name: "gestoria_settings_pkey"}),
+	index("idx_gestoriaSettings_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
 ]);
 
 export const ticketCounters = pgTable("ticket_counters", {
@@ -1786,6 +1817,7 @@ export const ticketCounters = pgTable("ticket_counters", {
 	counter: integer().default(0).notNull(),
 }, (table) => [
 	primaryKey({ columns: [table.tenantId, table.year], name: "ticket_counters_pkey"}),
+	index("idx_ticketCounters_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
 ]);
 
 export const productStock = pgTable("product_stock", {
@@ -1846,6 +1878,7 @@ export const qrCalls = pgTable("qr_calls", {
 }, (table) => [
 	primaryKey({ columns: [table.id, table.tenantId], name: "qr_calls_pkey"}),
 	unique("qr_calls_tenant_id_id_uniq").on(table.id, table.tenantId),
+	index("idx_qrCalls_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
 ]);
 
 export const kdsPairings = pgTable("kds_pairings", {
@@ -1862,6 +1895,7 @@ export const kdsPairings = pgTable("kds_pairings", {
 }, (table) => [
 	primaryKey({ columns: [table.id, table.tenantId], name: "kds_pairings_pkey"}),
 	unique("kds_pairings_tenant_id_id_uniq").on(table.id, table.tenantId),
+	index("idx_kdsPairings_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
 ]);
 
 export const offers = pgTable("offers", {
