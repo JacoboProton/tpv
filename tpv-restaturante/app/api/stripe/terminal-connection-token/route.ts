@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { apiOk, apiError } from '../../../../lib/infrastructure/response';
 import Stripe from 'stripe';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../../../lib/drizzle';
@@ -70,11 +71,9 @@ export async function POST(req: NextRequest) {
     const tenantId = getTenantId(req);
     const locationId = await getOrCreateLocation(stripe, tenantId);
     const ct = await stripe.terminal.connectionTokens.create({});
-    return NextResponse.json({ connectionToken: ct.secret, locationId });
-  } catch (err: any) {
+    return apiOk({ connectionToken: ct.secret, locationId });
+  } catch (err) {
     console.error('Terminal error:', err);
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
+    return apiError(err);
   }
 }

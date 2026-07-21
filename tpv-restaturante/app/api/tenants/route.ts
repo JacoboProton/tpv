@@ -1,30 +1,27 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { eq, sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { tenants } from '../../../db/schema';
+import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiServerError } from '../../../lib/infrastructure/response';
 
 export async function GET() {
   try {
     const db = getDb();
     const rows = await db.select().from(tenants).orderBy(tenants.name);
-    return NextResponse.json(rows.map(r => ({
+    return apiOk(rows.map(r => ({
       id: r.id, name: r.name, slug: r.slug,
       logoUrl: r.logoUrl, address: r.address, phone: r.phone,
       email: r.email, nif: r.nif, active: r.active,
       config: r.config, createdAt: r.createdAt,
     })));
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+  } catch (err) { return apiError(err); }
 }
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json() as any;
     const { name, slug } = body;
-    if (!name || !slug) return NextResponse.json({ error: 'name and slug required' }, { status: 400 });
+    if (!name || !slug) return apiBadRequest('name and slug required');
     const db = getDb();
 
     const id = 'tnt_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -34,19 +31,15 @@ export async function POST(req: NextRequest) {
       email: body.email || '', nif: body.nif || '',
       active: true, config: {}, createdAt: Date.now(),
     });
-    return NextResponse.json({ id, ok: true });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk({ id, ok: true });
+  } catch (err) { return apiError(err); }
 }
 
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json() as any;
     const { id, name, address, phone, email, nif, active } = body;
-    if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
+    if (!id) return apiBadRequest('id required');
     const db = getDb();
 
     await db.update(tenants).set({
@@ -57,24 +50,16 @@ export async function PUT(req: NextRequest) {
       nif: sql`COALESCE(${nif}, nif)`,
       active: sql`COALESCE(${active}, active)`,
     }).where(eq(tenants.id, id));
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk();
+  } catch (err) { return apiError(err); }
 }
 
 export async function DELETE(req: NextRequest) {
   try {
     const { id } = await req.json() as any;
-    if (!id || id === 'default') return NextResponse.json({ error: 'cannot delete default tenant' }, { status: 400 });
+    if (!id || id === 'default') return apiBadRequest('cannot delete default tenant');
     const db = getDb();
     await db.delete(tenants).where(eq(tenants.id, id));
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk();
+  } catch (err) { return apiError(err); }
 }

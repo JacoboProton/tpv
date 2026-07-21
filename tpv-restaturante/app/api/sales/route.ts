@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { and, desc, eq, gte, inArray, like, lte, sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { sales, verifactuRegistros, ticketCounters } from '../../../db/schema';
+import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
 
 export async function GET(req: NextRequest) {
   try {
@@ -68,12 +69,8 @@ export async function GET(req: NextRequest) {
       verifactuNumSerie: verifactuMap[r.id]?.numSerie || '',
       ticketNumber: r.ticketNumber,
     }));
-    return NextResponse.json(mapped);
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk(mapped);
+  } catch (err) { return apiError(err); }
 }
 
 export async function POST(req: NextRequest) {
@@ -112,7 +109,7 @@ export async function POST(req: NextRequest) {
           stripeConfirmed: true,
           ticketNumber,
         }).where(eq(sales.id, stub.id));
-        return NextResponse.json({ ok: true, upgradedStub: true, ticketNumber });
+        return apiOk({ upgradedStub: true, ticketNumber });
       }
     }
 
@@ -132,12 +129,8 @@ export async function POST(req: NextRequest) {
       paymentIntentId: s.paymentIntentId ?? '',
       ticketNumber,
     }).onConflictDoNothing();
-    return NextResponse.json({ ok: true, ticketNumber });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk({ ticketNumber });
+  } catch (err) { return apiError(err); }
 }
 
 export async function PATCH(req: NextRequest) {
@@ -146,13 +139,9 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json() as { saleId: string; payments: unknown };
     const { saleId, payments } = body;
     if (!saleId || !payments) {
-      return NextResponse.json({ error: 'saleId and payments required' }, { status: 400 });
+      return apiBadRequest('saleId and payments required');
     }
     await db.update(sales).set({ payments }).where(eq(sales.id, saleId));
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk();
+  } catch (err) { return apiError(err); }
 }

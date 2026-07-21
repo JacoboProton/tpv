@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
+import { apiOk, apiError } from '../../../lib/infrastructure/response';
 
 export async function GET(req: NextRequest) {
   try {
@@ -9,15 +10,11 @@ export async function GET(req: NextRequest) {
     const db = getDb();
     const result = await db.execute(sql`SELECT * FROM clockin_corrections WHERE tenant_id = ${tenantId} ORDER BY created_at DESC LIMIT 200`);
     const rows = (result as any).rows;
-    return NextResponse.json(rows.map((r: any) => ({
+    return apiOk(rows.map((r: any) => ({
       id: r.id, clockinId: r.clockin_id, employeeId: r.employee_id,
       employeeName: r.employee_name, requestedAction: r.requested_action,
       reason: r.reason, status: r.status, resolvedBy: r.resolved_by,
       createdAt: Number(r.created_at),
     })));
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+  } catch (err) { return apiError(err); }
 }

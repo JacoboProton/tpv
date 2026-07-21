@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { eq, sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
+import { apiOk, apiError } from '../../../lib/infrastructure/response';
 import { categories, products, tables, orders, sales, employees, accessLogs, stockLog, cancelledOrders, offers, settings, modifierGroups, productStock, deliveryRunners, deliveryOrders, deliveryTracking } from '../../../db/schema';
 
 export async function GET(req: NextRequest) {
@@ -40,15 +41,11 @@ export async function GET(req: NextRequest) {
       stats[key] = Array.isArray(val) ? val.length : 0;
     }
 
-    return NextResponse.json({
+    return apiOk({
       exportedAt: new Date().toISOString(),
       version: '2.0',
       stats,
       data,
     });
-  } catch (err: any) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+  } catch (err: any) { return apiError(err); }
 }

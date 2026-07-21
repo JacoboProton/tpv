@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiForbidden, apiTooManyRequests, apiCreated, apiServerError } from '../../../lib/infrastructure/response';
 import { eq, and, sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
@@ -40,10 +41,6 @@ export async function POST(req: NextRequest) {
           ));
       }
     }
-    return NextResponse.json({ ok: true, movidos: rows.map(r => r.name) });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk({ ok: true, movidos: rows.map(r => r.name) });
+  } catch (err) { return apiError(err); }
 }

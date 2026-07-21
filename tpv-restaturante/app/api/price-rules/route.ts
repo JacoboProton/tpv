@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiForbidden, apiTooManyRequests, apiCreated, apiServerError } from '../../../lib/infrastructure/response';
 import { eq, sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
@@ -17,12 +18,8 @@ export async function GET(req: NextRequest) {
     }).from(productPriceRules)
       .where(eq(productPriceRules.tenantId, tenantId))
       .orderBy(productPriceRules.productId, productPriceRules.name);
-    return NextResponse.json(rules.map(r => ({ ...r, active: !!r.active })));
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk(rules.map(r => ({ ...r, active: !!r.active })));
+  } catch (err) { return apiError(err); }
 }
 
 export async function PUT(req: NextRequest) {
@@ -39,10 +36,6 @@ export async function PUT(req: NextRequest) {
         type: r.type, value: r.value, createdAt: Date.now(), tenantId,
       });
     }
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk();
+  } catch (err) { return apiError(err); }
 }

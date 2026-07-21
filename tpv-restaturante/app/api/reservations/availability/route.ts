@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { apiOk, apiError, apiBadRequest } from '../../../../lib/infrastructure/response';
 import { eq, sql } from 'drizzle-orm';
 import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
     const date = searchParams.get('date');
     const pax = parseInt(searchParams.get('pax') || '2', 10);
 
-    if (!date) return NextResponse.json({ error: 'date required' }, { status: 400 });
+    if (!date) return apiBadRequest('date required');
 
     const [settingsRows, tableRows, existingRows] = await Promise.all([
       db.select().from(settings).where(eq(settings.tenantId, tenantId)),
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest) {
     const interval = Number(settingsMap.reservationInterval || 30);
     const maxPax = Number(settingsMap.reservationMaxPax || 8);
 
-    if (pax > maxPax) return NextResponse.json({ error: `Máximo ${maxPax} comensales` }, { status: 400 });
+    if (pax > maxPax) return apiBadRequest(`Máximo ${maxPax} comensales`);
     if (settingsMap.reservationOnline !== 'true') return NextResponse.json({ error: 'Reservas online no disponibles' }, { status: 503 });
 
     let openTime = '00:00', closeTime = '23:59';
@@ -96,10 +97,6 @@ export async function GET(req: NextRequest) {
       current += interval;
     }
 
-    return NextResponse.json({ slots, date, pax, isClosed, isBlocked, totalSeats, existingPax, availableSeats, openTime, closeTime });
-  } catch (err: any) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk({ slots, date, pax, isClosed, isBlocked, totalSeats, existingPax, availableSeats, openTime, closeTime });
+  } catch (err) { return apiError(err); }
 }

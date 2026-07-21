@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { kdsPairings } from '../../../db/schema';
+import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
 
 function makeId() { return 'k_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 function generateCode() {
@@ -27,9 +28,9 @@ export async function GET(req: NextRequest) {
         .where(and(eq(kdsPairings.deviceId, deviceId), eq(kdsPairings.revoked, false)))
         .limit(1);
       if (rows.length > 0) {
-        return NextResponse.json({ paired: true, pairing: rows[0] });
+        return apiOk({ paired: true, pairing: rows[0] });
       }
-      return NextResponse.json({ paired: false });
+      return apiOk({ paired: false });
     }
 
     const db = getDb();
@@ -37,15 +38,11 @@ export async function GET(req: NextRequest) {
     const rows = await db.select().from(kdsPairings)
       .where(eq(kdsPairings.tenantId, tenantId))
       .orderBy(desc(kdsPairings.createdAt));
-    return NextResponse.json(rows.map(r => ({
+    return apiOk(rows.map(r => ({
       id: r.id, code: r.code, label: r.label, deviceId: r.deviceId,
       expiresAt: r.expiresAt, createdAt: r.createdAt, revoked: r.revoked,
     })));
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+  } catch (err) { return apiError(err); }
 }
 
 export async function POST(req: NextRequest) {
@@ -63,7 +60,7 @@ export async function POST(req: NextRequest) {
         id, code, label: body.label || '', deviceId: '',
         expiresAt, createdAt: Date.now(), revoked: false, tenantId,
       });
-      return NextResponse.json({ ok: true, id, code, expiresAt });
+      return apiOk({ id, code, expiresAt });
     }
 
     if (action === 'verify') {
@@ -72,22 +69,18 @@ export async function POST(req: NextRequest) {
         .where(sql`${eq(kdsPairings.code, code)} AND ${eq(kdsPairings.revoked, false)} AND ${sql.raw('expires_at')} > ${Date.now()}`)
         .limit(1);
       if (rows.length === 0) {
-        return NextResponse.json({ ok: false, error: 'Código inválido o caducado' }, { status: 400 });
+        return apiBadRequest('Código inválido o caducado');
       }
       const pairing = rows[0];
       const devId = deviceId || makeId() + '_dev';
       await db.update(kdsPairings).set({
         deviceId: devId, label: label || pairing.label,
       }).where(eq(kdsPairings.id, pairing.id));
-      return NextResponse.json({ ok: true, deviceId: devId, tenantId: pairing.tenantId || 'default', pairing: { id: pairing.id, label: label || pairing.label } });
+      return apiOk({ deviceId: devId, tenantId: pairing.tenantId || 'default', pairing: { id: pairing.id, label: label || pairing.label } });
     }
 
-    return NextResponse.json({ error: 'unknown action' }, { status: 400 });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiBadRequest('unknown action');
+  } catch (err) { return apiError(err); }
 }
 
 export async function DELETE(req: NextRequest) {
@@ -96,12 +89,8 @@ export async function DELETE(req: NextRequest) {
     const tenantId = getTenantId(req);
     const body = await req.json() as any;
     const { id } = body;
-    if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
+    if (!id) return apiBadRequest('id required');
     await db.update(kdsPairings).set({ revoked: true }).where(and(eq(kdsPairings.id, id), eq(kdsPairings.tenantId, tenantId)));
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk();
+  } catch (err) { return apiError(err); }
 }

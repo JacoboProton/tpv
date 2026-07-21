@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiForbidden, apiTooManyRequests, apiCreated, apiServerError } from '../../../lib/infrastructure/response';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
@@ -10,12 +11,8 @@ export async function GET(req: NextRequest) {
     const tenantId = getTenantId(req);
     const rows = await db.select().from(deliveryZones)
       .where(eq(deliveryZones.tenantId, tenantId));
-    return NextResponse.json(rows);
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk(rows);
+  } catch (err) { return apiError(err); }
 }
 
 export async function POST(req: NextRequest) {
@@ -32,12 +29,8 @@ export async function POST(req: NextRequest) {
       active: body.active !== false,
       createdAt: Date.now(), tenantId,
     });
-    return NextResponse.json({ ok: true, id });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk({ ok: true, id });
+  } catch (err) { return apiError(err); }
 }
 
 export async function PUT(req: NextRequest) {
@@ -51,12 +44,8 @@ export async function PUT(req: NextRequest) {
       estimatedMinutes: body.estimatedMinutes || 30,
       active: body.active !== false,
     }).where(eq(deliveryZones.id, body.id));
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk();
+  } catch (err) { return apiError(err); }
 }
 
 export async function DELETE(req: NextRequest) {
@@ -65,10 +54,6 @@ export async function DELETE(req: NextRequest) {
     const tenantId = getTenantId(req);
     const { id } = await req.json() as any;
     await db.delete(deliveryZones).where(and(eq(deliveryZones.id, id), eq(deliveryZones.tenantId, tenantId)));
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk();
+  } catch (err) { return apiError(err); }
 }

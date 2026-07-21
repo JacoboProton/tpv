@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { eq, desc } from 'drizzle-orm';
 import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
@@ -6,6 +6,7 @@ import { requireAdminPin } from '../../../../lib/rbac';
 import { registerSaleInFiskaly } from '../../../../lib/fiskaly';
 import { generateRegistroFactura, formatFecha } from '../../../../lib/verifactu';
 import { verifactuRegistros, sales, backups } from '../../../../db/schema';
+import { apiOk, apiError, apiBadRequest, apiUnauthorized } from '../../../../lib/infrastructure/response';
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json() as any;
     const adminCheck = await requireAdminPin(req, body.adminPin);
     if (!adminCheck.authorized) {
-      return NextResponse.json({ error: adminCheck.error }, { status: adminCheck.status });
+      return apiUnauthorized(adminCheck.error);
     }
 
     const tenantId = getTenantId(req);
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
       .orderBy(sales.closedAt);
 
     if (allSales.length === 0) {
-      return NextResponse.json({ error: 'No hay ventas para regenerar' }, { status: 400 });
+      return apiBadRequest('No hay ventas para regenerar');
     }
 
     await db.delete(verifactuRegistros)
@@ -140,16 +141,12 @@ export async function POST(req: NextRequest) {
 
     const successCount = results.filter(r => r.success).length;
 
-    return NextResponse.json({
+    return apiOk({
       message: `Regenerados ${successCount}/${allSales.length} registros Verifactu`,
       total: allSales.length,
       success: successCount,
       failed: allSales.length - successCount,
       results,
     });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+  } catch (err) { return apiError(err); }
 }

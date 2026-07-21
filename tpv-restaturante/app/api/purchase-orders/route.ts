@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
+import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
 
 export async function GET(req: NextRequest) {
   try {
@@ -36,12 +37,8 @@ export async function GET(req: NextRequest) {
         })),
       });
     }
-    return NextResponse.json(result);
-  } catch (err: any) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk(result);
+  } catch (err) { return apiError(err); }
 }
 
 export async function POST(req: NextRequest) {
@@ -60,13 +57,13 @@ export async function POST(req: NextRequest) {
         await db.execute(sql`INSERT INTO purchase_order_lines (order_id, product_id, product_name, quantity, price_per_unit, supplier_sku, tenant_id)
           VALUES (${id}, ${line.productId}, ${line.productName}, ${line.quantity}, ${line.pricePerUnit || 0}, ${line.supplierSku || ''}, ${tenantId})`);
       }
-      return NextResponse.json({ ok: true, id });
+      return apiOk({ id });
     }
 
     if (action === 'update-status') {
       const { id, status } = body;
       await db.execute(sql`UPDATE purchase_orders SET status=${status}, updated_at=${Date.now()} WHERE id=${id} AND tenant_id = ${tenantId}`);
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
     if (action === 'update-lines') {
@@ -77,7 +74,7 @@ export async function POST(req: NextRequest) {
           VALUES (${id}, ${line.productId}, ${line.productName}, ${line.quantity}, ${line.pricePerUnit || 0}, ${line.supplierSku || ''}, ${line.receivedQty || 0}, ${tenantId})`);
       }
       await db.execute(sql`UPDATE purchase_orders SET updated_at=${Date.now()} WHERE id=${id} AND tenant_id = ${tenantId}`);
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
     if (action === 'receive') {
@@ -105,7 +102,7 @@ export async function POST(req: NextRequest) {
       const anyReceived = allLines.some((l: any) => parseFloat(l.received_qty) > 0);
       const newStatus = allReceived ? 'received' : anyReceived ? 'partial' : 'draft';
       await db.execute(sql`UPDATE purchase_orders SET status=${newStatus}, updated_at=${Date.now()} WHERE id=${id} AND tenant_id = ${tenantId}`);
-      return NextResponse.json({ ok: true, newStatus });
+      return apiOk({ newStatus });
     }
 
     if (action === 'auto-preview') {
@@ -118,12 +115,8 @@ export async function POST(req: NextRequest) {
       return handleAutoGenerate(body);
     }
 
-    return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
-  } catch (err: any) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiBadRequest('Unknown action');
+  } catch (err) { return apiError(err); }
 }
 
 async function getAutoSettings(tenantId: string) {
@@ -207,7 +200,7 @@ async function handleAutoPreview(body: any) {
     ? Object.values(bySupplier).filter((s: any) => s.total >= minOrderValue)
     : Object.values(bySupplier);
 
-  return NextResponse.json({
+  return apiOk({
     preview: validSuppliers,
     noOfferProducts: noOfferProducts.map((p: any) => ({ id: p.id, name: p.name })),
     skippedByMin: consolidateBySupplier
@@ -235,8 +228,8 @@ async function handleAutoGenerate(body: any) {
     created.push({ id, supplierName: group.supplierName, lineCount: group.lines.length });
   }
 
-  return NextResponse.json({
-    ok: true, created,
+  return apiOk({
+    created,
     noOfferProducts: preview.noOfferProducts,
     skippedByMin: preview.skippedByMin,
   });

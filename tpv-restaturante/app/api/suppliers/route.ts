@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { suppliers } from '../../../db/schema';
+import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiServerError } from '../../../lib/infrastructure/response';
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,12 +11,8 @@ export async function GET(req: NextRequest) {
     const tenantId = getTenantId(req);
     const rows = await db.select().from(suppliers)
       .where(eq(suppliers.tenantId, tenantId));
-    return NextResponse.json(rows);
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk(rows);
+  } catch (err) { return apiError(err); }
 }
 
 export async function POST(req: NextRequest) {
@@ -40,14 +37,10 @@ export async function POST(req: NextRequest) {
           paymentTerms: paymentTerms || '', notes: notes || '',
           active: active !== false, createdAt: Date.now(), tenantId,
         });
-        return NextResponse.json({ ok: true, id: newId });
+        return apiOk({ ok: true, id: newId });
       }
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
-    return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiBadRequest('Unknown action');
+  } catch (err) { return apiError(err); }
 }

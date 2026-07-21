@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiForbidden, apiTooManyRequests, apiCreated, apiServerError } from '../../../lib/infrastructure/response';
 import { sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 
@@ -18,10 +19,6 @@ export async function GET() {
       if (!byTable[r.table_name]) byTable[r.table_name] = [];
       byTable[r.table_name].push(`${r.column_name} (${r.data_type})`);
     }
-    return NextResponse.json(byTable);
-  } catch (err: any) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk(byTable);
+  } catch (err) { return apiError(err); }
 }

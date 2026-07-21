@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { qrOrders, orders, tables, deliveryOrders } from '../../../db/schema';
+import { apiOk, apiError, apiBadRequest, apiNotFound } from '../../../lib/infrastructure/response';
 
 function makeId(prefix = 'qo') { return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 
@@ -15,8 +16,8 @@ export async function POST(req: NextRequest) {
     if (body.action === 'status') {
       const [r] = await db.select().from(qrOrders)
         .where(and(eq(qrOrders.id, body.orderId), eq(qrOrders.tenantId, tenantId))).limit(1);
-      if (!r) return NextResponse.json({ error: 'not_found' }, { status: 404 });
-      return NextResponse.json({
+      if (!r) return apiNotFound('not_found');
+      return apiOk({
         id: r.id, tableId: r.tableId, orderStatus: r.orderStatus,
         modality: r.modality, items: r.items, amount: Number(r.amount),
         deliveryCost: Number(r.deliveryCost || 0),
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
     } = body;
 
     if (!items || items.length === 0) {
-      return NextResponse.json({ error: 'items required' }, { status: 400 });
+      return apiBadRequest('items required');
     }
 
     const orderId = makeId('qo');
@@ -86,15 +87,11 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({
-      ok: true, orderId, tpvOrderId,
+    return apiOk({
+      orderId, tpvOrderId,
       paymentRequired: body.paymentRequired === true,
     });
-  } catch (err: any) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+  } catch (err) { return apiError(err); }
 }
 
 export async function GET(req: NextRequest) {
@@ -106,8 +103,8 @@ export async function GET(req: NextRequest) {
     if (id) {
       const [r] = await db.select().from(qrOrders)
         .where(and(eq(qrOrders.id, id), eq(qrOrders.tenantId, tenantId))).limit(1);
-      if (!r) return NextResponse.json({ error: 'not_found' }, { status: 404 });
-      return NextResponse.json({
+      if (!r) return apiNotFound('not_found');
+      return apiOk({
         id: r.id, tableId: r.tableId, orderStatus: r.orderStatus,
         modality: r.modality, items: r.items, amount: Number(r.amount),
         deliveryCost: Number(r.deliveryCost || 0), customerName: r.customerName,
@@ -125,7 +122,7 @@ export async function GET(req: NextRequest) {
       }).from(qrOrders)
         .where(sql`${eq(qrOrders.tableId, tableId)} AND ${qrOrders.orderStatus} != 'cancelled' AND ${eq(qrOrders.tenantId, tenantId)}`)
         .orderBy(desc(qrOrders.createdAt)).limit(20);
-      return NextResponse.json(rows.map(r => ({ ...r, amount: Number(r.amount) })));
+      return apiOk(rows.map(r => ({ ...r, amount: Number(r.amount) })));
     }
     const modality = searchParams.get('modality');
     if (modality) {
@@ -136,12 +133,12 @@ export async function GET(req: NextRequest) {
       }).from(qrOrders)
         .where(sql`${eq(qrOrders.modality, modality)} AND ${eq(qrOrders.tenantId, tenantId)}`)
         .orderBy(desc(qrOrders.createdAt)).limit(50);
-      return NextResponse.json(rows.map(r => ({ ...r, amount: Number(r.amount) })));
+      return apiOk(rows.map(r => ({ ...r, amount: Number(r.amount) })));
     }
     const allRows = await db.select().from(qrOrders)
       .where(eq(qrOrders.tenantId, tenantId))
       .orderBy(desc(qrOrders.createdAt)).limit(100);
-    return NextResponse.json(allRows.map(r => ({
+    return apiOk(allRows.map(r => ({
       id: r.id, tableId: r.tableId, modality: r.modality, orderStatus: r.orderStatus,
       customerName: r.customerName, customerPhone: r.customerPhone,
       customerEmail: r.customerEmail, address: r.address, zoneId: r.zoneId,
@@ -149,11 +146,7 @@ export async function GET(req: NextRequest) {
       items: r.items, notes: r.notes, accepted: r.accepted,
       scheduledAt: r.scheduledAt, createdAt: r.createdAt, updatedAt: r.updatedAt,
     })));
-  } catch (err: any) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+  } catch (err) { return apiError(err); }
 }
 
 export async function PUT(req: NextRequest) {
@@ -166,25 +159,21 @@ export async function PUT(req: NextRequest) {
     if (action === 'status') {
       await db.update(qrOrders).set({ orderStatus: body.status, updatedAt: Date.now() })
         .where(and(eq(qrOrders.id, id), eq(qrOrders.tenantId, tenantId)));
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
     if (action === 'accept') {
       await db.update(qrOrders).set({ accepted: true, orderStatus: 'confirmed', updatedAt: Date.now() })
         .where(and(eq(qrOrders.id, id), eq(qrOrders.tenantId, tenantId)));
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
     if (action === 'update_items') {
       await db.update(qrOrders).set({ items: body.items, updatedAt: Date.now() })
         .where(and(eq(qrOrders.id, id), eq(qrOrders.tenantId, tenantId)));
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
-    return NextResponse.json({ error: 'unknown action' }, { status: 400 });
-  } catch (err: any) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiBadRequest('unknown action');
+  } catch (err) { return apiError(err); }
 }

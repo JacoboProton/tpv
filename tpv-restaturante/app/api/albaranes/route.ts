@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
+import { apiOk, apiError, apiBadRequest, apiNotFound } from '../../../lib/infrastructure/response';
 
 function qr(db: ReturnType<typeof getDb>, q: any) {
   return db.execute(q).then(r => r.rows as any[]);
@@ -59,12 +60,8 @@ export async function GET(req: NextRequest) {
         })),
       });
     }
-    return NextResponse.json(result);
-  } catch (err: any) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk(result);
+  } catch (err: any) { return apiError(err); }
 }
 
 export async function POST(req: NextRequest) {
@@ -122,7 +119,7 @@ export async function POST(req: NextRequest) {
         `);
       }
 
-      return NextResponse.json({ ok: true, id });
+      return apiOk({ ok: true, id });
     }
 
     if (action === 'update') {
@@ -130,7 +127,7 @@ export async function POST(req: NextRequest) {
 
       const [existing] = await qr(db, sql`SELECT status FROM albaranes WHERE id = ${id} AND tenant_id = ${tenantId}`);
       if (existing?.status === 'confirmed') {
-        return NextResponse.json({ error: 'No se puede editar un albarán confirmado. Anúlalo primero.' }, { status: 400 });
+        return apiBadRequest('No se puede editar un albarán confirmado. Anúlalo primero.');
       }
 
       let totalNet = 0;
@@ -183,24 +180,24 @@ export async function POST(req: NextRequest) {
         `);
       }
 
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
     if (action === 'delete') {
       const { id } = body;
       const [existing] = await qr(db, sql`SELECT status FROM albaranes WHERE id = ${id} AND tenant_id = ${tenantId}`);
       if (existing?.status !== 'draft') {
-        return NextResponse.json({ error: 'Solo se pueden eliminar albaranes en borrador. Usa Anular para confirmados.' }, { status: 400 });
+        return apiBadRequest('Solo se pueden eliminar albaranes en borrador. Usa Anular para confirmados.');
       }
       await db.execute(sql`DELETE FROM albaranes WHERE id = ${id} AND tenant_id = ${tenantId}`);
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
     if (action === 'void') {
       const { id, reason, anuladoBy } = body;
       const [albaran] = await qr(db, sql`SELECT * FROM albaranes WHERE id = ${id} AND tenant_id = ${tenantId}`);
-      if (!albaran) return NextResponse.json({ error: 'Albarán no encontrado' }, { status: 404 });
-      if (albaran.status === 'anulado') return NextResponse.json({ error: 'El albarán ya está anulado' }, { status: 400 });
+      if (!albaran) return apiNotFound('Albarán no encontrado');
+      if (albaran.status === 'anulado') return apiBadRequest('El albarán ya está anulado');
 
       if (albaran.status === 'confirmed') {
         const lines = await qr(db, sql`SELECT * FROM albaran_lines WHERE albaran_id = ${id} AND tenant_id = ${tenantId}`);
@@ -239,14 +236,14 @@ export async function POST(req: NextRequest) {
       }
 
       await db.execute(sql`UPDATE albaranes SET status = 'anulado', anulado_by = ${anuladoBy || ''}, anulado_at = ${Date.now()}, anulado_reason = ${reason || ''}, updated_at = ${Date.now()} WHERE id = ${id} AND tenant_id = ${tenantId}`);
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
     if (action === 'confirm') {
       const { id, batches } = body;
       const [albaran] = await qr(db, sql`SELECT * FROM albaranes WHERE id = ${id} AND tenant_id = ${tenantId}`);
-      if (!albaran) return NextResponse.json({ error: 'Albarán no encontrado' }, { status: 404 });
-      if (albaran.status !== 'draft') return NextResponse.json({ error: 'Solo se pueden confirmar albaranes en borrador' }, { status: 400 });
+      if (!albaran) return apiNotFound('Albarán no encontrado');
+      if (albaran.status !== 'draft') return apiBadRequest('Solo se pueden confirmar albaranes en borrador');
 
       const lines = await qr(db, sql`SELECT * FROM albaran_lines WHERE albaran_id = ${id} AND tenant_id = ${tenantId}`);
 
@@ -298,13 +295,9 @@ export async function POST(req: NextRequest) {
       }
 
       await db.execute(sql`UPDATE albaranes SET status = 'confirmed', updated_at = ${Date.now()} WHERE id = ${id} AND tenant_id = ${tenantId}`);
-      return NextResponse.json({ ok: true, message: 'Albarán confirmado correctamente' });
+      return apiOk({ ok: true, message: 'Albarán confirmado correctamente' });
     }
 
-    return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
-  } catch (err: any) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiBadRequest('Unknown action');
+  } catch (err: any) { return apiError(err); }
 }

@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { eq, and, asc } from 'drizzle-orm';
 import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
 import { registerSaleInFiskaly } from '../../../../lib/fiskaly';
 import { generateRegistroFactura } from '../../../../lib/verifactu';
 import { verifactuRegistros, sales } from '../../../../db/schema';
+import { apiOk, apiError } from '../../../../lib/infrastructure/response';
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest) {
       .orderBy(asc(verifactuRegistros.id));
 
     if (simulados.length === 0) {
-      return NextResponse.json({
+      return apiOk({
         message: 'No hay registros simulados para reintentar',
         total: 0,
         retried: 0,
@@ -81,7 +82,7 @@ export async function POST(req: NextRequest) {
 
     const successCount = results.filter(r => r.success).length;
 
-    return NextResponse.json({
+    return apiOk({
       message: `Reintentados ${results.length} registros. ${successCount} exitosos, ${results.length - successCount} fallaron.`,
       total: simulados.length,
       retried: results.length,
@@ -89,9 +90,5 @@ export async function POST(req: NextRequest) {
       failed: results.length - successCount,
       results,
     });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+  } catch (err) { return apiError(err); }
 }

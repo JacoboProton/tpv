@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
 import { computeHash } from '../../../../lib/verifactu';
 import { verifactuRegistros } from '../../../../db/schema';
+import { apiOk, apiError, apiBadRequest, apiNotFound } from '../../../../lib/infrastructure/response';
 
 const NIF_EMISOR = process.env.FISKALY_TAXPAYER_NIF || 'B12345678';
 
@@ -13,14 +14,14 @@ export async function POST(req: NextRequest) {
     const tenantId = getTenantId(req);
     const { saleId } = await req.json() as any;
     if (!saleId) {
-      return NextResponse.json({ error: 'saleId es requerido' }, { status: 400 });
+      return apiBadRequest('saleId es requerido');
     }
 
     const rows = await db.select().from(verifactuRegistros)
       .where(and(eq(verifactuRegistros.saleId, saleId), eq(verifactuRegistros.tenantId, tenantId)))
       .limit(1);
     if (rows.length === 0) {
-      return NextResponse.json({ error: 'Registro no encontrado' }, { status: 404 });
+      return apiNotFound('Registro no encontrado');
     }
 
     const r = rows[0];
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
       estado: r.estado,
     });
     if (!fechaHoraFirma) {
-      return NextResponse.json({
+      return apiOk({
         saleId: r.saleId,
         numSerie: r.numSerie,
         importeTotal: r.importeTotal,
@@ -71,7 +72,7 @@ export async function POST(req: NextRequest) {
     const expectedHash = computeHash(registroData);
     const isValid = expectedHash === r.huella;
 
-    return NextResponse.json({
+    return apiOk({
       saleId: r.saleId,
       numSerie: r.numSerie,
       importeTotal: r.importeTotal,
@@ -88,9 +89,5 @@ export async function POST(req: NextRequest) {
         fechaHoraFirma,
       },
     });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+  } catch (err) { return apiError(err); }
 }

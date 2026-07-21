@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { apiOk, apiError, apiBadRequest } from '../../../../lib/infrastructure/response';
 import { eq, and, desc } from 'drizzle-orm';
 import { getDb } from '../../../../lib/drizzle';
 import { kdsAuditLog } from '../../../../db/schema';
@@ -7,17 +8,13 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json() as any;
     const { action, details } = body;
-    if (!action) return NextResponse.json({ error: 'action required' }, { status: 400 });
+    if (!action) return apiBadRequest('action required');
     const db = getDb();
     await db.insert(kdsAuditLog).values({
       action, details: details || {}, createdAt: Date.now(),
     });
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk();
+  } catch (err) { return apiError(err); }
 }
 
 export async function GET(req: NextRequest) {
@@ -38,14 +35,10 @@ export async function GET(req: NextRequest) {
       .orderBy(desc(kdsAuditLog.createdAt))
       .limit(limit).offset(offset);
 
-    return NextResponse.json(rows.map(r => ({
+    return apiOk(rows.map(r => ({
       id: r.id, action: r.action,
       details: typeof r.details === 'string' ? JSON.parse(r.details) : r.details,
       createdAt: r.createdAt,
     })));
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+  } catch (err) { return apiError(err); }
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { apiOk, apiError, apiBadRequest } from '../../../../lib/infrastructure/response';
 import Stripe from 'stripe';
 import { rateLimit } from '../../../../lib/rate-limit';
 import { logPayment } from '../../../../lib/payment-logger';
@@ -38,11 +39,11 @@ export async function POST(req: NextRequest) {
     const { amount, tableId, tableName, employeeName, idempotencyKey } = await req.json() as any;
 
     if (!amount || amount <= 0) {
-      return NextResponse.json({ error: 'Importe inválido' }, { status: 400 });
+      return apiBadRequest('Importe inválido');
     }
 
     if (amount > MAX_PAYMENT_AMOUNT) {
-      return NextResponse.json({ error: `El importe máximo permitido es ${MAX_PAYMENT_AMOUNT}€` }, { status: 400 });
+      return apiBadRequest(`El importe máximo permitido es ${MAX_PAYMENT_AMOUNT}€`);
     }
 
     const amountCents = Math.round(amount * 100);
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
       stripeResponse: { id: paymentIntent.id, status: paymentIntent.status },
     });
 
-    return NextResponse.json({ clientSecret: paymentIntent.client_secret });
+    return apiOk({ clientSecret: paymentIntent.client_secret });
   } catch (err) {
     console.error('Stripe PaymentIntent error:', err);
     logPayment({
@@ -87,8 +88,6 @@ export async function POST(req: NextRequest) {
       error: (err as Error).message,
       source: 'la-comanda-tpv',
     });
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
+    return apiError(err);
   }
 }

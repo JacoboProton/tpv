@@ -1,16 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { requireAdminPin } from '../../../lib/rbac';
 import { orders } from '../../../db/schema';
+import { apiOk, apiError } from '../../../lib/infrastructure/response';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json() as any;
     const adminCheck = await requireAdminPin(req, body.adminPin);
     if (!adminCheck.authorized) {
-      return NextResponse.json({ error: adminCheck.error }, { status: adminCheck.status });
+      return apiError(new Error(adminCheck.error), adminCheck.status);
     }
 
     const db = getDb();
@@ -33,10 +34,6 @@ export async function POST(req: NextRequest) {
         employee_name TEXT
       )
     `);
-    return NextResponse.json({ ok: true, message: 'Tabla orders recreada correctamente', backedUp: backup.length });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk({ message: 'Tabla orders recreada correctamente', backedUp: backup.length });
+  } catch (err) { return apiError(err); }
 }

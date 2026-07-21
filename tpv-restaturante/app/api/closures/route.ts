@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { eq, sql, desc } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { closures } from '../../../db/schema';
+import { apiOk, apiError } from '../../../lib/infrastructure/response';
 
 export async function GET(req: NextRequest) {
   try {
@@ -11,10 +12,8 @@ export async function GET(req: NextRequest) {
     const rows = await db.select().from(closures)
       .where(eq(closures.tenantId, tenantId))
       .orderBy(desc(closures.closedAt));
-    return NextResponse.json(rows);
-  } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
-  }
+    return apiOk(rows);
+  } catch (e) { return apiError(e); }
 }
 
 export async function POST(req: NextRequest) {
@@ -26,7 +25,7 @@ export async function POST(req: NextRequest) {
     if (body.action === 'delete') {
       await db.delete(closures)
         .where(eq(closures.id, body.id));
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
     await db.insert(closures).values({
@@ -55,8 +54,6 @@ export async function POST(req: NextRequest) {
         cuadratura: sql`EXCLUDED.cuadratura`,
       },
     });
-    return NextResponse.json({ ok: true });
-  } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
-  }
+    return apiOk();
+  } catch (e) { return apiError(e); }
 }

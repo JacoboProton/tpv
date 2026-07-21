@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getDb } from '../../../../lib/drizzle';
 import { verifyWebhookSignature } from '../../../../lib/verify-webhook';
 import { getTenantId } from '../../../../lib/tenant';
 import { deliveryOrders } from '../../../../db/schema';
+import { apiOk, apiError, apiUnauthorized } from '../../../../lib/infrastructure/response';
 
 function normalizeGlovoProducts(products: any) {
   if (!products || !Array.isArray(products)) return [];
@@ -21,7 +22,7 @@ function normalizeGlovoProducts(products: any) {
 
 export async function GET(req: NextRequest) {
   console.log('[Glovo webhook] Verification GET from', req.headers.get('x-forwarded-for'));
-  return NextResponse.json({ status: 'ok', webhook: 'active' });
+  return apiOk({ status: 'ok', webhook: 'active' });
 }
 
 export async function POST(req: NextRequest) {
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
     const signature = req.headers.get('x-glovo-signature') || '';
     const valid = verifyWebhookSignature(rawBody, signature, 'GLOVO_WEBHOOK_SECRET', 'hex');
     if (!valid) {
-      return NextResponse.json({ error: 'Firma inválida' }, { status: 401 });
+      return apiUnauthorized('Firma inválida');
     }
 
     const body = JSON.parse(rawBody);
@@ -66,11 +67,9 @@ export async function POST(req: NextRequest) {
       createdAt: now,
     });
 
-    return NextResponse.json({ ok: true, id: delId });
-  } catch (err: any) {
+    return apiOk({ id: delId });
+  } catch (err) {
     console.error('[Glovo webhook] Error:', (err as Error).message);
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
+    return apiError(err);
   }
 }

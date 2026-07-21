@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { apiOk, apiError, apiBadRequest } from '../../../../lib/infrastructure/response';
 import Stripe from 'stripe';
 import { eq, and, sql } from 'drizzle-orm';
 import { getDb } from '../../../../lib/drizzle';
@@ -175,7 +176,7 @@ export async function POST(req: NextRequest) {
     const sig = req.headers.get('stripe-signature');
 
     if (!sig) {
-      return NextResponse.json({ error: 'Firma Stripe ausente' }, { status: 400 });
+      return apiBadRequest('Firma Stripe ausente');
     }
 
     const stripe = getStripe();
@@ -188,12 +189,12 @@ export async function POST(req: NextRequest) {
       event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
     } catch (err: any) {
       console.error('Firma Stripe inválida:', (err as Error).message);
-      return NextResponse.json({ error: 'Firma inválida' }, { status: 400 });
+      return apiBadRequest('Firma inválida');
     }
 
     const status = await ensureEventTracked(event.id, event.type);
     if (status === 'processed' || status === 'processing') {
-      return NextResponse.json({ received: true, skipped: true });
+      return apiOk({ received: true, skipped: true });
     }
 
     try {
@@ -231,7 +232,7 @@ export async function POST(req: NextRequest) {
         status: 'ok',
       });
 
-      return NextResponse.json({ received: true });
+      return apiOk({ received: true });
     } catch (err: any) {
       const piErr = event.data.object as Stripe.PaymentIntent;
       await markFailed(event.id, piErr, (err as Error).message);
@@ -246,10 +247,8 @@ export async function POST(req: NextRequest) {
       });
       throw err;
     }
-  } catch (err: any) {
+  } catch (err) {
     console.error('[Stripe Webhook] Error:', (err as Error).message);
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
+    return apiError(err);
   }
 }

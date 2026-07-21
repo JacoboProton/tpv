@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { eq, sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { productionIngredients, recipeIngredients, productBatches, productStock, stockLog, productions, recipes, products } from '../../../db/schema';
+import { apiOk, apiError, apiBadRequest, apiNotFound } from '../../../lib/infrastructure/response';
 
 export async function GET(req: NextRequest) {
   try {
@@ -58,12 +59,8 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    return NextResponse.json(result);
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk(result);
+  } catch (err) { return apiError(err); }
 }
 
 export async function POST(req: NextRequest) {
@@ -77,14 +74,14 @@ export async function POST(req: NextRequest) {
       const { productId, productName, quantity, costPerUnit, location, batchNumber, expiryDate, notes, producedAt } = body;
 
       if (!productId || !quantity || quantity <= 0) {
-        return NextResponse.json({ error: 'Producto y cantidad son requeridos' }, { status: 400 });
+        return apiBadRequest('Producto y cantidad son requeridos');
       }
 
       const [recipe] = await db.select().from(recipes)
         .where(sql`${eq(recipes.productId, productId)} AND ${eq(recipes.tenantId, tenantId)}`)
         .limit(1);
       if (!recipe) {
-        return NextResponse.json({ error: 'El producto no tiene una receta asignada' }, { status: 400 });
+        return apiBadRequest('El producto no tiene una receta asignada');
       }
 
       const qty = parseFloat(quantity);
@@ -149,7 +146,7 @@ export async function POST(req: NextRequest) {
       }
 
       if (errors.length > 0) {
-        return NextResponse.json({ error: errors.join('; ') }, { status: 400 });
+        return apiBadRequest(errors.join('; '));
       }
 
       const finalCostPerUnit = parseFloat(costPerUnit) || (suggestedCost / qty);
@@ -189,7 +186,7 @@ export async function POST(req: NextRequest) {
         VALUES (${productId}, ${productName}, ${parseFloat(existingStock?.stock || 0)}, ${parseFloat(existingStock?.stock || 0) + qty}, ${qty}, 'producción', ${'Prod:' + productName}, ${body.createdBy || 'sistema'}, ${Date.now()}, ${tenantId})
       `);
 
-      return NextResponse.json({ ok: true, id, suggestedCost: suggestedCost / qty });
+      return apiOk({ id, suggestedCost: suggestedCost / qty });
     }
 
     if (action === 'void') {
@@ -198,10 +195,10 @@ export async function POST(req: NextRequest) {
         .where(sql`${eq(productions.id, id)} AND ${eq(productions.tenantId, tenantId)}`)
         .limit(1);
       if (!prod) {
-        return NextResponse.json({ error: 'Producción no encontrada' }, { status: 404 });
+        return apiNotFound('Producción no encontrada');
       }
       if (prod.status === 'anulado') {
-        return NextResponse.json({ error: 'La producción ya está anulada' }, { status: 400 });
+        return apiBadRequest('La producción ya está anulada');
       }
 
       const qty = parseFloat(prod.quantity as any);
@@ -256,13 +253,9 @@ export async function POST(req: NextRequest) {
         WHERE id = ${id} AND tenant_id = ${tenantId}
       `);
 
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
-    return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiBadRequest('Unknown action');
+  } catch (err) { return apiError(err); }
 }

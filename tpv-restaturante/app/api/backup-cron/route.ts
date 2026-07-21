@@ -1,15 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { backupAll } from '../../../lib/backup';
 import { getTenantId } from '../../../lib/tenant';
+import { apiOk, apiError, apiUnauthorized } from '../../../lib/infrastructure/response';
 
 export async function GET(req: NextRequest) {
   try {
     const auth = req.headers.get('authorization');
     const expected = process.env.CRON_SECRET;
     if (expected && auth !== `Bearer ${expected}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiUnauthorized('Unauthorized');
     }
 
     const tenantId = getTenantId(req);
@@ -29,10 +30,6 @@ export async function GET(req: NextRequest) {
       )
     `);
 
-    return NextResponse.json({ ok: true, backupId, exportedAt: backup.exportedAt });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk({ ok: true, backupId, exportedAt: backup.exportedAt });
+  } catch (err) { return apiError(err); }
 }

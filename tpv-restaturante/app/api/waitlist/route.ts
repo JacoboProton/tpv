@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { and, eq, sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { waitlist, settings } from '../../../db/schema';
+import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiServerError } from '../../../lib/infrastructure/response';
 
 function makeId() { return 'wl_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 
@@ -59,18 +60,14 @@ export async function GET(req: NextRequest) {
     const rows = await db.select().from(waitlist)
       .where(eq(waitlist.tenantId, tenantId))
       .orderBy(waitlist.position, waitlist.createdAt);
-    return NextResponse.json(rows.map(r => ({
+    return apiOk(rows.map(r => ({
       id: r.id, name: r.name, phone: r.phone, pax: r.pax,
       status: r.status, calledCount: r.calledCount, calledAt: r.calledAt,
       seatedAt: r.seatedAt, tableId: r.tableId,
       position: r.position, notes: r.notes, source: r.source,
       createdAt: r.createdAt, updatedAt: r.updatedAt,
     })));
-  } catch (err: any) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+  } catch (err) { return apiError(err); }
 }
 
 export async function POST(req: NextRequest) {
@@ -100,7 +97,7 @@ export async function POST(req: NextRequest) {
           createdAt: Date.now(), updatedAt: Date.now(), tenantId,
         });
       }
-      return NextResponse.json({ ok: true, id, position: pos });
+      return apiOk({ ok: true, id, position: pos });
     }
 
     if (action === 'call') {
@@ -115,7 +112,7 @@ export async function POST(req: NextRequest) {
         const s = await getSettings(tenantId);
         sendNotifications({ name: entry.name, phone: entry.phone }, s, tenantId).catch(() => {});
       }
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
     if (action === 'seat') {
@@ -124,21 +121,21 @@ export async function POST(req: NextRequest) {
         status: 'seated', seatedAt: Date.now(), tableId: tableId || '',
         updatedAt: Date.now(),
       }).where(and(eq(waitlist.id, id), eq(waitlist.tenantId, tenantId)));
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
     if (action === 'cancel') {
       const { id } = body;
       await db.update(waitlist).set({ status: 'cancelled', updatedAt: Date.now() })
         .where(and(eq(waitlist.id, id), eq(waitlist.tenantId, tenantId)));
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
     if (action === 'noshow') {
       const { id } = body;
       await db.update(waitlist).set({ status: 'noshow', updatedAt: Date.now() })
         .where(and(eq(waitlist.id, id), eq(waitlist.tenantId, tenantId)));
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
     if (action === 'reorder') {
@@ -147,13 +144,9 @@ export async function POST(req: NextRequest) {
         await db.update(waitlist).set({ position: i + 1, updatedAt: Date.now() })
           .where(and(eq(waitlist.id, ids[i]), eq(waitlist.tenantId, tenantId)));
       }
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
-    return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
-  } catch (err: any) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiBadRequest('Unknown action');
+  } catch (err) { return apiError(err); }
 }

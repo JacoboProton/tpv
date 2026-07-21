@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiForbidden, apiTooManyRequests, apiCreated, apiServerError } from '../../../lib/infrastructure/response';
 import { eq, sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
@@ -35,12 +36,8 @@ export async function GET(req: NextRequest) {
       if (!byProduct[a.productId]) byProduct[a.productId] = [];
       byProduct[a.productId].push(a.groupId);
     }
-    return NextResponse.json({ groups: data, productModifiers: byProduct });
-  } catch (err: any) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk({ groups: data, productModifiers: byProduct });
+  } catch (err) { return apiError(err); }
 }
 
 export async function PUT(req: NextRequest) {
@@ -60,7 +57,7 @@ export async function PUT(req: NextRequest) {
       }
     }
     if (warnings.length > 0) {
-      return NextResponse.json({ ok: false, warnings }, { status: 400 });
+      return apiBadRequest(warnings.join(', '));
     }
 
     await db.transaction(async (tx) => {
@@ -96,10 +93,6 @@ export async function PUT(req: NextRequest) {
       }
     });
 
-    return NextResponse.json({ ok: true });
-  } catch (err: any) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk();
+  } catch (err) { return apiError(err); }
 }

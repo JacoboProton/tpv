@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { eq, and, sql, desc } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { clockinLogs, clockinCorrections, employees } from '../../../db/schema';
+import { apiOk, apiError, apiBadRequest, apiForbidden } from '../../../lib/infrastructure/response';
 
 export async function GET(req: NextRequest) {
   try {
@@ -24,10 +25,10 @@ export async function GET(req: NextRequest) {
         .where(and(...conditions))
         .orderBy(desc(clockinLogs.createdAt))
         .limit(2000);
-      return NextResponse.json(rows);
+      return apiOk(rows);
     }
 
-    if (!employeeId) return NextResponse.json({ error: 'employeeId required' }, { status: 400 });
+    if (!employeeId) return apiBadRequest('employeeId required');
 
     const rows = await db.select().from(clockinLogs)
       .where(and(eq(clockinLogs.employeeId, employeeId), eq(clockinLogs.clockinDate, date), eq(clockinLogs.tenantId, tenantId)))
@@ -63,7 +64,7 @@ export async function GET(req: NextRequest) {
 
     const lastAction = rows.length > 0 ? rows[rows.length - 1].action : null;
 
-    return NextResponse.json({
+    return apiOk({
       logs: rows,
       summary: {
         entrada: entrada ? Number(entrada.createdAt) : null,
@@ -81,11 +82,7 @@ export async function GET(req: NextRequest) {
         edited: rows.some(r => r.edited),
       },
     });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+  } catch (err) { return apiError(err); }
 }
 
 export async function POST(req: NextRequest) {
@@ -98,7 +95,7 @@ export async function POST(req: NextRequest) {
     if (body.pin) {
       const [emp] = await db.select({ id: employees.id }).from(employees)
         .where(and(eq(employees.id, body.employeeId), eq(employees.pin, body.pin), eq(employees.tenantId, tenantId)));
-      if (!emp) return NextResponse.json({ error: 'PIN incorrecto' }, { status: 403 });
+      if (!emp) return apiForbidden('PIN incorrecto');
     }
 
     let action = body.action;
@@ -118,12 +115,8 @@ export async function POST(req: NextRequest) {
       createdAt: Date.now(), tenantId,
     });
 
-    return NextResponse.json({ ok: true, action });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk({ ok: true, action });
+  } catch (err) { return apiError(err); }
 }
 
 export async function PUT(req: NextRequest) {
@@ -139,7 +132,7 @@ export async function PUT(req: NextRequest) {
         createdAt, action: newAction,
         edited: true, editedBy: body.editedBy || '', editReason: body.editReason || '',
       }).where(eq(clockinLogs.id, id));
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
     if (putAction === 'close-open') {
@@ -169,7 +162,7 @@ export async function PUT(req: NextRequest) {
         });
       }
 
-      return NextResponse.json({ ok: true, closedCount: openLogs.length });
+      return apiOk({ ok: true, closedCount: openLogs.length });
     }
 
     if (putAction === 'correction-request') {
@@ -179,7 +172,7 @@ export async function PUT(req: NextRequest) {
         requestedAction: requestedAction || '', reason: reason || '',
         status: 'pending', createdAt: Date.now(),
       });
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
     if (putAction === 'resolve-correction') {
@@ -187,13 +180,9 @@ export async function PUT(req: NextRequest) {
       await db.update(clockinCorrections)
         .set({ status, resolvedBy: resolvedBy || '' })
         .where(eq(clockinCorrections.id, correctionId));
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
-    return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiBadRequest('Unknown action');
+  } catch (err) { return apiError(err); }
 }

@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { eq, desc } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { cancelledOrders } from '../../../db/schema';
+import { apiOk, apiError } from '../../../lib/infrastructure/response';
 
 export async function GET(req: NextRequest) {
   try {
@@ -24,12 +25,8 @@ export async function GET(req: NextRequest) {
       .where(eq(cancelledOrders.tenantId, tenantId))
       .orderBy(desc(cancelledOrders.cancelledAt))
       .limit(limit);
-    return NextResponse.json(rows);
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk(rows);
+  } catch (err) { return apiError(err); }
 }
 
 export async function POST(req: NextRequest) {
@@ -42,10 +39,6 @@ export async function POST(req: NextRequest) {
       items: b.items, total: b.total, employeeName: b.employeeName,
       reason: b.reason, cancelledAt: Date.now(), tenantId,
     }).returning();
-    return NextResponse.json(row);
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk(row);
+  } catch (err) { return apiError(err); }
 }

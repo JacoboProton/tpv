@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { eq, and, sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { products, productStock } from '../../../db/schema';
+import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiServerError } from '../../../lib/infrastructure/response';
 
 const SPLIT: Record<string, { loc: string; keep: number }> = {
   Bebidas:    { loc: 'Bar',    keep: 25 },
@@ -83,10 +84,6 @@ export async function POST(req: NextRequest) {
 
       moved.push(`${p.name}: ${servingStock} en ${servingLoc}, ${almacenStock} en Almacén`);
     }
-    return NextResponse.json({ ok: true, movidos: moved });
-  } catch (err: any) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk({ ok: true, movidos: moved });
+  } catch (err) { return apiError(err); }
 }

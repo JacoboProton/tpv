@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
+import { apiOk, apiError } from '../../../lib/infrastructure/response';
 
 function makeId(): string { return 'res_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 
@@ -15,7 +16,7 @@ export async function GET(req: NextRequest) {
       const rows = await db.execute(sql`
         SELECT * FROM reservation_recurring WHERE tenant_id = ${tenantId} ORDER BY weekday, time
       `).then(r => r.rows as any[]);
-      return NextResponse.json({ recurring: rows.map(r => ({
+      return apiOk({ recurring: rows.map(r => ({
         id: r.id, name: r.name, weekday: r.weekday, time: r.time,
         pax: r.pax, phone: r.phone, notes: r.notes,
         zone: r.zone, tableId: r.table_id, active: r.active,
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest) {
     query = sql`${query} ORDER BY date DESC, time DESC`;
 
     const rows = await db.execute(query).then(r => r.rows as any[]);
-    return NextResponse.json(rows.map(r => ({
+    return apiOk(rows.map(r => ({
       id: r.id, date: r.date, time: r.time, pax: r.pax,
       name: r.name, phone: r.phone, email: r.email,
       status: r.status, zone: r.zone, notes: r.notes,
@@ -46,11 +47,7 @@ export async function GET(req: NextRequest) {
       depositPaid: r.deposit_paid, source: r.source,
       createdAt: r.created_at, updatedAt: r.updated_at,
     })));
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+  } catch (err) { return apiError(err); }
 }
 
 export async function POST(req: NextRequest) {
@@ -68,7 +65,7 @@ export async function POST(req: NextRequest) {
           pax = EXCLUDED.pax, phone = EXCLUDED.phone, notes = EXCLUDED.notes,
           zone = EXCLUDED.zone, table_id = EXCLUDED.table_id
       `);
-      return NextResponse.json({ ok: true, id });
+      return apiOk({ ok: true, id });
     }
     const id = (r.id as string) || makeId();
     await db.execute(sql`
@@ -90,12 +87,8 @@ export async function POST(req: NextRequest) {
     if (r.tableId && (r.status === 'cancelada' || r.status === 'noshow')) {
       await db.execute(sql`UPDATE tables SET reserved_for = '' WHERE id = ${r.tableId} AND tenant_id = ${tenantId}`);
     }
-    return NextResponse.json({ ok: true, id });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk({ id });
+  } catch (err) { return apiError(err); }
 }
 
 export async function DELETE(req: NextRequest) {
@@ -106,7 +99,7 @@ export async function DELETE(req: NextRequest) {
     const { id, recurring } = body;
     if (recurring) {
       await db.execute(sql`DELETE FROM reservation_recurring WHERE id = ${id} AND tenant_id = ${tenantId}`);
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
     const [row] = await db.execute(sql`
       SELECT table_id FROM reservations WHERE id = ${id} AND tenant_id = ${tenantId} LIMIT 1
@@ -115,10 +108,6 @@ export async function DELETE(req: NextRequest) {
       await db.execute(sql`UPDATE tables SET reserved_for = '' WHERE id = ${row.table_id} AND tenant_id = ${tenantId}`);
     }
     await db.execute(sql`DELETE FROM reservations WHERE id = ${id} AND tenant_id = ${tenantId}`);
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk();
+  } catch (err) { return apiError(err); }
 }

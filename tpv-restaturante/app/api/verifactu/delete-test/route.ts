@@ -1,16 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { eq, and, sql } from 'drizzle-orm';
 import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
 import { requireAdminPin } from '../../../../lib/rbac';
 import { verifactuRegistros } from '../../../../db/schema';
+import { apiOk, apiError, apiUnauthorized } from '../../../../lib/infrastructure/response';
 
 export async function DELETE(req: NextRequest) {
   try {
     const body = await req.json() as any;
     const adminCheck = await requireAdminPin(req, body.adminPin);
     if (!adminCheck.authorized) {
-      return NextResponse.json({ error: adminCheck.error }, { status: adminCheck.status });
+      return apiUnauthorized(adminCheck.error);
     }
 
     const tenantId = getTenantId(req);
@@ -35,10 +36,6 @@ export async function DELETE(req: NextRequest) {
         sql`${verifactuRegistros.saleId} LIKE 'test-%-%'`,
         eq(verifactuRegistros.tenantId, tenantId),
       )).returning({ id: verifactuRegistros.id, saleId: verifactuRegistros.saleId, numSerie: verifactuRegistros.numSerie });
-    return NextResponse.json({ ok: true, deleted: deleted.length });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk({ deleted: deleted.length });
+  } catch (err) { return apiError(err); }
 }

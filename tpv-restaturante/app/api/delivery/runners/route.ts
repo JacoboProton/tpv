@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { eq, sql } from 'drizzle-orm';
 import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
 import { deliveryRunners } from '../../../../db/schema';
+import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized } from '../../../../lib/infrastructure/response';
 
 export async function GET(req: NextRequest) {
   try {
@@ -11,12 +12,8 @@ export async function GET(req: NextRequest) {
     const rows = await db.select().from(deliveryRunners)
       .where(eq(deliveryRunners.tenantId, tenantId))
       .orderBy(deliveryRunners.name);
-    return NextResponse.json(rows);
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk(rows);
+  } catch (err) { return apiError(err); }
 }
 
 export async function PUT(req: NextRequest) {
@@ -35,12 +32,8 @@ export async function PUT(req: NextRequest) {
         });
       }
     }
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk();
+  } catch (err) { return apiError(err); }
 }
 
 export async function DELETE(req: NextRequest) {
@@ -50,10 +43,6 @@ export async function DELETE(req: NextRequest) {
     const db = getDb();
     await db.delete(deliveryRunners)
       .where(eq(deliveryRunners.id, id));
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk();
+  } catch (err) { return apiError(err); }
 }

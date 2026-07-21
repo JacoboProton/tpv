@@ -4,6 +4,7 @@ import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
 import { sales } from '../../../../db/schema';
 import * as XLSX from 'xlsx';
+import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized } from '../../../../lib/infrastructure/response';
 
 export async function GET(req: NextRequest) {
   try {
@@ -54,9 +55,5 @@ export async function GET(req: NextRequest) {
         'Content-Disposition': `attachment; filename=ventas_${year}.xlsx`,
       },
     });
-  } catch (err: any) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+  } catch (err) { return apiError(err); }
 }

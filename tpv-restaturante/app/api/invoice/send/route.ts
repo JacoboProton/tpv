@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
 import { sales } from '../../../../db/schema';
+import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized } from '../../../../lib/infrastructure/response';
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,7 +12,7 @@ export async function POST(req: NextRequest) {
     const { saleId, pdfBase64, filename, to } = await req.json() as any;
 
     if (!saleId || !pdfBase64) {
-      return NextResponse.json({ error: 'saleId y pdfBase64 requeridos' }, { status: 400 });
+      return apiBadRequest('saleId y pdfBase64 requeridos');
     }
 
     let email = to;
@@ -20,12 +21,12 @@ export async function POST(req: NextRequest) {
         .from(sales)
         .where(and(eq(sales.id, saleId), eq(sales.tenantId, tenantId)))
         .limit(1);
-      if (rows.length === 0) return NextResponse.json({ error: 'Venta no encontrada' }, { status: 404 });
+      if (rows.length === 0) return apiNotFound('Venta no encontrada');
       email = rows[0].invoiceEmail;
     }
 
     if (!email) {
-      return NextResponse.json({ error: 'No hay email de destino' }, { status: 400 });
+      return apiBadRequest('No hay email de destino');
     }
 
     const smtpHost = process.env.SMTP_HOST;
@@ -51,22 +52,17 @@ export async function POST(req: NextRequest) {
           text: 'Adjunto encontrará su factura electrónica.',
           attachments: [{ filename: filename || `factura_${saleId}.pdf`, content: pdfBase64, encoding: 'base64' }],
         });
-        return NextResponse.json({ ok: true, method: 'smtp', email });
+        return apiOk({ method: 'smtp', email });
       } catch (smtpErr: any) {
         console.warn('[Invoice Send] SMTP falló, modo descarga:', (smtpErr as Error).message);
-        return NextResponse.json({ ok: false, method: 'smtp_failed', error: (smtpErr as Error).message, email });
+        return apiOk({ ok: false, method: 'smtp_failed', error: (smtpErr as Error).message, email });
       }
     }
 
-    return NextResponse.json({
-      ok: true,
+    return apiOk({
       method: 'download',
       email,
       message: 'SMTP no configurado. Descarga manual disponible.',
     });
-  } catch (err: any) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+  } catch (err) { return apiError(err); }
 }

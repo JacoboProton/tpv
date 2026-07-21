@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { sessions } from '../../../db/schema';
+import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest) {
 
     if (action === 'login') {
       if (!employeeId || !deviceId) {
-        return NextResponse.json({ error: 'employeeId y deviceId requeridos' }, { status: 400 });
+        return apiBadRequest('employeeId y deviceId requeridos');
       }
 
       const existing = await db.select().from(sessions)
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
         .orderBy(desc(sessions.lastSeen));
 
       if (existing.length > 0 && employeeRole !== 'admin' && !body.force) {
-        return NextResponse.json({
+        return apiOk({
           conflict: true,
           existingDevice: existing[0].deviceId,
           existingSince: existing[0].createdAt,
@@ -50,12 +51,12 @@ export async function POST(req: NextRequest) {
         set: { active: true, lastSeen: now, role: employeeRole },
       });
 
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
     if (action === 'logout') {
       if (!employeeId || !deviceId) {
-        return NextResponse.json({ error: 'employeeId y deviceId requeridos' }, { status: 400 });
+        return apiBadRequest('employeeId y deviceId requeridos');
       }
       await db.update(sessions).set({ active: false })
         .where(and(
@@ -63,12 +64,12 @@ export async function POST(req: NextRequest) {
           eq(sessions.employeeId, employeeId),
           eq(sessions.deviceId, deviceId),
         ));
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
     if (action === 'keepalive') {
       if (!employeeId || !deviceId) {
-        return NextResponse.json({ error: 'employeeId y deviceId requeridos' }, { status: 400 });
+        return apiBadRequest('employeeId y deviceId requeridos');
       }
       const session = await db.select({ active: sessions.active }).from(sessions)
         .where(and(
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest) {
           eq(sessions.deviceId, deviceId),
         ));
       if (session.length === 0 || !session[0].active) {
-        return NextResponse.json({ invalidated: true, message: 'Sesión cerrada en otro terminal' });
+        return apiOk({ invalidated: true, message: 'Sesión cerrada en otro terminal' });
       }
       await db.update(sessions).set({ lastSeen: Date.now() })
         .where(and(
@@ -85,13 +86,9 @@ export async function POST(req: NextRequest) {
           eq(sessions.employeeId, employeeId),
           eq(sessions.deviceId, deviceId),
         ));
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
-    return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiBadRequest('Acción no válida');
+  } catch (err) { return apiError(err); }
 }

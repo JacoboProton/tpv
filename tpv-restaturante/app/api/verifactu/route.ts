@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { eq, and, like, desc, sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { registerSaleInFiskaly } from '../../../lib/fiskaly';
 import { generateRegistroFactura, formatFecha } from '../../../lib/verifactu';
 import { verifactuRegistros } from '../../../db/schema';
+import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
 
 export async function GET(req: NextRequest) {
   try {
@@ -13,12 +14,8 @@ export async function GET(req: NextRequest) {
     const rows = await db.select().from(verifactuRegistros)
       .where(eq(verifactuRegistros.tenantId, tenantId))
       .orderBy(desc(verifactuRegistros.id));
-    return NextResponse.json(rows);
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk(rows);
+  } catch (err) { return apiError(err); }
 }
 
 export async function POST(req: NextRequest) {
@@ -27,7 +24,7 @@ export async function POST(req: NextRequest) {
     const tenantId = getTenantId(req);
     const { saleId, sale } = await req.json() as any;
     if (!saleId || !sale) {
-      return NextResponse.json({ error: 'saleId y sale son requeridos' }, { status: 400 });
+      return apiBadRequest('saleId y sale son requeridos');
     }
 
     const existing = await db.select({ id: verifactuRegistros.id }).from(verifactuRegistros)
@@ -36,7 +33,7 @@ export async function POST(req: NextRequest) {
       const row = await db.select().from(verifactuRegistros)
         .where(and(eq(verifactuRegistros.saleId, saleId), eq(verifactuRegistros.tenantId, tenantId)))
         .limit(1);
-      return NextResponse.json(row[0], { status: 200 });
+      return apiOk(row[0]);
     }
 
     const year = new Date(sale.closedAt ?? Date.now()).getFullYear();
@@ -120,10 +117,6 @@ export async function POST(req: NextRequest) {
       tenantId,
     }).returning();
 
-    return NextResponse.json(inserted[0], { status: 201 });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk(inserted[0]);
+  } catch (err) { return apiError(err); }
 }

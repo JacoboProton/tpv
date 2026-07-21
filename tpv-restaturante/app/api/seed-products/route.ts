@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { products } from '../../../db/schema';
+import { apiOk, apiError } from '../../../lib/infrastructure/response';
 
 const NEW_PRODUCTS = [
   { id: 'p17', name: 'Café solo',         category: 'Bebidas',    price: 1.8,  stock: 50, lowStock: 10, ubicacion: 'Bar',     discount: 0, course: '', allergens: [],      image: '/uploads/cafe-solo.svg' },
@@ -39,10 +40,6 @@ export async function POST(req: NextRequest) {
         added++;
       }
     }
-    return NextResponse.json({ ok: true, added });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk({ added });
+  } catch (err) { return apiError(err); }
 }

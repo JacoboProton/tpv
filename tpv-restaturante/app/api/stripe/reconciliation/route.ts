@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { apiOk, apiError } from '../../../../lib/infrastructure/response';
 import Stripe from 'stripe';
 import { and, eq, ne, isNotNull } from 'drizzle-orm';
 import { getDb } from '../../../../lib/drizzle';
@@ -136,7 +137,7 @@ export async function GET(req: NextRequest) {
         total: Number(s.totalWithTip || s.total || 0),
       }));
 
-    return NextResponse.json({
+    return apiOk({
       summary: {
         totalPIsInStripe: filteredPIs.length,
         totalSalesWithPI: saleRows.length,
@@ -154,10 +155,8 @@ export async function GET(req: NextRequest) {
       salesNotInStripe,
       generatedAt: Date.now(),
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error('[Reconciliation] Error:', (err as Error).message);
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
+    return apiError(err);
   }
 }

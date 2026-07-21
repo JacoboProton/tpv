@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { eq, sql, desc } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { accessLogs } from '../../../db/schema';
+import { apiOk, apiError } from '../../../lib/infrastructure/response';
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,12 +13,10 @@ export async function POST(req: NextRequest) {
     await db.insert(accessLogs).values({
       employeeId, employeeName, role, entryPoint, loggedAt: Date.now(), tenantId,
     });
-    return NextResponse.json({ ok: true });
+    return apiOk();
   } catch (err) {
     console.error('Error guardando registro de entrada:', err);
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
+    return apiError(err);
   }
 }
 
@@ -46,16 +45,12 @@ export async function GET(req: NextRequest) {
 
     const total = (countResult as any).rows?.[0]?.total ?? 0;
 
-    return NextResponse.json({
+    return apiOk({
       rows,
       total,
       limit,
       offset,
       hasMore: offset + limit < total,
     });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+  } catch (err) { return apiError(err); }
 }

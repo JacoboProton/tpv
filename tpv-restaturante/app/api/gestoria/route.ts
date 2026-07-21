@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { validateRequest, ConfirmSchema } from '../../../lib/gestoriaSchemas';
+import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized } from '../../../lib/infrastructure/response';
 
 function makeId() { return 'g_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8); }
 
@@ -49,14 +50,14 @@ export async function GET(req: NextRequest) {
 
     if (action === 'operations') {
       const data = await getOperationsData(tenantId);
-      return NextResponse.json(data);
+      return apiOk(data);
     }
 
     if (action === 'settings') {
       const rows = await qr(db, sql`SELECT key, value FROM gestoria_settings WHERE tenant_id = ${tenantId}`);
       const s: Record<string, any> = {};
       for (const r of rows) s[r.key] = r.value;
-      return NextResponse.json(s);
+      return apiOk(s);
     }
 
     if (action === 'documents') {
@@ -75,12 +76,12 @@ export async function GET(req: NextRequest) {
         WHERE d.type = ${type} AND d.tenant_id = ${tenantId}
         GROUP BY d.id ORDER BY d.created_at DESC
       `);
-      return NextResponse.json(docs);
+      return apiOk(docs);
     }
 
     if (action === 'payrolls') {
       const rows = await qr(db, sql`SELECT * FROM gestoria_payrolls WHERE tenant_id = ${tenantId} ORDER BY year DESC, month DESC, created_at DESC`);
-      return NextResponse.json(rows.map((r: any) => ({
+      return apiOk(rows.map((r: any) => ({
         id: r.id, employeeName: r.employee_name, employeeNif: r.employee_nif,
         month: r.month, year: r.year, grossAmount: Number(r.gross_amount),
         irpfWithholding: Number(r.irpf_withholding),
@@ -91,20 +92,16 @@ export async function GET(req: NextRequest) {
 
     if (action === 'taxmodels') {
       const rows = await qr(db, sql`SELECT * FROM gestoria_tax_models WHERE tenant_id = ${tenantId} ORDER BY year DESC, model_code, quarter`);
-      return NextResponse.json(rows.map((r: any) => ({ ...r, data: typeof r.data === 'string' ? JSON.parse(r.data) : r.data })));
+      return apiOk(rows.map((r: any) => ({ ...r, data: typeof r.data === 'string' ? JSON.parse(r.data) : r.data })));
     }
 
     if (action === 'authorization') {
       const [row] = await qr(db, sql`SELECT * FROM gestoria_authorization WHERE id = 1 AND tenant_id = ${tenantId}`);
-      return NextResponse.json(row || null);
+      return apiOk(row || null);
     }
 
-    return NextResponse.json({ error: 'unknown action' }, { status: 400 });
-  } catch (err: any) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+      return apiBadRequest('unknown action');
+  } catch (err) { return apiError(err); }
 }
 
 export async function POST(req: NextRequest) {
@@ -112,7 +109,7 @@ export async function POST(req: NextRequest) {
     const db = getDb();
     const tenantId = getTenantId(req);
     const body = await req.json() as any;
-    try { validateRequest(body); } catch (e: any) { return NextResponse.json({ error: e.errors || (e as Error).message }, { status: 400 }); }
+    try { validateRequest(body); } catch (e: any) { return apiBadRequest(e.errors || (e as Error).message); }
     const { action } = body;
 
     if (action === 'document') {
@@ -126,7 +123,7 @@ export async function POST(req: NextRequest) {
           await db.execute(sql`INSERT INTO gestoria_document_lines (id, document_id, description, category, base_amount, vat_rate, vat_amount, withholding, zone, type, sort_order, tenant_id) VALUES (${lid}, ${id}, ${l.description}, ${l.category || ''}, ${l.baseAmount}, ${l.vatRate}, ${l.vatAmount}, ${l.withholding || 0}, ${l.zone || 'spain'}, ${l.type || 'good'}, ${i}, ${tenantId})`);
         }
       }
-      return NextResponse.json({ ok: true, id });
+      return apiOk({ ok: true, id });
     }
 
     if (action === 'payroll') {
@@ -143,7 +140,7 @@ export async function POST(req: NextRequest) {
           social_security_company = EXCLUDED.social_security_company,
           net_amount = EXCLUDED.net_amount, notes = EXCLUDED.notes
       `);
-      return NextResponse.json({ ok: true, id });
+      return apiOk({ ok: true, id });
     }
 
     if (action === 'calculate') {
@@ -152,20 +149,16 @@ export async function POST(req: NextRequest) {
       const [existing] = await qr(db, sql`SELECT id FROM gestoria_tax_models WHERE model_code = ${modelCode} AND year = ${year} AND quarter = ${quarter} AND tenant_id = ${tenantId}`);
       if (existing) {
         await db.execute(sql`UPDATE gestoria_tax_models SET data = ${JSON.stringify(data)}, updated_at = ${Date.now()}, status = 'draft' WHERE id = ${existing.id} AND tenant_id = ${tenantId}`);
-        return NextResponse.json({ ok: true, id: existing.id, data });
+        return apiOk({ ok: true, id: existing.id, data });
       } else {
         const id = makeId();
         await db.execute(sql`INSERT INTO gestoria_tax_models (id, model_code, year, quarter, status, data, due_date, created_at, updated_at, tenant_id) VALUES (${id}, ${modelCode}, ${year}, ${quarter}, 'draft', ${JSON.stringify(data)}, ${getDueDate(modelCode, year, quarter)}, ${Date.now()}, ${Date.now()}, ${tenantId})`);
-        return NextResponse.json({ ok: true, id, data });
+        return apiOk({ ok: true, id, data });
       }
     }
 
-    return NextResponse.json({ error: 'unknown action' }, { status: 400 });
-  } catch (err: any) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+      return apiBadRequest('unknown action');
+  } catch (err) { return apiError(err); }
 }
 
 export async function PUT(req: NextRequest) {
@@ -173,24 +166,24 @@ export async function PUT(req: NextRequest) {
     const db = getDb();
     const tenantId = getTenantId(req);
     const body = await req.json() as any;
-    try { validateRequest(body); } catch (e: any) { return NextResponse.json({ error: e.errors || (e as Error).message }, { status: 400 }); }
+    try { validateRequest(body); } catch (e: any) { return apiBadRequest(e.errors || (e as Error).message); }
     const { action } = body;
 
     if (action === 'settings') {
       for (const [key, value] of Object.entries(body.settings)) {
         await db.execute(sql`INSERT INTO gestoria_settings (key, value, tenant_id) VALUES (${key}, ${String(value)}, ${tenantId}) ON CONFLICT (key, tenant_id) DO UPDATE SET value = EXCLUDED.value`);
       }
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
     if (action === 'confirm') {
       await db.execute(sql`UPDATE gestoria_documents SET confirmed = NOT confirmed WHERE id = ${body.id} AND tenant_id = ${tenantId}`);
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
     if (action === 'status') {
       await db.execute(sql`UPDATE gestoria_tax_models SET status = ${body.status}, updated_at = ${Date.now()} WHERE id = ${body.id} AND tenant_id = ${tenantId}`);
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
     if (action === 'authorization') {
@@ -200,15 +193,11 @@ export async function PUT(req: NextRequest) {
       } else {
         await db.execute(sql`UPDATE gestoria_authorization SET accountant_name = ${name || ''}, accountant_nif = ${nif || ''}, signed_at = ${signedAt || Date.now()}, social_security_red = ${socialRed || false}, revoked = false, revoked_at = NULL WHERE id = 1 AND tenant_id = ${tenantId}`);
       }
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
-    return NextResponse.json({ error: 'unknown action' }, { status: 400 });
-  } catch (err: any) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+      return apiBadRequest('unknown action');
+  } catch (err) { return apiError(err); }
 }
 
 export async function DELETE(req: NextRequest) {
@@ -216,22 +205,18 @@ export async function DELETE(req: NextRequest) {
     const db = getDb();
     const tenantId = getTenantId(req);
     const body = await req.json() as any;
-    try { ConfirmSchema.parse(body); } catch (e: any) { return NextResponse.json({ error: e.errors || (e as Error).message }, { status: 400 }); }
+    try { ConfirmSchema.parse(body); } catch (e: any) { return apiBadRequest(e.errors || (e as Error).message); }
     const { action, id } = body;
     if (action === 'document') {
       await db.execute(sql`DELETE FROM gestoria_documents WHERE id = ${id} AND tenant_id = ${tenantId}`);
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
     if (action === 'payroll') {
       await db.execute(sql`DELETE FROM gestoria_payrolls WHERE id = ${id} AND tenant_id = ${tenantId}`);
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
-    return NextResponse.json({ error: 'unknown action' }, { status: 400 });
-  } catch (err: any) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+      return apiBadRequest('unknown action');
+  } catch (err) { return apiError(err); }
 }
 
 function getDueDate(modelCode: any, year: any, quarter: any) {

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { apiOk, apiError, apiBadRequest } from '../../../../lib/infrastructure/response';
 import { eq, desc } from 'drizzle-orm';
 import { getDb } from '../../../../lib/drizzle';
 import { rateLimit } from '../../../../lib/rate-limit';
@@ -27,12 +28,10 @@ export async function GET(req: NextRequest) {
       .orderBy(desc(webhookEvents.createdAt))
       .limit(50);
 
-    return NextResponse.json(events);
+    return apiOk(events);
   } catch (err) {
     console.error('[Webhook Events] Error listing:', (err as Error).message);
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
+    return apiError(err);
   }
 }
 
@@ -48,18 +47,16 @@ export async function POST(req: NextRequest) {
     const { eventId } = await req.json() as any;
 
     if (!eventId || typeof eventId !== 'string') {
-      return NextResponse.json({ error: 'eventId requerido' }, { status: 400 });
+      return apiBadRequest('eventId requerido');
     }
 
     const db = getDb();
     await db.update(webhookEvents).set({ status: 'failed', error: null })
       .where(eq(webhookEvents.eventId, eventId));
 
-    return NextResponse.json({ ok: true });
+    return apiOk();
   } catch (err) {
     console.error('[Webhook Events] Error resetting:', (err as Error).message);
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
+    return apiError(err);
   }
 }

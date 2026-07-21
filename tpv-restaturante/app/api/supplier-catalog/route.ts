@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { eq, sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { supplierCatalog, suppliers, products, supplierPriceHistory } from '../../../db/schema';
+import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiServerError } from '../../../lib/infrastructure/response';
 
 export async function GET(req: NextRequest) {
   try {
@@ -51,12 +52,8 @@ export async function GET(req: NextRequest) {
         pricePerUnit: currPrice, trend, prevPrice,
       });
     }
-    return NextResponse.json(result);
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk(result);
+  } catch (err) { return apiError(err); }
 }
 
 export async function POST(req: NextRequest) {
@@ -106,7 +103,7 @@ export async function POST(req: NextRequest) {
           `);
         }
       }
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
     if (action === 'delete') {
@@ -124,13 +121,9 @@ export async function POST(req: NextRequest) {
           await db.execute(sql`UPDATE supplier_catalog SET is_preferred = true WHERE id = ${next.id} AND tenant_id = ${tenantId}`);
         }
       }
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
-    return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiBadRequest('Unknown action');
+  } catch (err) { return apiError(err); }
 }

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import { eq, and } from 'drizzle-orm';
@@ -6,6 +6,7 @@ import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
 import { getCachedSettings, setCachedSettings } from '../../../../lib/settings-cache';
 import { settings, sales } from '../../../../db/schema';
+import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized } from '../../../../lib/infrastructure/response';
 
 async function getSettings(tenantId: string) {
   const cached = getCachedSettings();
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
       const rows = await db.select().from(sales)
         .where(and(eq(sales.id, saleId), eq(sales.tenantId, tenantId)))
         .limit(1);
-      if (rows.length === 0) return NextResponse.json({ error: 'Venta no encontrada' }, { status: 404 });
+      if (rows.length === 0) return apiNotFound('Venta no encontrada');
       const r = rows[0];
       sale = {
         id: r.id, tableName: r.tableName, employeeName: r.employeeName,
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
         totalWithTip: Number(r.totalWithTip || r.total || 0),
       };
     } else {
-      return NextResponse.json({ error: 'saleId o sale requerido' }, { status: 400 });
+      return apiBadRequest('saleId o sale requerido');
     }
 
     const settingsData = await getSettings(tenantId) as Record<string, string>;
@@ -171,15 +172,10 @@ export async function POST(req: NextRequest) {
     const pdfBuffer = Buffer.from((doc as any).output('arraybuffer'));
     const base64 = pdfBuffer.toString('base64');
 
-    return NextResponse.json({
-      ok: true,
+    return apiOk({
       pdf: base64,
       filename: `factura_${sale.invoiceNumber || sale.id}.pdf`,
       saleId: sale.id,
     });
-  } catch (err: any) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+  } catch (err) { return apiError(err); }
 }

@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
+import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiServerError } from '../../../lib/infrastructure/response';
 
 export async function GET(req: NextRequest) {
   try {
@@ -20,18 +21,14 @@ export async function GET(req: NextRequest) {
 
     const result = await db.execute(query);
     const rows = (result as any).rows;
-    return NextResponse.json(rows.map((r: any) => ({
+    return apiOk(rows.map((r: any) => ({
       id: r.id, employeeId: r.employee_id, employeeName: r.employee_name,
       reason: r.reason, fromDate: r.from_date, toDate: r.to_date,
       notes: r.notes, status: r.status,
       resolvedBy: r.resolved_by, resolvedNote: r.resolved_note,
       createdAt: Number(r.created_at), resolvedAt: r.resolved_at ? Number(r.resolved_at) : null,
     })));
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+  } catch (err) { return apiError(err); }
 }
 
 export async function POST(req: NextRequest) {
@@ -48,7 +45,7 @@ export async function POST(req: NextRequest) {
         INSERT INTO time_off_requests (tenant_id, id, employee_id, employee_name, reason, from_date, to_date, notes, status, created_at)
         VALUES (${tenantId}, ${id}, ${employeeId}, ${employeeName}, ${reason}, ${fromDate}, ${toDate}, ${notes || ''}, 'pending', ${Date.now()})
       `);
-      return NextResponse.json({ ok: true, id });
+      return apiOk({ ok: true, id });
     }
 
     if (action === 'resolve') {
@@ -58,13 +55,9 @@ export async function POST(req: NextRequest) {
           resolved_note=${resolvedNote || ''}, resolved_at=${Date.now()}
         WHERE id=${id} AND tenant_id = ${tenantId}
       `);
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
-    return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiBadRequest('Unknown action');
+  } catch (err) { return apiError(err); }
 }

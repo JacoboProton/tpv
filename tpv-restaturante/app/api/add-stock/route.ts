@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { eq, and, sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { productStock } from '../../../db/schema';
+import { apiOk, apiError } from '../../../lib/infrastructure/response';
 
 export async function POST(req: NextRequest) {
   const tenantId = getTenantId(req);
@@ -32,10 +33,6 @@ export async function POST(req: NextRequest) {
         });
       }
     }
-    return NextResponse.json({ ok: true, actualizados: rows.length });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk({ ok: true, actualizados: rows.length });
+  } catch (err) { return apiError(err); }
 }

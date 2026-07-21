@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { eq, sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { stockLog } from '../../../db/schema';
+import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiServerError } from '../../../lib/infrastructure/response';
 
 export async function GET(req: NextRequest) {
   try {
@@ -28,18 +29,14 @@ export async function GET(req: NextRequest) {
 
     const total = ((countResult as any).rows?.[0]?.total ?? 0) as number;
 
-    return NextResponse.json({
+    return apiOk({
       rows,
       total,
       limit,
       offset,
       hasMore: offset + limit < total,
     });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+  } catch (err) { return apiError(err); }
 }
 
 export async function POST(req: NextRequest) {
@@ -60,11 +57,9 @@ export async function POST(req: NextRequest) {
       employeeName: stockLog.employeeName, createdAt: stockLog.createdAt,
     });
 
-    return NextResponse.json(record);
+    return apiOk(record);
   } catch (err) {
     console.error('Error creando stock log:', err);
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
+    return apiError(err);
   }
 }

@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { eq, desc } from 'drizzle-orm';
 import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
 import { deliveryOrders } from '../../../../db/schema';
+import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized } from '../../../../lib/infrastructure/response';
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,12 +13,8 @@ export async function GET(req: NextRequest) {
       .where(eq(deliveryOrders.tenantId, tenantId))
       .orderBy(desc(deliveryOrders.createdAt))
       .limit(100);
-    return NextResponse.json(orders);
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk(orders);
+  } catch (err) { return apiError(err); }
 }
 
 export async function POST(req: NextRequest) {
@@ -41,12 +38,8 @@ export async function POST(req: NextRequest) {
       status: 'pending',
       createdAt: Date.now(),
     });
-    return NextResponse.json({ id, ok: true });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk({ id, ok: true });
+  } catch (err) { return apiError(err); }
 }
 
 export async function PUT(req: NextRequest) {
@@ -63,10 +56,6 @@ export async function PUT(req: NextRequest) {
         ...(body.items !== undefined ? { items: body.items } : {}),
       })
       .where(eq(deliveryOrders.id, body.id));
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk();
+  } catch (err) { return apiError(err); }
 }

@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { eq, and, sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { employeeShifts } from '../../../db/schema';
+import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiServerError } from '../../../lib/infrastructure/response';
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
 
     if (objectives) {
       const result = await db.execute(sql`SELECT * FROM shift_objectives WHERE tenant_id = ${tenantId} ORDER BY day_of_week, start_time`);
-      return NextResponse.json((result as any).rows);
+      return apiOk((result as any).rows);
     }
 
     let conditions = [eq(employeeShifts.tenantId, tenantId)];
@@ -28,17 +29,13 @@ export async function GET(req: NextRequest) {
       .where(and(...conditions))
       .orderBy(employeeShifts.date, employeeShifts.startTime);
 
-    return NextResponse.json(rows.map(r => ({
+    return apiOk(rows.map(r => ({
       id: r.id, employeeId: r.employeeId, employeeName: r.employeeName,
       date: r.date, startTime: r.startTime, endTime: r.endTime,
       position: r.position, notes: r.notes, color: r.color,
       createdAt: r.createdAt,
     })));
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+  } catch (err) { return apiError(err); }
 }
 
 export async function POST(req: NextRequest) {
@@ -82,7 +79,7 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      return NextResponse.json({ ok: true, count: sourceShifts.length });
+      return apiOk({ ok: true, count: sourceShifts.length });
     }
 
     if (action === 'save-objective') {
@@ -92,12 +89,12 @@ export async function POST(req: NextRequest) {
       } else {
         await db.execute(sql`INSERT INTO shift_objectives (day_of_week, start_time, end_time, position, min_people, max_people, tenant_id) VALUES (${dayOfWeek}, ${startTime}, ${endTime}, ${position}, ${minPeople}, ${maxPeople}, ${tenantId})`);
       }
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
     if (action === 'delete-objective') {
       await db.execute(sql`DELETE FROM shift_objectives WHERE id=${body.id} AND tenant_id = ${tenantId}`);
-      return NextResponse.json({ ok: true });
+      return apiOk();
     }
 
     const { id, employeeId, employeeName, date, startTime, endTime, position, notes, color } = body;
@@ -112,12 +109,8 @@ export async function POST(req: NextRequest) {
         position, notes, color, createdAt: Date.now(), tenantId,
       });
     }
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk();
+  } catch (err) { return apiError(err); }
 }
 
 export async function DELETE(req: NextRequest) {
@@ -127,10 +120,6 @@ export async function DELETE(req: NextRequest) {
     const db = getDb();
     await db.delete(employeeShifts)
       .where(and(eq(employeeShifts.id, id), eq(employeeShifts.tenantId, tenantId)));
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk();
+  } catch (err) { return apiError(err); }
 }

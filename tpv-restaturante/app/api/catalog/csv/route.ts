@@ -3,6 +3,7 @@ import { eq, sql } from 'drizzle-orm';
 import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
 import { products } from '../../../../db/schema';
+import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized } from '../../../../lib/infrastructure/response';
 
 export async function GET(req: NextRequest) {
   try {
@@ -37,11 +38,7 @@ export async function GET(req: NextRequest) {
         'Content-Disposition': 'attachment; filename="carta.csv"',
       },
     });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+  } catch (err) { return apiError(err); }
 }
 
 export async function POST(req: NextRequest) {
@@ -50,7 +47,7 @@ export async function POST(req: NextRequest) {
     const db = getDb();
     const text = await req.text();
     const lines = text.split('\n').filter(Boolean);
-    if (lines.length < 2) return NextResponse.json({ ok: true, imported: 0 });
+    if (lines.length < 2) return apiOk({ ok: true, imported: 0 });
 
     const header = lines[0].split(',').map(h => h.trim().toLowerCase());
     const idIdx = header.indexOf('id');
@@ -90,10 +87,6 @@ export async function POST(req: NextRequest) {
       });
       imported++;
     }
-    return NextResponse.json({ ok: true, imported });
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk({ ok: true, imported });
+  } catch (err) { return apiError(err); }
 }

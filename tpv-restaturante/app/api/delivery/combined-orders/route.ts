@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { desc, eq, sql } from 'drizzle-orm';
 import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
 import { qrOrders, deliveryOrders } from '../../../../db/schema';
+import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized } from '../../../../lib/infrastructure/response';
 
 function parseItems(raw: any) {
   if (!raw) return [];
@@ -59,10 +60,6 @@ export async function GET(req: NextRequest) {
 
     const all = [...mappedQR, ...mappedDel].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
-    return NextResponse.json(all);
-  } catch (err) {
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
-  }
+    return apiOk(all);
+  } catch (err) { return apiError(err); }
 }

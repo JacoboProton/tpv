@@ -3,6 +3,7 @@ import { getDb } from '../../../../lib/drizzle';
 import { verifyWebhookSignature } from '../../../../lib/verify-webhook';
 import { getTenantId } from '../../../../lib/tenant';
 import { deliveryOrders } from '../../../../db/schema';
+import { apiOk, apiError, apiUnauthorized } from '../../../../lib/infrastructure/response';
 
 function normalizeUberProducts(items: any) {
   if (!items || !Array.isArray(items)) return [];
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
   console.log('[UberEats webhook] Verification from', req.headers.get('x-forwarded-for'));
   const challenge = new URL(req.url).searchParams.get('challenge');
   if (challenge) return new NextResponse(challenge, { status: 200 });
-  return NextResponse.json({ status: 'ok' });
+  return apiOk({ status: 'ok' });
 }
 
 export async function POST(req: NextRequest) {
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
     const signature = req.headers.get('x-uber-signature') || req.headers.get('x-postmates-signature') || '';
     const valid = verifyWebhookSignature(rawBody, signature, 'UBER_WEBHOOK_SECRET');
     if (!valid) {
-      return NextResponse.json({ error: 'Firma inválida' }, { status: 401 });
+      return apiUnauthorized('Firma inválida');
     }
 
     const body = JSON.parse(rawBody);
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
     const data = body.data || body;
 
     if (event !== 'orders.create' && event !== 'orders.upsert' && !data.items && !data.products) {
-      return NextResponse.json({ ok: true, ignored: true });
+      return apiOk({ ignored: true });
     }
 
     const orderId = data.order_id || data.id || 'ue_' + Date.now();
@@ -76,11 +77,9 @@ export async function POST(req: NextRequest) {
       createdAt: now,
     });
 
-    return NextResponse.json({ ok: true, id: delId });
-  } catch (err: any) {
+    return apiOk({ id: delId });
+  } catch (err) {
     console.error('[UberEats webhook] Error:', (err as Error).message);
-    const msg = (err as Error).message;
-    const cause = (err as Error).cause;
-    return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status: 500 });
+    return apiError(err);
   }
 }
