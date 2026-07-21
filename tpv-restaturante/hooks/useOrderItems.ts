@@ -50,6 +50,35 @@ export function useOrderItems(
     return modifierData.groups.filter((g: any) => groupIds.includes(g.id))
   }, [modifierData])
 
+  const addItemWithPrice = useCallback((product: any, modifiers: any[], extraPrice: number) => {
+    if (!selectedTableId) return
+    const result = addNormalItem(floor, selectedTableId, catalog, {
+      product, modifiers, extraPrice,
+      employeeName: currentUser?.name,
+      activeTicketId,
+    })
+    if (!result) return
+    if (result.isNewOrder) {
+      const order = (result.floor as any).orders[result.orderId]
+      eventBus.emit('order:created', {
+        orderId: result.orderId, tableId: selectedTableId, tableName: '',
+        items: order.items.map((i: any) => ({ productId: i.productId, name: i.name, qty: i.qty })),
+        employeeName: currentUser?.name || null, createdAt: order.createdAt,
+      })
+      setActiveTicketId(result.orderId)
+    }
+    persistFloor(result.floor)
+  }, [floor, catalog, selectedTableId, activeTicketId, currentUser, persistFloor])
+
+  const handleAddItemWithModifiers = useCallback((product: any) => {
+    const groups = getModifierGroupsForProduct(product.id)
+    if (groups.length > 0) {
+      setShowModifierSelector({ product, groups })
+    } else {
+      addItemWithPrice(product, [], 0)
+    }
+  }, [getModifierGroupsForProduct, addItemWithPrice])
+
   const addItem = useCallback((product: any) => {
     if (product.isMenu && product.menuData) {
       if (!selectedTableId) return
@@ -70,36 +99,7 @@ export function useOrderItems(
       return
     }
     handleAddItemWithModifiers(product)
-  }, [floor, catalog, selectedTableId, currentUser, persistFloor])
-
-  const handleAddItemWithModifiers = useCallback((product: any) => {
-    const groups = getModifierGroupsForProduct(product.id)
-    if (groups.length > 0) {
-      setShowModifierSelector({ product, groups })
-    } else {
-      addItemWithPrice(product, [], 0)
-    }
-  }, [getModifierGroupsForProduct])
-
-  const addItemWithPrice = useCallback((product: any, modifiers: any[], extraPrice: number) => {
-    if (!selectedTableId) return
-    const result = addNormalItem(floor, selectedTableId, catalog, {
-      product, modifiers, extraPrice,
-      employeeName: currentUser?.name,
-      activeTicketId,
-    })
-    if (!result) return
-    if (result.isNewOrder) {
-      const order = (result.floor as any).orders[result.orderId]
-      eventBus.emit('order:created', {
-        orderId: result.orderId, tableId: selectedTableId, tableName: '',
-        items: order.items.map((i: any) => ({ productId: i.productId, name: i.name, qty: i.qty })),
-        employeeName: currentUser?.name || null, createdAt: order.createdAt,
-      })
-      setActiveTicketId(result.orderId)
-    }
-    persistFloor(result.floor)
-  }, [floor, catalog, selectedTableId, activeTicketId, currentUser, persistFloor])
+  }, [floor, catalog, selectedTableId, currentUser, persistFloor, handleAddItemWithModifiers])
 
   const confirmModifiersAndAdd = useCallback((modifiers: any[]) => {
     const product = showModifierSelector.product
