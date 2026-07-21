@@ -8,6 +8,7 @@ import { saveFloor } from '../infrastructure/database/floor-repository'
 import { broadcastFloorUpdate, broadcastReadyNotification } from '../lib/realtime'
 import { buildTicketHtml, printTicketHtml } from '../lib/ticket-template'
 import { calculateIgic } from '../domain/invoice/invoice'
+import { processSalesQueue as processSalesQueueOp } from '../application/sales/sales-queue'
 import { useOrderItems } from './useOrderItems'
 import { useOrderTickets } from './useOrderTickets'
 import { useOrderTables } from './useOrderTables'
@@ -80,46 +81,12 @@ export function useOrders({
   }, [setFloor, trainingMode, tenantId, showToast])
 
   const processSalesQueue = useCallback(async () => {
-    if (salesProcessing.current || salesQueue.current.length === 0) return
-    salesProcessing.current = true
-    while (salesQueue.current.length > 0) {
-      const sale = salesQueue.current[0]
-      let ok = false
-      let lastErr = ''
-      let ticketNumber = null
-      try {
-        const res: any = await addSale(sale)
-        ok = res && res.ok
-        if (res && res.ticketNumber) ticketNumber = res.ticketNumber
-        if (!ok) lastErr = 'respuesta vacía'
-      } catch (e) {
-        lastErr = e && (e as Error).message ? (e as Error).message : String(e)
-        console.warn('addSale error:', lastErr)
-      }
-      if (ok) {
-        if (ticketNumber) {
-          setSales((prev: any) => prev.map((s: any) => s.id === sale.id ? { ...s, ticketNumber } : s))
-          cacheSet('sales', null)
-        }
-        salesQueue.current.shift()
-      } else {
-        showToast(`Error venta: ${lastErr}. Reintentando...`)
-        await new Promise(r => setTimeout(r, 2000))
-        try {
-          const res: any = await addSale(sale)
-          if (res && res.ok) {
-            salesQueue.current.shift()
-          } else {
-            showToast(`Error venta: ${lastErr}. No se pudo guardar`)
-            salesQueue.current.shift()
-          }
-        } catch (e2) {
-          showToast(`Error venta: ${e2 && (e2 as Error).message ? (e2 as Error).message : String(e2)}. No se pudo guardar`)
-          salesQueue.current.shift()
-        }
-      }
-    }
-    salesProcessing.current = false
+    await processSalesQueueOp(salesQueue.current, salesProcessing, {
+      addSale,
+      setSales,
+      cacheSet,
+      showToast,
+    })
   }, [setSales, showToast])
 
   const persistSales = useCallback((next: any) => {

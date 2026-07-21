@@ -5,8 +5,10 @@ import { saveEmployees } from '../lib/api'
 import { sessionLogin, sessionKeepalive, sessionLogout, startKeepalive } from '../lib/session'
 import { enqueueMutation } from '../lib/offline'
 import { clone } from '../components/constants'
-import { sha256 } from '../lib/crypto'
 import { createEmployee, canDeleteEmployee, buildTrainingFloor } from '../domain/employees/employee-operations'
+import { executeLogin as executeLoginOp, tryRestoreSession as tryRestoreSessionOp } from '../application/auth/login'
+import { logoutUser } from '../application/auth/logout'
+import { handleClockinAction as handleClockinActionOp, loadClockinSummary as loadClockinSummaryOp } from '../application/auth/clockin'
 
 interface UseEmployeesProps {
   employees: any[]
@@ -71,54 +73,32 @@ export function useEmployees({
   }, [trainingMode, savedFloor, floor, setFloor, showToast])
 
   const logout = useCallback(() => {
-    if (currentUser) {
-      const body = { employeeId: currentUser.id, employeeName: currentUser.name, action: 'salida', turnDate: new Date().toISOString().slice(0, 10) }
-      fetch('/api/turns', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).catch(() => {})
-      sessionLogout(currentUser.id).catch(() => {})
-    }
-    if (window.__keepaliveCleanup) window.__keepaliveCleanup()
+    logoutUser(currentUser, {
+      logoutApi: (id) => sessionLogout(id),
+      turnsApi: (body) => fetch('/api/turns', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).catch(() => {}),
+    })
     setCurrentUser(null)
-    try { localStorage.removeItem('tpv:current_user'); window.__employeeRole = ''; window.__employeeId = ''; } catch {}
     setLoginSelected(null)
     setPinInput('')
   }, [currentUser])
 
   const executeLogin = useCallback(async (pin: string) => {
-    try {
-      const res = await fetch('/api/employees', {
+    const emp = await executeLoginOp(pin, {
+      fetchVerify: (p, hash) => fetch('/api/employees', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'verify', pin, pinHash: await sha256(pin) }),
-      })
-      if (!res.ok) { showToast('PIN incorrecto'); setPinInput(''); return }
-      const emp = await res.json()
-      if (!emp || !emp.id) { showToast('PIN incorrecto'); setPinInput(''); return }
-
-      if (emp.role !== 'admin') {
-        const sessionRes: any = await sessionLogin(emp.id, emp.role)
-        if (sessionRes.conflict) {
-          const forceLogin = window.confirm(`${emp.name} ya está conectado en otro terminal. ¿Cerrar esa sesión y continuar aquí?`)
-          if (!forceLogin) { setPinInput(''); return }
-          await sessionLogin(emp.id, emp.role, true)
-        }
-      } else {
-        sessionLogin(emp.id, emp.role).catch(() => {})
-      }
-
-      if (window.__keepaliveCleanup) window.__keepaliveCleanup()
-
+        body: JSON.stringify({ action: 'verify', pin: p, pinHash: hash }),
+      }),
+      sessionLogin,
+      startKeepalive,
+      logout,
+      showToast,
+      setPinInput,
+    })
+    if (emp) {
       setCurrentUser(emp)
-      try { localStorage.setItem('tpv:current_user', emp.id); window.__employeeRole = emp.role; window.__employeeId = emp.id; } catch {}
+      try { localStorage.setItem('tpv:current_user', emp.id); (window as any).__employeeRole = emp.role; (window as any).__employeeId = emp.id; } catch {}
       setLoginSelected(null)
-      setPinInput('')
-
-      window.__keepaliveCleanup = startKeepalive(emp.id, () => {
-        showToast('Sesión cerrada en otro terminal')
-        logout()
-      })
-    } catch {
-      showToast('Error de conexión')
-      setPinInput('')
     }
   }, [showToast, logout])
 
@@ -135,64 +115,32 @@ export function useEmployees({
     setPinInput(p => p.slice(0, -1))
   }, [])
 
+  const clockDeps = {
+    fetchSummary: (employeeId: string, date: string) =>
+      fetch(`/api/clockin?employeeId=${employeeId}&date=${date}`).then(r => r.ok ? r.json() : Promise.reject()),
+    fetchClockin: (body: any) => fetch('/api/clockin', { method: 'POST', body: JSON.stringify(body) }),
+    showToast,
+    setClockinSummary,
+    setClockinLoading,
+  }
+
   const loadClockinSummary = useCallback(async () => {
-    if (!currentUser) return
-    setClockinLoading(true)
-    try {
-      const r = await fetch(`/api/clockin?employeeId=${currentUser.id}&date=${new Date().toISOString().slice(0, 10)}`)
-      if (r.ok) {
-        const data = await r.json()
-        setClockinSummary(data.summary || null)
-      }
-    } catch {}
-    setClockinLoading(false)
-  }, [currentUser])
+    loadClockinSummaryOp(currentUser, clockDeps)
+  }, [currentUser, clockDeps])
 
   const handleClockinAction = useCallback(async (action: string) => {
-    if (!currentUser) return
-    try {
-      const r = await fetch('/api/clockin', {
-        method: 'POST',
-        body: JSON.stringify({
-          employeeId: currentUser.id,
-          employeeName: currentUser.name,
-          method: 'tpc',
-          action,
-        }),
-      })
-      const data = await r.json()
-      if (data.ok) {
-        showToast(`✅ ${action} registrada`)
-        loadClockinSummary()
-      } else {
-        showToast('❌ ' + (data.error || 'Error'))
-      }
-    } catch {
-      showToast('❌ Error de conexión')
-    }
-  }, [currentUser, showToast, loadClockinSummary])
+    handleClockinActionOp(currentUser, action, clockDeps)
+  }, [currentUser, clockDeps])
 
   const tryRestoreSession = useCallback(async (emps: any[]) => {
-    const storedUserId = localStorage.getItem('tpv:current_user')
-    if (!storedUserId || currentUser) return
-    const emp = emps.find((e: any) => e.id === storedUserId)
-    if (!emp) { localStorage.removeItem('tpv:current_user'); return }
-    try {
-      const data: any = await sessionKeepalive(emp.id)
-      if (data.ok) {
-        setCurrentUser(emp)
-        try { window.__employeeRole = emp.role; window.__employeeId = emp.id; } catch {}
-        window.__keepaliveCleanup = startKeepalive(emp.id, () => {
-          showToast('Sesión cerrada en otro terminal')
-          logout()
-        })
-        return emp
-      } else {
-        localStorage.removeItem('tpv:current_user')
-      }
-    } catch {
-      localStorage.removeItem('tpv:current_user')
-    }
+    return tryRestoreSessionOp(emps, {
+      sessionKeepalive,
+      startKeepalive,
+      logout,
+      showToast,
+      setCurrentUser,
+      currentUser,
+    })
   }, [currentUser, showToast, logout])
 
   return {
