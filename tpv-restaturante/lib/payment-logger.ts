@@ -14,6 +14,7 @@ interface PaymentLogOptions {
   source?: string | null;
   error?: string | null;
   stripeResponse?: unknown;
+  tenantId?: string;
 }
 
 export async function logPayment(opts: PaymentLogOptions): Promise<void> {
@@ -33,6 +34,7 @@ export async function logPayment(opts: PaymentLogOptions): Promise<void> {
       error: opts.error ?? null,
       stripeResponse: opts.stripeResponse ? JSON.stringify(opts.stripeResponse).slice(0, 2000) : null,
       createdAt: Date.now(),
+      tenantId: opts.tenantId ?? 'default',
     });
   } catch (e) {
     console.error('[PaymentLogger] Error al guardar log:', (e as Error).message);

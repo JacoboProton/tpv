@@ -97,6 +97,7 @@ export const category = pgTable("Category", {
 
 export const ticket = pgTable("Ticket", {
 	id: text().primaryKey().notNull(),
+	tenantId: text("tenant_id").default('default').notNull(),
 	total: doublePrecision().default(0).notNull(),
 	status: ticketStatus().default('OPEN').notNull(),
 	storeId: text().notNull(),
@@ -175,6 +176,7 @@ export const ingredient = pgTable("Ingredient", {
 
 export const stockMovement = pgTable("StockMovement", {
 	id: text().primaryKey().notNull(),
+	tenantId: text("tenant_id").default('default').notNull(),
 	ingredientId: text().notNull(),
 	quantity: doublePrecision().notNull(),
 	reason: text().notNull(),
@@ -271,6 +273,7 @@ export const bearings = pgTable("bearings", {
 
 export const bushings = pgTable("bushings", {
 	id: serial().primaryKey().notNull(),
+	tenantId: text("tenant_id").default('default').notNull(),
 	name: text().notNull(),
 	description: text(),
 	level: level().notNull(),
@@ -306,6 +309,7 @@ export const backpacks = pgTable("backpacks", {
 
 export const belts = pgTable("belts", {
 	id: serial().primaryKey().notNull(),
+	tenantId: text("tenant_id").default('default').notNull(),
 	name: text().notNull(),
 	description: text(),
 	level: level().notNull(),
@@ -316,6 +320,7 @@ export const belts = pgTable("belts", {
 
 export const caps = pgTable("caps", {
 	id: serial().primaryKey().notNull(),
+	tenantId: text("tenant_id").default('default').notNull(),
 	name: text().notNull(),
 	description: text(),
 	level: level().notNull(),
@@ -326,6 +331,7 @@ export const caps = pgTable("caps", {
 
 export const elbowPads = pgTable("elbow_pads", {
 	id: serial().primaryKey().notNull(),
+	tenantId: text("tenant_id").default('default').notNull(),
 	name: text().notNull(),
 	description: text(),
 	level: level().notNull(),
@@ -336,6 +342,7 @@ export const elbowPads = pgTable("elbow_pads", {
 
 export const griptapes = pgTable("griptapes", {
 	id: serial().primaryKey().notNull(),
+	tenantId: text("tenant_id").default('default').notNull(),
 	name: text().notNull(),
 	description: text(),
 	level: level().notNull(),
@@ -346,6 +353,7 @@ export const griptapes = pgTable("griptapes", {
 
 export const helmets = pgTable("helmets", {
 	id: serial().primaryKey().notNull(),
+	tenantId: text("tenant_id").default('default').notNull(),
 	name: text().notNull(),
 	description: text(),
 	level: level().notNull(),
@@ -356,6 +364,7 @@ export const helmets = pgTable("helmets", {
 
 export const kneePads = pgTable("knee_pads", {
 	id: serial().primaryKey().notNull(),
+	tenantId: text("tenant_id").default('default').notNull(),
 	name: text().notNull(),
 	description: text(),
 	level: level().notNull(),
@@ -366,6 +375,7 @@ export const kneePads = pgTable("knee_pads", {
 
 export const pants = pgTable("pants", {
 	id: serial().primaryKey().notNull(),
+	tenantId: text("tenant_id").default('default').notNull(),
 	name: text().notNull(),
 	description: text(),
 	level: level().notNull(),
@@ -376,6 +386,7 @@ export const pants = pgTable("pants", {
 
 export const patches = pgTable("patches", {
 	id: serial().primaryKey().notNull(),
+	tenantId: text("tenant_id").default('default').notNull(),
 	name: text().notNull(),
 	description: text(),
 	level: level().notNull(),
@@ -386,6 +397,7 @@ export const patches = pgTable("patches", {
 
 export const skateShoes = pgTable("skate_shoes", {
 	id: serial().primaryKey().notNull(),
+	tenantId: text("tenant_id").default('default').notNull(),
 	name: text().notNull(),
 	description: text(),
 	level: level().notNull(),
@@ -396,6 +408,7 @@ export const skateShoes = pgTable("skate_shoes", {
 
 export const socks = pgTable("socks", {
 	id: serial().primaryKey().notNull(),
+	tenantId: text("tenant_id").default('default').notNull(),
 	name: text().notNull(),
 	description: text(),
 	level: level().notNull(),
@@ -406,6 +419,7 @@ export const socks = pgTable("socks", {
 
 export const stickers = pgTable("stickers", {
 	id: serial().primaryKey().notNull(),
+	tenantId: text("tenant_id").default('default').notNull(),
 	name: text().notNull(),
 	description: text(),
 	level: level().notNull(),
@@ -476,6 +490,7 @@ export const hardware = pgTable("hardware", {
 
 export const riserPads = pgTable("riser_pads", {
 	id: serial().primaryKey().notNull(),
+	tenantId: text("tenant_id").default('default').notNull(),
 	name: text().notNull(),
 	description: text(),
 	level: level().notNull(),
@@ -486,6 +501,7 @@ export const riserPads = pgTable("riser_pads", {
 
 export const skates = pgTable("skates", {
 	id: serial().primaryKey().notNull(),
+	tenantId: text("tenant_id").default('default').notNull(),
 	name: text().notNull(),
 	description: text(),
 	level: level().notNull(),
@@ -496,6 +512,7 @@ export const skates = pgTable("skates", {
 
 export const sunglasses = pgTable("sunglasses", {
 	id: serial().primaryKey().notNull(),
+	tenantId: text("tenant_id").default('default').notNull(),
 	name: text().notNull(),
 	description: text(),
 	level: level().notNull(),
@@ -506,6 +523,7 @@ export const sunglasses = pgTable("sunglasses", {
 
 export const tShirts = pgTable("t_shirts", {
 	id: serial().primaryKey().notNull(),
+	tenantId: text("tenant_id").default('default').notNull(),
 	name: text().notNull(),
 	description: text(),
 	level: level().notNull(),
@@ -516,6 +534,7 @@ export const tShirts = pgTable("t_shirts", {
 
 export const toolBags = pgTable("tool_bags", {
 	id: serial().primaryKey().notNull(),
+	tenantId: text("tenant_id").default('default').notNull(),
 	name: text().notNull(),
 	description: text(),
 	level: level().notNull(),
@@ -526,6 +545,7 @@ export const toolBags = pgTable("tool_bags", {
 
 export const tools = pgTable("tools", {
 	id: serial().primaryKey().notNull(),
+	tenantId: text("tenant_id").default('default').notNull(),
 	name: text().notNull(),
 	description: text(),
 	level: level().notNull(),
@@ -536,6 +556,7 @@ export const tools = pgTable("tools", {
 
 export const trucks = pgTable("trucks", {
 	id: serial().primaryKey().notNull(),
+	tenantId: text("tenant_id").default('default').notNull(),
 	name: text().notNull(),
 	description: text(),
 	level: level().notNull(),
@@ -546,6 +567,7 @@ export const trucks = pgTable("trucks", {
 
 export const wheels = pgTable("wheels", {
 	id: serial().primaryKey().notNull(),
+	tenantId: text("tenant_id").default('default').notNull(),
 	name: text().notNull(),
 	description: text(),
 	level: level().notNull(),
@@ -716,6 +738,7 @@ export const paymentLogs = pgTable("payment_logs", {
 	stripeResponse: text("stripe_response"),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	createdAt: bigint("created_at", { mode: "number" }).notNull(),
+	tenantId: text("tenant_id").default('default').notNull(),
 });
 
 export const deliveryTracking = pgTable("delivery_tracking", {
@@ -1088,6 +1111,7 @@ export const kdsAuditLog = pgTable("kds_audit_log", {
 
 export const reservationRecurring = pgTable("reservation_recurring", {
 	id: text().primaryKey().notNull(),
+	tenantId: text("tenant_id").default('default').notNull(),
 	name: text().notNull(),
 	weekday: integer().notNull(),
 	time: text().notNull(),
@@ -1183,6 +1207,7 @@ export const shiftObjectives = pgTable("shift_objectives", {
 
 export const timeOffRequests = pgTable("time_off_requests", {
 	id: text().primaryKey().notNull(),
+	tenantId: text("tenant_id").default('default').notNull(),
 	employeeId: text("employee_id").notNull(),
 	employeeName: text("employee_name").notNull(),
 	reason: text().notNull(),
@@ -1313,6 +1338,7 @@ export const modifierRecipes = pgTable("modifier_recipes", {
 
 export const modifierRecipeIngredients = pgTable("modifier_recipe_ingredients", {
 	id: serial().primaryKey().notNull(),
+	tenantId: text("tenant_id").default('default').notNull(),
 	modifierRecipeId: text("modifier_recipe_id").notNull(),
 	ingredientId: text("ingredient_id").notNull(),
 	ingredientName: text("ingredient_name").notNull(),

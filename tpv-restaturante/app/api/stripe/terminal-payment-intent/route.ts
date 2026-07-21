@@ -17,6 +17,7 @@ const RATE_LIMIT_MAX = 10;
 const RATE_LIMIT_WINDOW = 60 * 1000;
 
 export async function POST(req: NextRequest) {
+  const tenantId = getTenantId(req);
   try {
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
     const rl = rateLimit(`tpi:${ip}`, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW);
@@ -31,8 +32,6 @@ export async function POST(req: NextRequest) {
     if (!stripe) {
       return NextResponse.json({ error: 'Stripe no configurado' }, { status: 500 });
     }
-
-    const tenantId = getTenantId(req);
     const { amount, tableId, tableName, employeeName, idempotencyKey } = await req.json() as any;
 
     if (!amount || amount <= 0) {
@@ -62,6 +61,7 @@ export async function POST(req: NextRequest) {
     }, { idempotencyKey: key });
 
     logPayment({
+      tenantId,
       paymentIntentId: paymentIntent.id,
       operation: 'terminal_payment_intent.create',
       amountCents: amount,
@@ -74,6 +74,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error('Terminal PaymentIntent error:', err);
     logPayment({
+      tenantId,
       paymentIntentId: null,
       operation: 'terminal_payment_intent.create',
       amountCents: 0,

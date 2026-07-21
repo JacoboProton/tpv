@@ -20,6 +20,7 @@ const RATE_LIMIT_WINDOW = 60 * 1000;
 // body: { amount: number (euros), tableId, tableName, employeeName, idempotencyKey? }
 // Devuelve: { clientSecret }
 export async function POST(req: NextRequest) {
+  const tenantId = getTenantId(req);
   try {
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
     const rl = rateLimit(`pi:${ip}`, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW);
@@ -34,8 +35,6 @@ export async function POST(req: NextRequest) {
     if (!stripe) {
       return NextResponse.json({ error: 'Stripe no configurado' }, { status: 500 });
     }
-
-    const tenantId = getTenantId(req);
     const { amount, tableId, tableName, employeeName, idempotencyKey } = await req.json() as any;
 
     if (!amount || amount <= 0) {
@@ -69,6 +68,7 @@ export async function POST(req: NextRequest) {
     }, { idempotencyKey: key });
 
     logPayment({
+      tenantId,
       paymentIntentId: paymentIntent.id,
       operation: 'payment_intent.create',
       amountCents,
@@ -81,6 +81,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error('Stripe PaymentIntent error:', err);
     logPayment({
+      tenantId,
       paymentIntentId: null,
       operation: 'payment_intent.create',
       amountCents: 0,

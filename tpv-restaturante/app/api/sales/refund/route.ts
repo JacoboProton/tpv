@@ -12,9 +12,9 @@ function getStripe() {
 }
 
 export async function PUT(req: NextRequest) {
+  const tenantId = getTenantId(req);
   try {
     const db = getDb();
-    const tenantId = getTenantId(req);
     const { saleId, refund } = await req.json();
     if (!saleId || !refund) {
       return Response.json({ error: 'saleId and refund required' }, { status: 400 });
@@ -43,6 +43,7 @@ export async function PUT(req: NextRequest) {
         });
         stripeRefundId = sr.id;
         logPayment({
+          tenantId,
           paymentIntentId: piId,
           operation: 'refund.create',
           amountCents,
@@ -61,6 +62,7 @@ export async function PUT(req: NextRequest) {
   } catch (e) {
     console.error('[Refund] Error:', (e as Error).message);
     logPayment({
+      tenantId,
       paymentIntentId: null,
       operation: 'refund.create',
       amountCents: 0,

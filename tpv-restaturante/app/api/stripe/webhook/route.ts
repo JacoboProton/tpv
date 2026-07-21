@@ -118,6 +118,7 @@ async function handleChargeDisputeCreated(dispute: any) {
   }
 
   logPayment({
+    tenantId: tid,
     eventId: dispute.id,
     paymentIntentId: piId,
     operation: 'chargeback.dispute_created',
@@ -154,6 +155,7 @@ async function handleChargeDisputeClosed(dispute: any) {
   }
 
   logPayment({
+    tenantId: tid,
     eventId: dispute.id,
     paymentIntentId: piId,
     operation: `chargeback.dispute_${closedStatus}`,
@@ -222,6 +224,7 @@ export async function POST(req: NextRequest) {
 
       const pi = event.data.object as Stripe.PaymentIntent;
       logPayment({
+        tenantId: pi?.metadata?.tenantId || 'default',
         eventId: event.id,
         paymentIntentId: pi?.id,
         operation: `webhook.${event.type}`,
@@ -237,6 +240,7 @@ export async function POST(req: NextRequest) {
       const piErr = event.data.object as Stripe.PaymentIntent;
       await markFailed(event.id, piErr, (err as Error).message);
       logPayment({
+        tenantId: piErr?.metadata?.tenantId || 'default',
         eventId: event.id,
         paymentIntentId: piErr?.id,
         operation: `webhook.${event.type}`,

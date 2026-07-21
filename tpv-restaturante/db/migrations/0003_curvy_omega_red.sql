@@ -1,0 +1,1 @@
+ALTER TABLE "payment_logs" ADD COLUMN "tenant_id" text DEFAULT 'default' NOT NULL;
