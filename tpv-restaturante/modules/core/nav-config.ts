@@ -1,3 +1,4 @@
+import type { ComponentType } from 'react'
 import {
   LayoutGrid, ChefHat, Package, BarChart3,
   ClipboardList, Users, Percent, Euro, Star, Undo2, FileText,
@@ -8,7 +9,7 @@ import {
 export interface NavItem {
   id: string
   label: string
-  icon: any
+  icon: ComponentType<{ size?: number; className?: string }>
 }
 
 export interface NavGroup {

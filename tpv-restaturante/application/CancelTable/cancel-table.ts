@@ -1,23 +1,24 @@
 import { clone } from '@/components/constants'
+import type { Floor, OrderItem } from '@/domain/types'
 
 export interface CancelledItemInfo {
   tableId: string
   tableName: string
   orderId: string
-  items: any[]
+  items: OrderItem[]
   total: number
-  employeeName?: string
+  employeeName: string | undefined
   reason?: string
   cancelledAt: number
 }
 
 export function cancelTable(
-  floor: any,
+  floor: Floor,
   tableId: string,
   employeeName?: string,
-): { floor: any; cancelled: CancelledItemInfo[] } {
-  const next = clone(floor)
-  const table = next.tables.find((t: any) => t.id === tableId)
+): { floor: Floor; cancelled: CancelledItemInfo[] } {
+  const next = clone(floor) as Floor
+  const table = next.tables.find((t) => t.id === tableId)
   if (!table) return { floor, cancelled: [] }
 
   const cancelled: CancelledItemInfo[] = []
@@ -28,10 +29,10 @@ export function cancelTable(
     if (order) {
       cancelled.push({
         tableId,
-        tableName: table.name,
+        tableName: table.name || tableId,
         orderId: oid,
         items: order.items,
-        total: order.items.reduce((s: any, i: any) => s + (i.price || 0) * (i.qty || 0), 0),
+        total: order.items.reduce((s, i) => s + (i.price || 0) * (i.qty || 0), 0),
         employeeName,
         cancelledAt: Date.now(),
       })
@@ -48,13 +49,13 @@ export function cancelTable(
 }
 
 export function voidTable(
-  floor: any,
+  floor: Floor,
   tableId: string,
   reason: string,
   employeeName?: string,
-): { floor: any; cancelled: CancelledItemInfo[] } {
-  const next = clone(floor)
-  const table = next.tables.find((t: any) => t.id === tableId)
+): { floor: Floor; cancelled: CancelledItemInfo[] } {
+  const next = clone(floor) as Floor
+  const table = next.tables.find((t) => t.id === tableId)
   if (!table) return { floor, cancelled: [] }
 
   const cancelled: CancelledItemInfo[] = []
@@ -63,14 +64,14 @@ export function voidTable(
   for (const oid of orderIds) {
     const order = next.orders[oid]
     if (order) {
-      const sentItems = order.items.filter((i: any) => i.sent)
+      const sentItems = order.items.filter((i) => i.sent)
       if (sentItems.length > 0) {
         cancelled.push({
           tableId,
-          tableName: table.name,
+          tableName: table.name || tableId,
           orderId: oid,
           items: sentItems,
-          total: sentItems.reduce((s: any, i: any) => s + (i.price || 0) * (i.qty || 0), 0),
+          total: sentItems.reduce((s, i) => s + (i.price || 0) * (i.qty || 0), 0),
           employeeName,
           reason: reason || 'vaciar mesa',
           cancelledAt: Date.now(),

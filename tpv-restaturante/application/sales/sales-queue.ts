@@ -1,12 +1,14 @@
+import type { Sale } from '@/domain/types'
+
 export interface SalesQueueDeps {
-  addSale: (sale: any) => Promise<any>
-  setSales: (updater: (prev: any[]) => any[]) => void
-  cacheSet: (key: string, value: any) => void
+  addSale: (sale: Sale) => Promise<{ ok: boolean; ticketNumber?: string }>
+  setSales: (updater: (prev: Sale[]) => Sale[]) => void
+  cacheSet: (key: string, value: Sale[] | null) => void
   showToast: (msg: string) => void
 }
 
 export async function processSalesQueue(
-  queue: any[],
+  queue: Sale[],
   processingRef: { current: boolean },
   deps: SalesQueueDeps,
 ): Promise<void> {
@@ -18,17 +20,17 @@ export async function processSalesQueue(
     let lastErr = ''
     let ticketNumber: string | null = null
     try {
-      const res: any = await deps.addSale(sale)
+      const res = await deps.addSale(sale)
       ok = res && res.ok
       if (res && res.ticketNumber) ticketNumber = res.ticketNumber
       if (!ok) lastErr = 'respuesta vacía'
     } catch (e) {
-      lastErr = e && (e as Error).message ? (e as Error).message : String(e)
+      lastErr = e instanceof Error ? e.message : String(e)
       console.warn('addSale error:', lastErr)
     }
     if (ok) {
       if (ticketNumber) {
-        deps.setSales((prev: any) => prev.map((s: any) => s.id === sale.id ? { ...s, ticketNumber } : s))
+        deps.setSales((prev) => prev.map((s) => s.id === sale.id ? { ...s, ticketNumber } : s))
         deps.cacheSet('sales', null)
       }
       queue.shift()
@@ -36,7 +38,7 @@ export async function processSalesQueue(
       deps.showToast(`Error venta: ${lastErr}. Reintentando...`)
       await new Promise(r => setTimeout(r, 2000))
       try {
-        const res: any = await deps.addSale(sale)
+        const res = await deps.addSale(sale)
         if (res && res.ok) {
           queue.shift()
         } else {
@@ -44,7 +46,7 @@ export async function processSalesQueue(
           queue.shift()
         }
       } catch (e2) {
-        deps.showToast(`Error venta: ${e2 && (e2 as Error).message ? (e2 as Error).message : String(e2)}. No se pudo guardar`)
+        deps.showToast(`Error venta: ${e2 instanceof Error ? e2.message : String(e2)}. No se pudo guardar`)
         queue.shift()
       }
     }

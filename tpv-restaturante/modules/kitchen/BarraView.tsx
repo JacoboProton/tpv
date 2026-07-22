@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Beer, Clock, Check } from 'lucide-react';
 import { TICKET_EDGE, type Theme } from '@/components/constants';
+import type { Catalog } from '@/domain/types';
 
 interface BarraItem {
   id: string;
@@ -34,7 +35,7 @@ interface BarraFloor {
 
 interface BarraViewProps {
   floor: BarraFloor;
-  catalog?: any;
+  catalog?: Catalog;
   onReady: (orderId: string, ubicacion: string) => void;
   colors: Theme;
 }
@@ -118,7 +119,7 @@ export default function BarraView({ floor, catalog, onReady, colors: C }: BarraV
 
                 <ul className={`text-sm space-y-1 ${urgent ? 'font-semibold' : ''}`}>
                   {pending.map(i => {
-                    const img = catalog?.products?.find((p: any) => p.id === i.productId)?.image;
+                    const img = catalog?.products?.find((p) => p.id === i.productId)?.image;
                     return (
                       <li key={i.id} className="flex items-center gap-1.5">
                         {img && <img src={img} alt="" className="w-5 h-5 rounded object-cover shrink-0" />}

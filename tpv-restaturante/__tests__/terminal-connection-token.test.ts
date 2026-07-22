@@ -19,9 +19,22 @@ function MockStripe() {
 
 vi.mock('stripe', () => ({ default: MockStripe }));
 
-// Mock the DB module so it never finds a cached location
-vi.mock('../lib/db', () => ({
-  sql: vi.fn(() => Promise.resolve([])),
+// Mock the Drizzle DB module so it never finds a cached location in settings
+vi.mock('../lib/drizzle', () => ({
+  getDb: () => ({
+    select: () => ({
+      from: () => ({
+        where: () => ({
+          limit: () => Promise.resolve([]),
+        }),
+      }),
+    }),
+    insert: () => ({
+      values: () => ({
+        onConflictDoUpdate: () => Promise.resolve(),
+      }),
+    }),
+  }),
 }));
 
 describe('terminal-connection-token API route', () => {

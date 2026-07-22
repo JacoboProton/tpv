@@ -127,7 +127,7 @@ export function useOrderPayments(
 
     const tipStr = tipAmount > 0 ? ` (+${euros(tipAmount)} propina)` : ''
     const discStr = orderDiscount > 0 ? ` (${orderDiscount}% desc)` : ''
-    const offerStr = sale.offerDiscount > 0 ? ` (oferta -${euros(sale.offerDiscount)})` : ''
+    const offerStr = (sale.offerDiscount ?? 0) > 0 ? ` (oferta -${euros(sale.offerDiscount ?? 0)})` : ''
 
     if (trainingMode) {
       resetPaymentState()
@@ -146,7 +146,7 @@ export function useOrderPayments(
       items: sale.items, subtotal: sale.subtotal, discount: orderDiscount, total: sale.total, tip: tipAmount, totalWithTip: sale.totalWithTip,
       paymentMethod: sale.paymentMethod, payments: sale.payments, isFiado: sale.isFiado, isDebtPayment: wasDebt,
       employeeId: currentUser?.id || null, employeeName: currentUser?.name || null,
-      closedAt: sale.closedAt,
+      closedAt: String(sale.closedAt),
     })
 
     resetPaymentState()

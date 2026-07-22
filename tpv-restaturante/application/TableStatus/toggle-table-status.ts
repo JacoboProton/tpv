@@ -1,8 +1,9 @@
 import { clone } from '@/components/constants'
+import type { Floor } from '@/domain/types'
 
-export function toggleCuentaStatus(floor: any, tableId: string): any {
-  const next = clone(floor)
-  const table = next.tables.find((t: any) => t.id === tableId)
+export function toggleCuentaStatus(floor: Floor, tableId: string): Floor | null {
+  const next = clone(floor) as Floor
+  const table = next.tables.find((t) => t.id === tableId)
   if (!table) return null
   table.status = table.status === 'cuenta' ? 'ocupada' : 'cuenta'
   return next

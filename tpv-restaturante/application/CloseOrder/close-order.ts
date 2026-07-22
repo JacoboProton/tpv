@@ -6,6 +6,7 @@ import { deductStock } from '@/domain/inventory/stock'
 import { clone } from '@/components/constants'
 import type { CatalogProduct } from '@/infrastructure/database/catalog-repository'
 import { generateInvoiceNumber } from '@/domain/invoice/invoice'
+import type { Floor, Order, Catalog, Offer, PaymentSplit, Sale } from '@/domain/types'
 
 export interface CloseOrderItem {
   id: string
@@ -40,20 +41,20 @@ export interface CloseOrderTable {
   name: string
   orderId: string
   isFiado?: boolean
-  [key: string]: any
+  [key: string]: unknown
 }
 
 export interface CloseOrderInput {
-  floor: any
+  floor: Floor
   selectedTableId: string
-  order: any
-  catalog: any
+  order: Order
+  catalog: Catalog
   modifierData: { groups: CloseOrderModifierGroup[] }
-  offers: any
+  offers: Offer[]
   orderDiscount: number
   tipAmount: number
   tipMethod: string
-  paymentSplits: any[]
+  paymentSplits: PaymentSplit[]
   paymentIntentId: string
   currentUser: { id?: string; name?: string } | null
   invoice: { nif: string; name: string; address: string; email: string }
@@ -71,27 +72,27 @@ export interface CloseOrderStockLog {
 }
 
 export interface CloseOrderResult {
-  nextFloor: any
-  nextCatalog: any
-  sale: any
+  nextFloor: Floor
+  nextCatalog: Catalog
+  sale: Sale
   stockLogs: CloseOrderStockLog[]
   warnings: string[]
   wasDebt: boolean
 }
 
 function buildStockLogs(
-  order: any,
-  catalog: any,
+  order: Order,
+  catalog: Catalog,
   modOptMap: Record<string, CloseOrderModifierOption>,
   employeeName?: string,
-): { nextCatalog: any; stockLogs: CloseOrderStockLog[] } {
-  const nextCatalog = clone(catalog)
+): { nextCatalog: Catalog; stockLogs: CloseOrderStockLog[] } {
+  const nextCatalog = clone(catalog) as Catalog
   const stockLogs: CloseOrderStockLog[] = []
   const now = Date.now()
 
   for (const item of order.items) {
     if (item.productId) {
-      const p = nextCatalog.products.find((pr: any) => pr.id === item.productId) as CatalogProduct | undefined
+      const p = nextCatalog.products.find((pr) => pr.id === item.productId) as CatalogProduct | undefined
       if (p) {
         const { stockByLocation, newStock } = deductStock(p.stockByLocation, p.ubicacion || 'Bar', item.qty)
         p.stockByLocation = stockByLocation
@@ -110,7 +111,7 @@ function buildStockLogs(
       for (const m of item.modifiers) {
         const opt = modOptMap[m.optionId]
         if (opt?.stockDeduct && opt.stockArticleId) {
-          const p = nextCatalog.products.find((pr: any) => pr.id === opt.stockArticleId) as CatalogProduct | undefined
+          const p = nextCatalog.products.find((pr) => pr.id === opt.stockArticleId) as CatalogProduct | undefined
           if (p) {
             const qty = (opt.stockQuantity || 0) * item.qty
             const { stockByLocation, newStock } = deductStock(p.stockByLocation, p.ubicacion || 'Bar', qty)
@@ -136,13 +137,13 @@ function buildStockLogs(
 export function executeCloseOrder(input: CloseOrderInput): CloseOrderResult {
   const { floor, selectedTableId, order, catalog, modifierData, offers, orderDiscount, tipAmount, tipMethod, paymentSplits, paymentIntentId, currentUser, invoice, trainingMode } = input
 
-  const nextFloor = clone(floor)
-  const table = nextFloor.tables.find((t: any) => t.id === selectedTableId)
-  const wasDebt = isDebtPayment(order, table.isFiado)
+  const nextFloor = clone(floor) as Floor
+  const table = nextFloor.tables.find((t) => t.id === selectedTableId)!
+  const wasDebt = isDebtPayment(order, table.isFiado ?? false)
 
   const warnings: string[] = []
-  const unsentItems = order.items.filter((i: any) => !i.sent && !i.voided)
-  const pendingItems = order.items.filter((i: any) => i.sent && !i.ready && !i.voided && !i.served)
+  const unsentItems = order.items.filter((i) => !i.sent && !i.voided)
+  const pendingItems = order.items.filter((i) => i.sent && !i.ready && !i.voided && !i.served)
   if (unsentItems.length > 0 || pendingItems.length > 0) {
     const parts: string[] = []
     if (unsentItems.length > 0) parts.push(`${unsentItems.length} artículo(s) sin enviar a cocina`)
@@ -168,13 +169,13 @@ export function executeCloseOrder(input: CloseOrderInput): CloseOrderResult {
   const pendingBizum = hasPendingBizum(payments)
   const methodLabel = formatPaymentMethod(payments)
 
-  const wantInvoice = invoice.nif.trim() && invoice.name.trim()
+  const wantInvoice = !!(invoice.nif.trim() && invoice.name.trim())
   const invNum = wantInvoice ? generateInvoiceNumber() : ''
-  const sale = {
+  const sale: Sale = {
     id: 's_' + Date.now(),
     tableId: table.id,
     tableName: table.name,
-    items: order.items.map((i: any) => ({ id: i.id, productId: i.productId, name: i.name, qty: i.qty, price: i.price || 0, voided: !!i.voided })),
+    items: order.items.map((i) => ({ id: i.id, productId: i.productId, name: i.name, qty: i.qty, price: i.price || 0, voided: !!i.voided })),
     subtotal,
     discount: orderDiscount,
     discountAmount,
@@ -196,7 +197,7 @@ export function executeCloseOrder(input: CloseOrderInput): CloseOrderResult {
     hasPendingBizum: pendingBizum,
     isDebtPayment: wasDebt,
     offerDiscount: offerDiscountAmount,
-    employeeId: currentUser?.id || null,
+    employeeId: currentUser?.id || undefined,
     employeeName: currentUser?.name || 'Sin asignar',
     closedAt: Date.now(),
     ticketNumber: Date.now(),
@@ -208,11 +209,13 @@ export function executeCloseOrder(input: CloseOrderInput): CloseOrderResult {
   nextFloor.history[table.id].push(closedOrder)
   const todayStart = new Date()
   todayStart.setHours(0, 0, 0, 0)
-  nextFloor.history[table.id] = nextFloor.history[table.id].filter((h: any) => (h.closedAt || h.createdAt) >= todayStart.getTime())
+  nextFloor.history[table.id] = nextFloor.history[table.id].filter((h) => (h.closedAt || h.createdAt) >= todayStart.getTime())
 
   const closedOid = table.orderId
-  delete nextFloor.orders[closedOid]
-  Object.assign(table, closeTableOrders(table, closedOid))
+  if (closedOid) {
+    delete nextFloor.orders[closedOid]
+    Object.assign(table, closeTableOrders(table, closedOid))
+  }
 
   return { nextFloor, nextCatalog, sale, stockLogs, warnings, wasDebt }
 }

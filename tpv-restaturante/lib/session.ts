@@ -9,7 +9,7 @@ function getDeviceId(): string {
   return id;
 }
 
-export async function sessionLogin(employeeId: string, employeeRole: string, _force?: boolean): Promise<unknown> {
+export async function sessionLogin(employeeId: string, employeeRole: string, _force?: boolean): Promise<{ conflict?: boolean }> {
   const res = await fetch('/api/session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -26,7 +26,7 @@ export async function sessionLogout(employeeId: string): Promise<void> {
   }).catch(() => {});
 }
 
-export async function sessionKeepalive(employeeId: string): Promise<{ invalidated?: boolean }> {
+export async function sessionKeepalive(employeeId: string): Promise<{ ok?: boolean; invalidated?: boolean }> {
   const res = await fetch('/api/session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

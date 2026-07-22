@@ -71,6 +71,9 @@ export interface OrderItem {
   ready?: boolean
   served?: boolean
   voided?: boolean
+  voidReason?: string
+  voidedBy?: string
+  voidedAt?: number
   sentAt?: number | null
   notes?: string
   modifiers?: any[]
@@ -95,6 +98,10 @@ export interface Order {
   customer?: any
   _mergedFrom?: string[]
   _mergedLabel?: string
+  personalDiscountApplied?: boolean
+  personalDiscountEmployeeId?: string
+  personalDiscountEmployeeName?: string
+  closedAt?: number
 }
 
 export interface MenuExpansionItem {
@@ -180,8 +187,10 @@ export interface Sale {
   items: any[]
   subtotal: number
   discount: number
+  discountAmount?: number
   total: number
   tip: number
+  tipMethod?: string
   totalWithTip: number
   paymentMethod: string
   payments: Payment[]
@@ -190,16 +199,21 @@ export interface Sale {
   tableName?: string
   employeeName?: string
   employeeId?: string
-  closedAt: string
+  closedAt: number
   invoiceNumber?: string
   invoiceNif?: string
   invoiceName?: string
   invoiceAddress?: string
   invoiceEmail?: string
-  ticketNumber?: string
+  invoiceCreated?: boolean
+  invoiceCreatedAt?: number | null
+  paymentIntentId?: string
+  ticketNumber?: string | number
   offerDiscount?: number
   refunds?: SaleRefund[]
   hasPendingBizum?: boolean
+  isDebtPayment?: boolean
+  stripe_confirmed?: boolean
   dispute_status?: string
   dispute_data?: any
 }

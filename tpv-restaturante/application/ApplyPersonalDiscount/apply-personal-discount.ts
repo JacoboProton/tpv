@@ -1,5 +1,6 @@
 import { clone } from '@/components/constants'
 import type { VerifiedEmployee } from '@/application/auth/verify-pin'
+import type { Floor, Catalog, Employee } from '@/domain/types'
 import { calculatePersonalDiscountAmount, applyDiscountRates, removeDiscountRates, buildEmployeeMonthlyUsage, buildEmployeeMonthlyUsageDecrement } from '@/domain/pricing/personal-discount'
 
 export interface ApplyPersonalDiscountDeps {
@@ -10,13 +11,13 @@ export interface ApplyPersonalDiscountDeps {
 }
 
 export async function applyPersonalDiscount(
-  floor: any,
-  employees: any[],
-  catalog: any,
+  floor: Floor,
+  employees: Employee[],
+  catalog: Catalog,
   orderId: string,
   employeePin: string,
   deps: ApplyPersonalDiscountDeps,
-): Promise<{ floor: any; employees: any[] } | null> {
+): Promise<{ floor: Floor; employees: Employee[] } | null> {
   const emp = await deps.verifyEmployeePin(employeePin)
   if (!emp) return null
 
@@ -25,7 +26,7 @@ export async function applyPersonalDiscount(
     return null
   }
 
-  const next = clone(floor)
+  const next = clone(floor) as Floor
   const order = next.orders[orderId]
   if (!order) return null
 
@@ -62,17 +63,18 @@ export interface RemovePersonalDiscountDeps {
 }
 
 export function removePersonalDiscount(
-  floor: any,
-  employees: any[],
-  catalog: any,
+  floor: Floor,
+  employees: Employee[],
+  catalog: Catalog,
   orderId: string,
   deps: RemovePersonalDiscountDeps,
-): { floor: any; employees: any[] } | null {
-  const next = clone(floor)
+): { floor: Floor; employees: Employee[] } | null {
+  const next = clone(floor) as Floor
   const order = next.orders[orderId]
   if (!order || !order.personalDiscountApplied) return null
 
   const empId = order.personalDiscountEmployeeId
+  if (!empId) return null
   const rates = deps.getRates()
   const discountAmount = calculatePersonalDiscountAmount(order.items, rates, catalog)
   const now = new Date()

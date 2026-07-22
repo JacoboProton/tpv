@@ -1,12 +1,14 @@
+import type { CurrentUser } from '@/domain/types'
+
 export interface ClockinDeps {
-  fetchSummary: (employeeId: string, date: string) => Promise<any>
-  fetchClockin: (body: any) => Promise<Response>
+  fetchSummary: (employeeId: string, date: string) => Promise<{ summary?: unknown }>
+  fetchClockin: (body: { employeeId: string; employeeName: string; method: string; action: string }) => Promise<Response>
   showToast: (msg: string) => void
-  setClockinSummary: (s: any) => void
+  setClockinSummary: (s: unknown) => void
   setClockinLoading: (v: boolean) => void
 }
 
-export async function loadClockinSummary(currentUser: any, deps: ClockinDeps) {
+export async function loadClockinSummary(currentUser: CurrentUser | null, deps: ClockinDeps): Promise<void> {
   if (!currentUser) return
   deps.setClockinLoading(true)
   try {
@@ -17,10 +19,10 @@ export async function loadClockinSummary(currentUser: any, deps: ClockinDeps) {
 }
 
 export async function handleClockinAction(
-  currentUser: any,
+  currentUser: CurrentUser | null,
   action: string,
   deps: ClockinDeps,
-) {
+): Promise<void> {
   if (!currentUser) return
   try {
     const r = await deps.fetchClockin({

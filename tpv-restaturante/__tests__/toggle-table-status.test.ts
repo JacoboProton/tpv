@@ -11,13 +11,13 @@ function makeFloor(status = 'ocupada') {
 describe('toggleCuentaStatus', () => {
   it('toggles ocupada to cuenta', () => {
     const floor = makeFloor('ocupada')
-    const next = toggleCuentaStatus(floor, 'mesa-1')
+    const next = toggleCuentaStatus(floor, 'mesa-1')!
     expect(next.tables[0].status).toBe('cuenta')
   })
 
   it('toggles cuenta to ocupada', () => {
     const floor = makeFloor('cuenta')
-    const next = toggleCuentaStatus(floor, 'mesa-1')
+    const next = toggleCuentaStatus(floor, 'mesa-1')!
     expect(next.tables[0].status).toBe('ocupada')
   })
 

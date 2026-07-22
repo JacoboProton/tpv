@@ -84,7 +84,7 @@ export function useOrders({
 
   const processSalesQueue = useCallback(async () => {
     await processSalesQueueOp(salesQueue.current, salesProcessing, {
-      addSale,
+      addSale: addSale as (sale: Sale) => Promise<{ ok: boolean; ticketNumber?: string }>,
       setSales,
       cacheSet,
       showToast,

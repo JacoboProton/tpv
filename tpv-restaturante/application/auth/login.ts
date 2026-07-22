@@ -1,15 +1,16 @@
 import { sha256 } from '@/lib/crypto'
+import type { Employee } from '@/domain/types'
 
 export interface LoginDeps {
   fetchVerify: (pin: string, pinHash: string) => Promise<Response>
-  sessionLogin: (id: string, role: string, force?: boolean) => Promise<any>
+  sessionLogin: (id: string, role: string, force?: boolean) => Promise<{ conflict?: boolean }>
   startKeepalive: (id: string, onConflict: () => void) => (() => void) | undefined
   logout: () => void
   showToast: (msg: string) => void
   setPinInput: (v: string) => void
 }
 
-export async function executeLogin(pin: string, deps: LoginDeps): Promise<any | null> {
+export async function executeLogin(pin: string, deps: LoginDeps): Promise<Employee | null> {
   const { fetchVerify, showToast, setPinInput } = deps
   try {
     const res = await fetchVerify(pin, await sha256(pin))
@@ -18,7 +19,7 @@ export async function executeLogin(pin: string, deps: LoginDeps): Promise<any | 
     if (!emp || !emp.id) { showToast('PIN incorrecto'); setPinInput(''); return null }
 
     if (emp.role !== 'admin') {
-      const sessionRes: any = await deps.sessionLogin(emp.id, emp.role)
+      const sessionRes = await deps.sessionLogin(emp.id, emp.role)
       if (sessionRes.conflict) {
         const forceLogin = window.confirm(`${emp.name} ya está conectado en otro terminal. ¿Cerrar esa sesión y continuar aquí?`)
         if (!forceLogin) { setPinInput(''); return null }
@@ -46,26 +47,26 @@ export async function executeLogin(pin: string, deps: LoginDeps): Promise<any | 
 }
 
 export interface RestoreSessionDeps {
-  sessionKeepalive: (id: string) => Promise<any>
+  sessionKeepalive: (id: string) => Promise<{ ok?: boolean }>
   startKeepalive: (id: string, onConflict: () => void) => (() => void) | undefined
   logout: () => void
   showToast: (msg: string) => void
-  setCurrentUser: (u: any) => void
-  currentUser: any
+  setCurrentUser: (u: Employee) => void
+  currentUser: Employee | null
 }
 
 export async function tryRestoreSession(
-  emps: any[],
+  emps: Employee[],
   deps: RestoreSessionDeps,
-): Promise<any | null> {
+): Promise<Employee | null> {
   const storedUserId = localStorage.getItem('tpv:current_user')
   if (!storedUserId || deps.currentUser) return null
 
-  const emp = emps.find((e: any) => e.id === storedUserId)
+  const emp = emps.find((e) => e.id === storedUserId)
   if (!emp) { localStorage.removeItem('tpv:current_user'); return null }
 
   try {
-    const data: any = await deps.sessionKeepalive(emp.id)
+    const data = await deps.sessionKeepalive(emp.id)
     if (data.ok) {
       deps.setCurrentUser(emp)
       try { (window as any).__employeeRole = emp.role; (window as any).__employeeId = emp.id; } catch {}

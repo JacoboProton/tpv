@@ -1,5 +1,6 @@
 import { expandMenu, expandCombo } from '@/domain/order/menu-expansion'
 import type { MenuExpansionItem } from '@/domain/order/menu-expansion'
+import type { Floor, Catalog, Product, OrderItem } from '@/domain/types'
 import { clone } from '@/components/constants'
 
 function round2(n: number): number {
@@ -10,8 +11,8 @@ function generateId(prefix: string): string {
   return prefix + '_' + Date.now() + Math.random().toString(16).slice(2)
 }
 
-function findOrCreateOrder(floor: any, tableId: string, employeeName: string, activeTicketId?: string | null) {
-  const table = floor.tables.find((t: any) => t.id === tableId)
+function findOrCreateOrder(floor: Floor, tableId: string, employeeName: string, activeTicketId?: string | null) {
+  const table = floor.tables.find((t) => t.id === tableId)
   if (!table) return null
 
   const activeOid = activeTicketId || table.orderIds?.[0] || table.orderId
@@ -36,7 +37,7 @@ function findOrCreateOrder(floor: any, tableId: string, employeeName: string, ac
 }
 
 export interface AddNormalItemInput {
-  product: any
+  product: Product
   modifiers?: any[]
   extraPrice?: number
   employeeName?: string
@@ -44,30 +45,30 @@ export interface AddNormalItemInput {
 }
 
 export interface AddNormalItemResult {
-  floor: any
+  floor: Floor
   orderId: string
   isNewOrder: boolean
   itemId?: string
 }
 
 export function addNormalItem(
-  floor: any,
+  floor: Floor,
   tableId: string,
-  catalog: any,
+  catalog: Catalog,
   input: AddNormalItemInput,
 ): AddNormalItemResult | null {
-  const next = clone(floor)
+  const next = clone(floor) as Floor
   const ctx = findOrCreateOrder(next, tableId, input.employeeName || '', input.activeTicketId)
   if (!ctx) return null
 
   const { order, isNew } = ctx
-  const basePrice = input.product.price || catalog?.products?.find((p: any) => p.id === input.product.id)?.price || 0
+  const basePrice = input.product.price || catalog?.products?.find((p) => p.id === input.product.id)?.price || 0
   const extra = input.extraPrice || 0
   const effectivePrice = round2(basePrice + extra)
   const modifiers = input.modifiers || []
 
   const existing = order.items.find(
-    (i: any) => i.productId === input.product.id && !i.sent &&
+    (i) => i.productId === input.product.id && !i.sent &&
       JSON.stringify(i.modifiers) === JSON.stringify(modifiers),
   )
 
@@ -76,7 +77,7 @@ export function addNormalItem(
     existing.qty += 1
     itemId = existing.id
   } else {
-    const prod = catalog?.products?.find((p: any) => p.id === input.product.id)
+    const prod = catalog?.products?.find((p) => p.id === input.product.id)
     itemId = generateId('i')
     order.items.push({
       id: itemId,
@@ -96,24 +97,24 @@ export function addNormalItem(
 }
 
 export interface AddMenuItemsInput {
-  product: any
+  product: Product
   menuSel?: { productId: string }[]
   employeeName?: string
 }
 
 export interface AddItemsResult {
-  floor: any
+  floor: Floor
   orderId: string
   isNewOrder: boolean
 }
 
 export function addMenuItems(
-  floor: any,
+  floor: Floor,
   tableId: string,
-  catalog: any,
+  catalog: Catalog,
   input: AddMenuItemsInput,
 ): AddItemsResult | null {
-  const next = clone(floor)
+  const next = clone(floor) as Floor
   const ctx = findOrCreateOrder(next, tableId, input.employeeName || '')
   if (!ctx) return null
 
@@ -123,7 +124,7 @@ export function addMenuItems(
   for (const mi of menuItems) {
     if (mi.productId && !mi.isMenuPrice) {
       const existing = order.items.find(
-        (i: any) => i.productId === mi.productId && !i.sent && !i.isCombo && !i.isMenuItem,
+        (i) => i.productId === mi.productId && !i.sent && !i.isComboItem && !i.isMenuItem,
       )
       if (existing) { existing.qty += mi.qty; continue }
     }
@@ -135,19 +136,19 @@ export function addMenuItems(
       sentAt: mi.isMenuPrice ? Date.now() : null,
       notes: '',
       modifiers: [],
-    })
+    } as OrderItem)
   }
 
   return { floor: next, orderId: order.id, isNewOrder: isNew }
 }
 
 export function addComboItems(
-  floor: any,
+  floor: Floor,
   tableId: string,
-  catalog: any,
+  catalog: Catalog,
   input: AddMenuItemsInput,
 ): AddItemsResult | null {
-  const next = clone(floor)
+  const next = clone(floor) as Floor
   const ctx = findOrCreateOrder(next, tableId, input.employeeName || '')
   if (!ctx) return null
 
@@ -157,7 +158,7 @@ export function addComboItems(
   for (const ci of comboItems) {
     if (ci.productId && !ci.isComboPrice) {
       const existing = order.items.find(
-        (i: any) => i.productId === ci.productId && !i.sent && !i.isCombo,
+        (i) => i.productId === ci.productId && !i.sent && !i.isComboItem,
       )
       if (existing) { existing.qty += ci.qty; continue }
     }
@@ -169,7 +170,7 @@ export function addComboItems(
       sentAt: ci.isComboPrice ? Date.now() : null,
       notes: '',
       modifiers: [],
-    })
+    } as OrderItem)
   }
 
   return { floor: next, orderId: order.id, isNewOrder: isNew }
@@ -177,28 +178,29 @@ export function addComboItems(
 
 export interface EditItemModifiersInput {
   itemId: string
-  product: any
+  product: Product
   modifiers: any[]
   extraPrice: number
 }
 
 export function editItemModifiers(
-  floor: any,
+  floor: Floor,
   tableId: string,
-  catalog: any,
+  catalog: Catalog,
   input: EditItemModifiersInput,
-): any | null {
-  const next = clone(floor)
-  const table = next.tables.find((t: any) => t.id === tableId)
+): Floor | null {
+  const next = clone(floor) as Floor
+  const table = next.tables.find((t) => t.id === tableId)
   if (!table) return null
 
+  if (!table.orderId) return null
   const order = next.orders[table.orderId]
   if (!order) return null
 
-  const item = order.items.find((i: any) => i.id === input.itemId)
+  const item = order.items.find((i) => i.id === input.itemId)
   if (!item) return null
 
-  const basePrice = input.product.price || catalog?.products?.find((p: any) => p.id === input.product.id)?.price || 0
+  const basePrice = input.product.price || catalog?.products?.find((p) => p.id === input.product.id)?.price || 0
   item.modifiers = input.modifiers
   item.price = round2(basePrice + input.extraPrice)
 

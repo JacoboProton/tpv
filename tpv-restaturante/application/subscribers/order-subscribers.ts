@@ -13,7 +13,7 @@ export function registerOrderSubscribers(deps: {
       deps.showToast('⚠️ Error al registrar factura electrónica — revisa Gestoría')
     })
 
-    if (data.payments.some((p: any) => p.method === 'efectivo') && isPrinterConnected()) {
+    if (data.payments.some((p) => p.method === 'efectivo') && isPrinterConnected()) {
       printESCPOS(escposOpenDrawer()).catch(() => {})
     }
   })

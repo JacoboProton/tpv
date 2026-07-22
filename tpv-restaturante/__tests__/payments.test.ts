@@ -44,12 +44,12 @@ describe('confirmBizumPayments', () => {
   })
 
   it('handles empty payments', () => {
-    const result = confirmBizumPayments({ id: 's1', payments: [], items: [], subtotal: 0, discount: 0, total: 0, tip: 0, totalWithTip: 0, paymentMethod: '', isFiado: false, closedAt: '' })
+    const result = confirmBizumPayments({ id: 's1', payments: [], items: [], subtotal: 0, discount: 0, total: 0, tip: 0, totalWithTip: 0, paymentMethod: '', isFiado: false, closedAt: 0 })
     expect(result.payments).toEqual([])
   })
 
   it('handles no payments field', () => {
-    const result = confirmBizumPayments({ id: 's1', items: [], subtotal: 0, discount: 0, total: 0, tip: 0, totalWithTip: 0, paymentMethod: '', payments: [], isFiado: false, closedAt: '' })
+    const result = confirmBizumPayments({ id: 's1', items: [], subtotal: 0, discount: 0, total: 0, tip: 0, totalWithTip: 0, paymentMethod: '', payments: [], isFiado: false, closedAt: 0 })
     expect(result.payments).toEqual([])
   })
 })

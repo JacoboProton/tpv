@@ -13,7 +13,7 @@ const settings = {
 const sale: Sale = {
   id: 's1',
   invoiceNumber: 'INV-2026-00001',
-  ticketNumber: '42',
+  ticketNumber: 42,
   total: 107,
   subtotal: 100,
   discount: 0,
@@ -26,7 +26,7 @@ const sale: Sale = {
     { id: 'i1', name: 'Café', qty: 2, price: 3 },
     { id: 'i2', name: 'Té', qty: 1, price: 2.5 },
   ],
-  closedAt: new Date('2026-07-19T12:30:00').toISOString(),
+  closedAt: new Date('2026-07-19T12:30:00').getTime(),
   invoiceName: 'Cliente A',
   invoiceNif: '12345678Z',
   invoiceAddress: 'Av. Principal 10',
@@ -106,7 +106,7 @@ describe('buildInvoiceHtml', () => {
   })
 
   it('falls back to defaults for missing fields', () => {
-    const saleMin = { id: 's2', total: 0, closedAt: new Date().toISOString(), items: [], subtotal: 0, discount: 0, tip: 0, totalWithTip: 0, paymentMethod: '', payments: [], isFiado: false }
+    const saleMin = { id: 's2', total: 0, closedAt: Date.now(), items: [], subtotal: 0, discount: 0, tip: 0, totalWithTip: 0, paymentMethod: '', payments: [], isFiado: false }
     const html = buildInvoiceHtml({}, saleMin)
     expect(html).toContain('FACTURA')
     expect(html).toContain('Gracias por su visita')

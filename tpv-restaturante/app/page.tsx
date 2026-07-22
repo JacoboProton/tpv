@@ -212,7 +212,7 @@ export default function App() {
 
   return (
     <div style={{ background: C.base, color: C.cream, minHeight: '100vh' }} className="flex">
-      <Sidebar menuMode={menuMode} currentUser={currentUser} tenants={tenants} tenantId={tenantId} setTenantId={setTenantId} view={view} setView={setView} colors={C} lowStockProducts={lowStockProducts} pendingBarCount={pendingBarCount} pendingCocinaCount={pendingCocinaCount} />
+      <Sidebar menuMode={menuMode} currentUser={currentUser} tenants={tenants} tenantId={tenantId} setTenantId={setTenantId} view={view} setView={setView as (v: string) => void} colors={C} lowStockProducts={lowStockProducts} pendingBarCount={pendingBarCount} pendingCocinaCount={pendingCocinaCount} />
 
       <div className="flex flex-col flex-1 min-w-0" style={{ maxHeight: '100vh', overflowY: 'auto' }}>
 

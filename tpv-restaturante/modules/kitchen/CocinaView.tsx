@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { ChefHat, Clock, Check } from 'lucide-react';
 import { TICKET_EDGE, type Theme } from '@/components/constants';
+import type { Catalog } from '@/domain/types';
 
 const COURSE_COLORS: Record<string, string> = { Entrantes: '#7a9a7c', Principales: '#c4a04a', Postres: '#b05e5e' };
 
@@ -36,7 +37,7 @@ interface CocinaFloor {
 
 interface CocinaViewProps {
   floor: CocinaFloor;
-  catalog?: any;
+  catalog?: Catalog;
   onReady: (orderId: string, ubicacion: string) => void;
   colors: Theme;
 }
@@ -110,7 +111,7 @@ export default function CocinaView({ floor, catalog, onReady, colors: C }: Cocin
                       </p>
                       <ul className={`text-sm space-y-1 ${urgent ? 'font-semibold' : ''}`}>
                         {courseItems.map(i => {
-                          const img = catalog?.products?.find((p: any) => p.id === i.productId)?.image;
+                          const img = catalog?.products?.find((p) => p.id === i.productId)?.image;
                           return (
                             <li key={i.id} className="flex items-center gap-1.5">
                               {img && <img src={img} alt="" className="w-5 h-5 rounded object-cover shrink-0" />}
@@ -127,7 +128,7 @@ export default function CocinaView({ floor, catalog, onReady, colors: C }: Cocin
                   <div className="mb-2">
                     <ul className={`text-sm space-y-1 ${urgent ? 'font-semibold' : ''}`}>
                       {pending.filter(i => !i.course).map(i => {
-                        const img = catalog?.products?.find((p: any) => p.id === i.productId)?.image;
+                        const img = catalog?.products?.find((p) => p.id === i.productId)?.image;
                         return (
                           <li key={i.id} className="flex items-center gap-1.5">
                             {img && <img src={img} alt="" className="w-5 h-5 rounded object-cover shrink-0" />}
