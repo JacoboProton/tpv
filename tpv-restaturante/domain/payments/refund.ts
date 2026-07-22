@@ -1,10 +1,10 @@
-export interface RefundInput {
-  amount: number
-  reason?: string
-}
+import type { RefundInput, Sale, SaleRefund } from '../types'
 
-export function addRefundToSale(sale: any, refund: RefundInput, employeeName: string): any {
+export type { RefundInput }
+
+export function addRefundToSale(sale: Sale, refund: RefundInput, employeeName: string): Sale {
   if (!sale.refunds) sale.refunds = []
-  sale.refunds.push({ ...refund, employeeName, timestamp: Date.now() })
+  const entry: SaleRefund = { ...refund, employeeName, timestamp: Date.now() }
+  sale.refunds.push(entry)
   return sale
 }

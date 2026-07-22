@@ -1,4 +1,6 @@
-export type TableStatus = 'libre' | 'ocupada' | 'unidas' | 'cuenta'
+import type { TableStatus, Order, Table } from '../types'
+
+export type { TableStatus }
 
 export function determineTableStatus(orderIds: string[], isReserved: boolean): TableStatus {
   if (!orderIds || orderIds.length === 0) return isReserved ? 'ocupada' : 'libre'
@@ -6,17 +8,11 @@ export function determineTableStatus(orderIds: string[], isReserved: boolean): T
   return 'ocupada'
 }
 
-export function isDebtPayment(order: { items: Array<{ productId?: string | null }> }, isFiado: boolean): boolean {
+export function isDebtPayment(order: Order, isFiado: boolean): boolean {
   return isFiado && order.items.length === 1 && order.items[0].productId === null
 }
 
-export function closeTableOrders(table: {
-  orderIds?: string[]
-  orderId?: string | null
-  isFiado?: boolean
-  reserved?: string | null
-  status?: string
-}, closedOrderId: string): {
+export function closeTableOrders(table: Table, closedOrderId: string): {
   orderId: string | null
   orderIds: string[]
   status: TableStatus
@@ -34,12 +30,7 @@ export function closeTableOrders(table: {
   }
 }
 
-export function removeOrderFromTable(table: {
-  orderIds?: string[]
-  orderId?: string | null
-  reserved?: string | null
-  status?: string
-}, orderId: string): {
+export function removeOrderFromTable(table: Table, orderId: string): {
   orderId: string | null
   orderIds: string[]
   status: TableStatus
@@ -55,11 +46,7 @@ export function removeOrderFromTable(table: {
   }
 }
 
-export function clearTable(table: {
-  orderId?: string | null
-  orderIds?: string[]
-  isFiado?: boolean
-}): {
+export function clearTable(table: Table): {
   orderId: null
   orderIds: []
   status: 'libre'

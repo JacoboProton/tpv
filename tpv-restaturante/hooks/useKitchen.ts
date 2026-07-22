@@ -1,16 +1,17 @@
 'use client'
 
 import { useEffect, useRef, useCallback } from 'react'
+import type { Floor, Catalog } from '../domain/types'
 import { broadcastReadyNotification } from '../lib/realtime'
 import { playKitchenAlert, showKitchenNotification, requestNotificationPermission } from '../lib/sound'
 import { countPendingKitchenItems, formatItemPreview } from '../domain/kitchen/kitchen'
 import { toggleProductAgotado } from '../domain/catalog/product-operations'
 
 interface UseKitchenProps {
-  floor: any
+  floor: Floor
   setFloor: (f: any) => void
   persistFloor: (f: any) => void
-  catalog: any
+  catalog: Catalog
   setCatalog: (c: any) => void
   showToast: (msg: string) => void
   handlePrint: () => void

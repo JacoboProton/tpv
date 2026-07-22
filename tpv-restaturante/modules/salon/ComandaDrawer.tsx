@@ -5,6 +5,7 @@ import {
   GitMerge, BadgePercent,
 } from 'lucide-react';
 import { TICKET_EDGE, euros, ALLERGENS, ALLERGEN_COLORS, type Theme } from '@/components/constants';
+import type { Table, Order, OrderItem as DomainOrderItem } from '@/domain/types';
 import ComboSlotSelector from '@/components/ComboSlotSelector';
 import MenuDelDiaSelector from '@/components/MenuDelDiaSelector';
 
@@ -39,22 +40,22 @@ interface OrderItem {
   id: string;
   name: string;
   price: number;
-  category: string;
-  course: string;
-  ubicacion: string;
-  allergens: string[];
   qty: number;
-  sent: boolean;
-  ready: boolean;
-  notes: string;
-  lineDiscount: number;
-  isCourtesy: boolean;
-  overridePrice: number | null;
-  voided: boolean;
-  voidReason: string;
-  modifiers: ModifierInfo[];
-  isFreeItem: boolean;
-  productId: string;
+  sent?: boolean;
+  ready?: boolean;
+  notes?: string;
+  productId?: string | null;
+  modifiers?: ModifierInfo[];
+  lineDiscount?: number;
+  isCourtesy?: boolean;
+  overridePrice?: number | null;
+  voided?: boolean;
+  voidReason?: string;
+  isFreeItem?: boolean;
+  category?: string;
+  course?: string;
+  ubicacion?: string;
+  allergens?: string[];
   isCombo?: boolean;
   comboData?: unknown;
   comboSel?: unknown;
@@ -69,33 +70,19 @@ interface CustomerInfo {
   phone: string;
 }
 
-interface OrderInfo {
-  id: string;
+interface OrderInfo extends Omit<Order, 'items'> {
   items: OrderItem[];
-  label: string;
-  customer: CustomerInfo | null;
-  personalDiscountApplied: boolean;
-  personalDiscountEmployeeName: string;
-  _mergedLabel: string;
-  closedAt: number;
-  createdAt: number;
-}
-
-interface TableInfo {
-  id: string;
-  name: string;
-  status: string;
-  orderId: string | null;
-  reserved: string | null;
-  isFiado: boolean;
-  type: string;
-  orderIds: string[];
-  reserved_for: string;
-  customers: CustomerInfo[];
+  label?: string;
+  customer?: CustomerInfo | null;
+  personalDiscountApplied?: boolean;
+  personalDiscountEmployeeName?: string;
+  _mergedLabel?: string;
+  closedAt?: number;
+  createdAt?: number;
 }
 
 interface FloorData {
-  tables: TableInfo[];
+  tables: Table[];
   orders: Record<string, OrderInfo>;
   customers: CustomerInfo[];
 }
@@ -182,7 +169,7 @@ interface TicketSettings {
 }
 
 interface ComandaDrawerProps {
-  selectedTable: TableInfo;
+  selectedTable: Table;
   selectedOrder: OrderInfo | null;
   catalog: { products: CatalogProduct[]; categories: (string | CategoryInfo)[] };
   activeCategory: string;
@@ -302,8 +289,8 @@ export default function ComandaDrawer({
   const isCuenta     = selectedTable.status === 'cuenta';
 
   const unsentItems = selectedOrder ? selectedOrder.items.filter(i => !i.sent) : [];
-  const unsentCourses = selectedOrder
-    ? [...new Set(unsentItems.map(i => i.course).filter(Boolean))]
+  const unsentCourses: string[] = selectedOrder
+    ? [...new Set(unsentItems.map(i => i.course).filter((c): c is string => !!c))]
     : [];
 
   function handleCancelTable() {
@@ -385,7 +372,7 @@ export default function ComandaDrawer({
             </button>
             <div>
               <h2 className="font-display text-xl" style={{ color: C.cream }}>
-                {selectedTable.name}
+                {selectedTable.name || ''}
                 {selectedOrder?.label && !editLabel && (
                   <span className="text-sm font-normal ml-2" style={{ color: C.brassLight }}>
                     {selectedOrder.label}
@@ -422,7 +409,7 @@ export default function ComandaDrawer({
               )}
               {selectedTable.reserved_for && !selectedTable.orderId && (
                 <p className="text-[10px] mt-0.5 flex items-center gap-1" style={{ color: C.wineLight }}>
-                  📋 Reservada — {selectedTable.reserved_for}
+                  📋 Reservada — {selectedTable.reserved_for || ''}
                 </p>
               )}
             </div>
@@ -566,9 +553,9 @@ export default function ComandaDrawer({
         </div>
 
         {/* ── Ticket tabs ── */}
-        {selectedTable?.orderIds?.length > 0 && (
+        {(selectedTable?.orderIds?.length ?? 0) > 0 && (
           <div style={{ borderBottom: `1px solid ${C.line}`, background: C.surfaceLight }} className="px-4 py-1.5 flex gap-1 overflow-x-auto">
-            {selectedTable.orderIds.map((oid, idx) => {
+            {selectedTable.orderIds!.map((oid, idx) => {
               const order = floor?.orders?.[oid];
               const isActive = oid === activeTicketId;
               const label = order?.label || `#${idx + 1}`;
@@ -931,7 +918,7 @@ export default function ComandaDrawer({
                             style={{ color: '#b89850' }}
                             onClick={() => {
                               const courses = allCourses;
-                              const idx = courses.indexOf(item.course);
+                              const idx = courses.indexOf(item.course!);
                               const next = courses[(idx + 1) % courses.length] || '';
                               onUpdateItemCourse(item.id, next);
                             }}>
@@ -941,8 +928,8 @@ export default function ComandaDrawer({
                         {disc > 0 && !item.lineDiscount && (
                           <span className="text-[10px] ml-1" style={{ color: C.wineLight }}>-{disc}%</span>
                         )}
-                        {item.lineDiscount > 0 && (
-                          <span className="text-[10px] ml-1" style={{ color: C.wineLight }}>-{item.lineDiscount}%</span>
+                        {(item.lineDiscount ?? 0) > 0 && (
+                          <span className="text-[10px] ml-1" style={{ color: C.wineLight }}>-{item.lineDiscount ?? 0}%</span>
                         )}
                         {item.isCourtesy && (
                           <span className="text-[10px] ml-1 font-bold" style={{ color: C.sage }}>INVITACIÓN</span>
@@ -955,7 +942,7 @@ export default function ComandaDrawer({
                             ANULADO{item.voidReason ? `: ${item.voidReason}` : ''}
                           </span>
                         )}
-                        {item.modifiers?.length > 0 && (
+                        {item.modifiers && item.modifiers.length > 0 && (
                           <p className="text-[10px]" style={{ color: '#9a8e80' }}>
                             {item.modifiers.map(m => m.optionName).join(', ')}
                           </p>
@@ -1035,7 +1022,7 @@ export default function ComandaDrawer({
                           <button onClick={() => { setShowLineDiscount(item); setActionItemId(null); }}
                             style={{ background: C.surfaceLight, border: `1px solid ${C.line}`, color: C.cream }}
                             className="text-[10px] px-2 py-1 rounded-lg">
-                            {item.lineDiscount > 0 ? `-${item.lineDiscount}%` : 'Descuento línea'}
+                            {(item.lineDiscount ?? 0) > 0 ? `-${item.lineDiscount ?? 0}%` : 'Descuento línea'}
                           </button>
                         )}
                         {/* Courtesy */}
@@ -1403,7 +1390,7 @@ export default function ComandaDrawer({
             className="w-full max-w-xs rounded-xl p-5 fade-up">
             <p className="font-display text-lg mb-1" style={{ color: C.cream }}>Vaciar / liberar mesa</p>
             <p style={{ color: C.muted }} className="text-sm mb-4">
-              Se descartarán todos los pedidos de <strong style={{ color: C.cream }}>{selectedTable.name}</strong> sin cobrar.
+              Se descartarán todos los pedidos de <strong style={{ color: C.cream }}>{selectedTable.name || ''}</strong> sin cobrar.
               Los artículos ya enviados a cocina quedarán registrados como anulados.
             </p>
             <div className="flex gap-2">
@@ -1495,7 +1482,7 @@ export default function ComandaDrawer({
                 </button>
               ))}
             </div>
-            {showLineDiscount.lineDiscount > 0 && (
+            {(showLineDiscount.lineDiscount ?? 0) > 0 && (
               <button onClick={() => { onRemoveItemDiscount(showLineDiscount.id); setShowLineDiscount(null); }}
                 style={{ background: C.wine + '30', color: C.wineLight, border: `1px solid ${C.wine}` }}
                 className="w-full rounded-lg py-2.5 text-sm font-medium hover:opacity-80">
@@ -1687,11 +1674,11 @@ export default function ComandaDrawer({
             className="w-full max-w-sm rounded-xl p-5 fade-up">
             <p className="font-display text-lg mb-1" style={{ color: C.cream }}>Mover mesa</p>
             <p style={{ color: C.muted }} className="text-xs mb-4">
-              Trasladar el pedido de <strong style={{ color: C.cream }}>{selectedTable.name}</strong> a otra mesa.
+              Trasladar el pedido de <strong style={{ color: C.cream }}>{selectedTable.name || ''}</strong> a otra mesa.
             </p>
             <div className="flex flex-col gap-1.5 max-h-60 overflow-y-auto mb-4">
               {floor.tables
-                .filter((t: TableInfo) => t.id !== currentTableId && t.status === 'libre' && !t.reserved_for)
+                .filter((t: Table) => t.id !== currentTableId && t.status === 'libre' && !t.reserved_for)
                 .map(t => (
                   <button key={t.id} onClick={() => setMoveDestId(t.id)}
                     style={{
@@ -1705,7 +1692,7 @@ export default function ComandaDrawer({
                     <span style={{ color: C.muted }} className="text-xs">{t.type === 'barra' ? 'Barra' : 'Mesa'}</span>
                   </button>
                 ))}
-              {(floor.tables ?? []).filter((t: TableInfo) => t.id !== currentTableId && t.status === 'libre' && !t.reserved_for).length === 0 && (
+              {(floor.tables ?? []).filter((t: Table) => t.id !== currentTableId && t.status === 'libre' && !t.reserved_for).length === 0 && (
                 <p style={{ color: C.muted }} className="text-sm text-center py-4">No hay mesas libres disponibles.</p>
               )}
             </div>
@@ -1733,11 +1720,11 @@ export default function ComandaDrawer({
             className="w-full max-w-sm rounded-xl p-5 fade-up">
             <p className="font-display text-lg mb-1" style={{ color: C.cream }}>Unir mesas</p>
             <p style={{ color: C.muted }} className="text-xs mb-4">
-              Fusionar pedidos de otras mesas en <strong style={{ color: C.cream }}>{selectedTable.name}</strong>.
+              Fusionar pedidos de otras mesas en <strong style={{ color: C.cream }}>{selectedTable.name || ''}</strong>.
             </p>
             <div className="flex flex-col gap-1.5 max-h-60 overflow-y-auto mb-4">
               {floor.tables
-                .filter((t: TableInfo) => t.id !== currentTableId && !t.reserved_for && (t.status === 'ocupada' || t.status === 'cuenta' || t.status === 'unidas'))
+                .filter((t: Table) => t.id !== currentTableId && !t.reserved_for && (t.status === 'ocupada' || t.status === 'cuenta' || t.status === 'unidas'))
                 .map(t => {
                   const sel = mergeSelected.includes(t.id);
                   return (
@@ -1761,7 +1748,7 @@ export default function ComandaDrawer({
                     </button>
                   );
                 })}
-              {(floor.tables ?? []).filter((t: TableInfo) => t.id !== currentTableId && !t.reserved_for && (t.status === 'ocupada' || t.status === 'cuenta' || t.status === 'unidas')).length === 0 && (
+              {(floor.tables ?? []).filter((t: Table) => t.id !== currentTableId && !t.reserved_for && (t.status === 'ocupada' || t.status === 'cuenta' || t.status === 'unidas')).length === 0 && (
                 <p style={{ color: C.muted }} className="text-sm text-center py-4">No hay otras mesas con pedidos para unir.</p>
               )}
             </div>

@@ -6,22 +6,14 @@ import { Elements } from '@stripe/react-stripe-js';
 import { X, AlertTriangle, WifiOff } from 'lucide-react';
 import StripePaymentForm from '@/modules/payment/StripePaymentForm';
 import type { PaymentIntent } from '@stripe/stripe-js';
+import type { Table, CurrentUser } from '@/domain/types';
 import { type Theme } from '@/components/constants';
-
-interface StripeModalTable {
-  id: string;
-  name: string;
-}
-
-interface StripeModalUser {
-  name?: string;
-}
 
 interface StripeModalProps {
   amount: number;
   finalTotal: number;
-  selectedTable: StripeModalTable | null;
-  currentUser: StripeModalUser | null;
+  selectedTable: Pick<Table, 'id' | 'name'> | null;
+  currentUser: Pick<CurrentUser, 'name'> | null;
   onSuccess: (paymentIntent: PaymentIntent) => void;
   onCancel: () => void;
   colors: Theme;
@@ -107,7 +99,7 @@ export default function StripeModal({
           <div>
             <p className="font-display text-xl" style={{ color: C.cream }}>PAGO CON TARJETA</p>
             {selectedTable && (
-              <p style={{ color: C.muted }} className="text-xs mt-0.5">{selectedTable.name}</p>
+              <p style={{ color: C.muted }} className="text-xs mt-0.5">{selectedTable.name!}</p>
             )}
           </div>
           <button

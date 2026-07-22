@@ -1,7 +1,6 @@
-export interface StockEntry {
-  stock: number
-  lowStock?: number
-}
+import type { StockEntry } from '../types'
+
+export type { StockEntry }
 
 export function deductStock(stockByLocation: Record<string, StockEntry> | undefined, ubicacion: string, qty: number): { stockByLocation: Record<string, StockEntry>; newStock: number } {
   const locs = Object.keys(stockByLocation || {})

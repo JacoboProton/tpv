@@ -1,12 +1,6 @@
-export type ItemState = 'pending' | 'sent' | 'ready' | 'served' | 'voided'
+import type { ItemState, KitchenItem, OrderItem, Floor } from '../types'
 
-export interface KitchenItem {
-  id: string
-  sent?: boolean
-  ready?: boolean
-  served?: boolean
-  voided?: boolean
-}
+export type { ItemState, KitchenItem }
 
 export function getItemState(item: KitchenItem): ItemState {
   if (item.voided) return 'voided'
@@ -43,9 +37,9 @@ export function countPendingLines(items: KitchenItem[]): number {
   return items.filter(i => !i.sent && !i.voided).length
 }
 
-export function countPendingKitchenItems(floor: any): number {
-  return (Object.values(floor.orders || {}) as any[]).reduce((sum: number, o: any) =>
-    sum + o.items.filter((i: any) => i.sent && !i.ready).length, 0
+export function countPendingKitchenItems(floor: Floor): number {
+  return Object.values(floor.orders || {}).reduce((sum, o) =>
+    sum + o.items.filter(i => i.sent && !i.ready).length, 0
   )
 }
 

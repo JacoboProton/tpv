@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useMemo, useCallback, useRef } from 'react'
+import type { Floor, Catalog, Sale, Employee, CurrentUser, Offer } from '../domain/types'
+import type { ModifierData } from '../domain/catalog/modifier-groups'
 import { round2, euros } from '../components/constants'
 import { addSale } from '../lib/api'
 import { enqueueMutation, cacheSet } from '../lib/offline'
@@ -17,19 +19,19 @@ import { useOrderPayments } from './useOrderPayments'
 export type View = 'salon' | 'comandas' | 'cocina' | 'inventario' | 'almacen' | 'albaranes' | 'informes' | 'empleados' | 'ofertas' | 'combos' | 'menus' | 'carrusel' | 'precios' | 'reparto' | 'pedidos' | 'fiados' | 'gestoria' | 'pairing' | 'audit' | 'turnos' | 'registro-horario' | 'solicitudes' | 'pedidos-compra' | 'reservas' | 'waitlist' | 'onlineorders' | 'buffet' | 'tickets' | 'pagos' | 'kds' | 'barra' | 'carta' | 'produccion' | 'login'
 
 interface UseOrdersProps {
-  floor: any
+  floor: Floor
   setFloor: (f: any) => void
-  catalog: any
+  catalog: Catalog
   setCatalog: (c: any) => void
-  sales: any[]
+  sales: Sale[]
   setSales: (s: any) => void
-  employees: any[]
+  employees: Employee[]
   setEmployees: (e: any) => void
-  currentUser: any
+  currentUser: CurrentUser | null
   tenantId: string
-  modifierData: any
-  ticketSettings: any
-  offers: any[]
+  modifierData: ModifierData
+  ticketSettings: Record<string, any>
+  offers: Offer[]
   trainingMode: boolean
   showToast: (msg: string) => void
 }
@@ -52,7 +54,7 @@ export function useOrders({
   const salesProcessing = useRef<boolean>(false)
 
   // ---------- Computed ----------
-  const selectedTable = floor?.tables?.find((t: any) => t.id === selectedTableId) ?? null
+  const selectedTable = floor?.tables?.find((t) => t.id === selectedTableId) ?? null
   const activeOrderId = activeTicketId || selectedTable?.orderIds?.[0] || selectedTable?.orderId
   const selectedOrder = activeOrderId ? floor?.orders?.[activeOrderId] : null
 

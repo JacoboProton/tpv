@@ -1,21 +1,8 @@
-interface OrderItem {
-  productId?: string
-  price: number
-  qty: number
-  voided?: boolean
-  overridePrice?: number
-  lineDiscount?: number
-  isCourtesy?: boolean
-}
-
-interface CatalogProduct {
-  id: string
-  discount?: number
-}
+import type { OrderItem, Product } from '../types'
 
 export function calculateLineTotal(
   item: OrderItem,
-  product?: CatalogProduct,
+  product?: Product,
 ): number {
   if (item.voided || item.isCourtesy) return 0
 
@@ -29,7 +16,7 @@ export function calculateLineTotal(
 
 export function calculateOrderSubtotal(
   items: OrderItem[],
-  catalog?: { products?: CatalogProduct[] },
+  catalog?: { products?: Product[] },
 ): number {
   return items.reduce((sum, item) => {
     const product = catalog?.products?.find((p) => p.id === item.productId)

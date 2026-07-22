@@ -1,13 +1,14 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import type { CurrentUser } from '../domain/types'
 
 const API_KEY = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_TPV_API_KEY) || ''
 
 type View = 'salon' | 'comandas' | 'cocina' | 'inventario' | 'almacen' | 'albaranes' | 'informes' | 'empleados' | 'ofertas' | 'combos' | 'menus' | 'carrusel' | 'precios' | 'reparto' | 'pedidos' | 'fiados' | 'gestoria' | 'pairing' | 'audit' | 'turnos' | 'registro-horario' | 'solicitudes' | 'pedidos-compra' | 'reservas' | 'waitlist' | 'onlineorders' | 'buffet' | 'tickets' | 'pagos' | 'kds' | 'barra' | 'carta' | 'produccion' | 'login'
 
 interface UseLoginRoutingProps {
-  currentUser: any
+  currentUser: CurrentUser | null
   setCurrentUser: (u: any) => void
   entryPoint: string
   setView: (v: View) => void
@@ -23,7 +24,7 @@ export function useLoginRouting({
   setAlmacenUbicacion, showToast,
 }: UseLoginRoutingProps) {
 
-  const prevUserRef = useRef<any>(null)
+  const prevUserRef = useRef<CurrentUser | null>(null)
 
   useEffect(() => {
     if (!currentUser || currentUser === prevUserRef.current) return

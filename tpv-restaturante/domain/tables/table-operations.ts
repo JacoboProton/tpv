@@ -1,35 +1,13 @@
-export interface TableState {
-  id: string
-  orderId?: string | null
-  orderIds?: string[]
-  status: string
-  name?: string
-  isFiado?: boolean
-  mergedTableIds?: string[] | null
-}
+import type { Floor, Table, Order, OrderItem } from '../types'
 
-export interface OrderState {
-  id: string
-  tableId?: string
-  items: any[]
-  employeeName?: string
-  createdAt?: number
-  _mergedFrom?: string[]
-  _mergedLabel?: string
-}
-
-export interface FloorState {
-  tables: TableState[]
-  orders: Record<string, OrderState>
-  history?: Record<string, any[]>
-}
+export type { }
 
 export function moveTableOrder(
-  floor: FloorState,
+  floor: Floor,
   srcTableId: string,
   dstTableId: string,
-): FloorState {
-  const next = JSON.parse(JSON.stringify(floor)) as FloorState
+): Floor {
+  const next: Floor = JSON.parse(JSON.stringify(floor))
   const src = next.tables.find((t) => t.id === srcTableId)
   const dst = next.tables.find((t) => t.id === dstTableId)
   if (!src || !dst || !src.orderId || !next.orders[src.orderId]) return floor
@@ -52,12 +30,12 @@ export function moveTableOrder(
 }
 
 export function mergeTables(
-  floor: FloorState,
+  floor: Floor,
   dstTableId: string,
   srcTableIds: string[],
   employeeName?: string,
-): FloorState {
-  const next = JSON.parse(JSON.stringify(floor)) as FloorState
+): Floor {
+  const next: Floor = JSON.parse(JSON.stringify(floor))
   const dst = next.tables.find((t) => t.id === dstTableId)
   if (!dst) return floor
 
@@ -96,22 +74,23 @@ export function mergeTables(
 }
 
 export function reopenOrder(
-  floor: FloorState,
+  floor: Floor,
   tableId: string,
-  historyEntry: any,
-): { floor: FloorState; orderId: string } {
-  const next = JSON.parse(JSON.stringify(floor)) as FloorState
+  historyEntry: Order,
+): { floor: Floor; orderId: string } {
+  const next: Floor = JSON.parse(JSON.stringify(floor))
   const table = next.tables.find((t) => t.id === tableId)
   if (!table) return { floor, orderId: '' }
 
   const reopenedId = historyEntry.id + '_reopened'
-  next.orders[reopenedId] = {
+  const reopened: Order = {
     ...historyEntry,
     id: reopenedId,
     tableId,
-    reopenedAt: Date.now(),
-    items: historyEntry.items.map((i: any) => ({ ...i, sent: false, ready: false })),
-  }
+    items: historyEntry.items.map((i: OrderItem) => ({ ...i, sent: false, ready: false })),
+  } as Order
+  ;(reopened as any).reopenedAt = Date.now()
+  next.orders[reopenedId] = reopened
 
   if (!table.orderIds) table.orderIds = []
   table.orderIds.push(reopenedId)

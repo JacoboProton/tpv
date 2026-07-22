@@ -1,14 +1,15 @@
 "use client"
 
 import { useCallback } from 'react'
+import type { Floor, CurrentUser } from '../domain/types'
 import { createTicket, deleteTicket, renameTicket as renameTicketOp, linkCustomer as linkCustomerOp, unlinkCustomer as unlinkCustomerOp } from '../domain/orders/multi-ticket'
 
 export function useOrderTickets(
-  floor: any,
-  persistFloor: (next: any) => Promise<void>,
-  setActiveTicketId: (v: any) => void,
+  floor: Floor,
+  persistFloor: (next: Floor) => Promise<void>,
+  setActiveTicketId: (v: string | null) => void,
   showToast: (msg: string) => void,
-  currentUser: any,
+  currentUser: CurrentUser | null,
 ) {
   const createNewTicket = useCallback((tableId: string) => {
     const result = createTicket(floor, tableId, currentUser?.name)

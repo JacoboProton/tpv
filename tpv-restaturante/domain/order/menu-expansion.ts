@@ -1,19 +1,10 @@
-export interface MenuExpansionItem {
-  productId: string | null
-  name: string
-  price: number
-  qty: number
-  course: string
-  isMenuItem?: boolean
-  isMenuPrice?: boolean
-  isComboItem?: boolean
-  isComboPrice?: boolean
-  ubicacion?: string
-}
+import type { MenuExpansionItem, Product } from '../types'
+
+export type { MenuExpansionItem }
 
 export function expandMenu(
   product: any,
-  catalog: { products: any[] },
+  catalog: { products: Product[] },
   menuSel?: { productId: string }[],
 ): MenuExpansionItem[] {
   const menu = product.menuData
@@ -21,7 +12,7 @@ export function expandMenu(
 
   if (menuSel && menuSel.length > 0) {
     for (const s of menuSel) {
-      const p = catalog.products.find((pr: any) => pr.id === s.productId)
+      const p = catalog.products.find((pr) => pr.id === s.productId)
       if (!p) continue
       items.push({
         productId: p.id,
@@ -49,7 +40,7 @@ export function expandMenu(
 
 export function expandCombo(
   product: any,
-  catalog: { products: any[] },
+  catalog: { products: Product[] },
   comboSel?: { productId: string }[],
 ): MenuExpansionItem[] {
   const combo = product.comboData
@@ -57,7 +48,7 @@ export function expandCombo(
 
   if (comboSel && comboSel.length > 0) {
     for (const s of comboSel) {
-      const p = catalog.products.find((pr: any) => pr.id === s.productId)
+      const p = catalog.products.find((pr) => pr.id === s.productId)
       if (!p) continue
       items.push({
         productId: p.id,

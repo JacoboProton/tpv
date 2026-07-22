@@ -1,4 +1,9 @@
-export function calculateSubtotal(items: Array<{ price: number; qty: number }>): number {
+import type { OrderItem } from '../types'
+import type { OrderTotals } from '../types'
+
+export type { OrderTotals }
+
+export function calculateSubtotal(items: OrderItem[]): number {
   return items.reduce((s, i) => s + i.price * i.qty, 0)
 }
 
@@ -7,23 +12,15 @@ export function calculateDiscountAmount(subtotal: number, discountPct: number): 
 }
 
 export function calculateTotal(subtotal: number, discountAmount: number): number {
-  return round2(subtotal - discountAmount)
+  return round2(Math.max(0, subtotal - discountAmount))
 }
 
 export function calculateTotalWithTip(total: number, tip: number): number {
   return round2(total + tip)
 }
 
-export interface OrderTotals {
-  subtotal: number
-  discountAmount: number
-  offerDiscountAmount: number
-  total: number
-  totalWithTip: number
-}
-
 export function calculateOrderTotals(
-  items: Array<{ price: number; qty: number }>,
+  items: OrderItem[],
   discountPct: number,
   offerDiscountAmount: number,
   tip: number

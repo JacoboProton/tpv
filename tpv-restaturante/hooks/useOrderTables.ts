@@ -2,18 +2,19 @@
 
 import { useCallback } from 'react'
 import { saveCancelledOrder } from '../lib/api'
+import type { Floor, CurrentUser } from '../domain/types'
 import { moveTableOrder, mergeTables as mergeTableOrders, reopenOrder as reopenTableOrder } from '../domain/tables/table-operations'
 import { cancelTable as cancelTableOp, voidTable as voidTableOp } from '../application/CancelTable/cancel-table'
 import { toggleCuentaStatus } from '../application/TableStatus/toggle-table-status'
 
 export function useOrderTables(
-  floor: any,
+  floor: Floor,
   selectedTableId: string | null,
   activeTicketId: string | null,
-  currentUser: any,
-  persistFloor: (next: any) => Promise<void>,
-  setSelectedTableId: (v: any) => void,
-  setActiveTicketId: (v: any) => void,
+  currentUser: CurrentUser | null,
+  persistFloor: (next: Floor) => Promise<void>,
+  setSelectedTableId: (v: string | null) => void,
+  setActiveTicketId: (v: string | null) => void,
   showToast: (msg: string) => void,
 ) {
   const cancelTable = useCallback(() => {

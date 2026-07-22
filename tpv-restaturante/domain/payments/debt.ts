@@ -1,10 +1,12 @@
+import type { Floor, Sale } from '../types'
+
 export function createDebtOrder(
-  floor: any,
+  floor: Floor,
   tableId: string,
-  lastFiadoSale: any,
-): any {
-  const next = JSON.parse(JSON.stringify(floor))
-  const table = next.tables.find((t: any) => t.id === tableId)
+  lastFiadoSale: Sale,
+): Floor {
+  const next: Floor = JSON.parse(JSON.stringify(floor))
+  const table = next.tables.find((t) => t.id === tableId)
   if (!table) return floor
 
   const debtOrderId = 'debt_' + Date.now()

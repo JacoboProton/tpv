@@ -3,6 +3,7 @@
 import { useState, type ComponentType } from 'react';
 import { Banknote, CreditCard, Smartphone, Clock, X, CheckCircle2, Printer, Check, Trash2, type LucideProps } from 'lucide-react';
 import { euros, round2, PAYMENT_METHODS, type Theme } from '@/components/constants';
+import type { Table, CurrentUser } from '@/domain/types';
 import StripeModal from '@/modules/payment/StripeModal';
 
 interface PaymentSplit {
@@ -19,15 +20,7 @@ interface SplitOrderItem {
   qty: number;
 }
 
-interface PaymentTable {
-  id: string;
-  name: string;
-}
-
-interface CurrentUser {
-  id?: string;
-  name?: string;
-}
+type PaymentTable = Pick<Table, 'id' | 'name'>
 
 interface StripePaymentIntent {
   id: string;

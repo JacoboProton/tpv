@@ -1,17 +1,9 @@
 import { clone } from '@/components/constants'
+import type { VerifiedEmployee } from '@/application/auth/verify-pin'
 import { calculatePersonalDiscountAmount, applyDiscountRates, removeDiscountRates, buildEmployeeMonthlyUsage, buildEmployeeMonthlyUsageDecrement } from '@/domain/pricing/personal-discount'
 
-export interface VerifyEmployeeResponse {
-  id: string
-  name: string
-  personalDiscountEnabled: boolean
-  monthlyUsedMonth?: string
-  monthlyUsed?: number
-  monthlyLimit: number
-}
-
 export interface ApplyPersonalDiscountDeps {
-  verifyEmployeePin: (pin: string) => Promise<VerifyEmployeeResponse | null>
+  verifyEmployeePin: (pin: string) => Promise<VerifiedEmployee | null>
   getRates: () => Record<string, number>
   showToast: (msg: string) => void
   euros: (n: number) => string

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback } from 'react'
+import type { Sale } from '@/domain/types'
 import { buildInvoiceHtml } from '@/domain/invoice/invoice-html'
 import { b64ToBlob } from '@/lib/encoding'
 
@@ -11,7 +12,7 @@ interface UseInvoiceProps {
 
 export function useInvoice({ ticketSettings, showToast }: UseInvoiceProps) {
 
-  const printInvoice = useCallback(async (sale: any) => {
+  const printInvoice = useCallback(async (sale: Sale) => {
     if (!sale) return
     const html = buildInvoiceHtml(ticketSettings, sale)
     const iframe = document.createElement('iframe')
@@ -25,7 +26,7 @@ export function useInvoice({ ticketSettings, showToast }: UseInvoiceProps) {
     setTimeout(() => document.body.removeChild(iframe), 1000)
   }, [ticketSettings])
 
-  const handleDownloadPdf = useCallback(async (sale: any) => {
+  const handleDownloadPdf = useCallback(async (sale: Sale) => {
     if (!sale) return
     try {
       const res = await fetch('/api/invoice/pdf', {
@@ -43,7 +44,7 @@ export function useInvoice({ ticketSettings, showToast }: UseInvoiceProps) {
     } catch { showToast('Error al descargar PDF') }
   }, [showToast])
 
-  const handleSendInvoiceEmail = useCallback(async (sale: any) => {
+  const handleSendInvoiceEmail = useCallback(async (sale: Sale) => {
     if (!sale || !sale.invoiceEmail) { showToast('El cliente no tiene email registrado'); return }
     try {
       const pdfRes = await fetch('/api/invoice/pdf', {

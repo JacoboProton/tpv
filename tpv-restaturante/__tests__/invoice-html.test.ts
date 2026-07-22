@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import type { Sale } from '../domain/types'
 import { buildInvoiceHtml } from '../domain/invoice/invoice-html'
 
 const settings = {
@@ -9,16 +10,23 @@ const settings = {
   footerText: 'Gracias por su visita',
 }
 
-const sale = {
+const sale: Sale = {
   id: 's1',
   invoiceNumber: 'INV-2026-00001',
   ticketNumber: '42',
   total: 107,
+  subtotal: 100,
+  discount: 0,
+  tip: 0,
+  totalWithTip: 107,
+  paymentMethod: '',
+  payments: [],
+  isFiado: false,
   items: [
-    { name: 'Caf\xe9', qty: 2, price: 3 },
-    { name: 'T\xe9', qty: 1, price: 2.5 },
+    { id: 'i1', name: 'Café', qty: 2, price: 3 },
+    { id: 'i2', name: 'Té', qty: 1, price: 2.5 },
   ],
-  closedAt: new Date('2026-07-19T12:30:00').getTime(),
+  closedAt: new Date('2026-07-19T12:30:00').toISOString(),
   invoiceName: 'Cliente A',
   invoiceNif: '12345678Z',
   invoiceAddress: 'Av. Principal 10',
@@ -84,7 +92,7 @@ describe('buildInvoiceHtml', () => {
   })
 
   it('escapes < in item names', () => {
-    const saleWithHtml = { ...sale, items: [{ name: '<script>', qty: 1, price: 5 }] }
+    const saleWithHtml = { ...sale, items: [{ id: 'i1', name: '<script>', qty: 1, price: 5 }] }
     const html = buildInvoiceHtml(settings, saleWithHtml)
     expect(html).toContain('&lt;script&gt;')
     expect(html).not.toContain('<script>')
@@ -98,7 +106,7 @@ describe('buildInvoiceHtml', () => {
   })
 
   it('falls back to defaults for missing fields', () => {
-    const saleMin = { id: 's2', total: 0, closedAt: 0, items: [] }
+    const saleMin = { id: 's2', total: 0, closedAt: new Date().toISOString(), items: [], subtotal: 0, discount: 0, tip: 0, totalWithTip: 0, paymentMethod: '', payments: [], isFiado: false }
     const html = buildInvoiceHtml({}, saleMin)
     expect(html).toContain('FACTURA')
     expect(html).toContain('Gracias por su visita')

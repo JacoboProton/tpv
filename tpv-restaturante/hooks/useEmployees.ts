@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import type { Employee, Floor, CurrentUser } from '../domain/types'
 import { saveEmployees } from '../lib/api'
 import { sessionLogin, sessionKeepalive, sessionLogout, startKeepalive } from '../lib/session'
 import { enqueueMutation } from '../lib/offline'
@@ -11,10 +12,10 @@ import { logoutUser } from '../application/auth/logout'
 import { handleClockinAction as handleClockinActionOp, loadClockinSummary as loadClockinSummaryOp } from '../application/auth/clockin'
 
 interface UseEmployeesProps {
-  employees: any[]
-  setEmployees: (e: any[]) => void
+  employees: Employee[]
+  setEmployees: (e: any) => void
   showToast: (msg: string) => void
-  floor: any
+  floor: Floor
   setFloor: (f: any) => void
 }
 
@@ -24,11 +25,11 @@ export function useEmployees({
   floor, setFloor,
 }: UseEmployeesProps) {
 
-  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [loginSelected, setLoginSelected] = useState<any>(null)
   const [pinInput, setPinInput] = useState<string>('')
   const [trainingMode, setTrainingMode] = useState(false)
-  const [savedFloor, setSavedFloor] = useState<any>(null)
+  const [savedFloor, setSavedFloor] = useState<Floor | null>(null)
   const [showClockinModal, setShowClockinModal] = useState(false)
   const [clockinSummary, setClockinSummary] = useState<any>(null)
   const [clockinLoading, setClockinLoading] = useState(false)
@@ -42,18 +43,18 @@ export function useEmployees({
     }
   }, [setEmployees, showToast])
 
-  const addEmployee = useCallback((emp: any) => {
+  const addEmployee = useCallback((emp: Partial<Employee>) => {
     persistEmployees([...employees, createEmployee(emp)])
   }, [employees, persistEmployees])
 
   const updateEmployeeField = useCallback((id: string, f: string, value: any) => {
-    persistEmployees(employees.map((e: any) => e.id === id ? { ...e, [f]: value } : e))
+    persistEmployees(employees.map((e: Employee) => e.id === id ? { ...e, [f]: value } : e))
   }, [employees, persistEmployees])
 
   const deleteEmployee = useCallback((id: string) => {
     const result = canDeleteEmployee(employees, id)
     if (!result.allowed) { showToast(result.error!); return }
-    persistEmployees(employees.filter((e: any) => e.id !== id))
+    persistEmployees(employees.filter((e: Employee) => e.id !== id))
   }, [employees, persistEmployees, showToast])
 
   const toggleTraining = useCallback(() => {
@@ -132,7 +133,7 @@ export function useEmployees({
     handleClockinActionOp(currentUser, action, clockDeps)
   }, [currentUser, clockDeps])
 
-  const tryRestoreSession = useCallback(async (emps: any[]) => {
+  const tryRestoreSession = useCallback(async (emps: Employee[]) => {
     return tryRestoreSessionOp(emps, {
       sessionKeepalive,
       startKeepalive,

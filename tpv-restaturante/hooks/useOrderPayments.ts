@@ -1,33 +1,34 @@
 "use client"
 
 import { useState, useCallback } from 'react'
+import type { Floor, Catalog, CurrentUser, Sale, Employee, Order } from '../domain/types'
+import type { Offer } from '../domain/types'
+import type { ModifierData } from '../domain/catalog/modifier-groups'
 import { round2, euros } from '../components/constants'
 import { saveStockLog } from '../infrastructure/database/stock-log-repository'
 import { eventBus } from '../lib/event-bus'
-import { sha256 } from '../lib/crypto'
 import { calculateOrderSubtotal } from '../domain/order/line-totals'
 import { calculatePersonalDiscountAmount } from '../domain/pricing/personal-discount'
 import { executeCloseOrder } from '../application/CloseOrder/close-order'
+import { verifyEmployeePin as verifyPin } from '../application/auth/verify-pin'
 import { applyPersonalDiscount as applyPersonalDiscountOp, removePersonalDiscount as removePersonalDiscountOp } from '../application/ApplyPersonalDiscount/apply-personal-discount'
 
-const API_KEY = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_TPV_API_KEY) || ''
-
 export function useOrderPayments(
-  floor: any,
-  catalog: any,
-  offers: any,
-  sales: any[],
-  modifierData: any,
-  currentUser: any,
-  employees: any[],
+  floor: Floor,
+  catalog: Catalog,
+  offers: Offer[],
+  sales: Sale[],
+  modifierData: ModifierData,
+  currentUser: CurrentUser | null,
+  employees: Employee[],
   trainingMode: boolean,
   selectedTableId: string | null,
-  selectedOrder: any,
-  persistFloor: (next: any) => Promise<void>,
-  persistSales: (next: any) => void,
-  setSelectedTableId: (v: any) => void,
-  setCatalog: (c: any) => void,
-  setEmployees: (e: any) => void,
+  selectedOrder: Order | null,
+  persistFloor: (next: Floor) => Promise<void>,
+  persistSales: (next: Sale[]) => void,
+  setSelectedTableId: (v: string | null) => void,
+  setCatalog: (c: Catalog) => void,
+  setEmployees: (e: Employee[]) => void,
   showToast: (msg: string) => void,
   ticketSettings?: any,
 ) {
@@ -96,9 +97,10 @@ export function useOrderPayments(
 
   const closeBill = useCallback(() => {
     if (!selectedTableId || !floor) return
-    const table = floor?.tables?.find((t: any) => t.id === selectedTableId)
-    const order = floor.orders[table?.orderId]
-    if (!table || !order) return
+    const table = (floor as any).tables?.find((t: any) => t.id === selectedTableId)
+    if (!table || !table.orderId) return
+    const order: Order = (floor as any).orders[table.orderId]
+    if (!order) return
 
     const { nextFloor, nextCatalog, sale, stockLogs, warnings, wasDebt } = executeCloseOrder({
       floor,
@@ -160,16 +162,6 @@ export function useOrderPayments(
       modifierData, offers, trainingMode, currentUser, persistFloor,
       setCatalog, persistSales, showToast, resetPaymentState, setSelectedTableId])
 
-  const verifyEmployeePin = useCallback(async (pin: string) => {
-    const r = await fetch('/api/employees', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-tpv-key': API_KEY },
-      body: JSON.stringify({ action: 'verify', pin, pinHash: await sha256(pin) }),
-    })
-    if (!r.ok) { showToast('PIN incorrecto'); return null }
-    return r.json()
-  }, [showToast])
-
   const getDiscountRates = useCallback(() => {
     const raw = ticketSettings?.personalDiscountRates
     try { return typeof raw === 'string' ? JSON.parse(raw) : raw || {} } catch { return {} }
@@ -180,8 +172,13 @@ export function useOrderPayments(
   }, [catalog])
 
   const applyPersonalDiscount = useCallback(async (orderId: string, employeePin: string): Promise<boolean> => {
+    const verifyWithToast = async (pin: string) => {
+      const emp = await verifyPin(pin)
+      if (!emp) showToast('PIN incorrecto')
+      return emp
+    }
     const result = await applyPersonalDiscountOp(floor, employees, catalog, orderId, employeePin, {
-      verifyEmployeePin,
+      verifyEmployeePin: verifyWithToast,
       getRates: getDiscountRates,
       showToast,
       euros,
@@ -190,7 +187,7 @@ export function useOrderPayments(
     persistFloor(result.floor)
     setEmployees(result.employees)
     return true
-  }, [floor, employees, catalog, verifyEmployeePin, getDiscountRates, persistFloor, showToast, setEmployees])
+  }, [floor, employees, catalog, getDiscountRates, persistFloor, showToast, setEmployees])
 
   const removePersonalDiscount = useCallback((orderId: string) => {
     const result = removePersonalDiscountOp(floor, employees, catalog, orderId, {
@@ -217,7 +214,7 @@ export function useOrderPayments(
     splitsUsed, remaining, canConfirm,
     addSplit, updateSplitAmount, removeSplit, toggleSplitItem,
     closeBill, resetPaymentState,
-    verifyEmployeePin, getDiscountRates, calcPersonalDiscountAmount,
+    getDiscountRates, calcPersonalDiscountAmount,
     applyPersonalDiscount, removePersonalDiscount,
   }
 }

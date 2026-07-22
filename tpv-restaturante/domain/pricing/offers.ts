@@ -1,6 +1,10 @@
+import type { OrderItem, Offer } from '../types'
+
+export type { Offer }
+
 export function calculateOfferDiscount(
-  items: Array<{ productId?: string; price: number; qty: number }>,
-  offers: Array<{ active: boolean; days: number[]; startHour: number; endHour: number; productIds: string[]; discountPct: number }>,
+  items: OrderItem[],
+  offers: Offer[],
   now?: Date
 ): number {
   const date = now || new Date()

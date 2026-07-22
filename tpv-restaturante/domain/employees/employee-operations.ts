@@ -1,19 +1,21 @@
-export function createEmployee(data: any): any {
-  return { id: 'e_' + Date.now(), ...data }
+import type { Employee, Floor } from '../types'
+
+export function createEmployee(data: Partial<Employee>): Employee {
+  return { id: 'e_' + Date.now(), ...data } as Employee
 }
 
-export function canDeleteEmployee(employees: any[], employeeId: string): { allowed: boolean; error?: string } {
-  const target = employees.find((e: any) => e.id === employeeId)
+export function canDeleteEmployee(employees: Employee[], employeeId: string): { allowed: boolean; error?: string } {
+  const target = employees.find((e) => e.id === employeeId)
   if (!target) return { allowed: true }
   if (target.role === 'admin') {
-    const adminCount = employees.filter((e: any) => e.role === 'admin').length
+    const adminCount = employees.filter((e) => e.role === 'admin').length
     if (adminCount <= 1) return { allowed: false, error: 'Tiene que quedar al menos un administrador' }
   }
   return { allowed: true }
 }
 
-export function buildTrainingFloor(floor: any): any {
-  const tables = (floor?.tables || []).map((t: any) => ({
+export function buildTrainingFloor(floor: Partial<Floor>): Floor {
+  const tables = (floor?.tables || []).map((t) => ({
     ...t, orderId: null, orderIds: [], status: 'libre', reserved: null, isFiado: false,
   }))
   return { ...JSON.parse(JSON.stringify(floor)), tables, orders: {}, history: {} }

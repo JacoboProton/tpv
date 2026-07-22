@@ -66,7 +66,8 @@ describe('countPendingLines', () => {
 
 describe('countPendingKitchenItems', () => {
   it('counts sent-but-not-ready items across orders', () => {
-    const floor = {
+    const floor: any = {
+      tables: [],
       orders: {
         o1: { items: [{ id: 'i1', sent: true, ready: false }, { id: 'i2', sent: true, ready: true }] },
         o2: { items: [{ id: 'i3', sent: false }, { id: 'i4', sent: true, ready: false }] },
@@ -76,11 +77,11 @@ describe('countPendingKitchenItems', () => {
   })
 
   it('returns 0 for empty floor', () => {
-    expect(countPendingKitchenItems({ orders: {} })).toBe(0)
+    expect(countPendingKitchenItems({ tables: [], orders: {} })).toBe(0)
   })
 
-  it('handles null floor', () => {
-    expect(countPendingKitchenItems({})).toBe(0)
+  it('handles empty orders', () => {
+    expect(countPendingKitchenItems({ tables: [], orders: {} } as any)).toBe(0)
   })
 })
 

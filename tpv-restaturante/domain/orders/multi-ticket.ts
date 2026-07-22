@@ -1,15 +1,12 @@
-export interface TicketFloor {
-  tables: any[]
-  orders: Record<string, any>
-}
+import type { Floor, Table, Order } from '../types'
 
 export function createTicket(
-  floor: TicketFloor,
+  floor: Floor,
   tableId: string,
   employeeName?: string,
-): { floor: TicketFloor; orderId: string; ticketNum: number } {
+): { floor: Floor; orderId: string; ticketNum: number } {
   const next = JSON.parse(JSON.stringify(floor))
-  const table = next.tables.find((t: any) => t.id === tableId)
+  const table = next.tables.find((t: Table) => t.id === tableId)
   if (!table) return { floor, orderId: '', ticketNum: 0 }
 
   const orderId = 'o_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
@@ -29,17 +26,17 @@ export function createTicket(
 }
 
 export function deleteTicket(
-  floor: TicketFloor,
+  floor: Floor,
   tableId: string,
   orderId: string,
-): { floor: TicketFloor; activeOrderId: string | null } {
+): { floor: Floor; activeOrderId: string | null } {
   const next = JSON.parse(JSON.stringify(floor))
-  const table = next.tables.find((t: any) => t.id === tableId)
+  const table = next.tables.find((t: Table) => t.id === tableId)
   const order = next.orders[orderId]
   if (!table || !order || order.items.length > 0) return { floor, activeOrderId: null }
 
   delete next.orders[orderId]
-  table.orderIds = (table.orderIds || []).filter((id: any) => id !== orderId)
+  table.orderIds = (table.orderIds || []).filter((id: string) => id !== orderId)
 
   if (table.orderIds.length === 0) {
     table.orderId = null
@@ -52,33 +49,33 @@ export function deleteTicket(
 }
 
 export function renameTicket(
-  floor: TicketFloor,
+  floor: Floor,
   orderId: string,
   label: string,
-): TicketFloor {
+): Floor {
   const next = JSON.parse(JSON.stringify(floor))
-  const order = next.orders[orderId]
+  const order: Order = next.orders[orderId]
   if (order) order.label = label
   return next
 }
 
 export function linkCustomer(
-  floor: TicketFloor,
+  floor: Floor,
   orderId: string,
   customer: any,
-): TicketFloor {
+): Floor {
   const next = JSON.parse(JSON.stringify(floor))
-  const order = next.orders[orderId]
+  const order: Order = next.orders[orderId]
   if (order) order.customer = customer
   return next
 }
 
 export function unlinkCustomer(
-  floor: TicketFloor,
+  floor: Floor,
   orderId: string,
-): TicketFloor {
+): Floor {
   const next = JSON.parse(JSON.stringify(floor))
-  const order = next.orders[orderId]
+  const order: Order = next.orders[orderId]
   if (order) order.customer = null
   return next
 }

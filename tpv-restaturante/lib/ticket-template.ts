@@ -2,7 +2,7 @@ interface TicketItem {
   name: string;
   qty: number;
   price: number;
-  productId?: string;
+  productId?: string | null;
   modifiers?: Array<{ optionName?: string; name?: string }>;
 }
 

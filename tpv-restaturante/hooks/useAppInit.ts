@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import type { Employee } from '../domain/types'
 import {
   runMigrate, fetchCatalog, saveCatalog,
   fetchFloor, saveFloor,
@@ -17,12 +18,12 @@ interface UseAppInitProps {
   setTenants: (t: any[]) => void
   setCatalog: (c: any) => void
   setFloor: (f: any) => void
-  setEmployees: (e: any[]) => void
-  setSales: (s: any[]) => void
+  setEmployees: (e: any) => void
+  setSales: (s: any) => void
   setTicketSettings: (s: Record<string, any>) => void
   setOffers: (o: any[]) => void
   setCombos: (c: any[]) => void
-  tryRestoreSession: (emps: any[]) => Promise<any>
+  tryRestoreSession: (emps: Employee[]) => Promise<any>
 }
 
 export function useAppInit({

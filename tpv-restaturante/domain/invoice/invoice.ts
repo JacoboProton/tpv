@@ -1,9 +1,8 @@
-export const IGIC_RATE = 0.07
+import type { IgicBreakdown } from '../types'
 
-export interface IgicBreakdown {
-  baseImponible: number
-  cuotaIgic: number
-}
+export type { IgicBreakdown }
+
+export const IGIC_RATE = 0.07
 
 function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100

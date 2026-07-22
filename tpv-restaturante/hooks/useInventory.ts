@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback } from 'react'
+import type { Catalog } from '../domain/types'
 import { saveCatalog, saveOffers, saveCombos, saveMealMenus, savePriceRules } from '../lib/api'
 import { enqueueMutation } from '../lib/offline'
 import { clone } from '../components/constants'
@@ -8,7 +9,7 @@ import { eventBus } from '../lib/event-bus'
 import { createProduct, ensureCategoryExists, removeProduct, detectStockChanges, addProductToCatalog, setProductField, getLowStockProducts } from '../domain/catalog/product-operations'
 
 interface UseInventoryProps {
-  catalog: any
+  catalog: Catalog
   setCatalog: (c: any) => void
   offers: any[]
   setOffers: (o: any[]) => void

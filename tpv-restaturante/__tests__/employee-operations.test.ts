@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import type { Employee, Floor } from '../domain/types'
 import { createEmployee, canDeleteEmployee, buildTrainingFloor } from '../domain/employees/employee-operations'
 
 describe('createEmployee', () => {
@@ -11,7 +12,7 @@ describe('createEmployee', () => {
 })
 
 describe('canDeleteEmployee', () => {
-  const employees = [
+  const employees: Employee[] = [
     { id: 'e1', name: 'Admin1', role: 'admin' },
     { id: 'e2', name: 'Admin2', role: 'admin' },
     { id: 'e3', name: 'Camarero1', role: 'camarero' },
@@ -26,7 +27,7 @@ describe('canDeleteEmployee', () => {
   })
 
   it('blocks deleting last admin', () => {
-    const singleAdmin = [{ id: 'e1', name: 'SoloAdmin', role: 'admin' }]
+    const singleAdmin: Employee[] = [{ id: 'e1', name: 'SoloAdmin', role: 'admin' }]
     expect(canDeleteEmployee(singleAdmin, 'e1')).toEqual({
       allowed: false,
       error: 'Tiene que quedar al menos un administrador',
@@ -39,13 +40,13 @@ describe('canDeleteEmployee', () => {
 })
 
 describe('buildTrainingFloor', () => {
-  const floor = {
+  const floor: Floor = {
     tables: [
-      { id: 't1', name: 'Mesa 1', orderId: 'o1', orderIds: ['o1'], status: 'ocupada', reserved: 'res1', isFiado: true },
+      { id: 't1', name: 'Mesa 1', orderId: 'o1', orderIds: ['o1'], status: 'ocupada', reserved: true, isFiado: true } as any,
       { id: 't2', name: 'Mesa 2' },
     ],
-    orders: { o1: { items: [] } },
-    history: { some: 'data' },
+    orders: { o1: { id: 'o1', items: [] } },
+    history: { some: ['data'] },
   }
 
   it('resets all tables to free', () => {

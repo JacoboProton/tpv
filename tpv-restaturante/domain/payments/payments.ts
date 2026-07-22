@@ -1,13 +1,6 @@
-export interface PaymentSplit {
-  method: string
-  amount: number
-}
+import type { PaymentSplit, Payment } from '../types'
 
-export interface Payment {
-  method: string
-  amount: number
-  confirmed?: boolean
-}
+export type { PaymentSplit, Payment }
 
 const METHOD_LABELS: Record<string, string> = {
   efectivo: 'Efectivo',

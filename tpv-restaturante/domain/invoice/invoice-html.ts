@@ -1,7 +1,9 @@
 import { euros } from '@/components/constants'
 import { calculateIgic } from '@/domain/invoice/invoice'
 
-export function buildInvoiceHtml(ticketSettings: Record<string, any>, sale: any): string {
+import type { Sale } from '../types'
+
+export function buildInvoiceHtml(ticketSettings: Record<string, any>, sale: Sale): string {
   const { restaurantName, companyCif, companyAddress, companyPhone, footerText } = ticketSettings
   const totalConIva = sale.total || 0
   const { baseImponible, cuotaIgic } = calculateIgic(totalConIva)

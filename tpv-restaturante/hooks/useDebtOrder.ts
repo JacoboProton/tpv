@@ -1,15 +1,16 @@
 'use client'
 
 import { useEffect } from 'react'
+import type { Floor, Sale, Table, CurrentUser } from '../domain/types'
 import { enqueueMutation } from '../lib/offline'
 import { createDebtOrder } from '../domain/payments/debt'
 
 interface UseDebtOrderProps {
-  selectedTable: any
+  selectedTable: Table | null
   selectedTableId: string | null
-  currentUser: any
-  sales: any[]
-  floor: any
+  currentUser: CurrentUser | null
+  sales: Sale[]
+  floor: Floor
   setFloor: (f: any) => void
   showToast: (msg: string) => void
   debtFloorRef: React.MutableRefObject<any>
@@ -22,8 +23,8 @@ export function useDebtOrder({
   useEffect(() => {
     if (!selectedTableId || !selectedTable?.isFiado || selectedTable?.orderId || !currentUser) return
     const lastFiadoSale = [...sales]
-      .filter((s: any) => s.tableId === selectedTableId && s.isFiado)
-      .sort((a: any, b: any) => b.closedAt - a.closedAt)[0]
+      .filter((s: Sale) => s.tableId === selectedTableId && s.isFiado)
+      .sort((a, b) => String(b.closedAt).localeCompare(String(a.closedAt)))[0]
     if (!lastFiadoSale) return
     debtFloorRef.current = createDebtOrder(floor, selectedTableId, lastFiadoSale)
   }, [selectedTableId, currentUser])
