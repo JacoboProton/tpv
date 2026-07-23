@@ -7,7 +7,5 @@ export function round2(n: number): number {
 }
 
 export function clone<T>(obj: T): T {
-  return typeof structuredClone === 'function'
-    ? structuredClone(obj)
-    : JSON.parse(JSON.stringify(obj))
+  return JSON.parse(JSON.stringify(obj))
 }

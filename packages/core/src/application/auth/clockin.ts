@@ -2,7 +2,7 @@ import type { CurrentUser } from '../../domain/types'
 
 export interface ClockinDeps {
   fetchSummary: (employeeId: string, date: string) => Promise<{ summary?: unknown }>
-  fetchClockin: (body: { employeeId: string; employeeName: string; method: string; action: string }) => Promise<Response>
+  fetchClockin: (body: { employeeId: string; employeeName: string; method: string; action: string }) => Promise<{ ok: boolean; json(): Promise<unknown> }>
   showToast: (msg: string) => void
   setClockinSummary: (s: unknown) => void
   setClockinLoading: (v: boolean) => void
@@ -31,12 +31,12 @@ export async function handleClockinAction(
       method: 'tpc',
       action,
     })
-    const data = await r.json()
+    const data = await r.json() as Record<string, unknown>
     if (data.ok) {
       deps.showToast(`✅ ${action} registrada`)
       loadClockinSummary(currentUser, deps)
     } else {
-      deps.showToast('❌ ' + (data.error || 'Error'))
+      deps.showToast('❌ ' + ((data.error as string) || 'Error'))
     }
   } catch {
     deps.showToast('❌ Error de conexión')

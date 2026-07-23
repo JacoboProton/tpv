@@ -5,6 +5,8 @@ export interface SalesQueueDeps {
   setSales: (updater: (prev: Sale[]) => Sale[]) => void
   cacheSet: (key: string, value: Sale[] | null) => void
   showToast: (msg: string) => void
+  log: (msg: string) => void
+  wait: (ms: number) => Promise<void>
 }
 
 export async function processSalesQueue(
@@ -26,7 +28,7 @@ export async function processSalesQueue(
       if (!ok) lastErr = 'respuesta vacía'
     } catch (e) {
       lastErr = e instanceof Error ? e.message : String(e)
-      console.warn('addSale error:', lastErr)
+      deps.log?.('addSale error: ' + lastErr)
     }
     if (ok) {
       if (ticketNumber) {
@@ -36,7 +38,7 @@ export async function processSalesQueue(
       queue.shift()
     } else {
       deps.showToast(`Error venta: ${lastErr}. Reintentando...`)
-      await new Promise(r => setTimeout(r, 2000))
+      await deps.wait(2000)
       try {
         const res = await deps.addSale(sale)
         if (res && res.ok) {
