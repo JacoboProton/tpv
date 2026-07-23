@@ -1,0 +1,61 @@
+name: PR CI
+
+on:
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Cache root node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-npm-root-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-root-
+
+      - name: Install root dependencies (if any)
+        run: |
+          if [ -f package.json ]; then npm ci; else echo "no root package.json"; fi
+
+      - name: Cache tpv-restaturante node_modules
+        uses: actions/cache@v4
+        with:
+          path: tpv-restaturante/node_modules
+          key: ${{ runner.os }}-npm-tpv-restaurente-${{ hashFiles('tpv-restaturante/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-tpv-restaurente-
+
+      - name: Install tpv-restaturante dependencies
+        run: npm ci --prefix tpv-restaturante
+
+      - name: Run lint (tpv-restaturante)
+        run: npm --prefix tpv-restaturante run lint
+
+      - name: Cache packages/core node_modules
+        uses: actions/cache@v4
+        with:
+          path: packages/core/node_modules
+          key: ${{ runner.os }}-npm-packages-core-${{ hashFiles('packages/core/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-packages-core-
+
+      - name: Install packages/core dependencies (if needed)
+        run: |
+          if [ -f packages/core/package.json ]; then npm ci --prefix packages/core; else echo "no packages/core package.json"; fi
+
+      - name: Run typecheck (packages/core)
+        run: npm --prefix packages/core run typecheck
+
+      - name: Run tests (tpv-restaurente)
+        run: npm --prefix tpv-restaurante run test
