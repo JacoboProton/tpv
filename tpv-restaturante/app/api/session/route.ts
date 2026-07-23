@@ -4,6 +4,7 @@ import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { sessions } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
+import { requireRole } from '../../../lib/rbac';
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,6 +14,8 @@ export async function POST(req: NextRequest) {
     const db = getDb();
 
     if (action === 'login') {
+      // Login doesn't require session validation (it creates the session)
+      // But we validate the employee exists via PIN verification before reaching here
       if (!employeeId || !deviceId) {
         return apiBadRequest('employeeId y deviceId requeridos');
       }
@@ -55,6 +58,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'logout') {
+      const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
+      if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
+
       if (!employeeId || !deviceId) {
         return apiBadRequest('employeeId y deviceId requeridos');
       }
@@ -68,6 +74,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'keepalive') {
+      const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
+      if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
+
       if (!employeeId || !deviceId) {
         return apiBadRequest('employeeId y deviceId requeridos');
       }

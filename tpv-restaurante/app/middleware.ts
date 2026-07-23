@@ -12,43 +12,8 @@ const PUBLIC_PATHS = [
   '/api/qr-calls',
 ]
 
-const ADMIN_PATHS = [
-  '/api/settings', '/api/catalog', '/api/modifiers',
-  '/api/combos', '/api/meal-menus', '/api/offers', '/api/price-rules',
-  '/api/buffet', '/api/invoice', '/api/backup', '/api/migrate',
-  '/api/reset-orders', '/api/seed-products', '/api/tenants',
-  '/api/verifactu', '/api/albaranes', '/api/purchase-orders',
-  '/api/suppliers', '/api/supplier-catalog', '/api/supplier-price-history',
-  '/api/auto-order-settings', '/api/recipes', '/api/production',
-  '/api/add-stock', '/api/move-stock', '/api/split-stock', '/api/stock-log',
-  '/api/gestoria', '/api/delivery-zones', '/api/delivery/runners',
-  '/api/access-logs', '/api/clockin-corrections', '/api/closures',
-  '/api/debug', '/api/catalog/csv',
-]
-
-const ROLE_ROUTES: Array<{ path: string; methods: string[]; roles: string[] }> = [
-  { path: '/api/floor', methods: ['GET', 'PATCH'], roles: ['admin', 'camarero', 'cocina'] },
-  { path: '/api/sales', methods: ['POST'], roles: ['admin', 'camarero'] },
-  { path: '/api/employees', methods: ['POST'], roles: ['admin', 'camarero', 'cocina'] },
-  { path: '/api/session', methods: ['POST'], roles: ['admin', 'camarero', 'cocina'] },
-  { path: '/api/keep-alive', methods: ['GET'], roles: ['admin', 'camarero', 'cocina'] },
-]
-
 function isPublic(pathname: string): boolean {
   return PUBLIC_PATHS.some(p => pathname.startsWith(p))
-}
-
-function isAdminRoute(pathname: string): boolean {
-  return ADMIN_PATHS.some(p => pathname.startsWith(p))
-}
-
-function getRouteRoles(pathname: string, method: string): string[] | null {
-  for (const r of ROLE_ROUTES) {
-    if (pathname.startsWith(r.path) && r.methods.includes(method)) {
-      return r.roles
-    }
-  }
-  return null
 }
 
 function errorResponse(req: NextRequest, status: number, body: unknown): NextResponse {
@@ -92,43 +57,34 @@ export async function middleware(req: NextRequest) {
 
   // Validar API key
   const key = req.headers.get('x-tpv-key')
-  if (API_KEY && key !== API_KEY) {
-    return errorResponse(req, 401, { error: 'No autorizado' })
-  }
-
-  // Validar sesión contra BD
-  const employeeId = req.headers.get('x-employee-id')
-  const deviceId = req.headers.get('x-device-id')
-  const headerRole = req.headers.get('x-employee-role')
-
-  if (employeeId && deviceId && API_KEY) {
-    try {
-      const { getSessionEmployee } = await import('@/lib/rbac')
-      const session = await getSessionEmployee(req)
-
-      if (!session) {
-        return errorResponse(req, 401, { error: 'Sesión no válida o expirada' })
-      }
-
-      // Si el rol del header no coincide con BD, rechazar
-      if (headerRole && headerRole !== session.role) {
-        return errorResponse(req, 403, { error: 'Rol no válido' })
-      }
-
-      // Verificar permisos de ruta
-      const routeRoles = getRouteRoles(pathname, method)
-      if (routeRoles && !routeRoles.includes(session.role)) {
-        return errorResponse(req, 403, { error: 'No tienes permisos para esta operación' })
-      }
-
-      if (isAdminRoute(pathname) && session.role !== 'admin') {
-        return errorResponse(req, 403, { error: 'Se requiere rol de administrador' })
-      }
-    } catch {
-      // Si falla la validación (ej: DB no disponible), denegar
-      return errorResponse(req, 500, { error: 'Error al validar sesión' })
+  const isProduction = process.env.NODE_ENV === 'production'
+  
+  if (isProduction) {
+    // En producción, TPV_API_KEY es obligatorio
+    if (!API_KEY) {
+      return errorResponse(req, 500, { error: 'Error de configuración: TPV_API_KEY no definida' })
+    }
+    if (key !== API_KEY) {
+      return errorResponse(req, 401, { error: 'No autorizado' })
+    }
+  } else {
+    // En desarrollo, permitir si TPV_API_KEY está configurada
+    if (API_KEY && key !== API_KEY) {
+      return errorResponse(req, 401, { error: 'No autorizado' })
     }
   }
+
+  // NOTA DE SEGURIDAD: La validación de sesión y roles NO se hace aquí en el middleware porque:
+  // 1. Next.js middleware corre en Edge runtime
+  // 2. lib/rbac.ts usa getDb() (node-postgres) que no funciona en Edge
+  // 3. Confiar en headers (x-employee-role, x-employee-id) sin validar contra BD es inseguro
+  // 
+  // Por tanto, este middleware solo actúa como primera barrera (API key + CORS).
+  // La validación real de sesión y roles se hace en cada route handler usando:
+  // - getSessionEmployee() para obtener la sesión validada contra BD
+  // - requireRole([...]) para verificar permisos específicos
+  //
+  // TODAS las rutas en ADMIN_PATHS y ROLE_ROUTES deben invocar requireRole() al inicio.
 
   return NextResponse.next()
 }

@@ -6,8 +6,11 @@ import { FloorPutBodySchema } from '../../../lib/schemas/floorSchema';
 import { putFloorInTransaction, deleteTablesInTransaction, deleteOrdersInTransaction, fetchFullFloor } from '../../../lib/floor';
 import { apiOk, apiError } from '../../../lib/infrastructure/response';
 import { parseBody } from '../../../lib/infrastructure/validate';
+import { requireRole } from '../../../lib/rbac';
 
 export async function GET(req: NextRequest) {
+  const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const tenantId = getTenantId(req);
     const fullFloor = await fetchFullFloor(tenantId);
@@ -16,6 +19,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
+
   try {
     const body = await parseBody(req, FloorPutBodySchema);
     const db = getDb();
@@ -30,6 +36,9 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
+
   try {
     const body = await req.json() as {
       updatedTables: unknown[]; deletedTableIds: string[]; updatedOrders: Record<string, unknown>; deletedOrderIds: string[];

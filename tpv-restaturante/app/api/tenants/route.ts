@@ -3,8 +3,11 @@ import { eq, sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { tenants } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiServerError } from '../../../lib/infrastructure/response';
+import { requireRole } from '../../../lib/rbac';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await requireRole(['admin'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const db = getDb();
     const rows = await db.select().from(tenants).orderBy(tenants.name);
@@ -18,6 +21,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireRole(['admin'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
+
   try {
     const body = await req.json() as any;
     const { name, slug } = body;
@@ -36,6 +42,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const auth = await requireRole(['admin'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
+
   try {
     const body = await req.json() as any;
     const { id, name, address, phone, email, nif, active } = body;
@@ -55,6 +64,9 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const auth = await requireRole(['admin'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
+
   try {
     const { id } = await req.json() as any;
     if (!id || id === 'default') return apiBadRequest('cannot delete default tenant');

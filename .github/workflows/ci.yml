@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ──────────────────────────────────────────────
+  # 1. Lint + Typecheck + Unit Tests (fast gate)
+  # ──────────────────────────────────────────────
+  quality:
+    name: Lint / Typecheck / Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tpv-restaturante
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: tpv-restaturante/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck @tpv/core
+        run: npx tsc --noEmit
+        working-directory: packages/core
+
+      - name: Typecheck web app
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test -- --reporter=verbose
+
+  # ──────────────────────────────────────────────
+  # 2. Build (validates the production bundle)
+  # ──────────────────────────────────────────────
+  build:
+    name: Build
+    needs: quality
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tpv-restaturante
+
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder
+      TPV_API_KEY: ci-test-key
+      NEXT_PUBLIC_TPV_API_KEY: ci-test-key
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: tpv-restaturante/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Next.js
+        run: npm run build
+
+  # ──────────────────────────────────────────────
+  # 3. Docker image build (validates Dockerfile)
+  # ──────────────────────────────────────────────
+  docker:
+    name: Docker Build
+    needs: quality
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: tpv-restaturante/Dockerfile
+          push: false
+          tags: la-comanda-tpv:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

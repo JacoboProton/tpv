@@ -5,8 +5,12 @@ import { getTenantId } from '../../../lib/tenant';
 import { invalidateSettingsCache } from '../../../lib/settings-cache';
 import { settings } from '../../../db/schema';
 import { apiOk, apiError } from '../../../lib/infrastructure/response';
+import { requireRole } from '../../../lib/rbac';
 
 export async function GET(req: NextRequest) {
+  const auth = await requireRole(['admin'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
+
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
@@ -20,6 +24,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const auth = await requireRole(['admin'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
+
   try {
     const db = getDb();
     const body = await req.json() as any;

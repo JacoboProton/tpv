@@ -21,7 +21,7 @@ export function addItemToOrder(
     f.orders[oid] = order
     t.orderIds = [oid]
     t.orderId = oid
-    t.status = 'ocupado'
+    t.status = 'ocupada'
   }
 
   const modKey = JSON.stringify(modifiers)
@@ -61,7 +61,7 @@ export function changeItemQuantity(floor: Floor, itemId: string, delta: number):
     }
     f.tables.forEach(t => {
       const hasItems = (t.orderIds || []).some(oid => f.orders[oid]?.items?.length > 0)
-      t.status = hasItems ? 'ocupado' : 'libre'
+      t.status = hasItems ? 'ocupada' : 'libre'
       if (!t.orderId && t.orderIds?.length === 0) t.orderId = null
     })
     break

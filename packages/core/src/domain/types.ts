@@ -19,6 +19,7 @@ export interface Product {
   barcode?: string
   categoryId: string
   category?: string
+  description?: string
   agotado?: boolean
   show_tpv?: boolean
   show_qr?: boolean
@@ -41,6 +42,7 @@ export interface Category {
   name: string
   active?: boolean
   show_qr?: boolean
+  sort_order?: number
 }
 
 export interface NewProductInput {
@@ -97,6 +99,7 @@ export interface Order {
   items: OrderItem[]
   employeeName?: string
   createdAt?: number
+  source?: string
   label?: string
   customer?: any
   _mergedFrom?: string[]
@@ -188,6 +191,16 @@ export interface RefundInput {
   reason?: string
 }
 
+export interface SaleItem {
+  id: string
+  productId: string
+  name: string
+  price: number
+  qty: number
+  modifiers?: ModifierSelection[]
+  notes?: string
+}
+
 export interface SaleRefund extends RefundInput {
   employeeName: string
   timestamp: number
@@ -249,6 +262,8 @@ export interface Employee {
   pin?: string
   monthlyUsed?: number
   monthlyUsedMonth?: string
+  personalDiscountEnabled?: boolean
+  monthlyLimit?: number
 }
 
 // ─── Catalog ───

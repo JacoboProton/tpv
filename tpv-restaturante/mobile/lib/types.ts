@@ -1,184 +1,175 @@
-// Mobile-specific types - kept separate due to incompatibilities with shared domain
-// Shared types from @tpv/core can be imported directly where needed
+import type { SaleItem as CoreSaleItem } from '@tpv/core'
+
+export type SaleItem = CoreSaleItem
 
 export interface Employee {
-  id: string;
-  name: string;
-  role: 'admin' | 'camarero';
-  personalDiscountEnabled: boolean;
-  monthlyLimit: number;
-  monthlyUsed: number;
-  monthlyUsedMonth: string;
+  id: string
+  name: string
+  role: 'admin' | 'camarero'
+  personalDiscountEnabled: boolean
+  monthlyLimit: number
+  monthlyUsed: number
+  monthlyUsedMonth: string
 }
 
 export interface Product {
-  id: string;
-  name: string;
-  category: string;
-  price: number;
-  stock: number;
-  ubicacion: string;
-  course: string;
-  allergens: string[];
-  image?: string;
-  description?: string;
-  show_tpv: boolean;
-  agotado: boolean;
-  discount: number;
+  id: string
+  name: string
+  category: string
+  price: number
+  stock: number
+  ubicacion: string
+  course: string
+  allergens: string[]
+  image?: string
+  description?: string
+  show_tpv: boolean
+  agotado: boolean
+  discount: number
 }
 
 export interface Category {
-  id: string;
-  name: string;
-  sort_order: number;
-  active: boolean;
-  show_qr: boolean;
+  id: string
+  name: string
+  sort_order: number
+  active: boolean
+  show_qr: boolean
 }
 
 export interface ModifierOption {
-  id: string;
-  group_id: string;
-  name: string;
-  price_delta: number;
-  is_default: boolean;
-  sort_order: number;
+  id: string
+  group_id: string
+  name: string
+  price_delta: number
+  is_default: boolean
+  sort_order: number
 }
 
 export interface ModifierGroup {
-  id: string;
-  name: string;
-  type: 'single' | 'multiple';
-  required: boolean;
-  options: ModifierOption[];
+  id: string
+  name: string
+  type: 'single' | 'multiple'
+  required: boolean
+  options: ModifierOption[]
 }
 
 export interface ModifierSelection {
-  groupId: string;
-  groupName: string;
-  optionId: string;
-  optionName: string;
-  priceDelta: number;
+  groupId: string
+  groupName: string
+  optionId: string
+  optionName: string
+  priceDelta: number
 }
 
 export interface OrderItem {
-  id: string;
-  productId: string;
-  name: string;
-  price: number;
-  qty: number;
-  sent?: boolean;
-  sentAt?: number;
-  ready?: boolean;
-  served?: boolean;
-  delivered?: boolean;
-  servedBy?: string;
-  servedAt?: number;
-  modifiers?: ModifierSelection[];
-  notes?: string;
-  course?: string;
-  ubicacion?: string;
+  id: string
+  productId: string
+  name: string
+  price: number
+  qty: number
+  sent?: boolean
+  sentAt?: number
+  ready?: boolean
+  served?: boolean
+  delivered?: boolean
+  servedBy?: string
+  servedAt?: number
+  modifiers?: ModifierSelection[]
+  notes?: string
+  course?: string
+  ubicacion?: string
 }
 
 export interface Order {
-  id: string;
-  tableId: string;
-  items: OrderItem[];
-  createdAt: number;
-  employeeName?: string;
-  source?: string;
+  id: string
+  tableId: string
+  items: OrderItem[]
+  createdAt: number
+  employeeName?: string
+  source?: string
 }
 
 export interface Table {
-  id: string;
-  name: string;
-  status: 'libre' | 'ocupado' | 'cuenta';
-  orderId: string | null;
-  orderIds: string[];
-  type: 'mesa' | 'barra' | 'llevar' | 'domicilio';
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  radius: number;
-  seats: number;
-  zone: string;
+  id: string
+  name: string
+  status: 'libre' | 'ocupada' | 'cuenta'
+  orderId: string | null
+  orderIds: string[]
+  type: 'mesa' | 'barra' | 'llevar' | 'domicilio'
+  x: number
+  y: number
+  width: number
+  height: number
+  radius: number
+  seats: number
+  zone: string
   reserved: {
-    for?: string;
-    until?: number;
-    name?: string;
-    pax?: number;
-    notes?: string;
-  } | null;
-  isFiado: boolean;
-  shape: string;
-  rotation: number;
-  layer: number;
-  color: string;
+    for?: string
+    until?: number
+    name?: string
+    pax?: number
+    notes?: string
+  } | null
+  isFiado: boolean
+  shape: string
+  rotation: number
+  layer: number
+  color: string
 }
 
 export interface Zone {
-  id: string;
-  name: string;
-  color: string;
+  id: string
+  name: string
+  color: string
 }
 
 export interface Floor {
-  tables: Table[];
-  orders: Record<string, Order>;
-  zones: Zone[];
-  background: string | null;
-}
-
-export interface SaleItem {
-  id: string;
-  productId: string;
-  name: string;
-  price: number;
-  qty: number;
-  modifiers?: ModifierSelection[];
-  notes?: string;
+  tables: Table[]
+  orders: Record<string, Order>
+  zones: Zone[]
+  background: string | null
 }
 
 export interface Sale {
-  id: string;
-  tableId: string;
-  tableName: string;
-  items: SaleItem[];
-  subtotal: number;
-  discount: number;
-  discountAmount: number;
-  total: number;
-  tip: number;
-  totalWithTip: number;
-  payments: { method: string; amount: number }[];
-  paymentMethod: string;
-  tipMethod?: string;
-  isFiado: boolean;
-  isDebtPayment: boolean;
-  employeeId?: string;
-  employeeName?: string;
-  closedAt: number;
-  ticketNumber?: number;
-  invoiceNif?: string;
-  invoiceName?: string;
-  invoiceAddress?: string;
-  invoiceEmail?: string;
-  invoiceNumber?: string;
-  invoiceCreated?: boolean;
-  invoiceCreatedAt?: number | null;
+  id: string
+  tableId: string
+  tableName: string
+  items: SaleItem[]
+  subtotal: number
+  discount: number
+  discountAmount: number
+  total: number
+  tip: number
+  totalWithTip: number
+  payments: { method: string; amount: number }[]
+  paymentMethod: string
+  tipMethod?: string
+  isFiado: boolean
+  isDebtPayment: boolean
+  employeeId?: string
+  employeeName?: string
+  closedAt: number
+  ticketNumber?: number
+  invoiceNif?: string
+  invoiceName?: string
+  invoiceAddress?: string
+  invoiceEmail?: string
+  invoiceNumber?: string
+  invoiceCreated?: boolean
+  invoiceCreatedAt?: number | null
   refunds?: {
-    id: string;
-    amount: number;
-    reason?: string;
-    createdAt: number;
-    stripeRefundId?: string;
-  }[];
-  paymentIntentId?: string;
-  stripeConfirmed?: boolean;
-  disputeStatus?: string;
-  disputeData?: Record<string, unknown>;
-  verifactuStatus?: string;
-  verifactuNumSerie?: string;
+    id: string
+    amount: number
+    reason?: string
+    createdAt: number
+    stripeRefundId?: string
+  }[]
+  paymentIntentId?: string
+  stripeConfirmed?: boolean
+  disputeStatus?: string
+  disputeData?: Record<string, unknown>
+  verifactuStatus?: string
+  verifactuNumSerie?: string
 }
 
 export interface GestoriaDocumentLine {

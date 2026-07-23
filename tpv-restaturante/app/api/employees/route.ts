@@ -6,12 +6,15 @@ import bcrypt from 'bcryptjs';
 import { createHash } from 'crypto';
 import { employees } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiNotFound } from '../../../lib/infrastructure/response';
+import { requireRole } from '../../../lib/rbac';
 
 function sha256(s: string): string {
   return createHash('sha256').update(s, 'utf8').digest('hex');
 }
 
 export async function GET(req: NextRequest) {
+  const auth = await requireRole(['admin'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
@@ -33,6 +36,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const auth = await requireRole(['admin'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
+
   try {
     const db = getDb();
     const emps = await req.json() as any[];
@@ -77,6 +83,9 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
+
   try {
     const db = getDb();
     const body = await req.json() as any;
