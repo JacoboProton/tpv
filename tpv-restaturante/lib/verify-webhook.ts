@@ -15,8 +15,8 @@ export function verifyWebhookSignature(
 ): boolean {
   const secret = process.env[secretEnvVar];
   if (!secret) {
-    console.warn(`[webhook] ${secretEnvVar} no configurado — saltando verificación`);
-    return true;
+    console.error(`[webhook] ${secretEnvVar} no configurado`);
+    return false;
   }
   if (!signature) {
     console.warn('[webhook] Falta header de firma');

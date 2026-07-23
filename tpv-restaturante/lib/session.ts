@@ -1,6 +1,6 @@
 const DEVICE_KEY = 'tpv:device_id';
 
-function getDeviceId(): string {
+export function getDeviceId(): string {
   let id = localStorage.getItem(DEVICE_KEY);
   if (!id) {
     id = 'web_' + Math.random().toString(36).slice(2, 10) + '_' + Date.now();

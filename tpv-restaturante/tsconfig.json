@@ -19,7 +19,10 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@/domain/*": ["../packages/core/src/domain/*", "./domain/*"],
+      "@/application/*": ["../packages/core/src/application/*", "./application/*"],
+      "@/infrastructure/database/catalog-repository": ["../packages/core/src/infrastructure/database/catalog-repository.ts", "./infrastructure/database/catalog-repository.ts"]
     }
   },
   "include": [
@@ -30,7 +33,9 @@
     "**/*.jsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts"
+    "**/*.mts",
+    "../packages/core/src/**/*.ts",
+    "../packages/core/src/**/*.tsx"
   ],
-  "exclude": ["node_modules", "mobile", "db/migrations"]
+  "exclude": ["node_modules", "mobile", "db/migrations", "../packages/core/dist"]
 }

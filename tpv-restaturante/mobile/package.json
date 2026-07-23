@@ -20,6 +20,7 @@
     "@stripe/stripe-react-native": "0.64.0",
     "@stripe/stripe-terminal-react-native": "0.0.1-beta.31",
     "@supabase/supabase-js": "^2.108.2",
+    "@tpv/core": "file:../../packages/core",
     "expo": "~56.0.14",
     "expo-asset": "~56.0.18",
     "expo-build-properties": "~56.0.21",

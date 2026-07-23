@@ -1,3 +1,6 @@
+// Mobile-specific types - kept separate due to incompatibilities with shared domain
+// Shared types from @tpv/core can be imported directly where needed
+
 export interface Employee {
   id: string;
   name: string;

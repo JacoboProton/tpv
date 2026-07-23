@@ -6,10 +6,12 @@ import { logError, logWarn, logInfo, logDebug } from './logger';
 let _tenantId = 'default';
 let _employeeId = '';
 let _employeeRole = '';
+let _deviceId = '';
 export function setTenantId(id: string) { _tenantId = id; }
 export function getTenantId() { return _tenantId; }
 export function setEmployeeSession(id: string, role: string) { _employeeId = id; _employeeRole = role; }
 export function clearEmployeeSession() { _employeeId = ''; _employeeRole = ''; }
+export function setDeviceId(id: string) { _deviceId = id; }
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_URL}/api${path}`;
@@ -17,6 +19,7 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   if (TPV_API_KEY) headers['x-tpv-key'] = TPV_API_KEY;
   if (_employeeId) headers['x-employee-id'] = _employeeId;
   if (_employeeRole) headers['x-employee-role'] = _employeeRole;
+  if (_deviceId) headers['x-device-id'] = _deviceId;
   const res = await fetch(url, {
     headers: { ...headers, ...options.headers as Record<string, string> },
     ...options,

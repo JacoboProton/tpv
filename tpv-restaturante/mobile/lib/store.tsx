@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Floor, Employee } from './types';
-import { setEmployeeSession, clearEmployeeSession, setTenantId as setApiTenantId } from './api';
+import { setEmployeeSession, clearEmployeeSession, setTenantId as setApiTenantId, setDeviceId } from './api';
 
 interface AppState {
   floor: Floor | null;
@@ -24,6 +24,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Load persisted tenant on mount
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then(stored => {
+      AsyncStorage.getItem("tpv:device_id").then(did => { if (did) setDeviceId(did); });
       const id = stored || 'default';
       setTenantIdState(id);
       setApiTenantId(id);

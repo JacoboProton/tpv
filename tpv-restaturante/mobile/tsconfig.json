@@ -3,8 +3,11 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@tpv/core": ["../../packages/core/src"],
+      "@tpv/core/*": ["../../packages/core/src/*"]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts", "../../packages/core/src/**/*.ts", "../../packages/core/src/**/*.tsx"],
+  "exclude": ["node_modules", "../../packages/core/dist"]
 }

@@ -92,6 +92,20 @@ export function requireRole(allowedRoles: string[]) {
   };
 }
 
+export async function validateTenantOwnership(employeeId: string, tenantId: string): Promise<boolean> {
+  try {
+    const db = getDb();
+    const result = await db.execute(sql`
+      SELECT 1 FROM employees
+      WHERE id = ${employeeId} AND tenant_id = ${tenantId}
+      LIMIT 1
+    `);
+    return result.rows.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export async function requireAdminPin(req: Request, adminPin: string | null): Promise<AuthResult> {
   if (!adminPin) return { authorized: false, error: 'PIN de administrador requerido', status: 400 };
   const tenantId = req.headers.get('x-tenant-id') || 'default';

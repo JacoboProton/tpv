@@ -24,6 +24,8 @@ function apiHeaders(headers: Record<string, string> = {}): Record<string, string
   if (typeof window !== 'undefined') {
     if (window.__employeeRole) headers['x-employee-role'] = window.__employeeRole;
     if (window.__employeeId) headers['x-employee-id'] = window.__employeeId;
+    const did = localStorage.getItem('tpv:device_id');
+    if (did) headers['x-device-id'] = did;
   }
   return headers;
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { validateTenantOwnership } from '@/lib/rbac';
 
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',').filter(Boolean);
 const DEV_FALLBACKS = ['http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:3000'];
@@ -61,7 +62,7 @@ const PUBLIC_PATHS = [
 const ROLE_ROUTES = [
   { path: '/api/floor', methods: ['GET', 'PATCH'], roles: ['admin', 'camarero', 'cocina'] },
   { path: '/api/sales', methods: ['POST'], roles: ['admin', 'camarero'] },
-  { path: '/api/employees', methods: ['POST'], roles: ['admin', 'camarero', 'cocina'] },
+  // POST /api/employees NO requiere rol preestablecido (verify/generate-codes/link-whatsapp se autentican con API key + PIN)
   { path: '/api/session', methods: ['POST'], roles: ['admin', 'camarero', 'cocina'] },
   { path: '/api/keep-alive', methods: ['GET'], roles: ['admin', 'camarero', 'cocina'] },
 ];
@@ -78,7 +79,7 @@ function getMatchingRoute(pathname: string, method: string) {
   return ROLE_ROUTES.find(r => pathname.startsWith(r.path) && r.methods.includes(method));
 }
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (req.method === 'OPTIONS') {
@@ -95,17 +96,21 @@ export function middleware(req: NextRequest) {
 
   const role = req.headers.get('x-employee-role');
   const employeeId = req.headers.get('x-employee-id');
+  const tenantId = req.headers.get('x-tenant-id') || 'default';
 
   // Permitir peticiones con API key válida para carga inicial (antes del login)
   // excepto rutas de administrador que siempre requieren rol admin
   const hasApiKey = !!(expected && key === expected && key);
-  if (hasApiKey && !isAdminPath(pathname)) {
+  if (hasApiKey && !isAdminPath(pathname) && !getMatchingRoute(pathname, req.method)) {
     return corsNext(req);
   }
 
   if (isAdminPath(pathname)) {
     if (!employeeId || !role || role !== 'admin') {
       return errorResponse(req, 403, { error: 'Solo administradores' });
+    }
+    if (!(await validateTenantOwnership(employeeId, tenantId))) {
+      return errorResponse(req, 403, { error: 'Empleado no pertenece a este tenant' });
     }
     return corsNext(req);
   }
@@ -115,11 +120,18 @@ export function middleware(req: NextRequest) {
     if (!employeeId || !role || !route.roles.includes(role)) {
       return errorResponse(req, 403, { error: 'No tienes permisos para esta operación' });
     }
+    if (!(await validateTenantOwnership(employeeId, tenantId))) {
+      return errorResponse(req, 403, { error: 'Empleado no pertenece a este tenant' });
+    }
     return corsNext(req);
   }
 
   if (!employeeId || !role) {
     return errorResponse(req, 401, { error: 'Autenticación requerida' });
+  }
+
+  if (!(await validateTenantOwnership(employeeId, tenantId))) {
+    return errorResponse(req, 403, { error: 'Empleado no pertenece a este tenant' });
   }
 
   return corsNext(req);

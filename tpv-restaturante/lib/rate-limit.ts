@@ -1,53 +1,49 @@
-const windows = new Map<string, number[]>();
+const attempts = new Map<string, { count: number; resetAt: number }>()
 
-let cleanupTimer: ReturnType<typeof setInterval> | null = null;
-
-function ensureCleanup() {
-  if (cleanupTimer) return;
-  cleanupTimer = setInterval(() => {
-    const cutoff = Date.now() - 10 * 60 * 1000;
-    for (const [key, timestamps] of windows) {
-      const recent = timestamps.filter(t => t > cutoff);
-      if (recent.length === 0) windows.delete(key);
-      else windows.set(key, recent);
+if (typeof setInterval !== 'undefined') {
+  setInterval(() => {
+    const now = Date.now()
+    for (const [key, entry] of attempts) {
+      if (now > entry.resetAt) attempts.delete(key)
     }
-    if (windows.size === 0) {
-      clearInterval(cleanupTimer!);
-      cleanupTimer = null;
-    }
-  }, 60000);
+  }, 300_000)
 }
 
-interface RateLimitResult {
-  allowed: boolean;
-  remaining: number;
-  reset: number;
+export function checkRateLimit(
+  key: string,
+  maxAttempts: number,
+  windowMs: number,
+): { allowed: boolean; remaining: number; resetAt: number } {
+  const now = Date.now()
+  const entry = attempts.get(key)
+
+  if (!entry || now > entry.resetAt) {
+    attempts.set(key, { count: 1, resetAt: now + windowMs })
+    return { allowed: true, remaining: maxAttempts - 1, resetAt: now + windowMs }
+  }
+
+  entry.count++
+
+  if (entry.count > maxAttempts) {
+    return { allowed: false, remaining: 0, resetAt: entry.resetAt }
+  }
+
+  return { allowed: true, remaining: maxAttempts - entry.count, resetAt: entry.resetAt }
 }
 
-export function rateLimit(key: string | null | undefined, maxRequests: number, windowMs: number): RateLimitResult {
-  if (!key) return { allowed: true, remaining: Infinity, reset: 0 };
+export function rateLimit(
+  key: string,
+  maxAttempts: number,
+  windowMs: number,
+): { allowed: boolean; remaining: number; reset: number } {
+  const result = checkRateLimit(key, maxAttempts, windowMs)
+  return { allowed: result.allowed, remaining: result.remaining, reset: result.resetAt }
+}
 
-  const now = Date.now();
-  const windowStart = now - windowMs;
-
-  if (!windows.has(key)) {
-    windows.set(key, []);
-  }
-
-  const timestamps = windows.get(key)!.filter(t => t > windowStart);
-  timestamps.push(now);
-  windows.set(key, timestamps);
-  ensureCleanup();
-
-  const inWindow = timestamps.length;
-
-  if (inWindow > maxRequests * 2) {
-    windows.set(key, timestamps.slice(-maxRequests));
-  }
-
-  return {
-    allowed: inWindow <= maxRequests,
-    remaining: Math.max(0, maxRequests - inWindow),
-    reset: windowStart + windowMs,
-  };
+export function getClientIp(req: Request): string {
+  const forwarded = req.headers.get('x-forwarded-for')
+  if (forwarded) return forwarded.split(',')[0].trim()
+  const realIp = req.headers.get('x-real-ip')
+  if (realIp) return realIp
+  return '127.0.0.1'
 }
