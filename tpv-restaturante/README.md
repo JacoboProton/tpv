@@ -246,3 +246,9 @@ npx tsc --noEmit                  # Typecheck completo
 - Main content container: `maxHeight: '100vh'` + `overflowY: 'auto'`
 - Modals: `max-h-[85vh] overflow-y-auto` explícito en la card interna
 - Tab content areas: heredan scroll del contenedor principal
+
+## Seguridad: Validación de roles (IMPORTANTE)
+
+- No confiar en el header `x-employee-role` enviado por el cliente para autorizar acciones en el servidor.
+- El helper inseguro que confiaba en ese header ha sido renombrado a `lib/auth-deprecated.ts` (lanza error si se importa). Usa `lib/rbac.ts` → `requireRole(allowedRoles)` o `getSessionEmployee()` para validar sesión y rol contra la base de datos (tabla `sessions`).
+- Reemplaza cualquier import a `lib/auth` o lecturas directas de `req.headers.get('x-employee-role')` por llamadas a `lib/rbac`. Hay un PR abierto que aplica este cambio: https://github.com/JacoboProton/tpv/pull/6

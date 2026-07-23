@@ -119,3 +119,9 @@ npx vitest run __tests__/constants.test.ts   # Tests específicos
 - **Render**: `https://tpv-restaurante.onrender.com`
 - **Supabase**: PostgreSQL (pooler session mode, eu-west-3)
 - **Mobile**: EAS (Expo Application Services) — build gratis se reinicia mensualmente
+
+## Seguridad: Validación de roles (IMPORTANTE)
+
+- No confiar en el header `x-employee-role` enviado por el cliente para autorizar acciones en el servidor.
+- El helper inseguro que confiaba en ese header ha sido renombrado a `tpv-restauran te/lib/auth-deprecated.ts` y debe dejar de usarse; usar `lib/rbac.ts` → `requireRole(allowedRoles)` que valida sesión y rol contra la BD.
+- Reemplaza cualquier import a `lib/auth` o lecturas directas de `req.headers.get('x-employee-role')` por llamadas a `lib/rbac`. PR relacionado: https://github.com/JacoboProton/tpv/pull/6
