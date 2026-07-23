@@ -2,7 +2,7 @@ import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from '../db/schema';
 
-let _db: ReturnType<typeof drizzle<typeof_schema>> | undefined;
+let _db: ReturnType<typeof drizzle> | undefined;
 
 function buildConnectionString(): string {
   // Priority: DATABASE_URL_POOLER -> DATABASE_URL with replaced port -> DATABASE_URL
