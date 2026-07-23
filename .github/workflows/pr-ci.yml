@@ -16,6 +16,15 @@ jobs:
         with:
           node-version: '18'
 
+      - name: Disallow trusting x-employee-role header
+        run: |
+          echo "Checking server-side code for forbidden x-employee-role access"
+          if grep -R --line-number -I -E "req.headers.get\\s*\\(\\s*['\"\"]x-employee-role['\"\"]\\s*\\)|headers\\s*\\[\\s*['\"\"]x-employee-role['\"\"]\\s*\\]" app/ packages/ tpv-restaurante | grep -v 'lib/auth-deprecated.ts' ; then
+            echo "Forbidden usage found. Use lib/rbac.requireRole() instead."; exit 1
+          else
+            echo "No forbidden patterns found."
+          fi
+
       - name: Cache root node_modules
         uses: actions/cache@v4
         with:
