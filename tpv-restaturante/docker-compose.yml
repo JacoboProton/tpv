@@ -24,7 +24,6 @@ services:
     environment:
       DATABASE_URL: postgres://tpv:tpv_local_dev@postgres:5432/tpv_restaurant
       TPV_API_KEY: dev_local_key_cambiar
-      NEXT_PUBLIC_TPV_API_KEY: dev_local_key_cambiar
       CRON_SECRET: dev_cron_secret
     depends_on:
       postgres:

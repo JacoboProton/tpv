@@ -1,7 +1,5 @@
 import { sha256 } from '@/lib/crypto'
 
-const API_KEY = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_TPV_API_KEY) || ''
-
 export interface VerifiedEmployee {
   id: string
   name: string
@@ -16,7 +14,7 @@ export async function verifyEmployeePin(pin: string): Promise<VerifiedEmployee |
   try {
     const r = await fetch('/api/employees', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-tpv-key': API_KEY },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'verify', pin, pinHash: await sha256(pin) }),
     })
     if (!r.ok) return null

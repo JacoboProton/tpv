@@ -3,33 +3,6 @@ import { getDb } from '@/lib/drizzle';
 
 const SESSION_TTL = 12 * 60 * 60 * 1000;
 
-interface PermissionRule {
-  path: string;
-  methods: string[];
-  roles: string[];
-}
-
-const PERMISSION_MATRIX: PermissionRule[] = [
-  { path: '/api/floor', methods: ['GET', 'PATCH'], roles: ['admin', 'camarero', 'cocina'] },
-  { path: '/api/sales', methods: ['POST'], roles: ['admin', 'camarero'] },
-  { path: '/api/qr-order', methods: ['GET', 'POST', 'PUT'], roles: ['admin', 'camarero'] },
-  { path: '/api/employees', methods: ['POST'], roles: ['admin', 'camarero', 'cocina'] },
-  { path: '/api/session', methods: ['POST'], roles: ['admin', 'camarero', 'cocina'] },
-  { path: '/api/keep-alive', methods: ['GET'], roles: ['admin', 'camarero', 'cocina'] },
-];
-
-export function getRoutePermission(pathname: string, method: string): string[] | null {
-  const match = PERMISSION_MATRIX.find(
-    r => pathname.startsWith(r.path) && r.methods.includes(method)
-  );
-  return match ? match.roles : null;
-}
-
-export function isAdminRoute(pathname: string): boolean {
-  return pathname.startsWith('/api/') &&
-    !PERMISSION_MATRIX.some(r => pathname.startsWith(r.path));
-}
-
 interface SessionEmployee {
   id: string;
   role: string;

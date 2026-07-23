@@ -2,15 +2,10 @@ import { cacheGet, cacheSet } from './offline';
 
 declare global {
   interface Window {
-    __TPV_API_KEY?: string;
     __employeeRole?: string;
     __employeeId?: string;
   }
 }
-
-const TPV_API_KEY: string = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_TPV_API_KEY
-  ? process.env.NEXT_PUBLIC_TPV_API_KEY
-  : (typeof window !== 'undefined' && window.__TPV_API_KEY) || '';
 
 export function getTenantId(): string {
   if (typeof window === 'undefined') return 'default';
@@ -19,7 +14,6 @@ export function getTenantId(): string {
 
 function apiHeaders(headers: Record<string, string> = {}): Record<string, string> {
   headers['Content-Type'] = 'application/json';
-  if (TPV_API_KEY) headers['x-tpv-key'] = TPV_API_KEY;
   headers['x-tenant-id'] = getTenantId();
   if (typeof window !== 'undefined') {
     if (window.__employeeRole) headers['x-employee-role'] = window.__employeeRole;

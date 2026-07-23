@@ -4,8 +4,6 @@ import { useState } from 'react'
 import { escposOpenDrawer, printESCPOS, isPrinterConnected } from '../lib/thermal-printer'
 import { sha256 } from '../lib/crypto'
 
-const API_KEY = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_TPV_API_KEY) || ''
-
 interface Props {
   C: Record<string, string>
   ticketSettings: Record<string, any>
@@ -94,7 +92,7 @@ export default function DrawerModal({ C, ticketSettings, showToast }: Props) {
               <button onClick={async () => {
                 const r = await fetch('/api/employees', {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'x-tpv-key': API_KEY },
+                  headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ action: 'verify', pin: pinInput, pinHash: await sha256(pinInput) }),
                 })
                 if (!r.ok) { showToast('PIN de administrador incorrecto'); setPinInput(''); return }

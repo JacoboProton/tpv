@@ -19,10 +19,12 @@ export function useOfflineSync() {
       if (now - m.createdAt > MAX_AGE) continue
       try {
         const h: Record<string, string> = { 'Content-Type': 'application/json' }
-        const apiKey = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_TPV_API_KEY
-          ? process.env.NEXT_PUBLIC_TPV_API_KEY
-          : (typeof window !== 'undefined' && window.__TPV_API_KEY) || ''
-        if (apiKey) h['x-tpv-key'] = apiKey
+        if (typeof window !== 'undefined') {
+          if (window.__employeeId) h['x-employee-id'] = window.__employeeId
+          if (window.__employeeRole) h['x-employee-role'] = window.__employeeRole
+          const did = localStorage.getItem('tpv:device_id')
+          if (did) h['x-device-id'] = did
+        }
         const res = await fetch(m.key, { method: m.method || 'PUT', headers: h, body: m.payload as string })
         if (res.ok) continue
       } catch {}
