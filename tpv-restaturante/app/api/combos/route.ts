@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
       if (!slotsByCombo[s.comboId]) slotsByCombo[s.comboId] = [];
       slotsByCombo[s.comboId].push({ ...s, items: itemsBySlot[s.id] || [] });
     }
-    const data = comboRows.map(c => ({
+    const data = comboRows.map((c: any) => ({
       ...c, active: !!c.active, slots: slotsByCombo[c.id] || [],
     }));
     return apiOk(data);
@@ -58,7 +58,7 @@ export async function PUT(req: NextRequest) {
     const tenantId = getTenantId(req);
     const data = await req.json() as any[];
 
-    await db.transaction(async (tx) => {
+    await db.transaction(async (tx: any) => {
       await tx.delete(comboSlotItems).where(eq(comboSlotItems.tenantId, tenantId));
       await tx.delete(comboSlots).where(eq(comboSlots.tenantId, tenantId));
       await tx.delete(comboItems).where(eq(comboItems.tenantId, tenantId));

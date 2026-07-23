@@ -5,7 +5,7 @@ import { getTenantId } from '../../../lib/tenant';
 import { requireRole } from '../../../lib/rbac';
 
 function qr(db: ReturnType<typeof getDb>, q: any) {
-  return db.execute(q).then(r => r.rows as any[]);
+  return db.execute(q).then((r: any) => r.rows as any[]);
 }
 
 export async function GET(req: NextRequest) {

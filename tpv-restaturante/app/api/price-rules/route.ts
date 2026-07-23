@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     }).from(productPriceRules)
       .where(eq(productPriceRules.tenantId, tenantId))
       .orderBy(productPriceRules.productId, productPriceRules.name);
-    return apiOk(rules.map(r => ({ ...r, active: !!r.active })));
+    return apiOk(rules.map((r: any) => ({ ...r, active: !!r.active })));
   } catch (err) { return apiError(err); }
 }
 

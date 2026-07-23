@@ -19,13 +19,13 @@ export async function GET(req: NextRequest) {
     if (conds.length > 0) query = sql`${query} AND ${conds.reduce((a: any, c: any) => sql`${a} AND ${c}`)}`;
     query = sql`${query} ORDER BY created_at DESC LIMIT 200`;
 
-    const orders = await db.execute(query).then(r => r.rows as any[]);
+    const orders = await db.execute(query).then((r: any) => r.rows as any[]);
     const result = [];
 
     for (const o of orders) {
       const lines = await db.execute(sql`
         SELECT * FROM purchase_order_lines WHERE order_id = ${o.id} AND tenant_id = ${tenantId} ORDER BY id
-      `).then(r => r.rows as any[]);
+      `).then((r: any) => r.rows as any[]);
       result.push({
         id: o.id, supplierId: o.supplier_id, supplierName: o.supplier_name,
         status: o.status, expectedDate: o.expected_date, notes: o.notes,
@@ -82,14 +82,14 @@ export async function POST(req: NextRequest) {
       for (const l of lines || []) {
         await db.execute(sql`UPDATE purchase_order_lines SET received_qty=${l.receivedQty || 0} WHERE id=${l.lineId} AND order_id=${id} AND tenant_id = ${tenantId}`);
       }
-      const [order] = await db.execute(sql`SELECT * FROM purchase_orders WHERE id=${id} AND tenant_id = ${tenantId}`).then(r => r.rows as any[]);
+      const [order] = await db.execute(sql`SELECT * FROM purchase_orders WHERE id=${id} AND tenant_id = ${tenantId}`).then((r: any) => r.rows as any[]);
       for (const l of lines || []) {
-        const [line] = await db.execute(sql`SELECT * FROM purchase_order_lines WHERE id=${l.lineId} AND order_id=${id} AND tenant_id = ${tenantId}`).then(r => r.rows as any[]);
+        const [line] = await db.execute(sql`SELECT * FROM purchase_order_lines WHERE id=${l.lineId} AND order_id=${id} AND tenant_id = ${tenantId}`).then((r: any) => r.rows as any[]);
         if (line && l.receivedQty > 0) {
           const [cat] = await db.execute(sql`
             SELECT sc.id FROM supplier_catalog sc
             WHERE sc.supplier_id = ${order.supplier_id} AND sc.product_id = ${line.product_id} AND sc.tenant_id = ${tenantId} LIMIT 1
-          `).then(r => r.rows as any[]);
+          `).then((r: any) => r.rows as any[]);
           if (cat) {
             const ppu = parseFloat(line.price_per_unit);
             await db.execute(sql`INSERT INTO supplier_price_history (catalog_id, supplier_id, product_id, pack_price, pack_size, price_per_unit, source, created_at, tenant_id)
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
           }
         }
       }
-      const allLines = await db.execute(sql`SELECT quantity, received_qty FROM purchase_order_lines WHERE order_id=${id} AND tenant_id = ${tenantId}`).then(r => r.rows as any[]);
+      const allLines = await db.execute(sql`SELECT quantity, received_qty FROM purchase_order_lines WHERE order_id=${id} AND tenant_id = ${tenantId}`).then((r: any) => r.rows as any[]);
       const allReceived = allLines.every((l: any) => parseFloat(l.received_qty) >= parseFloat(l.quantity));
       const anyReceived = allLines.some((l: any) => parseFloat(l.received_qty) > 0);
       const newStatus = allReceived ? 'received' : anyReceived ? 'partial' : 'draft';
@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
 
 async function getAutoSettings(tenantId: string) {
   const db = getDb();
-  const rows = await db.execute(sql`SELECT * FROM auto_order_settings WHERE tenant_id = ${tenantId}`).then(r => r.rows as any[]);
+  const rows = await db.execute(sql`SELECT * FROM auto_order_settings WHERE tenant_id = ${tenantId}`).then((r: any) => r.rows as any[]);
   return Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
 }
 
@@ -138,7 +138,7 @@ async function handleAutoPreview(body: any) {
     SELECT p.id, p.name, p.type,
       COALESCE((SELECT SUM(ps.stock) FROM product_stock ps WHERE ps.product_id = p.id AND ps.tenant_id = ${tenantId}), 0) AS total_stock
     FROM products p WHERE p.active = true AND p.tenant_id = ${tenantId}
-  `).then(r => r.rows as any[]);
+  `).then((r: any) => r.rows as any[]);
 
   const toReplenish: any[] = [];
   for (const p of products) {
@@ -163,14 +163,14 @@ async function handleAutoPreview(body: any) {
       JOIN suppliers s ON s.id = sc.supplier_id
       WHERE sc.product_id = ${prod.id} AND sc.active = true AND sc.is_preferred = true AND sc.tenant_id = ${tenantId}
       ORDER BY sc.price LIMIT 1
-    `).then(r => r.rows as any[]);
+    `).then((r: any) => r.rows as any[]);
     if (offers.length === 0) {
       offers = await db.execute(sql`
         SELECT sc.*, s.name AS supplier_name FROM supplier_catalog sc
         JOIN suppliers s ON s.id = sc.supplier_id
         WHERE sc.product_id = ${prod.id} AND sc.active = true AND sc.tenant_id = ${tenantId}
         ORDER BY sc.price LIMIT 1
-      `).then(r => r.rows as any[]);
+      `).then((r: any) => r.rows as any[]);
     }
 
     if (offers.length === 0) {

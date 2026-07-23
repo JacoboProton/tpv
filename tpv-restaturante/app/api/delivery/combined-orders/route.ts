@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
         .orderBy(desc(deliveryOrders.createdAt)).limit(100),
     ]);
 
-    const mappedQR = qrRows.map(r => ({
+    const mappedQR = qrRows.map((r: any) => ({
       id: r.id, type: 'qr',
       tableId: r.tableId, modality: r.modality,
       orderStatus: r.orderStatus,
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
       source: r.modality === 'dinein' ? 'qr_mesa' : 'qr_online',
     }));
 
-    const mappedDel = delRows.map(r => {
+    const mappedDel = delRows.map((r: any) => {
       const items = parseItems(r.items);
       return {
         id: r.id, type: 'platform',

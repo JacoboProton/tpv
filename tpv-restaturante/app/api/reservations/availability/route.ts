@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
       db.select().from(reservations).where(sql`${eq(reservations.date, date)} AND ${sql.raw(`status NOT IN ('cancelada','noshow')`)} AND ${eq(reservations.tenantId, tenantId)}`),
     ]);
 
-    const settingsMap = Object.fromEntries(settingsRows.map(r => [r.key, r.value]));
+    const settingsMap = Object.fromEntries(settingsRows.map((r: any) => [r.key, r.value]));
 
     const dur = Number(settingsMap.reservationDuration || 90);
     const interval = Number(settingsMap.reservationInterval || 30);

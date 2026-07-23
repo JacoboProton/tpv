@@ -122,7 +122,7 @@ export async function GET(req: NextRequest) {
       }).from(qrOrders)
         .where(sql`${eq(qrOrders.tableId, tableId)} AND ${qrOrders.orderStatus} != 'cancelled' AND ${eq(qrOrders.tenantId, tenantId)}`)
         .orderBy(desc(qrOrders.createdAt)).limit(20);
-      return apiOk(rows.map(r => ({ ...r, amount: Number(r.amount) })));
+      return apiOk(rows.map((r: any) => ({ ...r, amount: Number(r.amount) })));
     }
     const modality = searchParams.get('modality');
     if (modality) {
@@ -133,12 +133,12 @@ export async function GET(req: NextRequest) {
       }).from(qrOrders)
         .where(sql`${eq(qrOrders.modality, modality)} AND ${eq(qrOrders.tenantId, tenantId)}`)
         .orderBy(desc(qrOrders.createdAt)).limit(50);
-      return apiOk(rows.map(r => ({ ...r, amount: Number(r.amount) })));
+      return apiOk(rows.map((r: any) => ({ ...r, amount: Number(r.amount) })));
     }
     const allRows = await db.select().from(qrOrders)
       .where(eq(qrOrders.tenantId, tenantId))
       .orderBy(desc(qrOrders.createdAt)).limit(100);
-    return apiOk(allRows.map(r => ({
+    return apiOk(allRows.map((r: any) => ({
       id: r.id, tableId: r.tableId, modality: r.modality, orderStatus: r.orderStatus,
       customerName: r.customerName, customerPhone: r.customerPhone,
       customerEmail: r.customerEmail, address: r.address, zoneId: r.zoneId,

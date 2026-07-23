@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
     const rows = await db.select().from(kdsPairings)
       .where(eq(kdsPairings.tenantId, tenantId))
       .orderBy(desc(kdsPairings.createdAt));
-    return apiOk(rows.map(r => ({
+    return apiOk(rows.map((r: any) => ({
       id: r.id, code: r.code, label: r.label, deviceId: r.deviceId,
       expiresAt: r.expiresAt, createdAt: r.createdAt, revoked: r.revoked,
     })));

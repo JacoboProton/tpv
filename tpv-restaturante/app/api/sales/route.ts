@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
       .where(and(...conditions))
       .orderBy(desc(sales.closedAt));
 
-    const saleIds = rows.map(r => r.id);
+    const saleIds = rows.map((r: any) => r.id);
     let verifactuMap: Record<string, { estado: string; numSerie: string }> = {};
     if (saleIds.length > 0) {
       const verifactuRows = await db
@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const mapped = rows.map(r => ({
+    const mapped = rows.map((r: any) => ({
       id: r.id, tableId: r.tableId, tableName: r.tableName,
       items: r.items, subtotal: Number(r.subtotal),
       discount: Number(r.discount), discountAmount: Number(r.discountAmount),

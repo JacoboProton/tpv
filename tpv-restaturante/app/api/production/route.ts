@@ -20,16 +20,16 @@ export async function GET(req: NextRequest) {
     if (conds.length > 0) query = sql`${query} AND ${conds.reduce((a: any, c: any) => sql`${a} AND ${c}`)}`;
     query = sql`${query} ORDER BY produced_at DESC, created_at DESC LIMIT 100`;
 
-    const rows = await db.execute(query).then(r => r.rows as any[]);
+    const rows = await db.execute(query).then((r: any) => r.rows as any[]);
 
     const result = [];
     for (const r of rows) {
       const ingRows = await db.execute(sql`
         SELECT * FROM production_ingredients WHERE production_id = ${r.id} AND tenant_id = ${tenantId} ORDER BY id
-      `).then(r => r.rows as any[]);
+      `).then((r: any) => r.rows as any[]);
       const [recipe] = await db.execute(sql`
         SELECT * FROM recipes WHERE product_id = ${r.product_id} AND tenant_id = ${tenantId} LIMIT 1
-      `).then(r => r.rows as any[]);
+      `).then((r: any) => r.rows as any[]);
       result.push({
         id: r.id,
         productId: r.product_id,
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
         anuladoAt: r.anulado_at ? Number(r.anulado_at) : null,
         anuladoReason: r.anulado_reason,
         anuladoBy: r.anulado_by,
-        ingredients: ingRows.map(ing => ({
+        ingredients: ingRows.map((ing: any) => ({
           id: ing.id,
           ingredientId: ing.ingredient_id,
           ingredientName: ing.ingredient_name,
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
           SELECT cost_per_unit FROM product_batches
           WHERE product_id = ${ing.ingredientId} AND status = 'active' AND tenant_id = ${tenantId}
           ORDER BY received_at DESC LIMIT 1
-        `).then(r => r.rows as any[]);
+        `).then((r: any) => r.rows as any[]);
         const currentCostPerUnit = latestBatch
           ? parseFloat(latestBatch.cost_per_unit)
           : parseFloat(ing.costPerUnit as any || 0);
@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
 
         const stockRows = await db.execute(sql`
           SELECT * FROM product_stock WHERE product_id = ${ing.ingredientId} AND tenant_id = ${tenantId} ORDER BY location
-        `).then(r => r.rows as any[]);
+        `).then((r: any) => r.rows as any[]);
         let remaining = scaledQty;
         for (const sr of stockRows) {
           if (remaining <= 0) break;
@@ -173,7 +173,7 @@ export async function POST(req: NextRequest) {
 
       const [existingStock] = await db.execute(sql`
         SELECT * FROM product_stock WHERE product_id = ${productId} AND location = ${prodLocation} AND tenant_id = ${tenantId}
-      `).then(r => r.rows as any[]);
+      `).then((r: any) => r.rows as any[]);
       if (existingStock) {
         const newStock = parseFloat(existingStock.stock) + qty;
         await db.execute(sql`UPDATE product_stock SET stock = ${newStock} WHERE product_id = ${productId} AND location = ${prodLocation} AND tenant_id = ${tenantId}`);
@@ -212,7 +212,7 @@ export async function POST(req: NextRequest) {
         const ingQty = parseFloat(ing.quantity as any);
         const [existingStock] = await db.execute(sql`
           SELECT * FROM product_stock WHERE product_id = ${ing.ingredientId} AND location = 'Almacén' AND tenant_id = ${tenantId}
-        `).then(r => r.rows as any[]);
+        `).then((r: any) => r.rows as any[]);
         if (existingStock) {
           const newStock = parseFloat(existingStock.stock) + ingQty;
           await db.execute(sql`
@@ -230,7 +230,7 @@ export async function POST(req: NextRequest) {
 
       const [prodStock] = await db.execute(sql`
         SELECT * FROM product_stock WHERE product_id = ${prod.productId} AND location = ${prodLocation} AND tenant_id = ${tenantId}
-      `).then(r => r.rows as any[]);
+      `).then((r: any) => r.rows as any[]);
       if (prodStock) {
         const remaining = Math.max(0, parseFloat(prodStock.stock) - qty);
         await db.execute(sql`

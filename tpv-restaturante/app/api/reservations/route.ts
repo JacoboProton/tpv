@@ -15,8 +15,8 @@ export async function GET(req: NextRequest) {
     if (recurring === '1') {
       const rows = await db.execute(sql`
         SELECT * FROM reservation_recurring WHERE tenant_id = ${tenantId} ORDER BY weekday, time
-      `).then(r => r.rows as any[]);
-      return apiOk({ recurring: rows.map(r => ({
+      `).then((r: any) => r.rows as any[]);
+      return apiOk({ recurring: rows.map((r: any) => ({
         id: r.id, name: r.name, weekday: r.weekday, time: r.time,
         pax: r.pax, phone: r.phone, notes: r.notes,
         zone: r.zone, tableId: r.table_id, active: r.active,
@@ -37,8 +37,8 @@ export async function GET(req: NextRequest) {
     if (conds.length > 0) query = sql`${query} AND ${conds.reduce((a: any, c: any) => sql`${a} AND ${c}`)}`;
     query = sql`${query} ORDER BY date DESC, time DESC`;
 
-    const rows = await db.execute(query).then(r => r.rows as any[]);
-    return apiOk(rows.map(r => ({
+    const rows = await db.execute(query).then((r: any) => r.rows as any[]);
+    return apiOk(rows.map((r: any) => ({
       id: r.id, date: r.date, time: r.time, pax: r.pax,
       name: r.name, phone: r.phone, email: r.email,
       status: r.status, zone: r.zone, notes: r.notes,

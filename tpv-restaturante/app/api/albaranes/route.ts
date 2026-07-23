@@ -5,7 +5,7 @@ import { getTenantId } from '../../../lib/tenant';
 import { apiOk, apiError, apiBadRequest, apiNotFound } from '../../../lib/infrastructure/response';
 
 function qr(db: ReturnType<typeof getDb>, q: any) {
-  return db.execute(q).then(r => r.rows as any[]);
+  return db.execute(q).then((r: any) => r.rows as any[]);
 }
 
 export async function GET(req: NextRequest) {
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
         anuladoBy: a.anulado_by, anuladoAt: a.anulado_at ? Number(a.anulado_at) : null,
         anuladoReason: a.anulado_reason, linkedPurchaseOrderId: a.linked_purchase_order_id,
         createdAt: Number(a.created_at), updatedAt: a.updated_at ? Number(a.updated_at) : null,
-        lines: lines.map(l => ({
+        lines: lines.map((l: any) => ({
           id: l.id, productId: l.product_id, productName: l.product_name,
           quantity: parseFloat(l.quantity), packSize: parseFloat(l.pack_size || 1),
           pricePerPack: parseFloat(l.price_per_pack), pricePerUnit: parseFloat(l.price_per_unit),
@@ -220,7 +220,7 @@ export async function POST(req: NextRequest) {
         if (albaran.linked_purchase_order_id) {
           const poLines = await qr(db, sql`SELECT * FROM purchase_order_lines WHERE order_id = ${albaran.linked_purchase_order_id} AND tenant_id = ${tenantId}`);
           for (const poLine of poLines) {
-            const albLine = lines.find(l => l.product_id === poLine.product_id);
+            const albLine = lines.find((l: any) => l.product_id === poLine.product_id);
             if (albLine) {
               const receivedQty = parseFloat(poLine.received_qty || 0) - (parseFloat(albLine.quantity) * parseFloat(albLine.pack_size || 1));
               await db.execute(sql`UPDATE purchase_order_lines SET received_qty = ${Math.max(0, receivedQty)} WHERE id = ${poLine.id} AND tenant_id = ${tenantId}`);

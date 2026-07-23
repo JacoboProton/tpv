@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
       if (!stockByProduct[s.productId]) stockByProduct[s.productId] = {};
       stockByProduct[s.productId][s.location] = { stock: s.stock, lowStock: s.lowStock };
     }
-    const productsMapped = rows.map(p => ({
+    const productsMapped = rows.map((p: any) => ({
       ...p, stockByLocation: stockByProduct[p.id] || {},
     }));
 
@@ -89,7 +89,7 @@ export async function GET(req: NextRequest) {
       if (!slotsByCombo[s.comboId]) slotsByCombo[s.comboId] = [];
       slotsByCombo[s.comboId].push({ ...s, items: itemsBySlot[s.id] || [] });
     }
-    const combosMapped = comboRows.map(c => ({
+    const combosMapped = comboRows.map((c: any) => ({
       ...c, active: !!c.active, slots: slotsByCombo[c.id] || [],
     }));
 
@@ -108,14 +108,14 @@ export async function GET(req: NextRequest) {
       if (!mmSchedByMenu[s.menuId]) mmSchedByMenu[s.menuId] = [];
       mmSchedByMenu[s.menuId].push(s);
     }
-    const mealMenusMapped = mmRows.map(m => ({
+    const mealMenusMapped = mmRows.map((m: any) => ({
       ...m, active: !!m.active, includesPan: !!m.includesPan,
       includesBebida: !!m.includesBebida, includesCafe: !!m.includesCafe,
       extras: typeof m.extras === 'string' ? JSON.parse(m.extras) : (m.extras || []),
       courses: mmCoursesByMenu[m.id] || [], schedules: mmSchedByMenu[m.id] || [],
     }));
 
-    const priceRulesNormalized = priceRuleRows.map(r => ({ ...r, active: !!r.active }));
+    const priceRulesNormalized = priceRuleRows.map((r: any) => ({ ...r, active: !!r.active }));
     return apiOk({
       categories: catRows, products: productsMapped,
       combos: combosMapped, mealMenus: mealMenusMapped,
@@ -133,7 +133,7 @@ export async function PUT(req: NextRequest) {
     const { categories: catData, products: prodData, combos: comboData } = await req.json() as { categories: any[]; products: any[]; combos: any[] };
     const tenantId = getTenantId(req);
 
-    await db.transaction(async (tx) => {
+    await db.transaction(async (tx: any) => {
       await tx.delete(comboSlotItems).where(eq(comboSlotItems.tenantId, tenantId));
       await tx.delete(comboSlots).where(eq(comboSlots.tenantId, tenantId));
       await tx.delete(combos).where(eq(combos.tenantId, tenantId));

@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
       .orderBy(products.category, products.name);
 
     const header = 'id,nombre,precio,categoria,activo,tpv,qr,agotado,descripcion';
-    const rows = result.map(p =>
+    const rows = result.map((p: any) =>
       [
         p.id,
         `"${(p.name || '').replace(/"/g, '""')}"`,

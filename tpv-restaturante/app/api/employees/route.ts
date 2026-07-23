@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     const tenantId = getTenantId(req);
     const rows = await db.select().from(employees)
       .where(eq(employees.tenantId, tenantId));
-    return apiOk(rows.map(r => ({
+    return apiOk(rows.map((r: any) => ({
       id: r.id, name: r.name, role: r.role,
       personalDiscountEnabled: r.personalDiscountEnabled,
       monthlyLimit: Number(r.monthlyLimit || 0),
@@ -44,7 +44,7 @@ export async function PUT(req: NextRequest) {
     const emps = await req.json() as any[];
     const tenantId = getTenantId(req);
     const ids = emps.map((e: any) => e.id);
-    await db.transaction(async (tx) => {
+    await db.transaction(async (tx: any) => {
       for (const e of emps) {
         await tx.insert(employees).values({
           tenantId, id: e.id, name: e.name, pin: '',
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
       const emps = await db.select({ id: employees.id, name: employees.name })
         .from(employees)
         .where(and(eq(employees.tenantId, tenantId), eq(employees.whatsappLinked, false)));
-      const codes = emps.map(e => {
+      const codes = emps.map((e: any) => {
         const code = Math.random().toString(36).slice(2, 8).toUpperCase();
         return { employeeId: e.id, name: e.name, code };
       });
@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
       if (!pin && !pinHash) return apiBadRequest('PIN requerido');
       const emps = await db.select().from(employees)
         .where(eq(employees.tenantId, tenantId));
-      const emp = emps.find(r => {
+      const emp = emps.find((r: any) => {
         const ph = r.pinHash ?? '';
         if (pinHash && bcrypt.compareSync(pinHash as string, ph)) return true;
         if (pin) {

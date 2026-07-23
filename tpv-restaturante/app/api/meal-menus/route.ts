@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
       JOIN products p ON p.id = mmci.product_id
       WHERE mmci.tenant_id = ${tenantId}
       ORDER BY mmci.sort_order
-    `).then(r => r.rows as any[]);
+    `).then((r: any) => r.rows as any[]);
     const schedules = await db.select().from(mealMenuSchedules)
       .where(eq(mealMenuSchedules.tenantId, tenantId))
       .orderBy(mealMenuSchedules.dayOfWeek, mealMenuSchedules.startTime);
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
       schedulesByMenu[s.menuId].push(s);
     }
 
-    const data = menus.map(m => ({
+    const data = menus.map((m: any) => ({
       ...m,
       active: !!m.active,
       includesPan: !!m.includesPan,
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
       schedules: schedulesByMenu[m.id] || [],
     }));
 
-    return apiOk(data.map(({ tenantId: _t, ...rest }) => rest));
+    return apiOk(data.map(({ tenantId: _t, ...rest }: any) => rest));
   } catch (err) { return apiError(err); }
 }
 

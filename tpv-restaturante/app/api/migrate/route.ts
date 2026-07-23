@@ -1,3 +1,4 @@
+import { NextRequest } from 'next/server';
 import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiForbidden, apiTooManyRequests, apiCreated, apiServerError } from '../../../lib/infrastructure/response';
 import { runPendingMigrations } from '../../../lib/run-migrations';
 import { requireRole } from '../../../lib/rbac';

@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
       ))
       .orderBy(sales.closedAt);
 
-    const rows = result.map(s => {
+    const rows = result.map((s: any) => {
       const itemsArr = typeof s.items === 'string' ? JSON.parse(s.items) : (s.items || []);
       const date = new Date(s.closedAt).toLocaleDateString('es-ES');
       return {

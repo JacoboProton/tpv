@@ -26,7 +26,7 @@ export async function PUT(req: NextRequest) {
     const body = await parseBody(req, FloorPutBodySchema);
     const db = getDb();
     const tenantId = getTenantId(req);
-    await db.transaction(async (tx) => {
+    await db.transaction(async (tx: any) => {
       await putFloorInTransaction(tx, body.tables as any[], body.orders as any, body.zones, body.background, tenantId);
     });
     const fullFloor = await fetchFullFloor(tenantId);
@@ -46,7 +46,7 @@ export async function PATCH(req: NextRequest) {
     const { updatedTables, deletedTableIds, updatedOrders, deletedOrderIds } = body;
     const db = getDb();
     const tenantId = getTenantId(req);
-    await db.transaction(async (tx) => {
+    await db.transaction(async (tx: any) => {
       await deleteTablesInTransaction(tx, deletedTableIds, tenantId);
       await deleteOrdersInTransaction(tx, deletedOrderIds, tenantId);
       await putFloorInTransaction(tx, (updatedTables || []) as any[], (updatedOrders || {}) as any, null, null, tenantId);

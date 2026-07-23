@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     const rows = await db.select().from(qrCalls)
       .where(and(eq(qrCalls.acknowledged, false), eq(qrCalls.tenantId, tenantId)))
       .orderBy(desc(qrCalls.createdAt));
-    callsCache[tenantId] = rows.map(r => ({
+    callsCache[tenantId] = rows.map((r: any) => ({
       id: r.id, tableId: r.tableId, tableName: r.tableName,
       zone: r.zone, acknowledged: r.acknowledged, createdAt: r.createdAt,
     }));

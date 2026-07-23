@@ -28,9 +28,9 @@ export async function GET(req: NextRequest) {
       }).from(productModifiers).where(eq(productModifiers.tenantId, tenantId)),
     ]);
 
-    const data = groups.map(g => ({
+    const data = groups.map((g: any) => ({
       ...g,
-      options: options.filter(o => o.groupId === g.id).map(o => ({
+      options: options.filter((o: any) => o.groupId === g.id).map((o: any) => ({
         ...o, isDefault: !!o.isDefault, stockDeduct: !!o.stockDeduct,
       })),
     }));
@@ -66,7 +66,7 @@ export async function PUT(req: NextRequest) {
       return apiBadRequest(warnings.join(', '));
     }
 
-    await db.transaction(async (tx) => {
+    await db.transaction(async (tx: any) => {
       await tx.delete(modifierOptions).where(eq(modifierOptions.tenantId, tenantId));
       await tx.delete(productModifiers).where(eq(productModifiers.tenantId, tenantId));
       await tx.delete(modifierGroups).where(eq(modifierGroups.tenantId, tenantId));

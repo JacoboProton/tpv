@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
     let grandTotal = 0;
     let grandCount = 0;
 
-    const mapped = rows.map(r => {
+    const mapped = rows.map((r: any) => {
       const total = Number(r.totalWithTip || r.total || 0);
       const methodLabel = r.paymentMethod || 'desconocido';
       const date = r.closedAt ? new Date(Number(r.closedAt)).toISOString() : '';

@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
         costPerUnit: parseFloat(r.costPerUnit as any || 0),
         yieldQty: parseFloat(r.yieldQty as any || 1),
         updatedAt: Number(r.updatedAt),
-        ingredients: ingredients.map(ing => ({
+        ingredients: ingredients.map((ing: any) => ({
           id: ing.id,
           ingredientId: ing.ingredientId,
           ingredientName: ing.ingredientName,
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
           SELECT cost_per_unit FROM product_batches
           WHERE product_id = ${ing.ingredientId} AND status = 'active' AND tenant_id = ${tenantId}
           ORDER BY received_at DESC LIMIT 1
-        `).then(r => r.rows as any[]);
+        `).then((r: any) => r.rows as any[]);
         const currentCost = latestBatch ? parseFloat(latestBatch.cost_per_unit) : iCostPerUnit;
 
         processedIngredients.push({

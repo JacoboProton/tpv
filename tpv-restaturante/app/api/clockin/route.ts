@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
         lastAction,
         isActive: !!entrada && !salida,
         isOnPause: lastAction === 'pausa',
-        edited: rows.some(r => r.edited),
+        edited: rows.some((r: any) => r.edited),
       },
     });
   } catch (err) { return apiError(err); }

@@ -21,12 +21,12 @@ export async function GET(req: NextRequest) {
     `;
     if (category) productsQuery = sql`${productsQuery} AND p.category = ${category}`;
     productsQuery = sql`${productsQuery} ORDER BY p.category, p.name`;
-    const productRows = await db.execute(productsQuery).then(r => r.rows as any[]);
+    const productRows = await db.execute(productsQuery).then((r: any) => r.rows as any[]);
 
     const recipeRows = await db.execute(sql`
       SELECT r.product_id, r.cost_per_unit::float AS cost_per_unit
       FROM recipes r WHERE r.tenant_id = ${tenantId}
-    `).then(r => r.rows as any[]);
+    `).then((r: any) => r.rows as any[]);
     const recipeCostMap: Record<string, any> = {};
     for (const r of recipeRows) recipeCostMap[r.product_id] = r.cost_per_unit;
 
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
       LEFT JOIN recipe_ingredients ri ON r.id = ri.recipe_id
       WHERE r.tenant_id = ${tenantId}
       GROUP BY r.product_id
-    `).then(r => r.rows as any[]);
+    `).then((r: any) => r.rows as any[]);
     const ingredientCountMap: Record<string, any> = {};
     for (const ic of ingredientCountRows) ingredientCountMap[ic.product_id] = parseInt(ic.ingredient_count) || 0;
 

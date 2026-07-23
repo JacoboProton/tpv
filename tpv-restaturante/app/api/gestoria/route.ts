@@ -8,7 +8,7 @@ import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized } from '..
 function makeId() { return 'g_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8); }
 
 function qr(db: ReturnType<typeof getDb>, q: any) {
-  return db.execute(q).then(r => r.rows as any[]);
+  return db.execute(q).then((r: any) => r.rows as any[]);
 }
 
 async function getOperationsData(tenantId: string) {
