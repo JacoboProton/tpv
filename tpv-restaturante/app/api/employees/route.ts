@@ -13,8 +13,6 @@ function sha256(s: string): string {
 }
 
 export async function GET(req: NextRequest) {
-  const auth = await requireRole(['admin'])(req);
-  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
@@ -83,9 +81,6 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
-  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
-
   try {
     const db = getDb();
     const body = await req.json() as any;
@@ -93,6 +88,8 @@ export async function POST(req: NextRequest) {
     const tenantId = getTenantId(req);
 
     if (action === 'generate-codes') {
+      const auth = await requireRole(['admin'])(req);
+      if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
       const emps = await db.select({ id: employees.id, name: employees.name })
         .from(employees)
         .where(and(eq(employees.tenantId, tenantId), eq(employees.whatsappLinked, false)));
