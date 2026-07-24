@@ -3,7 +3,7 @@ import {
   Printer, Settings, Clock, X,
 } from 'lucide-react'
 import { type Theme } from '@/components/constants'
-import type { CurrentUser } from '@/domain/types'
+import type { CurrentUser } from '@tpv/core'
 
 interface TopBarProps {
   colors: Theme

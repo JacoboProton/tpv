@@ -4,6 +4,7 @@ import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { kdsPairings } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
+import { requireRole } from '../../../lib/rbac';
 
 function makeId() { return 'k_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 function generateCode() {
@@ -14,6 +15,8 @@ function generateCode() {
 }
 
 export async function GET(req: NextRequest) {
+  const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const { searchParams } = new URL(req.url);
     const deviceId = searchParams.get('deviceId');
@@ -46,6 +49,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const db = getDb();
     const body = await req.json() as any;
@@ -84,6 +89,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const db = getDb();
     const tenantId = getTenantId(req);

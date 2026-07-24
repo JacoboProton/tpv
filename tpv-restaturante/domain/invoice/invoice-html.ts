@@ -1,5 +1,5 @@
 import { euros } from '@/components/constants'
-import { calculateIgic } from '@/domain/invoice/invoice'
+import { calculateIgic } from '@tpv/core'
 
 import type { Sale } from '../types'
 

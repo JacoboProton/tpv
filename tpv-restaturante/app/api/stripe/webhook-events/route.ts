@@ -5,8 +5,11 @@ import { getDb } from '../../../../lib/drizzle';
 import { rateLimit } from '../../../../lib/rate-limit';
 import { getTenantId } from '../../../../lib/tenant';
 import { webhookEvents } from '../../../../db/schema';
+import { requireRole } from '../../../../lib/rbac';
 
 export async function GET(req: NextRequest) {
+  const auth = await requireRole(['admin'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const tenantId = getTenantId(req);
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
@@ -36,6 +39,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireRole(['admin'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const tenantId = getTenantId(req);
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';

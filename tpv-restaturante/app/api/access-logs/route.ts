@@ -4,8 +4,11 @@ import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { accessLogs } from '../../../db/schema';
 import { apiOk, apiError } from '../../../lib/infrastructure/response';
+import { requireRole } from '../../../lib/rbac';
 
 export async function POST(req: NextRequest) {
+  const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const tenantId = getTenantId(req);
     const { employeeId, employeeName, role, entryPoint } = await req.json() as any;
@@ -21,6 +24,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  const auth = await requireRole(['admin'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const tenantId = getTenantId(req);
     const { searchParams } = new URL(req.url);

@@ -1,4 +1,4 @@
-import type { CurrentUser } from '@/domain/types'
+import type { CurrentUser } from '@tpv/core'
 
 export function logoutUser(
   currentUser: CurrentUser | null,

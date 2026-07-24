@@ -3,12 +3,15 @@ import { sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { apiOk, apiError, apiBadRequest, apiNotFound } from '../../../lib/infrastructure/response';
+import { requireRole } from '../../../lib/rbac';
 
 function qr(db: ReturnType<typeof getDb>, q: any) {
   return db.execute(q).then((r: any) => r.rows as any[]);
 }
 
 export async function GET(req: NextRequest) {
+  const auth = await requireRole(['admin', 'camarero'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
@@ -65,6 +68,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireRole(['admin', 'camarero'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const db = getDb();
     const tenantId = getTenantId(req);

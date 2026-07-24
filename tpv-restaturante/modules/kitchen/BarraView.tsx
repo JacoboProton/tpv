@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Beer, Clock, Check } from 'lucide-react';
 import { TICKET_EDGE, type Theme } from '@/components/constants';
-import type { Catalog } from '@/domain/types';
+import type { Catalog } from '@tpv/core';
 
 interface BarraItem {
   id: string;

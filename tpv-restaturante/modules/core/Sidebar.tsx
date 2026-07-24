@@ -1,6 +1,6 @@
 import { type Theme } from '@/components/constants'
 import { navGroups } from './nav-config'
-import type { CurrentUser } from '@/domain/types'
+import type { CurrentUser } from '@tpv/core'
 
 interface SidebarProps {
   menuMode: string

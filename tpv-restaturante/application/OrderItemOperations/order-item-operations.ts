@@ -1,5 +1,5 @@
 import { clone } from '@/components/constants'
-import type { Floor } from '@/domain/types'
+import type { Floor } from '@tpv/core'
 
 export function changeItemQuantity(floor: Floor, orderId: string, itemId: string, delta: number): Floor | null {
   const next = clone(floor) as Floor

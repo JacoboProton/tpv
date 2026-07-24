@@ -4,8 +4,11 @@ import { eq, and, sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { products, productStock, stockLog } from '../../../db/schema';
+import { requireRole } from '../../../lib/rbac';
 
 export async function POST(req: NextRequest) {
+  const auth = await requireRole(['admin', 'camarero'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   const tenantId = getTenantId(req);
   try {
     const db = getDb();

@@ -4,6 +4,7 @@ import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { products } from '../../../db/schema';
 import { apiOk, apiError } from '../../../lib/infrastructure/response';
+import { requireRole } from '../../../lib/rbac';
 
 const NEW_PRODUCTS = [
   { id: 'p17', name: 'Café solo',         category: 'Bebidas',    price: 1.8,  stock: 50, lowStock: 10, ubicacion: 'Bar',     discount: 0, course: '', allergens: [],      image: '/uploads/cafe-solo.svg' },
@@ -23,6 +24,8 @@ const NEW_PRODUCTS = [
 ];
 
 export async function POST(req: NextRequest) {
+  const auth = await requireRole(['admin'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const tenantId = getTenantId(req);
     const db = getDb();

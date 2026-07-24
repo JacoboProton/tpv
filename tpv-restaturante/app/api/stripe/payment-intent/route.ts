@@ -4,6 +4,7 @@ import Stripe from 'stripe';
 import { rateLimit } from '../../../../lib/rate-limit';
 import { logPayment } from '../../../../lib/payment-logger';
 import { getTenantId } from '../../../../lib/tenant';
+import { requireRole } from '../../../../lib/rbac';
 
 function getStripe() {
   if (!process.env.STRIPE_SECRET_KEY) return null;
@@ -20,6 +21,8 @@ const RATE_LIMIT_WINDOW = 60 * 1000;
 // body: { amount: number (euros), tableId, tableName, employeeName, idempotencyKey? }
 // Devuelve: { clientSecret }
 export async function POST(req: NextRequest) {
+  const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   const tenantId = getTenantId(req);
   try {
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';

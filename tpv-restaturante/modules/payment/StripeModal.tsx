@@ -6,7 +6,7 @@ import { Elements } from '@stripe/react-stripe-js';
 import { X, AlertTriangle, WifiOff } from 'lucide-react';
 import StripePaymentForm from '@/modules/payment/StripePaymentForm';
 import type { PaymentIntent } from '@stripe/stripe-js';
-import type { Table, CurrentUser } from '@/domain/types';
+import type { Table, CurrentUser } from '@tpv/core';
 import { type Theme } from '@/components/constants';
 
 interface StripeModalProps {

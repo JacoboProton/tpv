@@ -1,7 +1,7 @@
 import { clone } from '@/components/constants'
 import type { VerifiedEmployee } from '@/application/auth/verify-pin'
-import type { Floor, Catalog, Employee } from '@/domain/types'
-import { calculatePersonalDiscountAmount, applyDiscountRates, removeDiscountRates, buildEmployeeMonthlyUsage, buildEmployeeMonthlyUsageDecrement } from '@/domain/pricing/personal-discount'
+import type { Floor, Catalog, Employee } from '@tpv/core'
+import { calculatePersonalDiscountAmount, applyDiscountRates, removeDiscountRates, buildEmployeeMonthlyUsage, buildEmployeeMonthlyUsageDecrement } from '@tpv/core'
 
 export interface ApplyPersonalDiscountDeps {
   verifyEmployeePin: (pin: string) => Promise<VerifiedEmployee | null>

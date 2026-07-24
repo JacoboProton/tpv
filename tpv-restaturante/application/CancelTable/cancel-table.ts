@@ -1,5 +1,5 @@
 import { clone } from '@/components/constants'
-import type { Floor, OrderItem } from '@/domain/types'
+import type { Floor, OrderItem } from '@tpv/core'
 
 export interface CancelledItemInfo {
   tableId: string

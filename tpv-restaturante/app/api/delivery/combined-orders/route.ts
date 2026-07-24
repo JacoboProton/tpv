@@ -4,6 +4,7 @@ import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
 import { qrOrders, deliveryOrders } from '../../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized } from '../../../../lib/infrastructure/response';
+import { requireRole } from '../../../../lib/rbac';
 
 function parseItems(raw: any) {
   if (!raw) return [];
@@ -17,6 +18,8 @@ function calcAmount(items: any[]) {
 }
 
 export async function GET(req: NextRequest) {
+  const auth = await requireRole(['admin', 'camarero'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const db = getDb();
     const tenantId = getTenantId(req);

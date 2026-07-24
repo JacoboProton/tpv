@@ -1,16 +1,20 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL, TPV_API_KEY } from './config';
+import { setDeviceId, getTenantId, getEmployeeId, getDeviceId as getApiDeviceId } from './api';
 import { logError, logWarn, logInfo, logDebug } from './logger';
 
 const DEVICE_KEY = 'tpv:device_id';
 
-async function apiHeaders() {
-  const tenant = await AsyncStorage.getItem('tpv:tenant');
+function apiHeaders() {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'x-tenant-id': tenant || 'default',
+    'x-tenant-id': getTenantId(),
   };
   if (TPV_API_KEY) headers['x-tpv-key'] = TPV_API_KEY;
+  const eid = getEmployeeId();
+  if (eid) headers['x-employee-id'] = eid;
+  const did = getApiDeviceId();
+  if (did) headers['x-device-id'] = did;
   return headers;
 }
 
@@ -34,6 +38,7 @@ async function getDeviceId(): Promise<string> {
 
 export async function sessionLogin(employeeId: string, employeeRole: string, force = false): Promise<{ ok?: boolean; conflict?: boolean; message?: string }> {
   const deviceId = await getDeviceId();
+  setDeviceId(deviceId);
   logInfo('Session login attempt', { employeeId, employeeRole, force, deviceId });
   
   try {
@@ -61,6 +66,7 @@ export async function sessionLogin(employeeId: string, employeeRole: string, for
 
 export async function sessionLogout(employeeId: string): Promise<void> {
   const deviceId = await getDeviceId();
+  setDeviceId(deviceId);
   logInfo('Session logout attempt', { employeeId, deviceId });
   
   try {
@@ -78,6 +84,7 @@ export async function sessionLogout(employeeId: string): Promise<void> {
 
 export async function sessionKeepalive(employeeId: string): Promise<{ ok?: boolean; invalidated?: boolean; message?: string }> {
   const deviceId = await getDeviceId();
+  setDeviceId(deviceId);
   
   try {
     const res = await fetch(`${API_URL}/api/session`, {

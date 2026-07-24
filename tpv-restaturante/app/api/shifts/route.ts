@@ -4,8 +4,11 @@ import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { employeeShifts } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiServerError } from '../../../lib/infrastructure/response';
+import { requireRole } from '../../../lib/rbac';
 
 export async function GET(req: NextRequest) {
+  const auth = await requireRole(['admin', 'camarero'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const tenantId = getTenantId(req);
     const { searchParams } = new URL(req.url);
@@ -39,6 +42,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireRole(['admin', 'camarero'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const tenantId = getTenantId(req);
     const body = await req.json() as any;
@@ -114,6 +119,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const auth = await requireRole(['admin', 'camarero'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const tenantId = getTenantId(req);
     const { id } = await req.json() as any;

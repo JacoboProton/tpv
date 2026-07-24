@@ -5,6 +5,7 @@ import { getDb } from '../../../../lib/drizzle';
 import { logPayment } from '../../../../lib/payment-logger';
 import { getTenantId } from '../../../../lib/tenant';
 import { sales } from '../../../../db/schema';
+import { requireRole } from '../../../../lib/rbac';
 
 function getStripe() {
   if (!process.env.STRIPE_SECRET_KEY) return null;
@@ -12,6 +13,8 @@ function getStripe() {
 }
 
 export async function PUT(req: NextRequest) {
+  const auth = await requireRole(['admin', 'camarero'])(req);
+  if (!auth.authorized) return Response.json({ error: auth.error }, { status: auth.status });
   const tenantId = getTenantId(req);
   try {
     const db = getDb();

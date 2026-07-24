@@ -5,6 +5,7 @@ import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
 import { rateLimit } from '../../../../lib/rate-limit';
+import { requireRole } from '../../../../lib/rbac';
 import { settings } from '../../../../db/schema';
 
 function getStripe() {
@@ -54,6 +55,8 @@ async function getOrCreateLocation(stripe: Stripe, tenantId: string) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
     const rl = rateLimit(`tct:${ip}`, 20, 60 * 1000);

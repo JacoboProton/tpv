@@ -10,6 +10,7 @@ export * from './domain/kitchen/kitchen'
 export * from './domain/pricing/personal-discount'
 export * from './domain/pricing/offers'
 export * from './domain/invoice/invoice'
+export * from './domain/invoice/invoice-html'
 export * from './domain/payments/refund'
 export * from './domain/payments/payments'
 export * from './domain/payments/debt'
@@ -49,7 +50,8 @@ export { applyPersonalDiscount, removePersonalDiscount } from './application/App
 export type { ApplyPersonalDiscountDeps, RemovePersonalDiscountDeps, VerifiedEmployee } from './application/ApplyPersonalDiscount/apply-personal-discount'
 
 // Infrastructure types
-export type { CatalogProduct, Catalog } from './infrastructure/database/catalog-repository'
+export type { CatalogProduct } from './infrastructure/database/catalog-repository'
+export { findProduct } from './infrastructure/database/catalog-repository'
 
 // Utils
 export { euros, round2, clone } from './lib/utils'

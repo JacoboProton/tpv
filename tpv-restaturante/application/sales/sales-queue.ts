@@ -1,4 +1,4 @@
-import type { Sale } from '@/domain/types'
+import type { Sale } from '@tpv/core'
 
 export interface SalesQueueDeps {
   addSale: (sale: Sale) => Promise<{ ok: boolean; ticketNumber?: string }>

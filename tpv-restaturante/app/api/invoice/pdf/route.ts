@@ -5,8 +5,9 @@ import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
 import { getCachedSettings, setCachedSettings } from '../../../../lib/settings-cache';
-import { settings, sales } from '../../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized } from '../../../../lib/infrastructure/response';
+import { requireRole } from '../../../../lib/rbac';
+import { settings, sales } from '../../../../db/schema';
 
 async function getSettings(tenantId: string) {
   const cached = getCachedSettings();
@@ -28,6 +29,8 @@ function loadFont(doc: any) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireRole(['admin'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const db = getDb();
     const tenantId = getTenantId(req);

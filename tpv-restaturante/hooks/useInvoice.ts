@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback } from 'react'
-import type { Sale } from '@/domain/types'
-import { buildInvoiceHtml } from '@/domain/invoice/invoice-html'
+import type { Sale } from '@tpv/core'
+import { buildInvoiceHtml } from '@tpv/core'
 import { b64ToBlob } from '@/lib/encoding'
 
 interface UseInvoiceProps {

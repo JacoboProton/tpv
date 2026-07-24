@@ -1,5 +1,5 @@
 import { sha256 } from '@/lib/crypto'
-import type { Employee } from '@/domain/types'
+import type { Employee } from '@tpv/core'
 
 export interface LoginDeps {
   fetchVerify: (pin: string, pinHash: string) => Promise<Response>

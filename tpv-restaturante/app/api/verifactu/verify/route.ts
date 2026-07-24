@@ -5,10 +5,13 @@ import { getTenantId } from '../../../../lib/tenant';
 import { computeHash } from '../../../../lib/verifactu';
 import { verifactuRegistros } from '../../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiNotFound } from '../../../../lib/infrastructure/response';
+import { requireRole } from '../../../../lib/rbac';
 
 const NIF_EMISOR = process.env.FISKALY_TAXPAYER_NIF || 'B12345678';
 
 export async function POST(req: NextRequest) {
+  const auth = await requireRole(['admin'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const db = getDb();
     const tenantId = getTenantId(req);

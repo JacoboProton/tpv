@@ -12,6 +12,8 @@ export function getTenantId() { return _tenantId; }
 export function setEmployeeSession(id: string, role: string) { _employeeId = id; _employeeRole = role; }
 export function clearEmployeeSession() { _employeeId = ''; _employeeRole = ''; }
 export function setDeviceId(id: string) { _deviceId = id; }
+export function getDeviceId() { return _deviceId; }
+export function getEmployeeId() { return _employeeId; }
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_URL}/api${path}`;

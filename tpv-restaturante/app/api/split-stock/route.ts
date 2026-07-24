@@ -4,6 +4,7 @@ import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { products, productStock } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiServerError } from '../../../lib/infrastructure/response';
+import { requireRole } from '../../../lib/rbac';
 
 const SPLIT: Record<string, { loc: string; keep: number }> = {
   Bebidas:    { loc: 'Bar',    keep: 25 },
@@ -13,6 +14,8 @@ const SPLIT: Record<string, { loc: string; keep: number }> = {
 };
 
 export async function POST(req: NextRequest) {
+  const auth = await requireRole(['admin', 'camarero'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   const tenantId = getTenantId(req);
   try {
     const db = getDb();

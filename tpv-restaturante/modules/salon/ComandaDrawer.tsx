@@ -5,7 +5,7 @@ import {
   GitMerge, BadgePercent,
 } from 'lucide-react';
 import { TICKET_EDGE, euros, ALLERGENS, ALLERGEN_COLORS, type Theme } from '@/components/constants';
-import type { Table, Order, OrderItem as DomainOrderItem } from '@/domain/types';
+import type { Table, Order, OrderItem as DomainOrderItem } from '@tpv/core';
 import ComboSlotSelector from '@/components/ComboSlotSelector';
 import MenuDelDiaSelector from '@/components/MenuDelDiaSelector';
 

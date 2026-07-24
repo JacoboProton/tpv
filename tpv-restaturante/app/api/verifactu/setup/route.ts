@@ -1,8 +1,11 @@
 import { NextRequest } from 'next/server';
 import { setupFiskaly, getFiskalyConfig, listSigners, createClient, createSigner } from '../../../../lib/fiskaly';
 import { apiOk, apiError } from '../../../../lib/infrastructure/response';
+import { requireRole } from '../../../../lib/rbac';
 
 export async function GET() {
+  const auth = await requireRole(['admin'])(null as any);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const config = await getFiskalyConfig();
     const signers = await listSigners().catch(() => []);
@@ -11,6 +14,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireRole(['admin'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const body = await req.json().catch(() => ({})) as Record<string, unknown>;
     if ((body as any).testSigner) {

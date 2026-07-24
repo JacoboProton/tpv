@@ -1,12 +1,5 @@
-import { calculateOfferDiscount } from '@/domain/pricing/offers'
-import { calculateOrderTotals } from '@/domain/order/order'
-import { buildPayments, isFiado, hasPendingBizum, formatPaymentMethod } from '@/domain/payments/payments'
-import { closeTableOrders, isDebtPayment } from '@/domain/tables/table'
-import { deductStock } from '@/domain/inventory/stock'
-import { clone } from '@/components/constants'
-import type { CatalogProduct } from '@/infrastructure/database/catalog-repository'
-import { generateInvoiceNumber } from '@/domain/invoice/invoice'
-import type { Floor, Order, Catalog, Offer, PaymentSplit, Sale } from '@/domain/types'
+import { calculateOfferDiscount, calculateOrderTotals, buildPayments, isFiado, hasPendingBizum, formatPaymentMethod, closeTableOrders, isDebtPayment, deductStock, generateInvoiceNumber, clone } from '@tpv/core'
+import type { CatalogProduct, Floor, Order, Catalog, Offer, PaymentSplit, Sale } from '@tpv/core'
 
 export interface CloseOrderItem {
   id: string

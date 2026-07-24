@@ -5,6 +5,7 @@ import { and, eq, ne, isNotNull } from 'drizzle-orm';
 import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
 import { sales } from '../../../../db/schema';
+import { requireRole } from '../../../../lib/rbac';
 
 function getStripe() {
   if (!process.env.STRIPE_SECRET_KEY) return null;
@@ -12,6 +13,8 @@ function getStripe() {
 }
 
 export async function GET(req: NextRequest) {
+  const auth = await requireRole(['admin'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const db = getDb();
     const tenantId = getTenantId(req);

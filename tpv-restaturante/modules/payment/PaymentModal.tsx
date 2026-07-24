@@ -3,7 +3,7 @@
 import { useState, type ComponentType } from 'react';
 import { Banknote, CreditCard, Smartphone, Clock, X, CheckCircle2, Printer, Check, Trash2, type LucideProps } from 'lucide-react';
 import { euros, round2, PAYMENT_METHODS, type Theme } from '@/components/constants';
-import type { Table, CurrentUser } from '@/domain/types';
+import type { Table, CurrentUser } from '@tpv/core';
 import StripeModal from '@/modules/payment/StripeModal';
 
 interface PaymentSplit {

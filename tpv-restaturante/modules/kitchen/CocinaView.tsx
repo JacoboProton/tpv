@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { ChefHat, Clock, Check } from 'lucide-react';
 import { TICKET_EDGE, type Theme } from '@/components/constants';
-import type { Catalog } from '@/domain/types';
+import type { Catalog } from '@tpv/core';
 
 const COURSE_COLORS: Record<string, string> = { Entrantes: '#7a9a7c', Principales: '#c4a04a', Postres: '#b05e5e' };
 

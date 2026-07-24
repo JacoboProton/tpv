@@ -1,7 +1,5 @@
-import { expandMenu, expandCombo } from '@/domain/order/menu-expansion'
-import type { MenuExpansionItem } from '@/domain/order/menu-expansion'
-import type { Floor, Catalog, Product, OrderItem } from '@/domain/types'
-import { clone } from '@/components/constants'
+import { expandMenu, expandCombo, clone } from '@tpv/core'
+import type { MenuExpansionItem, Floor, Catalog, Product, OrderItem } from '@tpv/core'
 
 function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100

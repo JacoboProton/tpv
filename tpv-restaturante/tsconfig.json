@@ -19,10 +19,7 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"],
-      "@/domain/*": ["../packages/core/src/domain/*", "./domain/*"],
-      "@/application/*": ["../packages/core/src/application/*", "./application/*"],
-      "@/infrastructure/database/catalog-repository": ["../packages/core/src/infrastructure/database/catalog-repository.ts"]
+      "@/*": ["./*"]
     }
   },
   "include": [
