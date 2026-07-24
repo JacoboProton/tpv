@@ -1,6 +1,6 @@
 import {
-  Sun, Moon, ShieldCheck, LayoutGrid, LogOut, Power,
-  Printer, Settings, Clock, X,
+  Sun, Moon, ShieldCheck, LogOut,
+  Printer, Settings, Clock,
 } from 'lucide-react'
 import { type Theme } from '@/components/constants'
 import type { CurrentUser } from '@tpv/core'
@@ -14,7 +14,6 @@ interface TopBarProps {
   toggleTraining: () => void
   handlePrint: () => void
   setShowSettings: (v: boolean) => void
-  setMenuMode: (v: string) => void
   logout: () => void
   showToast: (msg: string) => void
   ticketSettings: Record<string, unknown>
@@ -26,7 +25,7 @@ interface TopBarProps {
 export default function TopBar({
   colors: C, theme, toggleTheme, currentUser,
   trainingMode, toggleTraining, handlePrint,
-  setShowSettings, setMenuMode, logout, showToast,
+  setShowSettings, logout, showToast,
   ticketSettings, loadClockinSummary, setShowClockinModal, clockinSummary,
 }: TopBarProps) {
   return (
@@ -72,8 +71,8 @@ export default function TopBar({
           </button>
         )}
 
-        <button onClick={() => setMenuMode(currentUser ? 'login' : 'app')} style={{ color: C.muted }} className="btn-icon">
-          {currentUser ? <LogOut size={15} /> : <Power size={15} />}
+        <button onClick={logout} style={{ color: C.muted }} className="btn-icon" title="Cerrar sesión">
+          <LogOut size={15} />
         </button>
       </div>
 
