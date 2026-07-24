@@ -4,8 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next dev",
-    "build": "npm run build:core && next build",
-    "build:core": "cd \"../packages/core\" && npm run build 2>/dev/null || echo \"@tpv/core dist already up to date\"",
+    "build": "npm run build:core && npm run copy:core && next build",
+    "build:core": "cd \"../packages/core\" && npm run build",
+    "copy:core": "node scripts/copy-core.js",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
