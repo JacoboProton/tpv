@@ -242,7 +242,7 @@ async function estimateDailyConsumption(productId: string, tenantId: string): Pr
     const [log] = await db.execute(sql`
       SELECT SUM(ABS(change_amount)) AS total FROM stock_log
       WHERE product_id = ${productId} AND reason = 'venta' AND created_at >= ${thirtyDaysAgo} AND tenant_id = ${tenantId}
-    `).then(r => r.rows as any[]);
+    `).then((r: any) => r.rows as any[]);
     const total = parseInt(log?.total || 0);
     return Math.max(0.5, total / 30);
   } catch {

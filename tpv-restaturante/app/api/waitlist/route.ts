@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
     const rows = await db.select().from(waitlist)
       .where(eq(waitlist.tenantId, tenantId))
       .orderBy(waitlist.position, waitlist.createdAt);
-    return apiOk(rows.map(r => ({
+    return apiOk(rows.map((r: any) => ({
       id: r.id, name: r.name, phone: r.phone, pax: r.pax,
       status: r.status, calledCount: r.calledCount, calledAt: r.calledAt,
       seatedAt: r.seatedAt, tableId: r.tableId,
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
       const { name, phone, pax, notes, source } = body;
       const [maxPos] = await db.execute(sql`
         SELECT COALESCE(MAX(position), 0) + 1 AS pos FROM waitlist WHERE status = 'waiting' AND tenant_id = ${tenantId}
-      `).then(r => r.rows as any[]);
+      `).then((r: any) => r.rows as any[]);
       const pos = maxPos.pos;
       const id = makeId();
       if (action === 'join') {

@@ -103,7 +103,7 @@ export async function DELETE(req: NextRequest) {
     }
     const [row] = await db.execute(sql`
       SELECT table_id FROM reservations WHERE id = ${id} AND tenant_id = ${tenantId} LIMIT 1
-    `).then(r => r.rows as any[]);
+    `).then((r: any) => r.rows as any[]);
     if (row?.table_id) {
       await db.execute(sql`UPDATE tables SET reserved_for = '' WHERE id = ${row.table_id} AND tenant_id = ${tenantId}`);
     }

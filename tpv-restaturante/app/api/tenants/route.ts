@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   try {
     const db = getDb();
     const rows = await db.select().from(tenants).orderBy(tenants.name);
-    return apiOk(rows.map(r => ({
+    return apiOk(rows.map((r: any) => ({
       id: r.id, name: r.name, slug: r.slug,
       logoUrl: r.logoUrl, address: r.address, phone: r.phone,
       email: r.email, nif: r.nif, active: r.active,

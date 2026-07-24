@@ -36,8 +36,8 @@ export async function POST(req: NextRequest) {
       const totalStock = stockRows.reduce((sum: any, r: any) => sum + r.stock, 0);
       if (totalStock === 0) continue;
 
-      const servingRow = stockRows.find(r => r.location === servingLoc);
-      const almacenRow = stockRows.find(r => r.location === 'Almacén');
+      const servingRow = stockRows.find((r: any) => r.location === servingLoc);
+      const almacenRow = stockRows.find((r: any) => r.location === 'Almacén');
 
       const servingStock = Math.min(keep, totalStock);
       const almacenStock = totalStock - servingStock;

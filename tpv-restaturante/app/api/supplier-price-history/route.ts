@@ -28,9 +28,9 @@ export async function GET(req: NextRequest) {
     if (conds.length > 0) query = sql`${query} AND ${conds.reduce((a: any, c: any) => sql`${a} AND ${c}`)}`;
     query = sql`${query} ORDER BY sph.created_at DESC LIMIT 50`;
 
-    const rows = await db.execute(query).then(r => r.rows as any[]);
+    const rows = await db.execute(query).then((r: any) => r.rows as any[]);
 
-    return apiOk(rows.map(r => ({
+    return apiOk(rows.map((r: any) => ({
       id: r.id, catalogId: r.catalog_id, supplierId: r.supplier_id, supplierName: r.supplier_name,
       productId: r.product_id, productName: r.product_name,
       packPrice: parseFloat(r.pack_price), packSize: parseFloat(r.pack_size),

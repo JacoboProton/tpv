@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     if (conds.length > 0) query = sql`${query} AND ${conds.reduce((a: any, c: any) => sql`${a} AND ${c}`)}`;
     query = sql`${query} ORDER BY s.name, p.name`;
 
-    const rows = await db.execute(query).then(r => r.rows as any[]);
+    const rows = await db.execute(query).then((r: any) => r.rows as any[]);
 
     const result = [];
     for (const r of rows) {
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
         FROM supplier_price_history
         WHERE catalog_id = ${r.id} AND tenant_id = ${tenantId}
         ORDER BY created_at DESC LIMIT 2
-      `).then(r => r.rows as any[]);
+      `).then((r: any) => r.rows as any[]);
 
       const prevPrice = history ? parseFloat(history.price_per_unit) : null;
       const currPrice = parseFloat(r.price) / parseFloat(r.pack_size || 1);
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
           ? [{ id }]
           : await db.execute(sql`
               SELECT id FROM supplier_catalog WHERE supplier_id=${supplierId} AND product_id=${productId} AND tenant_id = ${tenantId} LIMIT 1
-            `).then(r => r.rows as any[]);
+            `).then((r: any) => r.rows as any[]);
         if (catRow?.id) {
           const ppu = parseFloat(price) / parseFloat(packSize || 1);
           await db.execute(sql`
@@ -109,14 +109,14 @@ export async function POST(req: NextRequest) {
     if (action === 'delete') {
       const [cat] = await db.execute(sql`
         SELECT supplier_id, product_id, is_preferred FROM supplier_catalog WHERE id=${body.id} AND tenant_id = ${tenantId}
-      `).then(r => r.rows as any[]);
+      `).then((r: any) => r.rows as any[]);
       await db.execute(sql`DELETE FROM supplier_catalog WHERE id=${body.id} AND tenant_id = ${tenantId}`);
 
       if (cat?.is_preferred) {
         const [next] = await db.execute(sql`
           SELECT id FROM supplier_catalog WHERE product_id = ${cat.product_id} AND active = true AND tenant_id = ${tenantId}
           ORDER BY price LIMIT 1
-        `).then(r => r.rows as any[]);
+        `).then((r: any) => r.rows as any[]);
         if (next?.id) {
           await db.execute(sql`UPDATE supplier_catalog SET is_preferred = true WHERE id = ${next.id} AND tenant_id = ${tenantId}`);
         }

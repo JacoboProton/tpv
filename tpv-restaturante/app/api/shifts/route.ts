@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
       .where(and(...conditions))
       .orderBy(employeeShifts.date, employeeShifts.startTime);
 
-    return apiOk(rows.map(r => ({
+    return apiOk(rows.map((r: any) => ({
       id: r.id, employeeId: r.employeeId, employeeName: r.employeeName,
       date: r.date, startTime: r.startTime, endTime: r.endTime,
       position: r.position, notes: r.notes, color: r.color,

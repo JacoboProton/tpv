@@ -11,7 +11,7 @@ async function main() {
   const existing = await db.select({ id: products.id })
     .from(products)
     .where(eq(products.tenantId, tenantId))
-  const existingIds = new Set(existing.map(r => r.id))
+  const existingIds = new Set(existing.map((r: any) => r.id))
 
   const newProds = seed.products.filter(p => !existingIds.has(p.id))
 
