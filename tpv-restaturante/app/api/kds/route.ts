@@ -15,13 +15,11 @@ function generateCode() {
 }
 
 export async function GET(req: NextRequest) {
-  const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
-  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
-  try {
-    const { searchParams } = new URL(req.url);
-    const deviceId = searchParams.get('deviceId');
+  const { searchParams } = new URL(req.url);
+  const deviceId = searchParams.get('deviceId');
 
-    if (deviceId) {
+  if (deviceId) {
+    try {
       const db = getDb();
       const rows = await db.select({
         id: kdsPairings.id, label: kdsPairings.label,
@@ -34,8 +32,12 @@ export async function GET(req: NextRequest) {
         return apiOk({ paired: true, pairing: rows[0] });
       }
       return apiOk({ paired: false });
-    }
+    } catch (err) { return apiError(err); }
+  }
 
+  const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
+  try {
     const db = getDb();
     const tenantId = getTenantId(req);
     const rows = await db.select().from(kdsPairings)
@@ -49,27 +51,13 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
-  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
-    const db = getDb();
     const body = await req.json() as any;
     const { action } = body;
 
-    if (action === 'generate') {
-      const tenantId = getTenantId(req);
-      const code = generateCode();
-      const id = makeId();
-      const expiresAt = Date.now() + 10 * 60 * 1000;
-      await db.insert(kdsPairings).values({
-        id, code, label: body.label || '', deviceId: '',
-        expiresAt, createdAt: Date.now(), revoked: false, tenantId,
-      });
-      return apiOk({ id, code, expiresAt });
-    }
-
     if (action === 'verify') {
       const { code, label, deviceId } = body;
+      const db = getDb();
       const rows = await db.select().from(kdsPairings)
         .where(sql`${eq(kdsPairings.code, code)} AND ${eq(kdsPairings.revoked, false)} AND ${sql.raw('expires_at')} > ${Date.now()}`)
         .limit(1);
@@ -82,6 +70,22 @@ export async function POST(req: NextRequest) {
         deviceId: devId, label: label || pairing.label,
       }).where(eq(kdsPairings.id, pairing.id));
       return apiOk({ deviceId: devId, tenantId: pairing.tenantId || 'default', pairing: { id: pairing.id, label: label || pairing.label } });
+    }
+
+    const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
+    if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
+
+    if (action === 'generate') {
+      const tenantId = getTenantId(req);
+      const code = generateCode();
+      const id = makeId();
+      const expiresAt = Date.now() + 10 * 60 * 1000;
+      const db = getDb();
+      await db.insert(kdsPairings).values({
+        id, code, label: body.label || '', deviceId: '',
+        expiresAt, createdAt: Date.now(), revoked: false, tenantId,
+      });
+      return apiOk({ id, code, expiresAt });
     }
 
     return apiBadRequest('unknown action');
