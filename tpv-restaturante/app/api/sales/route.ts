@@ -7,7 +7,7 @@ import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/resp
 import { requireRole } from '../../../lib/rbac';
 
 export async function GET(req: NextRequest) {
-  const auth = await requireRole(['admin'])(req);
+  const auth = await requireRole(['admin', 'camarero'])(req);
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const db = getDb();

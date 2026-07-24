@@ -86,8 +86,70 @@ npm run db:pull      # Introspect DB → update Drizzle schema
 ## Testing quirks
 
 - Tests use **Vitest** (not Jest), run via `npm run test` or `npx vitest run`.
-- 13 test files, 187 tests total (6 web + 7 mobile).
+- 343 tests total across 26 files (5 integration + 8 web + 7 mobile + 6 helpers).
 - `getDailyMenu("happy_hour")` test may return happy hour instead of undefined — happy hour is all-day in test seed.
+
+### Integration tests (`__tests__/integration/`)
+
+Tests API routes with mocked Drizzle — no real DB needed. 42 tests across 5 files: `employees` (8), `settings` (4), `session` (12), `catalog` (16), `keep-alive` (2).
+
+**Pattern:**
+
+```typescript
+import { vi, beforeEach } from 'vitest';
+import { employees } from '../../db/schema'; // or any table
+import { req } from '../helpers/request';
+
+// 1. Shared mutable state via vi.hoisted
+const dbData = new Map<object, any[]>();
+function seed(table: object, data: any[]) { dbData.set(table, data); }
+
+const mockRbac = vi.hoisted(() => ({ authorized: true, employee: { id: 'e1', role: 'admin', tenantId: 'default' } }));
+const mockBcrypt = vi.hoisted(() => ({
+  hashSync: vi.fn((s: string) => 'hashed_' + s),
+  compareSync: vi.fn((s: string, hash: string) => hash === 'hashed_' + s),
+}));
+
+// 2. vi.mock at top level (hoisted — factories capture dbData/mockRbac by reference)
+vi.mock('@/lib/rbac', () => ({ requireRole: () => async () => mockRbac }));
+vi.mock('bcryptjs', () => ({ default: mockBcrypt, ...mockBcrypt }));
+vi.mock('@/lib/tenant', () => ({ getTenantId: () => 'default' }));
+
+// 3. Mock drizzle — useMap<object, any[]> keyed by drizzle table objects
+vi.mock('@/lib/drizzle', () => {
+  function whereResult(data: any[]) {
+    const p = Promise.resolve(data);
+    (p as any).orderBy = () => p; // support .where().orderBy() chain
+    return p;
+  }
+  function from(table: any) {
+    return {
+      where: () => whereResult(dbData.get(table) || []),
+      leftJoin: () => ({ where: () => whereResult(dbData.get(table) || []) }),
+    };
+  }
+  return { getDb: () => ({ select: () => ({ from }), insert: () => ... }) };
+});
+
+// 4. Reset in beforeEach
+beforeEach(() => {
+  dbData.clear();
+  mockRbac.authorized = true;
+  // ...
+});
+
+// 5. Seed data using Drizzle table references
+seed(employees, [{ id: 'e1', name: 'Alice', ... }]);
+const { GET } = await import('../../app/api/employees/route');
+```
+
+**Key rules:**
+- All shared mutable state (dbData, mockRbac, mockBcrypt) MUST be in `vi.hoisted()` — `vi.mock` factories are hoisted above module-level code
+- Use `Map<object, any[]>` keyed by Drizzle table references (`employees`, `products`, etc.) — these are singletons exported from `db/schema`
+- `db.select({...}).from(table).where(...).orderBy(...)` → mock's `where()` returns a thenable with `.orderBy()` method
+- `db.select({...}).from(table).leftJoin(...).where(...)` → mock's `from()` returns object with both `.where()` and `.leftJoin()`
+- For auth tests: set `mockRbac.authorized = false` + `mockRbac.error` + `mockRbac.status = 401`
+- Import `req()` from `__tests__/helpers/request.ts` to make NextRequest objects
 
 ## Tailwind 4 notes
 

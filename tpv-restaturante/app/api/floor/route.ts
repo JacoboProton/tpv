@@ -9,8 +9,6 @@ import { parseBody } from '../../../lib/infrastructure/validate';
 import { requireRole } from '../../../lib/rbac';
 
 export async function GET(req: NextRequest) {
-  const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
-  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const tenantId = getTenantId(req);
     const fullFloor = await fetchFullFloor(tenantId);

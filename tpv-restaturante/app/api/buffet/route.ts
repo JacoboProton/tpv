@@ -9,8 +9,6 @@ function qr(db: ReturnType<typeof getDb>, q: any) {
 }
 
 export async function GET(req: NextRequest) {
-  const auth = await requireRole(['admin', 'camarero'])(req);
-  if (!auth.authorized) return Response.json({ error: auth.error }, { status: auth.status });
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
