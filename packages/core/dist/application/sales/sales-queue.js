@@ -1,7 +1,5 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.processSalesQueue = processSalesQueue;
-async function processSalesQueue(queue, processingRef, deps) {
+export async function processSalesQueue(queue, processingRef, deps) {
+    var _a;
     if (processingRef.current || queue.length === 0)
         return;
     processingRef.current = true;
@@ -20,7 +18,7 @@ async function processSalesQueue(queue, processingRef, deps) {
         }
         catch (e) {
             lastErr = e instanceof Error ? e.message : String(e);
-            console.warn('addSale error:', lastErr);
+            (_a = deps.log) === null || _a === void 0 ? void 0 : _a.call(deps, 'addSale error: ' + lastErr);
         }
         if (ok) {
             if (ticketNumber) {
@@ -31,7 +29,7 @@ async function processSalesQueue(queue, processingRef, deps) {
         }
         else {
             deps.showToast(`Error venta: ${lastErr}. Reintentando...`);
-            await new Promise(r => setTimeout(r, 2000));
+            await deps.wait(2000);
             try {
                 const res = await deps.addSale(sale);
                 if (res && res.ok) {
@@ -50,3 +48,4 @@ async function processSalesQueue(queue, processingRef, deps) {
     }
     processingRef.current = false;
 }
+//# sourceMappingURL=sales-queue.js.map

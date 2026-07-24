@@ -1,4 +1,4 @@
-import type { CurrentUser } from '@/domain/types';
+import type { CurrentUser } from '../../domain/types';
 export interface ClockinDeps {
     fetchSummary: (employeeId: string, date: string) => Promise<{
         summary?: unknown;
@@ -8,7 +8,10 @@ export interface ClockinDeps {
         employeeName: string;
         method: string;
         action: string;
-    }) => Promise<Response>;
+    }) => Promise<{
+        ok: boolean;
+        json(): Promise<unknown>;
+    }>;
     showToast: (msg: string) => void;
     setClockinSummary: (s: unknown) => void;
     setClockinLoading: (v: boolean) => void;

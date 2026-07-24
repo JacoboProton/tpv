@@ -1,4 +1,4 @@
-import type { Floor, Order, Catalog, Offer, PaymentSplit, Sale } from '@/domain/types';
+import type { Floor, Order, Catalog, Offer, PaymentSplit, Sale } from '../../domain/types';
 export interface CloseOrderItem {
     id: string;
     productId?: string;

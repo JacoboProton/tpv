@@ -1,11 +1,5 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.addNormalItem = addNormalItem;
-exports.addMenuItems = addMenuItems;
-exports.addComboItems = addComboItems;
-exports.editItemModifiers = editItemModifiers;
-const menu_expansion_1 = require("@/domain/order/menu-expansion");
-const constants_1 = require("@/components/constants");
+import { expandMenu, expandCombo } from '../../domain/order/menu-expansion';
+import { clone } from '../../lib/utils';
 function round2(n) {
     return Math.round((n + Number.EPSILON) * 100) / 100;
 }
@@ -36,9 +30,9 @@ function findOrCreateOrder(floor, tableId, employeeName, activeTicketId) {
     }
     return { order, table, isNew, activeOid: order.id };
 }
-function addNormalItem(floor, tableId, catalog, input) {
+export function addNormalItem(floor, tableId, catalog, input) {
     var _a, _b, _c;
-    const next = (0, constants_1.clone)(floor);
+    const next = clone(floor);
     const ctx = findOrCreateOrder(next, tableId, input.employeeName || '', input.activeTicketId);
     if (!ctx)
         return null;
@@ -72,13 +66,13 @@ function addNormalItem(floor, tableId, catalog, input) {
     }
     return { floor: next, orderId: order.id, isNewOrder: isNew, itemId };
 }
-function addMenuItems(floor, tableId, catalog, input) {
-    const next = (0, constants_1.clone)(floor);
+export function addMenuItems(floor, tableId, catalog, input) {
+    const next = clone(floor);
     const ctx = findOrCreateOrder(next, tableId, input.employeeName || '');
     if (!ctx)
         return null;
     const { order, isNew } = ctx;
-    const menuItems = (0, menu_expansion_1.expandMenu)(input.product, catalog, input.menuSel);
+    const menuItems = expandMenu(input.product, catalog, input.menuSel);
     for (const mi of menuItems) {
         if (mi.productId && !mi.isMenuPrice) {
             const existing = order.items.find((i) => i.productId === mi.productId && !i.sent && !i.isComboItem && !i.isMenuItem);
@@ -91,13 +85,13 @@ function addMenuItems(floor, tableId, catalog, input) {
     }
     return { floor: next, orderId: order.id, isNewOrder: isNew };
 }
-function addComboItems(floor, tableId, catalog, input) {
-    const next = (0, constants_1.clone)(floor);
+export function addComboItems(floor, tableId, catalog, input) {
+    const next = clone(floor);
     const ctx = findOrCreateOrder(next, tableId, input.employeeName || '');
     if (!ctx)
         return null;
     const { order, isNew } = ctx;
-    const comboItems = (0, menu_expansion_1.expandCombo)(input.product, catalog, input.menuSel);
+    const comboItems = expandCombo(input.product, catalog, input.menuSel);
     for (const ci of comboItems) {
         if (ci.productId && !ci.isComboPrice) {
             const existing = order.items.find((i) => i.productId === ci.productId && !i.sent && !i.isComboItem);
@@ -110,9 +104,9 @@ function addComboItems(floor, tableId, catalog, input) {
     }
     return { floor: next, orderId: order.id, isNewOrder: isNew };
 }
-function editItemModifiers(floor, tableId, catalog, input) {
+export function editItemModifiers(floor, tableId, catalog, input) {
     var _a, _b;
-    const next = (0, constants_1.clone)(floor);
+    const next = clone(floor);
     const table = next.tables.find((t) => t.id === tableId);
     if (!table)
         return null;
@@ -129,3 +123,4 @@ function editItemModifiers(floor, tableId, catalog, input) {
     item.price = round2(basePrice + input.extraPrice);
     return next;
 }
+//# sourceMappingURL=add-items-to-order.js.map

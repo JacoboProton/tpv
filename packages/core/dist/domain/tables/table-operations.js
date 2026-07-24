@@ -1,9 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.moveTableOrder = moveTableOrder;
-exports.mergeTables = mergeTables;
-exports.reopenOrder = reopenOrder;
-function moveTableOrder(floor, srcTableId, dstTableId) {
+export function moveTableOrder(floor, srcTableId, dstTableId) {
     const next = JSON.parse(JSON.stringify(floor));
     const src = next.tables.find((t) => t.id === srcTableId);
     const dst = next.tables.find((t) => t.id === dstTableId);
@@ -25,7 +20,7 @@ function moveTableOrder(floor, srcTableId, dstTableId) {
     dst.status = dst.orderId ? 'unidas' : 'ocupada';
     return next;
 }
-function mergeTables(floor, dstTableId, srcTableIds, employeeName) {
+export function mergeTables(floor, dstTableId, srcTableIds, employeeName) {
     const next = JSON.parse(JSON.stringify(floor));
     const dst = next.tables.find((t) => t.id === dstTableId);
     if (!dst)
@@ -63,7 +58,7 @@ function mergeTables(floor, dstTableId, srcTableIds, employeeName) {
     }
     return next;
 }
-function reopenOrder(floor, tableId, historyEntry) {
+export function reopenOrder(floor, tableId, historyEntry) {
     var _a;
     const next = JSON.parse(JSON.stringify(floor));
     const table = next.tables.find((t) => t.id === tableId);
@@ -83,3 +78,4 @@ function reopenOrder(floor, tableId, historyEntry) {
     }
     return { floor: next, orderId: reopenedId };
 }
+//# sourceMappingURL=table-operations.js.map

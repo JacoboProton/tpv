@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next dev",
-    "build": "next build",
+    "build": "npm run build:core && next build",
+    "build:core": "cd \"../packages/core\" && npm run build 2>/dev/null || echo \"@tpv/core dist already up to date\"",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",

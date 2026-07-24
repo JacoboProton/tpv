@@ -1,21 +1,6 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.changeItemQuantity = changeItemQuantity;
-exports.updateItemNotes = updateItemNotes;
-exports.removeItemFromOrder = removeItemFromOrder;
-exports.sendToKitchenCourse = sendToKitchenCourse;
-exports.sendSingleItemToKitchen = sendSingleItemToKitchen;
-exports.updateItemCourse = updateItemCourse;
-exports.markItemsReady = markItemsReady;
-exports.voidOrderItem = voidOrderItem;
-exports.setLineDiscount = setLineDiscount;
-exports.removeLineDiscount = removeLineDiscount;
-exports.setItemCourtesy = setItemCourtesy;
-exports.removeItemCourtesy = removeItemCourtesy;
-exports.setItemOverridePrice = setItemOverridePrice;
-const constants_1 = require("@/components/constants");
-function changeItemQuantity(floor, orderId, itemId, delta) {
-    const next = (0, constants_1.clone)(floor);
+import { clone } from '../../lib/utils';
+export function changeItemQuantity(floor, orderId, itemId, delta) {
+    const next = clone(floor);
     const order = next.orders[orderId];
     if (!order)
         return null;
@@ -27,8 +12,8 @@ function changeItemQuantity(floor, orderId, itemId, delta) {
         order.items = order.items.filter((i) => i.id !== itemId);
     return next;
 }
-function updateItemNotes(floor, orderId, itemId, notes) {
-    const next = (0, constants_1.clone)(floor);
+export function updateItemNotes(floor, orderId, itemId, notes) {
+    const next = clone(floor);
     const order = next.orders[orderId];
     if (!order)
         return null;
@@ -37,9 +22,9 @@ function updateItemNotes(floor, orderId, itemId, notes) {
         item.notes = notes;
     return next;
 }
-function removeItemFromOrder(floor, tableId, orderId, itemId) {
+export function removeItemFromOrder(floor, tableId, orderId, itemId) {
     var _a, _b;
-    const next = (0, constants_1.clone)(floor);
+    const next = clone(floor);
     const table = next.tables.find((t) => t.id === tableId);
     const order = next.orders[orderId];
     if (!order)
@@ -56,8 +41,8 @@ function removeItemFromOrder(floor, tableId, orderId, itemId) {
     }
     return next;
 }
-function sendToKitchenCourse(floor, orderId, course) {
-    const next = (0, constants_1.clone)(floor);
+export function sendToKitchenCourse(floor, orderId, course) {
+    const next = clone(floor);
     const order = next.orders[orderId];
     if (!order)
         return null;
@@ -69,8 +54,8 @@ function sendToKitchenCourse(floor, orderId, course) {
     });
     return next;
 }
-function sendSingleItemToKitchen(floor, orderId, itemId) {
-    const next = (0, constants_1.clone)(floor);
+export function sendSingleItemToKitchen(floor, orderId, itemId) {
+    const next = clone(floor);
     const order = next.orders[orderId];
     if (!order)
         return null;
@@ -87,8 +72,8 @@ function sendSingleItemToKitchen(floor, orderId, itemId) {
         tableName: (table === null || table === void 0 ? void 0 : table.name) || order.tableId || '',
     };
 }
-function updateItemCourse(floor, orderId, itemId, course) {
-    const next = (0, constants_1.clone)(floor);
+export function updateItemCourse(floor, orderId, itemId, course) {
+    const next = clone(floor);
     const order = next.orders[orderId];
     if (!order)
         return null;
@@ -97,8 +82,8 @@ function updateItemCourse(floor, orderId, itemId, course) {
         item.course = course;
     return next;
 }
-function markItemsReady(floor, orderId, ubicacion) {
-    const next = (0, constants_1.clone)(floor);
+export function markItemsReady(floor, orderId, ubicacion) {
+    const next = clone(floor);
     const order = next.orders[orderId];
     if (!order)
         return null;
@@ -112,8 +97,8 @@ function markItemsReady(floor, orderId, ubicacion) {
     const names = [...new Set(readyItems.map((i) => i.name))];
     return { floor: next, names, tableName: (table === null || table === void 0 ? void 0 : table.name) || order.tableId || '' };
 }
-function voidOrderItem(floor, orderId, itemId, reason, voidedBy) {
-    const next = (0, constants_1.clone)(floor);
+export function voidOrderItem(floor, orderId, itemId, reason, voidedBy) {
+    const next = clone(floor);
     const order = next.orders[orderId];
     if (!order)
         return null;
@@ -126,8 +111,8 @@ function voidOrderItem(floor, orderId, itemId, reason, voidedBy) {
     }
     return next;
 }
-function setLineDiscount(floor, orderId, itemId, pct) {
-    const next = (0, constants_1.clone)(floor);
+export function setLineDiscount(floor, orderId, itemId, pct) {
+    const next = clone(floor);
     const order = next.orders[orderId];
     if (!order)
         return null;
@@ -138,8 +123,8 @@ function setLineDiscount(floor, orderId, itemId, pct) {
     }
     return next;
 }
-function removeLineDiscount(floor, orderId, itemId) {
-    const next = (0, constants_1.clone)(floor);
+export function removeLineDiscount(floor, orderId, itemId) {
+    const next = clone(floor);
     const order = next.orders[orderId];
     if (!order)
         return null;
@@ -148,8 +133,8 @@ function removeLineDiscount(floor, orderId, itemId) {
         item.lineDiscount = 0;
     return next;
 }
-function setItemCourtesy(floor, orderId, itemId) {
-    const next = (0, constants_1.clone)(floor);
+export function setItemCourtesy(floor, orderId, itemId) {
+    const next = clone(floor);
     const order = next.orders[orderId];
     if (!order)
         return null;
@@ -160,8 +145,8 @@ function setItemCourtesy(floor, orderId, itemId) {
     }
     return next;
 }
-function removeItemCourtesy(floor, orderId, itemId) {
-    const next = (0, constants_1.clone)(floor);
+export function removeItemCourtesy(floor, orderId, itemId) {
+    const next = clone(floor);
     const order = next.orders[orderId];
     if (!order)
         return null;
@@ -170,8 +155,8 @@ function removeItemCourtesy(floor, orderId, itemId) {
         item.isCourtesy = false;
     return next;
 }
-function setItemOverridePrice(floor, orderId, itemId, newPrice) {
-    const next = (0, constants_1.clone)(floor);
+export function setItemOverridePrice(floor, orderId, itemId, newPrice) {
+    const next = clone(floor);
     const order = next.orders[orderId];
     if (!order)
         return null;
@@ -181,3 +166,4 @@ function setItemOverridePrice(floor, orderId, itemId, newPrice) {
     }
     return next;
 }
+//# sourceMappingURL=order-item-operations.js.map

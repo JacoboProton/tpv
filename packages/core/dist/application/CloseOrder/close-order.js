@@ -1,22 +1,19 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.executeCloseOrder = executeCloseOrder;
-const offers_1 = require("@/domain/pricing/offers");
-const order_1 = require("@/domain/order/order");
-const payments_1 = require("@/domain/payments/payments");
-const table_1 = require("@/domain/tables/table");
-const stock_1 = require("@/domain/inventory/stock");
-const constants_1 = require("@/components/constants");
-const invoice_1 = require("@/domain/invoice/invoice");
+import { calculateOfferDiscount } from '../../domain/pricing/offers';
+import { calculateOrderTotals } from '../../domain/order/order';
+import { buildPayments, isFiado, hasPendingBizum, formatPaymentMethod } from '../../domain/payments/payments';
+import { closeTableOrders, isDebtPayment } from '../../domain/tables/table';
+import { deductStock } from '../../domain/inventory/stock';
+import { clone } from '../../lib/utils';
+import { generateInvoiceNumber } from '../../domain/invoice/invoice';
 function buildStockLogs(order, catalog, modOptMap, employeeName) {
-    const nextCatalog = (0, constants_1.clone)(catalog);
+    const nextCatalog = clone(catalog);
     const stockLogs = [];
     const now = Date.now();
     for (const item of order.items) {
         if (item.productId) {
             const p = nextCatalog.products.find((pr) => pr.id === item.productId);
             if (p) {
-                const { stockByLocation, newStock } = (0, stock_1.deductStock)(p.stockByLocation, p.ubicacion || 'Bar', item.qty);
+                const { stockByLocation, newStock } = deductStock(p.stockByLocation, p.ubicacion || 'Bar', item.qty);
                 p.stockByLocation = stockByLocation;
                 stockLogs.push({
                     productId: item.productId,
@@ -36,7 +33,7 @@ function buildStockLogs(order, catalog, modOptMap, employeeName) {
                     const p = nextCatalog.products.find((pr) => pr.id === opt.stockArticleId);
                     if (p) {
                         const qty = (opt.stockQuantity || 0) * item.qty;
-                        const { stockByLocation, newStock } = (0, stock_1.deductStock)(p.stockByLocation, p.ubicacion || 'Bar', qty);
+                        const { stockByLocation, newStock } = deductStock(p.stockByLocation, p.ubicacion || 'Bar', qty);
                         p.stockByLocation = stockByLocation;
                         stockLogs.push({
                             productId: opt.stockArticleId,
@@ -54,12 +51,12 @@ function buildStockLogs(order, catalog, modOptMap, employeeName) {
     }
     return { nextCatalog, stockLogs };
 }
-function executeCloseOrder(input) {
+export function executeCloseOrder(input) {
     var _a;
     const { floor, selectedTableId, order, catalog, modifierData, offers, orderDiscount, tipAmount, tipMethod, paymentSplits, paymentIntentId, currentUser, invoice, trainingMode } = input;
-    const nextFloor = (0, constants_1.clone)(floor);
+    const nextFloor = clone(floor);
     const table = nextFloor.tables.find((t) => t.id === selectedTableId);
-    const wasDebt = (0, table_1.isDebtPayment)(order, (_a = table.isFiado) !== null && _a !== void 0 ? _a : false);
+    const wasDebt = isDebtPayment(order, (_a = table.isFiado) !== null && _a !== void 0 ? _a : false);
     const warnings = [];
     const unsentItems = order.items.filter((i) => !i.sent && !i.voided);
     const pendingItems = order.items.filter((i) => i.sent && !i.ready && !i.voided && !i.served);
@@ -78,14 +75,14 @@ function executeCloseOrder(input) {
         }
     }
     const { nextCatalog, stockLogs } = buildStockLogs(order, catalog, modOptMap, currentUser === null || currentUser === void 0 ? void 0 : currentUser.name);
-    const offerDiscountAmount = (0, offers_1.calculateOfferDiscount)(order.items, offers);
-    const { subtotal, discountAmount, total, totalWithTip } = (0, order_1.calculateOrderTotals)(order.items, orderDiscount, offerDiscountAmount, tipAmount);
-    const payments = (0, payments_1.buildPayments)(paymentSplits);
-    const fiado = (0, payments_1.isFiado)(payments);
-    const pendingBizum = (0, payments_1.hasPendingBizum)(payments);
-    const methodLabel = (0, payments_1.formatPaymentMethod)(payments);
+    const offerDiscountAmount = calculateOfferDiscount(order.items, offers);
+    const { subtotal, discountAmount, total, totalWithTip } = calculateOrderTotals(order.items, orderDiscount, offerDiscountAmount, tipAmount);
+    const payments = buildPayments(paymentSplits);
+    const fiado = isFiado(payments);
+    const pendingBizum = hasPendingBizum(payments);
+    const methodLabel = formatPaymentMethod(payments);
     const wantInvoice = !!(invoice.nif.trim() && invoice.name.trim());
-    const invNum = wantInvoice ? (0, invoice_1.generateInvoiceNumber)() : '';
+    const invNum = wantInvoice ? generateInvoiceNumber() : '';
     const sale = {
         id: 's_' + Date.now(),
         tableId: table.id,
@@ -129,7 +126,8 @@ function executeCloseOrder(input) {
     const closedOid = table.orderId;
     if (closedOid) {
         delete nextFloor.orders[closedOid];
-        Object.assign(table, (0, table_1.closeTableOrders)(table, closedOid));
+        Object.assign(table, closeTableOrders(table, closedOid));
     }
     return { nextFloor, nextCatalog, sale, stockLogs, warnings, wasDebt };
 }
+//# sourceMappingURL=close-order.js.map

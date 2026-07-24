@@ -1,12 +1,13 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY tpv-restaturante/package.json tpv-restaturante/package-lock.json ./
+RUN npm ci --include=dev
 
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY tpv-restaturante/ ./
+COPY packages/core ./packages/core
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
@@ -29,6 +30,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/drizzle.config.ts ./
 COPY --from=builder --chown=nextjs:nodejs /app/db ./db
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x docker-entrypoint.sh
+
+COPY --from=builder --chown=nextjs:nodejs /app/packages/core/dist ./node_modules/@tpv/core
 
 USER nextjs
 EXPOSE 3000

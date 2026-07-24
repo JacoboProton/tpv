@@ -1,10 +1,6 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.cancelTable = cancelTable;
-exports.voidTable = voidTable;
-const constants_1 = require("@/components/constants");
-function cancelTable(floor, tableId, employeeName) {
-    const next = (0, constants_1.clone)(floor);
+import { clone } from '../../lib/utils';
+export function cancelTable(floor, tableId, employeeName) {
+    const next = clone(floor);
     const table = next.tables.find((t) => t.id === tableId);
     if (!table)
         return { floor, cancelled: [] };
@@ -31,8 +27,8 @@ function cancelTable(floor, tableId, employeeName) {
     table.isFiado = false;
     return { floor: next, cancelled };
 }
-function voidTable(floor, tableId, reason, employeeName) {
-    const next = (0, constants_1.clone)(floor);
+export function voidTable(floor, tableId, reason, employeeName) {
+    const next = clone(floor);
     const table = next.tables.find((t) => t.id === tableId);
     if (!table)
         return { floor, cancelled: [] };
@@ -63,3 +59,4 @@ function voidTable(floor, tableId, reason, employeeName) {
     table.isFiado = false;
     return { floor: next, cancelled };
 }
+//# sourceMappingURL=cancel-table.js.map

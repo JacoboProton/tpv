@@ -1,4 +1,4 @@
-import type { Sale } from '@/domain/types';
+import type { Sale } from '../../domain/types';
 export interface SalesQueueDeps {
     addSale: (sale: Sale) => Promise<{
         ok: boolean;
@@ -7,6 +7,8 @@ export interface SalesQueueDeps {
     setSales: (updater: (prev: Sale[]) => Sale[]) => void;
     cacheSet: (key: string, value: Sale[] | null) => void;
     showToast: (msg: string) => void;
+    log: (msg: string) => void;
+    wait: (ms: number) => Promise<void>;
 }
 export declare function processSalesQueue(queue: Sale[], processingRef: {
     current: boolean;

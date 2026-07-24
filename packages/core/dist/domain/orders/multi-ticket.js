@@ -1,11 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.createTicket = createTicket;
-exports.deleteTicket = deleteTicket;
-exports.renameTicket = renameTicket;
-exports.linkCustomer = linkCustomer;
-exports.unlinkCustomer = unlinkCustomer;
-function createTicket(floor, tableId, employeeName) {
+export function createTicket(floor, tableId, employeeName) {
     var _a;
     const next = JSON.parse(JSON.stringify(floor));
     const table = next.tables.find((t) => t.id === tableId);
@@ -25,7 +18,7 @@ function createTicket(floor, tableId, employeeName) {
         table.status = 'ocupada';
     return { floor: next, orderId, ticketNum };
 }
-function deleteTicket(floor, tableId, orderId) {
+export function deleteTicket(floor, tableId, orderId) {
     const next = JSON.parse(JSON.stringify(floor));
     const table = next.tables.find((t) => t.id === tableId);
     const order = next.orders[orderId];
@@ -43,24 +36,25 @@ function deleteTicket(floor, tableId, orderId) {
     }
     return { floor: next, activeOrderId: table.orderId || null };
 }
-function renameTicket(floor, orderId, label) {
+export function renameTicket(floor, orderId, label) {
     const next = JSON.parse(JSON.stringify(floor));
     const order = next.orders[orderId];
     if (order)
         order.label = label;
     return next;
 }
-function linkCustomer(floor, orderId, customer) {
+export function linkCustomer(floor, orderId, customer) {
     const next = JSON.parse(JSON.stringify(floor));
     const order = next.orders[orderId];
     if (order)
         order.customer = customer;
     return next;
 }
-function unlinkCustomer(floor, orderId) {
+export function unlinkCustomer(floor, orderId) {
     const next = JSON.parse(JSON.stringify(floor));
     const order = next.orders[orderId];
     if (order)
         order.customer = null;
     return next;
 }
+//# sourceMappingURL=multi-ticket.js.map

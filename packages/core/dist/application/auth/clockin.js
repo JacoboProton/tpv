@@ -1,8 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.loadClockinSummary = loadClockinSummary;
-exports.handleClockinAction = handleClockinAction;
-async function loadClockinSummary(currentUser, deps) {
+export async function loadClockinSummary(currentUser, deps) {
     if (!currentUser)
         return;
     deps.setClockinLoading(true);
@@ -13,7 +9,7 @@ async function loadClockinSummary(currentUser, deps) {
     catch (_a) { }
     deps.setClockinLoading(false);
 }
-async function handleClockinAction(currentUser, action, deps) {
+export async function handleClockinAction(currentUser, action, deps) {
     if (!currentUser)
         return;
     try {
@@ -36,3 +32,4 @@ async function handleClockinAction(currentUser, action, deps) {
         deps.showToast('❌ Error de conexión');
     }
 }
+//# sourceMappingURL=clockin.js.map

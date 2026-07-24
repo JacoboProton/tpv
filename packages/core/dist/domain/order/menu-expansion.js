@@ -1,8 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.expandMenu = expandMenu;
-exports.expandCombo = expandCombo;
-function expandMenu(product, catalog, menuSel) {
+export function expandMenu(product, catalog, menuSel) {
     const menu = product.menuData;
     const items = [];
     if (menuSel && menuSel.length > 0) {
@@ -31,7 +27,7 @@ function expandMenu(product, catalog, menuSel) {
     });
     return items;
 }
-function expandCombo(product, catalog, comboSel) {
+export function expandCombo(product, catalog, comboSel) {
     const combo = product.comboData;
     const items = [];
     if (comboSel && comboSel.length > 0) {
@@ -74,3 +70,4 @@ function expandCombo(product, catalog, comboSel) {
     });
     return items;
 }
+//# sourceMappingURL=menu-expansion.js.map

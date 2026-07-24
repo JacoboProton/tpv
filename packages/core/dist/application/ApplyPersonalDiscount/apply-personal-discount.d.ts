@@ -1,5 +1,13 @@
-import type { VerifiedEmployee } from '@/application/auth/verify-pin';
-import type { Floor, Catalog, Employee } from '@/domain/types';
+import type { Floor, Catalog, Employee } from '../../domain/types';
+export interface VerifiedEmployee {
+    id: string;
+    name: string;
+    role: string;
+    personalDiscountEnabled: boolean;
+    monthlyLimit: number;
+    monthlyUsed: number;
+    monthlyUsedMonth: string | null;
+}
 export interface ApplyPersonalDiscountDeps {
     verifyEmployeePin: (pin: string) => Promise<VerifiedEmployee | null>;
     getRates: () => Record<string, number>;

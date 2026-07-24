@@ -1,7 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.calculateOfferDiscount = calculateOfferDiscount;
-function calculateOfferDiscount(items, offers, now) {
+export function calculateOfferDiscount(items, offers, now) {
     const date = now || new Date();
     const currentDay = date.getDay() === 0 ? 7 : date.getDay();
     const currentHour = date.getHours();
@@ -24,3 +21,4 @@ function calculateOfferDiscount(items, offers, now) {
 function round2(n) {
     return Math.round(n * 100) / 100;
 }
+//# sourceMappingURL=offers.js.map

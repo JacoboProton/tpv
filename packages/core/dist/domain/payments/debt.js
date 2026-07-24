@@ -1,7 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.createDebtOrder = createDebtOrder;
-function createDebtOrder(floor, tableId, lastFiadoSale) {
+export function createDebtOrder(floor, tableId, lastFiadoSale) {
     const next = JSON.parse(JSON.stringify(floor));
     const table = next.tables.find((t) => t.id === tableId);
     if (!table)
@@ -21,3 +18,4 @@ function createDebtOrder(floor, tableId, lastFiadoSale) {
     table.orderId = debtOrderId;
     return next;
 }
+//# sourceMappingURL=debt.js.map

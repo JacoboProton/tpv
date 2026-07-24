@@ -1,11 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.calculatePersonalDiscountAmount = calculatePersonalDiscountAmount;
-exports.applyDiscountRates = applyDiscountRates;
-exports.removeDiscountRates = removeDiscountRates;
-exports.buildEmployeeMonthlyUsage = buildEmployeeMonthlyUsage;
-exports.buildEmployeeMonthlyUsageDecrement = buildEmployeeMonthlyUsageDecrement;
-function calculatePersonalDiscountAmount(items, rates, catalog) {
+export function calculatePersonalDiscountAmount(items, rates, catalog) {
     var _a;
     let total = 0;
     for (const item of items) {
@@ -22,7 +15,7 @@ function calculatePersonalDiscountAmount(items, rates, catalog) {
     }
     return Math.round((total + Number.EPSILON) * 100) / 100;
 }
-function applyDiscountRates(items, rates, catalog) {
+export function applyDiscountRates(items, rates, catalog) {
     return items.map((item) => {
         var _a;
         if (item.voided)
@@ -34,7 +27,7 @@ function applyDiscountRates(items, rates, catalog) {
         return Object.assign(Object.assign({}, item), { lineDiscount: rate > 0 ? rate : 0, isCourtesy: rate > 0 ? false : item.isCourtesy });
     });
 }
-function removeDiscountRates(items, rates, catalog) {
+export function removeDiscountRates(items, rates, catalog) {
     return items.map((item) => {
         var _a;
         const p = (_a = catalog === null || catalog === void 0 ? void 0 : catalog.products) === null || _a === void 0 ? void 0 : _a.find((pr) => pr.id === item.productId);
@@ -47,7 +40,7 @@ function removeDiscountRates(items, rates, catalog) {
         return item;
     });
 }
-function buildEmployeeMonthlyUsage(employees, empId, discountAmount, now) {
+export function buildEmployeeMonthlyUsage(employees, empId, discountAmount, now) {
     const d = now || new Date();
     const currentMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     return employees.map((e) => {
@@ -57,7 +50,7 @@ function buildEmployeeMonthlyUsage(employees, empId, discountAmount, now) {
         return Object.assign(Object.assign({}, e), { monthlyUsedMonth: currentMonth, monthlyUsed: used + discountAmount });
     });
 }
-function buildEmployeeMonthlyUsageDecrement(employees, empId, discountAmount, now) {
+export function buildEmployeeMonthlyUsageDecrement(employees, empId, discountAmount, now) {
     const d = now || new Date();
     const currentMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     return employees.map((e) => {
@@ -67,3 +60,4 @@ function buildEmployeeMonthlyUsageDecrement(employees, empId, discountAmount, no
         return Object.assign(Object.assign({}, e), { monthlyUsedMonth: currentMonth, monthlyUsed: Math.max(0, used - discountAmount) });
     });
 }
+//# sourceMappingURL=personal-discount.js.map

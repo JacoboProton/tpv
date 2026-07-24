@@ -1,8 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.normalizeTableFields = normalizeTableFields;
-exports.migrateTo3ColumnLayout = migrateTo3ColumnLayout;
-function normalizeTableFields(tables) {
+export function normalizeTableFields(tables) {
     return tables.map((t) => {
         if (!t.orderIds && t.orderId)
             return Object.assign(Object.assign({}, t), { orderIds: [t.orderId] });
@@ -11,7 +7,7 @@ function normalizeTableFields(tables) {
         return t;
     });
 }
-function migrateTo3ColumnLayout(floor) {
+export function migrateTo3ColumnLayout(floor) {
     const next = JSON.parse(JSON.stringify(floor));
     const mesas = next.tables.filter((t) => t.type === 'mesa');
     const barras = next.tables.filter((t) => t.type === 'barra');
@@ -56,3 +52,4 @@ function createDefaultTable(id, name, type, x, y) {
         layer: 0, color: '',
     };
 }
+//# sourceMappingURL=floor-layout.js.map

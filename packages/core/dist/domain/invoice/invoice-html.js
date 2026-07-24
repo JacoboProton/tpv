@@ -1,13 +1,10 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.buildInvoiceHtml = buildInvoiceHtml;
-const constants_1 = require("@/components/constants");
-const invoice_1 = require("@/domain/invoice/invoice");
-function buildInvoiceHtml(ticketSettings, sale) {
+import { euros } from '../../lib/utils';
+import { calculateIgic } from './invoice';
+export function buildInvoiceHtml(ticketSettings, sale) {
     const { restaurantName, companyCif, companyAddress, companyPhone, footerText } = ticketSettings;
     const totalConIva = sale.total || 0;
-    const { baseImponible, cuotaIgic } = (0, invoice_1.calculateIgic)(totalConIva);
-    const itemsHtml = (sale.items || []).filter((i) => !i.voided).map((i) => `<tr><td style="padding:3px 0">${i.name.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td><td style="text-align:center;width:40px">${i.qty}</td><td style="text-align:right;width:70px">${(0, constants_1.euros)(i.price)}</td><td style="text-align:right;width:80px">${(0, constants_1.euros)((i.price || 0) * (i.qty || 0))}</td></tr>`).join('');
+    const { baseImponible, cuotaIgic } = calculateIgic(totalConIva);
+    const itemsHtml = (sale.items || []).filter((i) => !i.voided).map((i) => `<tr><td style="padding:3px 0">${i.name.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td><td style="text-align:center;width:40px">${i.qty}</td><td style="text-align:right;width:70px">${euros(i.price)}</td><td style="text-align:right;width:80px">${euros((i.price || 0) * (i.qty || 0))}</td></tr>`).join('');
     return `<html><head><meta charset="utf-8"><style>
     @page { margin:8mm 12mm; size: A4; }
     body { font-family:'Segoe UI',Arial,sans-serif; font-size:11px; color:#222; margin:0; padding:0; }
@@ -44,13 +41,14 @@ function buildInvoiceHtml(ticketSettings, sale) {
     <table>
       <tr><th>Artículo</th><th style="text-align:center">Ud.</th><th style="text-align:right">Precio</th><th style="text-align:right">Importe</th></tr>
       ${itemsHtml}
-      <tr><td colspan="3" style="border:none;padding:3px 4px;font-size:10px;color:#555;text-align:right">Base Imponible</td><td class="r igic-line">${(0, constants_1.euros)(baseImponible)}</td></tr>
-      <tr><td colspan="3" style="border:none;padding:1px 4px;font-size:10px;color:#555;text-align:right">IGIC 7%</td><td class="r igic-line">${(0, constants_1.euros)(cuotaIgic)}</td></tr>
-      <tr class="g"><td colspan="3" style="text-align:right;font-size:12px">TOTAL</td><td class="r" style="font-size:13px">${(0, constants_1.euros)(totalConIva)}</td></tr>
+      <tr><td colspan="3" style="border:none;padding:3px 4px;font-size:10px;color:#555;text-align:right">Base Imponible</td><td class="r igic-line">${euros(baseImponible)}</td></tr>
+      <tr><td colspan="3" style="border:none;padding:1px 4px;font-size:10px;color:#555;text-align:right">IGIC 7%</td><td class="r igic-line">${euros(cuotaIgic)}</td></tr>
+      <tr class="g"><td colspan="3" style="text-align:right;font-size:12px">TOTAL</td><td class="r" style="font-size:13px">${euros(totalConIva)}</td></tr>
     </table>
-    ${sale.tip > 0 ? `<p style="font-size:10px;color:#888;text-align:right">Propina (NO fiscal): +${(0, constants_1.euros)(sale.tip)}</p>` : ''}
+    ${sale.tip > 0 ? `<p style="font-size:10px;color:#888;text-align:right">Propina (NO fiscal): +${euros(sale.tip)}</p>` : ''}
     ${sale.discount > 0 ? `<p style="font-size:10px;color:#888;text-align:right">Descuento aplicado: ${sale.discount}%</p>` : ''}
     ${sale.invoiceEmail ? `<p style="font-size:9px;color:#888;margin-top:8px">Enviada a: ${sale.invoiceEmail}</p>` : ''}
     <div class="footer">${footerText || 'Gracias por su visita'}</div>
   </body></html>`;
 }
+//# sourceMappingURL=invoice-html.js.map

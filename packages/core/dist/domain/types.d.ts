@@ -14,6 +14,7 @@ export interface Product {
     barcode?: string;
     categoryId: string;
     category?: string;
+    description?: string;
     agotado?: boolean;
     show_tpv?: boolean;
     show_qr?: boolean;
@@ -35,6 +36,7 @@ export interface Category {
     name: string;
     active?: boolean;
     show_qr?: boolean;
+    sort_order?: number;
 }
 export interface NewProductInput {
     name: string;
@@ -65,6 +67,9 @@ export interface OrderItem {
     voidedBy?: string;
     voidedAt?: number;
     sentAt?: number | null;
+    delivered?: boolean;
+    servedBy?: string;
+    servedAt?: number;
     notes?: string;
     modifiers?: any[];
     course?: string;
@@ -83,6 +88,7 @@ export interface Order {
     items: OrderItem[];
     employeeName?: string;
     createdAt?: number;
+    source?: string;
     label?: string;
     customer?: any;
     _mergedFrom?: string[];
@@ -121,6 +127,13 @@ export interface Table {
     isFiado?: boolean;
     reserved?: boolean;
     reserved_for?: string;
+    reservation?: {
+        for?: string;
+        until?: number;
+        name?: string;
+        pax?: number;
+        notes?: string;
+    } | null;
     mergedTableIds?: string[] | null;
     x?: number;
     y?: number;
@@ -140,6 +153,8 @@ export interface Floor {
     history?: Record<string, any[]>;
     id?: string;
     name?: string;
+    zones?: Zone[];
+    background?: string | null;
 }
 export interface Payment {
     method: string;
@@ -154,6 +169,15 @@ export interface PaymentSplit {
 export interface RefundInput {
     amount: number;
     reason?: string;
+}
+export interface SaleItem {
+    id: string;
+    productId: string;
+    name: string;
+    price: number;
+    qty: number;
+    modifiers?: ModifierSelection[];
+    notes?: string;
 }
 export interface SaleRefund extends RefundInput {
     employeeName: string;
@@ -192,8 +216,12 @@ export interface Sale {
     hasPendingBizum?: boolean;
     isDebtPayment?: boolean;
     stripe_confirmed?: boolean;
+    stripeConfirmed?: boolean;
     dispute_status?: string;
+    disputeStatus?: string;
     dispute_data?: any;
+    verifactuStatus?: string;
+    verifactuNumSerie?: string;
 }
 export interface CurrentUser {
     id: string;
@@ -207,6 +235,8 @@ export interface Employee {
     pin?: string;
     monthlyUsed?: number;
     monthlyUsedMonth?: string;
+    personalDiscountEnabled?: boolean;
+    monthlyLimit?: number;
 }
 export interface Catalog {
     products: Product[];
@@ -242,5 +272,32 @@ export interface PriceRule {
     productId?: string;
     discountPct?: number;
     type?: string;
+}
+export interface ModifierOption {
+    id: string;
+    group_id: string;
+    name: string;
+    price_delta: number;
+    is_default: boolean;
+    sort_order: number;
+}
+export interface ModifierGroup {
+    id: string;
+    name: string;
+    type: 'single' | 'multiple';
+    required: boolean;
+    options: ModifierOption[];
+}
+export interface ModifierSelection {
+    groupId: string;
+    groupName: string;
+    optionId: string;
+    optionName: string;
+    priceDelta: number;
+}
+export interface Zone {
+    id: string;
+    name: string;
+    color: string;
 }
 //# sourceMappingURL=types.d.ts.map

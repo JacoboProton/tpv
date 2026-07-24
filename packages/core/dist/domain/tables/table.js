@@ -1,21 +1,14 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.determineTableStatus = determineTableStatus;
-exports.isDebtPayment = isDebtPayment;
-exports.closeTableOrders = closeTableOrders;
-exports.removeOrderFromTable = removeOrderFromTable;
-exports.clearTable = clearTable;
-function determineTableStatus(orderIds, isReserved) {
+export function determineTableStatus(orderIds, isReserved) {
     if (!orderIds || orderIds.length === 0)
         return isReserved ? 'ocupada' : 'libre';
     if (orderIds.length > 1)
         return 'unidas';
     return 'ocupada';
 }
-function isDebtPayment(order, isFiado) {
+export function isDebtPayment(order, isFiado) {
     return isFiado && order.items.length === 1 && order.items[0].productId === null;
 }
-function closeTableOrders(table, closedOrderId) {
+export function closeTableOrders(table, closedOrderId) {
     const orderIds = (table.orderIds || []).filter(id => id !== closedOrderId);
     if (orderIds.length === 0) {
         return { orderId: null, orderIds: [], status: 'libre', isFiado: false };
@@ -27,7 +20,7 @@ function closeTableOrders(table, closedOrderId) {
         isFiado: table.isFiado || false,
     };
 }
-function removeOrderFromTable(table, orderId) {
+export function removeOrderFromTable(table, orderId) {
     const orderIds = (table.orderIds || []).filter(id => id !== orderId);
     if (orderIds.length === 0) {
         return { orderId: null, orderIds: [], status: table.reserved ? 'ocupada' : 'libre' };
@@ -38,6 +31,7 @@ function removeOrderFromTable(table, orderId) {
         status: 'ocupada',
     };
 }
-function clearTable(table) {
+export function clearTable(table) {
     return { orderId: null, orderIds: [], status: 'libre', isFiado: false };
 }
+//# sourceMappingURL=table.js.map

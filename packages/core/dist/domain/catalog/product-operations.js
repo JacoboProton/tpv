@@ -1,15 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.createProduct = createProduct;
-exports.ensureCategoryExists = ensureCategoryExists;
-exports.removeProduct = removeProduct;
-exports.toggleProductAgotado = toggleProductAgotado;
-exports.getProductImage = getProductImage;
-exports.addProductToCatalog = addProductToCatalog;
-exports.setProductField = setProductField;
-exports.getLowStockProducts = getLowStockProducts;
-exports.detectStockChanges = detectStockChanges;
-function createProduct(data) {
+export function createProduct(data) {
     var _a, _b;
     const loc = data.ubicacion || 'Bar';
     return {
@@ -24,27 +13,27 @@ function createProduct(data) {
         },
     };
 }
-function ensureCategoryExists(catalog, category) {
+export function ensureCategoryExists(catalog, category) {
     if (catalog.categories.some(c => c.name === category))
         return catalog;
     return Object.assign(Object.assign({}, catalog), { categories: [...catalog.categories, { id: 'cat_' + Date.now(), name: category }] });
 }
-function removeProduct(catalog, productId) {
+export function removeProduct(catalog, productId) {
     return Object.assign(Object.assign({}, catalog), { products: catalog.products.filter(p => p.id !== productId) });
 }
-function toggleProductAgotado(catalog, productId, agotado) {
+export function toggleProductAgotado(catalog, productId, agotado) {
     return Object.assign(Object.assign({}, catalog), { products: catalog.products.map(p => p.id === productId ? Object.assign(Object.assign({}, p), { agotado }) : p) });
 }
-function getProductImage(catalog, productId) {
+export function getProductImage(catalog, productId) {
     var _a, _b;
     return (_b = (_a = catalog === null || catalog === void 0 ? void 0 : catalog.products) === null || _a === void 0 ? void 0 : _a.find(p => p.id === productId)) === null || _b === void 0 ? void 0 : _b.image;
 }
-function addProductToCatalog(catalog, productData) {
+export function addProductToCatalog(catalog, productData) {
     const next = JSON.parse(JSON.stringify(catalog));
     next.products.push(createProduct(productData));
     return ensureCategoryExists(next, productData.category);
 }
-function setProductField(catalog, productId, field, value) {
+export function setProductField(catalog, productId, field, value) {
     const next = JSON.parse(JSON.stringify(catalog));
     const p = next.products.find(p => p.id === productId);
     if (!p)
@@ -57,7 +46,7 @@ function setProductField(catalog, productId, field, value) {
     }
     return next;
 }
-function getLowStockProducts(catalog) {
+export function getLowStockProducts(catalog) {
     if (!(catalog === null || catalog === void 0 ? void 0 : catalog.products))
         return [];
     return catalog.products.filter(p => {
@@ -66,7 +55,7 @@ function getLowStockProducts(catalog) {
         return Object.values(p.stockByLocation).some((entry) => { var _a; return entry.stock <= ((_a = entry.lowStock) !== null && _a !== void 0 ? _a : 0); });
     });
 }
-function detectStockChanges(oldCatalog, newCatalog, productId) {
+export function detectStockChanges(oldCatalog, newCatalog, productId) {
     var _a, _b;
     const oldProduct = (_a = oldCatalog === null || oldCatalog === void 0 ? void 0 : oldCatalog.products) === null || _a === void 0 ? void 0 : _a.find(p => p.id === productId);
     const newProduct = (_b = newCatalog === null || newCatalog === void 0 ? void 0 : newCatalog.products) === null || _b === void 0 ? void 0 : _b.find(p => p.id === productId);
@@ -90,3 +79,4 @@ function detectStockChanges(oldCatalog, newCatalog, productId) {
     }
     return deltas;
 }
+//# sourceMappingURL=product-operations.js.map

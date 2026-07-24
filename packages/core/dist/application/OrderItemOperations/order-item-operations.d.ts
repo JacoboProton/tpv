@@ -1,4 +1,4 @@
-import type { Floor } from '@/domain/types';
+import type { Floor } from '../../domain/types';
 export declare function changeItemQuantity(floor: Floor, orderId: string, itemId: string, delta: number): Floor | null;
 export declare function updateItemNotes(floor: Floor, orderId: string, itemId: string, notes: string): Floor | null;
 export declare function removeItemFromOrder(floor: Floor, tableId: string, orderId: string, itemId: string): Floor | null;
