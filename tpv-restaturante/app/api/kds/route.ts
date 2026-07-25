@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
       const { code, label, deviceId } = body;
       const db = getDb();
       const allCodes = await db.select({ c: kdsPairings.code, r: kdsPairings.revoked, e: kdsPairings.expiresAt }).from(kdsPairings);
-      const match = allCodes.find(r => r.c === code);
+      const match = allCodes.find((r: { c: string }) => r.c === code);
       const rows = await db.select().from(kdsPairings)
         .where(and(eq(kdsPairings.code, code), eq(kdsPairings.revoked, false)))
         .limit(1);
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
       }
       if (rows.length === 0 || rows[0].expiresAt <= Date.now()) {
         if (!match) {
-          return apiOk({ _debug: 'code not found in DB at all', searchedCode: code, allCodes: allCodes.map(r => r.c) });
+          return apiOk({ _debug: 'code not found in DB at all', searchedCode: code, allCodes: allCodes.map((r: { c: string }) => r.c) });
         }
         return apiBadRequest('Código inválido o caducado');
       }
