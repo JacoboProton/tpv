@@ -1,9 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { NextRequest } from 'next/server';
 
+const mockRbac = vi.hoisted(() => ({ authorized: true, employee: { id: 'e1', role: 'admin', tenantId: 'default' } }));
+
+vi.mock('../lib/rbac', () => ({ requireRole: () => async () => mockRbac }));
+vi.mock('../lib/tenant', () => ({ getTenantId: () => 'default' }));
+
 function mockReq(): NextRequest {
   return new Request('http://localhost', {
-    headers: { 'x-forwarded-for': '127.0.0.1' },
+    headers: { 'x-forwarded-for': '127.0.0.1', 'x-tenant-id': 'default' },
   }) as unknown as NextRequest;
 }
 
@@ -41,6 +46,8 @@ describe('terminal-connection-token API route', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
+    mockRbac.authorized = true;
+    mockRbac.employee = { id: 'e1', role: 'admin', tenantId: 'default' };
     delete (globalThis as Record<string, unknown>).__stripeLocationId;
   });
 
