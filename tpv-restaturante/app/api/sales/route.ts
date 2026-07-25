@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
       .orderBy(desc(sales.closedAt));
 
     const saleIds = rows.map((r: any) => r.id);
-    let verifactuMap: Record<string, { estado: string; numSerie: string }> = {};
+    const verifactuMap: Record<string, { estado: string; numSerie: string }> = {};
     if (saleIds.length > 0) {
       const verifactuRows = await db
         .select({ saleId: verifactuRegistros.saleId, estado: verifactuRegistros.estado, numSerie: verifactuRegistros.numSerie })

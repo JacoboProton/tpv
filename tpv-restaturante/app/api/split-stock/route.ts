@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
       id: products.id, name: products.name, category: products.category, ubicacion: products.ubicacion,
     }).from(products).where(eq(products.tenantId, tenantId));
 
-    let moved: string[] = [];
+    const moved: string[] = [];
     for (const p of productList) {
       const s = SPLIT[p.category];
       if (!s) continue;

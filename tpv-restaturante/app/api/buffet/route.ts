@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
       if (session.order_id) {
         const [existingOrder] = await qr(db, sql`SELECT * FROM orders WHERE id = ${session.order_id} AND tenant_id = ${tenantId}`);
         if (existingOrder) {
-          let items = (existingOrder.items || []).filter((i: any) => i.productId !== 'buffet_cover' && i.productId !== 'buffet_child' && i.productId !== 'buffet_senior');
+          const items = (existingOrder.items || []).filter((i: any) => i.productId !== 'buffet_cover' && i.productId !== 'buffet_child' && i.productId !== 'buffet_senior');
           items.push({ id: 'cvr_' + Date.now(), productId: 'buffet_cover', name: `Buffet cubierto ${a} adulto${a !== 1 ? 's' : ''}`, price: Number(coverEffective), qty: a, sent: true, ready: true, sentAt: existingOrder.created_at, notes: '', modifiers: [], course: 'buffet' });
           if (c > 0) items.push({ id: 'cvr_' + Date.now() + '_1', productId: 'buffet_child', name: `Buffet ${c} niño${c !== 1 ? 's' : ''}`, price: Number(session.child_price_snapshot), qty: c, sent: true, ready: true, sentAt: existingOrder.created_at, notes: '', modifiers: [], course: 'buffet' });
           if (s > 0) items.push({ id: 'cvr_' + Date.now() + '_2', productId: 'buffet_senior', name: `Buffet ${s} mayor${s !== 1 ? 'es' : ''}`, price: Number(session.senior_price_snapshot), qty: s, sent: true, ready: true, sentAt: existingOrder.created_at, notes: '', modifiers: [], course: 'buffet' });
@@ -164,7 +164,7 @@ export async function POST(req: NextRequest) {
           if (s.order_id) {
             const [o] = await qr(db, sql`SELECT * FROM orders WHERE id = ${s.order_id} AND tenant_id = ${tenantId}`);
             if (o) {
-              let items = (o.items || []).filter((i: any) => i.productId !== 'buffet_cover' && i.productId !== 'buffet_child' && i.productId !== 'buffet_senior');
+              const items = (o.items || []).filter((i: any) => i.productId !== 'buffet_cover' && i.productId !== 'buffet_child' && i.productId !== 'buffet_senior');
               items.push({ id: 'cvr_' + Date.now(), productId: 'buffet_cover', name: `Buffet cubierto ${s.adult_count} adultos`, price: Number(coverEff), qty: s.adult_count, sent: true, ready: true, sentAt: o.created_at, notes: '', modifiers: [], course: 'buffet' });
               if (s.child_count > 0) items.push({ id: 'cvr_' + Date.now() + '_1', productId: 'buffet_child', name: `Buffet ${s.child_count} niños`, price: Number(s.child_price_snapshot), qty: s.child_count, sent: true, ready: true, sentAt: o.created_at, notes: '', modifiers: [], course: 'buffet' });
               if (s.senior_count > 0) items.push({ id: 'cvr_' + Date.now() + '_2', productId: 'buffet_senior', name: `Buffet ${s.senior_count} mayores`, price: Number(s.senior_price_snapshot), qty: s.senior_count, sent: true, ready: true, sentAt: o.created_at, notes: '', modifiers: [], course: 'buffet' });

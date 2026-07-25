@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     const turnDate = searchParams.get('turnDate');
     const db = getDb();
 
-    let conditions = [eq(employeeTurns.tenantId, tenantId)];
+    const conditions = [eq(employeeTurns.tenantId, tenantId)];
     if (employeeId && turnDate) {
       conditions.push(eq(employeeTurns.employeeId, employeeId));
       conditions.push(eq(employeeTurns.turnDate, turnDate));

@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
       return apiOk((result as any).rows);
     }
 
-    let conditions = [eq(employeeShifts.tenantId, tenantId)];
+    const conditions = [eq(employeeShifts.tenantId, tenantId)];
     if (employeeId) conditions.push(eq(employeeShifts.employeeId, employeeId));
     if (from) conditions.push(sql`${employeeShifts.date} >= ${from}`);
     if (to) conditions.push(sql`${employeeShifts.date} <= ${to}`);

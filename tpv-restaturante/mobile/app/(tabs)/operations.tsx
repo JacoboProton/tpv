@@ -75,7 +75,7 @@ export default function OperationsRoute() {
     setLoading(false);
   }
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
+   
   useEffect(() => { loadAll(); }, []);
 
   async function handleUpdateSettings(key: string, value: string) {
@@ -811,7 +811,7 @@ function AuthorizationTab({ authorization, onDataChange, C: _C }: {
   const [nif, setNif] = useState('');
   const [socialRed, setSocialRed] = useState(false);
 
-  /* eslint-disable react-hooks/set-state-in-effect */
+   
   useEffect(() => {
     if (authorization) {
       setName(authorization.accountant_name || '');
@@ -819,7 +819,7 @@ function AuthorizationTab({ authorization, onDataChange, C: _C }: {
       setSocialRed(authorization.social_security_red || false);
     }
   }, [authorization]);
-  /* eslint-enable react-hooks/set-state-in-effect */
+   
 
   const isAuthorized = authorization?.signed_at && !authorization?.revoked;
 

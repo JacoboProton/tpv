@@ -6,8 +6,8 @@ import { qrCalls, tables } from '../../../db/schema';
 import { apiOk, apiError } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
 
-let callsCache: Record<string, any> = {};
-let cacheTime: Record<string, any> = {};
+const callsCache: Record<string, any> = {};
+const cacheTime: Record<string, any> = {};
 
 export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin', 'camarero'])(req);
