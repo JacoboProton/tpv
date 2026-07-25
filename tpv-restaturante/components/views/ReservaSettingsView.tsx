@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Clock, RefreshCw, MessageSquare, CreditCard, Calendar, Globe, Bell, Shield, Ban, Repeat, Star } from 'lucide-react';
-import type { Theme } from './constants';
+import type { Theme } from '../constants';
 
 const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 const DAY_SHORT = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
@@ -50,7 +50,7 @@ export default function ReservaSettingsView({ colors: C }: ReservaSettingsViewPr
   async function loadAll() {
     setLoading(true);
     try {
-      const { fetchSettings } = await import('../lib/api');
+      const { fetchSettings } = await import('../../lib/api');
       const s = await fetchSettings() as Record<string, string>;
       setSettings(s);
       setLocalShifts(parseJSON<Shift[]>(s.reservationShifts, []));
@@ -78,7 +78,7 @@ export default function ReservaSettingsView({ colors: C }: ReservaSettingsViewPr
   async function handleSave(nextSettings: Record<string, string>) {
     setSaving(true);
     try {
-      const { saveSettings } = await import('../lib/api');
+      const { saveSettings } = await import('../../lib/api');
       await saveSettings({ ...settings, ...nextSettings });
       setSettings(prev => ({ ...prev!, ...nextSettings }));
     } catch {}

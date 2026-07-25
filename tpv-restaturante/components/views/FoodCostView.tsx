@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Filter, ArrowUpDown, Download, Edit, Loader2 } from 'lucide-react';
-import type { Theme } from './constants';
+import type { Theme } from '../constants';
 
 interface FoodCostItem {
   id: string;

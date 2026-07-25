@@ -1,5 +1,5 @@
 import { WifiOff } from 'lucide-react';
-import type { Theme } from './constants';
+import type { Theme } from '../constants';
 
 export function OfflineBanner({ colors, pendingMutations }: { colors: Theme; pendingMutations: number }) {
   return (

@@ -1,7 +1,7 @@
 'use client'
 
-import { saveSettings } from '../lib/api'
-import { enqueueMutation } from '../lib/offline'
+import { saveSettings } from '../../lib/api'
+import { enqueueMutation } from '../../lib/offline'
 
 interface Props {
   C: Record<string, string>

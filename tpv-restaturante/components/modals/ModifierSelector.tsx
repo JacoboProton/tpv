@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Check } from 'lucide-react';
-import { euros } from './constants';
-import type { Theme } from './constants';
+import { euros } from '../constants';
+import type { Theme } from '../constants';
 
 interface ModifierOption {
   id: string;

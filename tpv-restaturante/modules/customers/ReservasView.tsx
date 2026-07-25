@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Plus, X, Calendar, Clock, Users, Phone, Mail, MapPin, Check, Trash2, Search } from 'lucide-react';
 import type { Theme } from '@/components/constants';
-import ReservaSettingsView from '@/components/ReservaSettingsView';
+import ReservaSettingsView from '@/components/views/ReservaSettingsView';
 
 interface Reservation {
   id: string;

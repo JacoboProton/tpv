@@ -20,7 +20,7 @@ import {
   ShoppingBag,
   Tag,
 } from 'lucide-react';
-import ModifierSelector from '@/components/ModifierSelector';
+import ModifierSelector from '@/components/modals/ModifierSelector';
 import { seedModifierGroups, DEFAULT_PRODUCT_MODIFIERS } from '@/lib/modifiers';
 
 const C: Theme = THEMES.dark;

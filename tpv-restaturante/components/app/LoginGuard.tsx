@@ -1,6 +1,6 @@
 import MenuPrincipal from './MenuPrincipal';
-import LoginScreen from './LoginScreen';
-import type { Theme } from './constants';
+import LoginScreen from '../auth/LoginScreen';
+import type { Theme } from '../constants';
 
 export function LoginGuard({
   employees, menuMode, setMenuMode, entryPoint, setEntryPoint,

@@ -1,7 +1,7 @@
 'use client'
 
 import { Loader2 } from 'lucide-react'
-import type { Theme } from './constants'
+import type { Theme } from '../constants'
 
 interface ClockinModalProps {
   C: Theme

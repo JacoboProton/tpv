@@ -1,5 +1,5 @@
 import { ShieldCheck, User, Delete } from 'lucide-react';
-import type { Theme } from './constants';
+import type { Theme } from '../constants';
 
 interface LoginEmployee {
   id: string;

@@ -1,5 +1,5 @@
 import { AlertTriangle } from 'lucide-react';
-import type { Theme } from './constants';
+import type { Theme } from '../constants';
 
 export function FatalError({ error, colors }: { error: string; colors: Theme }) {
   return (

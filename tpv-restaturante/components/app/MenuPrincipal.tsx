@@ -1,5 +1,5 @@
 import { User, Package, BarChart3, Users, ShieldCheck, ArrowRight } from 'lucide-react';
-import type { Theme } from './constants';
+import type { Theme } from '../constants';
 
 interface MenuPrincipalEmployee {
   id: string;

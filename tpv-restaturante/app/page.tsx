@@ -3,12 +3,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 import { type Theme, THEMES, clone } from '../components/constants';
-import { FatalError } from '../components/FatalError';
-import { LoginGuard } from '../components/LoginGuard';
-import { LoadingSkeleton } from '../components/LoadingSkeleton';
-import { OfflineBanner } from '../components/OfflineBanner';
-import { FloorLoading } from '../components/FloorLoading';
-import { QrCallBanner } from '../components/QrCallBanner';
+import { FatalError } from '../components/app/FatalError';
+import { LoginGuard } from '../components/app/LoginGuard';
+import { LoadingSkeleton } from '../components/app/LoadingSkeleton';
+import { OfflineBanner } from '../components/app/OfflineBanner';
+import { FloorLoading } from '../components/app/FloorLoading';
+import { QrCallBanner } from '../components/app/QrCallBanner';
 import { registerAllSubscribers } from '../application/subscribers';
 import { fetchModifiers } from '../lib/api';
 import { escposOpenDrawer, printESCPOS, isPrinterConnected } from '../lib/thermal-printer';
@@ -35,15 +35,15 @@ import { useLoginRouting }     from '../hooks/useLoginRouting';
 import { useRealtimeSync }     from '../hooks/useRealtimeSync';
 import { useQrPolling }        from '../hooks/useQrPolling';
 import { useDebtOrder }        from '../hooks/useDebtOrder';
-import MenuPrincipal        from '../components/MenuPrincipal';
-import LoginScreen          from '../components/LoginScreen';
-import CommandPalette       from '../components/CommandPalette';
+import MenuPrincipal        from '../components/app/MenuPrincipal';
+import LoginScreen          from '../components/auth/LoginScreen';
+import CommandPalette       from '../components/app/CommandPalette';
 import PaymentModal         from '../modules/payment/PaymentModal';
-import ModifierSelector     from '../components/ModifierSelector';
+import ModifierSelector     from '../components/modals/ModifierSelector';
 import ComandaDrawer        from '../modules/salon/ComandaDrawer';
-import ClockinModal         from '../components/ClockinModal';
+import ClockinModal         from '../components/modals/ClockinModal';
 import { EventLog }          from '../modules/debug/EventLog';
-import SettingsModal        from '../components/SettingsModal';
+import SettingsModal        from '../components/modals/SettingsModal';
 import ViewRouter from '../modules/core/ViewRouter'
 import Sidebar from '../modules/core/Sidebar'
 import TopBar from '../modules/core/TopBar'

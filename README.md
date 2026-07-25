@@ -2,31 +2,31 @@
 
 ## Stack
 
-- **Next.js 16** (App Router, Turbopak)
-- **React 19**, Tailwind 4 (`@import "tailwindcss"`, no `tailwind.config`), Lucide icons
-- **PostgreSQL** via `pg` + **Drizzle ORM** (Supabase PostgreSQL, pooler session mode, eu-west-3)
-- **Supabase Realtime** — sincronización en vivo POS/KDS/móvil (Broadcast, no DB replication)
-- **Expo / React Native** — app móvil para camareros (`mobile/`)
-- **Vitest 4** con jsdom
-- **ESC/POS** — impresión térmica con WebUSB
-- **Stripe Terminal** — pago NFC Tap-to-Pay en móvil
+- **Next.js 16** (App Router, Turbopak), React 19, Tailwind 4, Lucide icons
+- **PostgreSQL** via `pg` + **Drizzle ORM** (Supabase, pooler session mode, eu-west-3)
+- **Supabase Realtime** — sincronización en vivo POS/KDS/móvil (Broadcast)
+- **Expo / React Native** — app móvil (`mobile/`)
+- **@tpv/core** — paquete compartido (`packages/core/`) con tipos, utilidades, tests
+- **Vitest 4** con jsdom, **356 tests, 29 archivos**
+- **ESC/POS** — impresión térmica WebUSB
+- **Stripe Terminal** — pago NFC Tap-to-Pay
 
 ## Arquitectura
 
-- `app/page.jsx` — SPA central (~2500 líneas), orquesta todas las vistas vía estado `view`
-- Vistas agrupadas en sidebar por bloques con códigos de color
+- `app/page.jsx` — SPA central (~2500 líneas), orquesta vistas vía estado `view`
 - API routes en `app/api/*/route.ts` con Drizzle ORM
-- Migraciones con Drizzle Kit (`drizzle-kit generate` / `push` / `migrate`)
-- Seed data en `components/constants.js` (catálogo, sala, empleados)
-- `tenant_id` en **115/115 tablas** para multi-local, con índices compuestos
+- RBAC server-side: `requireRole()` protege ~40 rutas operacionales (admin/camarero/cocina)
+- Migraciones con Drizzle Kit
+- Seed data en `components/constants.js`
+- `tenant_id` en **115/115 tablas**, 67 índices compuestos
 
 ## Clean Architecture (progresiva)
 
-- `domain/` — lógica pura (orden, pagos, cocina, catálogo, inventario, empleados), tipos centralizados en `domain/types.ts` con entidades `Product`, `Order`, `Table`, `Floor`, `Sale`, `Employee`, `Payment`, `Catalog`, etc.
-- `application/` — orquestación: 8 directorios de use cases (auth, sales, AddItemsToOrder, ApplyPersonalDiscount, CancelTable, CloseOrder, OrderItemOperations, TableStatus)
-- `application/subscribers/` — 6 suscriptores de eventos de dominio (order:closed → Verifactu + cash drawer, stock:changed → toast, item:sent → toast cocina, payment:refunded → API + offline + toast, payment:completed → API + offline + toast, order:created → placeholder)
-- `lib/event-bus.ts` — TypedEventBus singleton con 6 eventos tipados
-- Hooks React reducidos: `useEmployees.ts` 227→175 líneas (auth delegado a `application/auth/`), `useSalesActions.ts` 64→36 líneas (sin dependencias API/offline/toast), `useOrderPayments.ts` ya no importa Verifactu ni thermal printer
+- `domain/` — lógica pura, tipos centralizados en `domain/types.ts`
+- `application/` — 8 directorios de use cases (auth, sales, AddItemsToOrder, etc.)
+- `application/subscribers/` — 6 suscriptores de eventos (order:closed→Verifactu+cash drawer, stock:changed→toast, item:sent→toast cocina, payment:refunded/completed→API+offline+toast, order:created→placeholder)
+- `lib/event-bus.ts` — TypedEventBus singleton
+- Hooks cada vez más delgados, dependencias delegadas a subscribers
 - `modules/` — componentes por dominio
 
 ## Sidebar — Grupos de Navegación
@@ -46,6 +46,13 @@
 - PK compuestas `(tenant_id, id)` en tablas core
 - Cabecera `x-tenant-id` en todas las peticiones API
 - Selector de local en sidebar (solo admin)
+
+## @tpv/core (paquete compartido)
+
+- `packages/core/` — tipos, utilidades y tests comunes entre web y mobile
+- Compila con `tsc --outDir dist` (`lib: ["esnext"]`, sin DOM)
+- Web app lo consume como `file:../packages/core` → `npm run build` ejecuta `build:core` + `copy:core` (workaround Turbopack que no sigue symlinks fuera del project root)
+- `tsc --noEmit`: 0 errores tanto en web como en mobile
 
 ## Offline
 
@@ -72,14 +79,16 @@
 ## Comandos
 
 ```bash
-npm run dev          # Next.js dev (port 3000)
-npm run build        # Production build
-npm run lint         # ESLint 9 flat config
-npm run test         # Vitest (jsdom) — 301 tests, 21 archivos
-npm run db:push      # Sincronizar schema Drizzle → BD (fresh DB)
-npm run db:generate  # Generar migración SQL tras cambios en schema
-npm run db:migrate   # Aplicar migraciones pendientes
-npm run db:pull      # Introspeccionar BD → actualizar schema Drizzle
+npm run dev            # Next.js dev (port 3000)
+npm run build          # build:core → copy:core → next build
+npm run build:core     # Compilar @tpv/core (packages/core)
+npm run copy:core      # Copiar @tpv/core compilado (workaround Turbopack symlinks)
+npm run lint           # ESLint 9 flat config — 0 errors, ~1371 warnings
+npm run test           # Vitest (jsdom) — 356 tests, 29 archivos
+npm run db:push        # Sincronizar schema Drizzle → BD
+npm run db:generate    # Generar migración SQL
+npm run db:migrate     # Aplicar migraciones pendientes
+npm run db:pull        # Introspeccionar BD → schema Drizzle
 ```
 
 ## Variables de Entorno
@@ -110,9 +119,12 @@ PostgreSQL 16 + app en puerto 3000.
 ## Testing
 
 ```bash
-npx vitest run                    # Todos los tests (301 tests, 21 archivos)
-npx vitest run __tests__/constants.test.ts   # Tests específicos
+npx vitest run                    # 356 tests, 29 archivos
+npx vitest run __tests__/integration/   # Tests de integración API (55 tests, 8 archivos)
+npx vitest run __tests__/constants.test.ts   # Test específico
 ```
+
+Los tests de integración usan Drizzle mockeado (`vi.hoisted` + `Map<object, any[]>`) — sin BD real. Patrón en `__tests__/helpers/request.ts` y `AGENTS.md`.
 
 ## Hosting
 
@@ -120,8 +132,15 @@ npx vitest run __tests__/constants.test.ts   # Tests específicos
 - **Supabase**: PostgreSQL (pooler session mode, eu-west-3)
 - **Mobile**: EAS (Expo Application Services) — build gratis se reinicia mensualmente
 
-## Seguridad: Validación de roles (IMPORTANTE)
+## Seguridad: RBAC server-side
 
-- No confiar en el header `x-employee-role` enviado por el cliente para autorizar acciones en el servidor.
-- El helper inseguro que confiaba en ese header ha sido renombrado a `tpv-restauran te/lib/auth-deprecated.ts` y debe dejar de usarse; usar `lib/rbac.ts` → `requireRole(allowedRoles)` que valida sesión y rol contra la BD.
-- Reemplaza cualquier import a `lib/auth` o lecturas directas de `req.headers.get('x-employee-role')` por llamadas a `lib/rbac`. PR relacionado: https://github.com/JacoboProton/tpv/pull/6
+Todas las rutas API operacionales están protegidas con `requireRole()` de `lib/rbac.ts`, que valida sesión activa contra la BD (tabla `sessions`, TTL 12h):
+
+| Rol | Rutas protegidas |
+|-----|-----------------|
+| **admin** | access-logs, auto-order-settings, backup, closures, clockin-corrections, debug, export/sales, food-cost, invoice, stock-log, upload, verifactu, catalog/PUT+PATCH, modifiers/PUT, settings/PUT, offers/PUT, stripe/reconciliation, catalog/csv |
+| **admin+camarero** | cancellations, delivery, delivery-zones/POST+PUT+DELETE, payments, qr-calls, reservations/POST+PUT+DELETE, shifts, time-off-requests, turns, waitlist, albaranes, purchase-orders, gestoria, suppliers, supplier-catalog, recipes, production, add-stock, move-stock, sales/POST+DELETE+GET |
+| **admin+camarero+cocina** | clockin, kds, kds/audit, stripe/terminal-* |
+| **Públicas (sin auth)** | webhooks, qr-order, qr/*, reservations/availability, delivery/tracking, employees/GET+POST(verify), catalog/GET, modifiers/GET, settings/GET, offers/GET, delivery-zones/GET, buffet/GET |
+
+El helper inseguro original (`lib/auth-deprecated.ts`) está renombrado y lanza error si se importa.

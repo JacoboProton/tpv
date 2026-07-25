@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { escposOpenDrawer, printESCPOS, isPrinterConnected } from '../lib/thermal-printer'
-import { sha256 } from '../lib/crypto'
+import { escposOpenDrawer, printESCPOS, isPrinterConnected } from '../../lib/thermal-printer'
+import { sha256 } from '../../lib/crypto'
 
 interface Props {
   C: Record<string, string>

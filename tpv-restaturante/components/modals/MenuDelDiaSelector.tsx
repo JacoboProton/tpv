@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { X, Check, Coffee, GlassWater, Clock, UtensilsCrossed } from 'lucide-react';
-import { euros, type Theme } from './constants';
+import { euros, type Theme } from '../constants';
 
 const DAYS_SHORT = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, LayoutGrid, ChefHat, ClipboardList, Package, BarChart3, Users, Percent, Star, Euro, Truck, ArrowRight, type LucideIcon } from 'lucide-react';
-import type { Theme } from './constants';
+import type { Theme } from '../constants';
 
 const CATEGORY_COLORS: Record<string, string> = {
   'Navegación': '#c4a04a',

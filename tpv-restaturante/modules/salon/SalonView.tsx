@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Search, Pin, PinOff, Download, MapIcon } from 'lucide-react'
 import { clone, type Theme } from '@/components/constants'
-import QRCodeModal from '@/components/QRCodeModal'
+import QRCodeModal from '@/components/modals/QRCodeModal'
 import MesaCard from './MesaCard'
 
 interface SalonTable {

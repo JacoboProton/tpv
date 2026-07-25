@@ -6,8 +6,8 @@ import {
 } from 'lucide-react';
 import { TICKET_EDGE, euros, ALLERGENS, ALLERGEN_COLORS, type Theme } from '@/components/constants';
 import type { Table, Order, OrderItem as DomainOrderItem } from '@tpv/core';
-import ComboSlotSelector from '@/components/ComboSlotSelector';
-import MenuDelDiaSelector from '@/components/MenuDelDiaSelector';
+import ComboSlotSelector from '@/components/modals/ComboSlotSelector';
+import MenuDelDiaSelector from '@/components/modals/MenuDelDiaSelector';
 
 interface CatalogProduct {
   id: string;

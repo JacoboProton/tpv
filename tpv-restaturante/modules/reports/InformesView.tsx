@@ -9,8 +9,8 @@ import {
 } from 'lucide-react';
 import { euros, round2, PAYMENT_METHODS } from '@/components/constants';
 import { fetchAccessLogs, fetchBackup, fetchStockLog, fetchTurns, fetchClosures, saveClosure } from '../../lib/api';
-import VerifactuPanel from '@/components/VerifactuPanel';
-import FoodCostView from '@/components/FoodCostView';
+import VerifactuPanel from '@/components/views/VerifactuPanel';
+import FoodCostView from '@/components/views/FoodCostView';
 import type { Theme } from '@/components/constants';
 
 // ---- Types ----

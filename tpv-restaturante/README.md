@@ -9,7 +9,8 @@ Sistema de TPV profesional para restaurantes con POS web, app móvil para camare
 - **PostgreSQL** via `pg` + **Drizzle ORM**
 - **Supabase Realtime** — sincronización en vivo POS/KDS/móvil
 - **Expo / React Native** — app móvil para camareros (`mobile/`)
-- **Vitest 4** con jsdom
+- **@tpv/core** — paquete compartido (`packages/core/`) con tipos, utilidades y tests
+- **Vitest 4** con jsdom — **356 tests, 29 archivos**
 - **ESC/POS** — impresión térmica con WebUSB
 - **Stripe Terminal** — pago NFC Tap-to-Pay en móvil
 
@@ -192,14 +193,16 @@ npx eas update --branch production --message "cambios"  # solo JS (OTA)
 ## Comandos
 
 ```bash
-npm run dev          # Next.js dev (port 3000)
-npm run build        # Production build
-npm run lint         # ESLint 9 flat config
-npm run test         # Vitest (jsdom) — 301 tests, 21 archivos
-npm run db:push      # Sincronizar schema Drizzle → BD (fresh DB)
-npm run db:generate  # Generar migración SQL tras cambios en schema
-npm run db:migrate   # Aplicar migraciones pendientes
-npm run db:pull      # Introspeccionar BD → actualizar schema Drizzle
+npm run dev            # Next.js dev (port 3000)
+npm run build          # build:core → copy:core → next build
+npm run build:core     # Compilar @tpv/core (packages/core)
+npm run copy:core      # Copiar @tpv/core compilado (workaround Turbopack symlinks)
+npm run lint           # ESLint 9 flat config — 0 errors, ~1371 warnings
+npm run test           # Vitest (jsdom) — 356 tests, 29 archivos
+npm run db:push        # Sincronizar schema Drizzle → BD (fresh DB)
+npm run db:generate    # Generar migración SQL tras cambios en schema
+npm run db:migrate     # Aplicar migraciones pendientes
+npm run db:pull        # Introspeccionar BD → actualizar schema Drizzle
 ```
 
 ## Variables de Entorno
@@ -236,10 +239,26 @@ PostgreSQL 16 + app en puerto 3000.
 ## Testing
 
 ```bash
-npx vitest run                    # Todos los tests (301 tests, 21 archivos)
-npx vitest run __tests__/constants.test.ts   # Tests específicos
-npx tsc --noEmit                  # Typecheck completo
+npx vitest run                    # 356 tests, 29 archivos
+npx vitest run __tests__/integration/   # Tests de integración API (55 tests, 8 archivos)
+npx vitest run __tests__/constants.test.ts   # Test específico
+npx tsc --noEmit                  # Typecheck completo (0 errores)
 ```
+
+### Tests de integración
+
+Mock-based (sin BD real). Usan `vi.hoisted()` para estado mutable compartido + `Map<object, any[]>` keyed por referencias Drizzle.
+
+```typescript
+const dbData = new Map<object, any[]>();
+const mockRbac = vi.hoisted(() => ({ authorized: true, employee: {...} }));
+vi.mock('@/lib/drizzle', () => ({
+  getDb: () => ({ select: () => ({ from: (t) => ({ where: () => dbData.get(t)||[] }) }) })
+}));
+beforeEach(() => { dbData.clear(); mockRbac.authorized = true; });
+```
+
+Rutas cubiertas: `employees`, `settings`, `session`, `catalog`, `kds`, `sales`, `clockin`, `keep-alive`.
 
 ## Scroll Gotchas
 
@@ -247,8 +266,15 @@ npx tsc --noEmit                  # Typecheck completo
 - Modals: `max-h-[85vh] overflow-y-auto` explícito en la card interna
 - Tab content areas: heredan scroll del contenedor principal
 
-## Seguridad: Validación de roles (IMPORTANTE)
+## Seguridad: RBAC server-side
 
-- No confiar en el header `x-employee-role` enviado por el cliente para autorizar acciones en el servidor.
-- El helper inseguro que confiaba en ese header ha sido renombrado a `lib/auth-deprecated.ts` (lanza error si se importa). Usa `lib/rbac.ts` → `requireRole(allowedRoles)` o `getSessionEmployee()` para validar sesión y rol contra la base de datos (tabla `sessions`).
-- Reemplaza cualquier import a `lib/auth` o lecturas directas de `req.headers.get('x-employee-role')` por llamadas a `lib/rbac`. Hay un PR abierto que aplica este cambio: https://github.com/JacoboProton/tpv/pull/6
+Todas las rutas API operacionales están protegidas con `requireRole()` de `lib/rbac.ts`, que valida sesión activa contra la BD (tabla `sessions`, TTL 12h):
+
+| Rol | Rutas protegidas |
+|-----|-----------------|
+| **admin** | access-logs, auto-order-settings, backup, closures, clockin-corrections, debug, export/sales, food-cost, invoice, stock-log, upload, verifactu, catalog/PUT+PATCH, modifiers/PUT, settings/PUT, offers/PUT, stripe/reconciliation, catalog/csv |
+| **admin+camarero** | cancellations, delivery, delivery-zones/POST+PUT+DELETE, payments, qr-calls, reservations/POST+PUT+DELETE, shifts, time-off-requests, turns, waitlist, albaranes, purchase-orders, gestoria, suppliers, supplier-catalog, recipes, production, add-stock, move-stock, sales/POST+DELETE+GET |
+| **admin+camarero+cocina** | clockin, kds, kds/audit, stripe/terminal-* |
+| **Públicas (sin auth)** | webhooks, qr-order, qr/*, reservations/availability, delivery/tracking, employees/GET+POST(verify), catalog/GET, modifiers/GET, settings/GET, offers/GET, delivery-zones/GET, buffet/GET |
+
+El helper inseguro original (`lib/auth-deprecated.ts`) está renombrado y lanza error si se importa. No usar `x-employee-role` del cliente para autorizar.

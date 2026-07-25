@@ -1,4 +1,4 @@
-import type { Theme } from './constants';
+import type { Theme } from '../constants';
 
 export function FloorLoading({ colors }: { colors: Theme }) {
   return (

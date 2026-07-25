@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { X, Check } from 'lucide-react';
-import { euros, type Theme } from './constants';
+import { euros, type Theme } from '../constants';
 
 interface ComboSlotItem {
   id: string;

@@ -1,5 +1,5 @@
 import { Bell } from 'lucide-react';
-import type { Theme } from './constants';
+import type { Theme } from '../constants';
 
 export function QrCallBanner({
   qrCalls, colors, onDismiss,
