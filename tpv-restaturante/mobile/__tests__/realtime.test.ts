@@ -104,7 +104,7 @@ describe('Realtime - Logic Tests', () => {
       const hasCredentials = !!(supabaseUrl && supabaseKey);
       expect(hasCredentials).toBe(true);
       
-      const noCredentials = !!(undefined && undefined);
+      const noCredentials = false;
       expect(noCredentials).toBe(false);
     });
   });
@@ -186,19 +186,19 @@ describe('Realtime - Logic Tests', () => {
     });
 
     it('debería detectar plataforma móvil', () => {
-      const platform = 'ios';
+      const platform: string = 'ios';
       const isWeb = platform === 'web';
       
       expect(isWeb).toBe(false);
     });
 
     it('debería verificar permisos de notificación', () => {
-      const permission = 'granted';
+      const permission: string = 'granted';
       const hasPermission = permission === 'granted';
       
       expect(hasPermission).toBe(true);
       
-      const noPermission = 'denied';
+      const noPermission: string = 'denied';
       const hasPermissionNow = noPermission === 'granted';
       expect(hasPermissionNow).toBe(false);
     });

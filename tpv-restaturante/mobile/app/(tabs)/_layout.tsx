@@ -25,35 +25,35 @@ export default function TabsLayout() {
         name="saloon"
         options={{
           title: 'Salón',
-          tabBarIcon: ({ color, size }) => <TabIcon name="grid-outline" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <TabIcon name="grid-outline" color={color as string} size={size} />,
         }}
       />
       <Tabs.Screen
         name="pedidos"
         options={{
           title: 'Pedidos',
-          tabBarIcon: ({ color, size }) => <TabIcon name="receipt-outline" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <TabIcon name="receipt-outline" color={color as string} size={size} />,
         }}
       />
       <Tabs.Screen
         name="tickets"
         options={{
           title: 'Tickets',
-          tabBarIcon: ({ color, size }) => <TabIcon name="receipt" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <TabIcon name="receipt" color={color as string} size={size} />,
         }}
       />
       <Tabs.Screen
         name="fiados"
         options={{
           title: 'Fiados',
-          tabBarIcon: ({ color, size }) => <TabIcon name="cash-outline" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <TabIcon name="cash-outline" color={color as string} size={size} />,
         }}
       />
       <Tabs.Screen
         name="perfil"
         options={{
           title: 'Perfil',
-          tabBarIcon: ({ color, size }) => <TabIcon name="person-outline" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <TabIcon name="person-outline" color={color as string} size={size} />,
         }}
       />
       {isAdmin && (
@@ -61,7 +61,7 @@ export default function TabsLayout() {
           name="operations"
           options={{
             title: 'Operaciones',
-            tabBarIcon: ({ color, size }) => <TabIcon name="analytics-outline" color={color} size={size} />,
+            tabBarIcon: ({ color, size }) => <TabIcon name="analytics-outline" color={color as string} size={size} />,
           }}
         />
       )}

@@ -7,6 +7,7 @@ export const C = {
   cream: '#f5f0e8',
   muted: '#c0b8ac',
   wine: '#d08080',
+  wineLight: '#e0a0a0',
   sage: '#9abaa0',
   line: '#7a8095',
 };

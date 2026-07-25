@@ -130,10 +130,10 @@ export async function saveFloor(floor: Floor): Promise<{ ok: boolean }> {
       body: JSON.stringify(floor),
     });
   } else {
-    if (diff.updatedTables.length === 0 && 
-        diff.deletedTableIds.length === 0 && 
-        Object.keys(diff.updatedOrders).length === 0 && 
-        diff.deletedOrderIds.length === 0) {
+    if ((diff.updatedTables || []).length === 0 && 
+        (diff.deletedTableIds || []).length === 0 && 
+        Object.keys(diff.updatedOrders || {}).length === 0 && 
+        (diff.deletedOrderIds || []).length === 0) {
       return { ok: true };
     }
     return apiFetch('/floor', {
@@ -290,7 +290,7 @@ export async function fetchSales(): Promise<Sale[]> {
     const cached = await AsyncStorage.getItem('tpv:sales');
     const local = cached ? JSON.parse(cached) : [];
     const ids = new Set(data.map(s => s.id));
-    const merged = [...data, ...local.filter(s => !ids.has(s.id))]
+    const merged = [...data, ...local.filter((s: Sale) => !ids.has(s.id))]
       .sort((a, b) => (b.closedAt || 0) - (a.closedAt || 0));
     await AsyncStorage.setItem('tpv:sales', JSON.stringify(merged));
     logInfo('Sales fetched and merged with cache', { serverCount: data.length, localCount: local.length, mergedCount: merged.length });

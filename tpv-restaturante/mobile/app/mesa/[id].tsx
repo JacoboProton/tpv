@@ -87,7 +87,7 @@ function NfcPaymentButton({ floor, tableId, persistFloor, disabled, userName }: 
   floor: Floor; tableId: string; persistFloor: (f: Floor) => Promise<void>; disabled: boolean; userName: string;
 }) {
   const { setFloor: setCtxFloor } = useAppContext();
-  const { initialize, isInitialized, easyConnect, disconnectReader, retrievePaymentIntent, collectPaymentMethod, processPaymentIntent, connectionStatus } = useStripeTerminal();
+  const { initialize, isInitialized, easyConnect, disconnectReader, retrievePaymentIntent, collectPaymentMethod, processPaymentIntent, connectionStatus } = useStripeTerminal() as any;
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState('');
   const isConnected = connectionStatus === 'connected';
@@ -143,7 +143,7 @@ function NfcPaymentButton({ floor, tableId, persistFloor, disabled, userName }: 
 
       const { error: collectErr } = await collectPaymentMethod({ paymentIntent });
       if (collectErr) {
-        if (collectErr.code === 'canceled') return;
+        if ((collectErr as any).code === 'canceled') return;
         Alert.alert('Error', collectErr.message); return;
       }
 
