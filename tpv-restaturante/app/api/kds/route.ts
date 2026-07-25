@@ -58,19 +58,12 @@ export async function POST(req: NextRequest) {
     if (action === 'verify') {
       const { code, label, deviceId } = body;
       const db = getDb();
-      const allCodes = await db.select({ c: kdsPairings.code, r: kdsPairings.revoked, e: kdsPairings.expiresAt }).from(kdsPairings);
-      const match = allCodes.find((r: { c: string }) => r.c === code);
       const rows = await db.select().from(kdsPairings)
         .where(and(eq(kdsPairings.code, code), eq(kdsPairings.revoked, false)))
         .limit(1);
-      if (match && !rows.length) {
-        return apiOk({ _debug: 'code exists but revoked or expired', code: match.c, revoked: match.r, expiresAt: match.e, now: Date.now() });
-      }
-      if (rows.length === 0 || rows[0].expiresAt <= Date.now()) {
-        if (!match) {
-          return apiOk({ _debug: 'code not found in DB at all', searchedCode: code, allCodes: allCodes.map((r: { c: string }) => r.c) });
-        }
-        return apiBadRequest('Código inválido o caducado');
+      if (rows.length === 0) {
+        const allCodes = await db.select({ c: kdsPairings.code }).from(kdsPairings);
+        return apiOk({ _debug: 'code not found or revoked', searchedCode: code, allCodes: allCodes.map((r: { c: string }) => r.c) });
       }
       const pairing = rows[0];
       const devId = deviceId || makeId() + '_dev';
