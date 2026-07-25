@@ -59,9 +59,9 @@ export async function POST(req: NextRequest) {
       const { code, label, deviceId } = body;
       const db = getDb();
       const rows = await db.select().from(kdsPairings)
-        .where(sql`${eq(kdsPairings.code, code)} AND ${eq(kdsPairings.revoked, false)} AND ${sql.raw('expires_at')} > ${Date.now()}`)
+        .where(and(eq(kdsPairings.code, code), eq(kdsPairings.revoked, false)))
         .limit(1);
-      if (rows.length === 0) {
+      if (rows.length === 0 || rows[0].expiresAt <= Date.now()) {
         return apiBadRequest('Código inválido o caducado');
       }
       const pairing = rows[0];
