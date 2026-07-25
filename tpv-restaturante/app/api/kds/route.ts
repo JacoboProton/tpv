@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
@@ -63,14 +63,14 @@ export async function POST(req: NextRequest) {
         .limit(1);
       if (rows.length === 0) {
         const allCodes = await db.select({ c: kdsPairings.code }).from(kdsPairings);
-        return apiOk({ _debug: 'code not found or revoked', searchedCode: code, allCodes: allCodes.map((r: { c: string }) => r.c) });
+        return NextResponse.json({ ok: false, error: 'Código inválido', _debug: { searchedCode: code, allCodes: allCodes.map((r: { c: string }) => r.c) } }, { status: 400 });
       }
       const pairing = rows[0];
       const devId = deviceId || makeId() + '_dev';
       await db.update(kdsPairings).set({
         deviceId: devId, label: label || pairing.label,
       }).where(eq(kdsPairings.id, pairing.id));
-      return apiOk({ deviceId: devId, tenantId: pairing.tenantId || 'default', pairing: { id: pairing.id, label: label || pairing.label } });
+      return NextResponse.json({ ok: true, deviceId: devId, tenantId: pairing.tenantId || 'default', pairing: { id: pairing.id, label: label || pairing.label } });
     }
 
     const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
