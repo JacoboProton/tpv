@@ -8,6 +8,9 @@ import { employees } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiNotFound } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
 
+function sha256(s: string): string {
+  return createHash('sha256').update(s, 'utf8').digest('hex');
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -43,7 +46,7 @@ export async function PUT(req: NextRequest) {
       for (const e of emps) {
         await tx.insert(employees).values({
           tenantId, id: e.id, name: e.name, pin: '',
-          pinHash: e.pin ? bcrypt.hashSync(e.pin, 10) : (e.pinHash || ''),
+          pinHash: e.pin ? bcrypt.hashSync(sha256(e.pin), 10) : (e.pinHash || ''),
           role: e.role || 'camarero', position: e.position || '',
           workType: e.workType || '', workPct: e.workPct || 100, dni: e.dni || '',
           notes: e.notes || '',
@@ -109,11 +112,11 @@ export async function POST(req: NextRequest) {
         .where(eq(employees.tenantId, tenantId));
       const emp = emps.find((r: any) => {
         const ph = r.pinHash ?? '';
-        if (pin && ph) {
-          return bcrypt.compareSync(pin as string, ph);
-        }
-        if (pinHash && ph) {
-          return bcrypt.compareSync(pinHash as string, ph);
+        if (!ph) return false;
+        if (pinHash && bcrypt.compareSync(pinHash as string, ph)) return true;
+        if (pin) {
+          const hash = createHash('sha256').update(pin as string, 'utf8').digest('hex');
+          if (bcrypt.compareSync(hash, ph)) return true;
         }
         return false;
       });
