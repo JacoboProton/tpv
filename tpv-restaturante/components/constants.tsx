@@ -1,5 +1,5 @@
 export type { Theme } from '@/lib/theme';
-export { THEMES, C, setGlobalTheme } from '@/lib/theme';
+export { THEMES } from '@/lib/theme';
 export type { SeedCategory, SeedProduct, SeedTable, SeedZone, SeedFloor, SeedEmployee, MenuItem } from '@/lib/seed';
 export { seedCatalog, seedFloor, seedEmployees, getDailyMenu } from '@/lib/seed';
 export { KEYS, TICKET_EDGE, TICKET_PRINT_STYLE, COURSES, MODIFIERS } from '@/lib/constants';
@@ -8,3 +8,10 @@ export { PAYMENT_METHODS } from '@/lib/payment-methods';
 export { euros, round2, clone } from '@/lib/utils';
 export type { Allergen } from '@/lib/allergens';
 export { ALLERGENS, ALLERGEN_COLORS } from '@/lib/allergens';
+
+import type { Theme } from '@/lib/theme';
+import { THEMES } from '@/lib/theme';
+export let C: Theme = THEMES.dark;
+export function setGlobalTheme(mode: 'dark' | 'light') {
+  C = THEMES[mode];
+}
