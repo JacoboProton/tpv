@@ -1,16 +1,12 @@
 import { NextRequest } from 'next/server';
 import { eq, and, sql, desc } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
-import { createHash } from 'crypto';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { clockinLogs, clockinCorrections, employees } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiForbidden } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
 
-function sha256(s: string): string {
-  return createHash('sha256').update(s, 'utf8').digest('hex');
-}
 
 export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
@@ -107,8 +103,7 @@ export async function POST(req: NextRequest) {
       const [emp] = await db.select({ id: employees.id, pinHash: employees.pinHash }).from(employees)
         .where(and(eq(employees.id, body.employeeId), eq(employees.tenantId, tenantId)));
       if (!emp || !emp.pinHash) return apiForbidden('PIN incorrecto');
-      const serverHash = sha256(body.pin);
-      if (!bcrypt.compareSync(serverHash, emp.pinHash)) return apiForbidden('PIN incorrecto');
+      if (!bcrypt.compareSync(body.pin, emp.pinHash)) return apiForbidden('PIN incorrecto');
     }
 
     let action = body.action;
