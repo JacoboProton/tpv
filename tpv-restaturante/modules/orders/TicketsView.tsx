@@ -60,7 +60,8 @@ export default function TicketsView({ sales = [], colors: C, ticketSettings = {}
   }, [daysBack]);
 
   const filteredSales = useMemo(() => {
-    return (sales || []).filter(s => {
+    if (!Array.isArray(sales)) return [];
+    return sales.filter(s => {
       const t = Number(s.closedAt) || new Date(s.closedAt).getTime();
       if (daysBack > 0) {
         if (t < cutoffTime) return false;
@@ -85,8 +86,9 @@ export default function TicketsView({ sales = [], colors: C, ticketSettings = {}
 
   const totalAmount = filteredSales.reduce((s, x) => s + x.total, 0);
   const methods = useMemo(() => {
+    if (!Array.isArray(sales)) return ['Todas'];
     const set = new Set<string>();
-    (sales || []).forEach(s => {
+    sales.forEach(s => {
       if (s.paymentMethod) set.add(s.paymentMethod);
     });
     return ['Todas', ...Array.from(set)];

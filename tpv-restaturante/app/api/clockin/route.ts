@@ -7,6 +7,7 @@ import { getTenantId } from '../../../lib/tenant';
 import { clockinLogs, clockinCorrections, employees } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiForbidden } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
+import { rateLimit, getClientIp } from '../../../lib/rate-limit';
 
 function sha256(s: string): string {
   return createHash('sha256').update(s, 'utf8').digest('hex');
@@ -98,6 +99,8 @@ export async function POST(req: NextRequest) {
   const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
+    const rl = rateLimit(`clockin:${getClientIp(req)}`, 20, 60_000);
+    if (!rl.allowed) return apiError(new Error('Demasiados intentos'), 429);
     const db = getDb();
     const tenantId = getTenantId(req);
     const body = await req.json() as any;
@@ -107,8 +110,7 @@ export async function POST(req: NextRequest) {
       const [emp] = await db.select({ id: employees.id, pinHash: employees.pinHash }).from(employees)
         .where(and(eq(employees.id, body.employeeId), eq(employees.tenantId, tenantId)));
       if (!emp || !emp.pinHash) return apiForbidden('PIN incorrecto');
-      const serverHash = sha256(body.pin);
-      if (!bcrypt.compareSync(serverHash, emp.pinHash)) return apiForbidden('PIN incorrecto');
+      if (!bcrypt.compareSync(body.pin, emp.pinHash) && !bcrypt.compareSync(sha256(body.pin), emp.pinHash)) return apiForbidden('PIN incorrecto');
     }
 
     let action = body.action;

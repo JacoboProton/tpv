@@ -7,6 +7,7 @@ import { createHash } from 'crypto';
 import { employees } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiNotFound } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
+import { rateLimit, getClientIp } from '../../../lib/rate-limit';
 
 function sha256(s: string): string {
   return createHash('sha256').update(s, 'utf8').digest('hex');
@@ -106,6 +107,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'verify') {
+      const rl = rateLimit(`verify:${getClientIp(req)}`, 10, 60_000);
+      if (!rl.allowed) return apiError(new Error('Demasiados intentos'), 429);
       const { pin, pinHash } = body as Record<string, unknown>;
       if (!pin && !pinHash) return apiBadRequest('PIN requerido');
       const emps = await db.select().from(employees)
@@ -113,6 +116,7 @@ export async function POST(req: NextRequest) {
       const emp = emps.find((r: any) => {
         const ph = r.pinHash ?? '';
         if (!ph) return false;
+        if (pin && bcrypt.compareSync(pin as string, ph)) return true;
         if (pinHash && bcrypt.compareSync(pinHash as string, ph)) return true;
         if (pin) {
           const hash = createHash('sha256').update(pin as string, 'utf8').digest('hex');

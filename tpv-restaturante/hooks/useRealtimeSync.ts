@@ -36,10 +36,12 @@ export function useRealtimeSync({ tenantId, setFloor, setSales, onReadyNotificat
     }, 10000)
     const ivSales = setInterval(async () => {
       try {
-        const data = await (await fetch('/api/sales')).json()
-        if (!data) return
+        const res = await fetch('/api/sales')
+        if (!res.ok) return
+        const data = await res.json()
+        if (!Array.isArray(data)) return
         const h = JSON.stringify(data)
-        if (h !== salesHashRef.current) { salesHashRef.current = h; setSales(data as any[]) }
+        if (h !== salesHashRef.current) { salesHashRef.current = h; setSales(data) }
       } catch {}
     }, 15000)
     return () => { disconnectRealtime(); clearInterval(iv); clearInterval(ivSales) }

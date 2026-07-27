@@ -5,6 +5,7 @@ import { getTenantId } from '../../../lib/tenant';
 import { sessions } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
+import { rateLimit, getClientIp } from '../../../lib/rate-limit';
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,6 +15,8 @@ export async function POST(req: NextRequest) {
     const db = getDb();
 
     if (action === 'login') {
+      const rl = rateLimit(`login:${getClientIp(req)}`, 10, 60_000);
+      if (!rl.allowed) return apiError(new Error('Demasiados intentos'), 429);
       // Login doesn't require session validation (it creates the session)
       // But we validate the employee exists via PIN verification before reaching here
       if (!employeeId || !deviceId) {
@@ -74,9 +77,6 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'keepalive') {
-      const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
-      if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
-
       if (!employeeId || !deviceId) {
         return apiBadRequest('employeeId y deviceId requeridos');
       }

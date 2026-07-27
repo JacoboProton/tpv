@@ -89,7 +89,11 @@ export async function requireAdminPin(req: Request, adminPin: string | null): Pr
   `);
   const rows = pinResult.rows as Array<{ pin_hash: string }>;
   const { compareSync } = await import('bcryptjs');
-  const match = rows.some(r => compareSync(adminPin, r.pin_hash));
+  const { createHash } = await import('crypto');
+  const match = rows.some(r =>
+    compareSync(adminPin, r.pin_hash) ||
+    compareSync(createHash('sha256').update(adminPin, 'utf8').digest('hex'), r.pin_hash)
+  );
   if (!match) return { authorized: false, error: 'PIN de administrador incorrecto', status: 403 };
   return { authorized: true };
 }

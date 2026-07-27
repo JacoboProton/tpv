@@ -103,15 +103,14 @@ describe('POST /api/sessions — logout', () => {
 });
 
 describe('POST /api/sessions — keepalive', () => {
-  it('requires auth', async () => {
-    mockRbac.authorized = false;
-    (mockRbac as any).error = 'no autorizado';
-    (mockRbac as any).status = 401;
+  it('returns invalidated when no active session', async () => {
     const { POST } = await import('../../app/api/session/route');
     const res = await POST(req('http://localhost', {
       method: 'POST', body: { action: 'keepalive', employeeId: 'e1', deviceId: 'd1' },
     }));
-    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.invalidated).toBe(true);
   });
 
   it('returns 200 when session is active', async () => {

@@ -1,12 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { validateEnv } from '../lib/env';
+
+validateEnv();
 
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',').filter(Boolean);
 const DEV_FALLBACKS = ['http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:3000'];
 
+const rlStore = new Map<string, { count: number; resetAt: number }>();
+if (typeof setInterval !== 'undefined') {
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of rlStore) {
+      if (now > entry.resetAt) rlStore.delete(key);
+    }
+  }, 300_000);
+}
+function checkRateLimit(key: string, max: number, windowMs: number): boolean {
+  const now = Date.now();
+  const entry = rlStore.get(key);
+  if (!entry || now > entry.resetAt) {
+    rlStore.set(key, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+  entry.count++;
+  return entry.count <= max;
+}
+function getClientIp(req: NextRequest): string {
+  const fwd = req.headers.get('x-forwarded-for');
+  if (fwd) return fwd.split(',')[0].trim();
+  return req.headers.get('x-real-ip') || '127.0.0.1';
+}
+
 function isOriginAllowed(origin: string | null): boolean {
   if (!origin) return false;
   if (ALLOWED_ORIGINS.length === 0) return false;
-  if (ALLOWED_ORIGINS.includes('*')) return true;
+  const isProduction = process.env.NODE_ENV === 'production';
+  if (ALLOWED_ORIGINS.includes('*')) return !isProduction;
   if (ALLOWED_ORIGINS.includes(origin)) return true;
   if (DEV_FALLBACKS.includes(origin)) return true;
   return false;
@@ -55,6 +84,11 @@ export async function middleware(req: NextRequest) {
   }
 
   if (isPublicPath(pathname)) return corsNext(req);
+
+  const ip = getClientIp(req);
+  if (!checkRateLimit(`mw:${ip}`, 120, 60_000)) {
+    return errorResponse(req, 429, { error: 'Demasiadas solicitudes' });
+  }
 
   const key = req.headers.get('x-tpv-key');
   const expected = process.env.TPV_API_KEY;
