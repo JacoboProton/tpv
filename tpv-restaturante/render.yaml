@@ -29,6 +29,8 @@ services:
         sync: false
       - key: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
         sync: false
+      - key: SENTRY_DSN
+        sync: false
       - key: FISKALY_ENVIRONMENT
         value: TEST
       - key: FISKALY_API_KEY

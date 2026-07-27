@@ -1,0 +1,5 @@
+npm error code 3221225794
+npm error path F:\tpv\tpv-restaturante\node_modules\@sentry\cli
+npm error command failed
+npm error command C:\WINDOWS\system32\cmd.exe /d /s /c node ./scripts/install.js
+npm error A complete log of this run can be found in: C:\Users\Jacobo\AppData\Local\npm-cache\_logs\2026-07-27T19_58_03_854Z-debug-0.log
