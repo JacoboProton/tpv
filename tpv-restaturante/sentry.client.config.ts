@@ -1,11 +1,10 @@
-import * as Sentry from '@sentry/nextjs';
+import * as Sentry from "@sentry/nextjs";
 
-const dsn = process.env.SENTRY_DSN;
-if (dsn) {
-  Sentry.init({
-    dsn,
-    tracesSampleRate: 0.1,
-    replaysSessionSampleRate: 0.1,
-    replaysOnErrorSampleRate: 1.0,
-  });
-}
+Sentry.init({
+  dsn: "https://00c10c313fb64c86a00875f51909fc5f@o4511809014726656.ingest.de.sentry.io/4511809021870160",
+  tracesSampleRate: 1.0,
+  integrations: [Sentry.browserTracingIntegration()],
+  tracePropagationTargets: ["localhost", /^https:\/\/tpv-restaurante\.onrender\.com\/api/],
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1.0,
+});
