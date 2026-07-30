@@ -234,7 +234,14 @@ interface Sale {
   saleId?: string;
 }
 
-export async function registerSaleInFiskaly(sale: Sale, numSerie?: string): Promise<unknown> {
+export interface FiskalyInvoiceResult {
+  fiskalyInvoiceId?: string;
+  verificationUrl?: string | null;
+  qrUrl?: string | null;
+  signedInvoice?: unknown;
+}
+
+export async function registerSaleInFiskaly(sale: Sale, numSerie?: string): Promise<FiskalyInvoiceResult> {
   const cfg = await getFiskalyConfig();
   if (!cfg.client_id) {
     throw new Error('Fiskaly no configurado. Ejecuta /api/verifactu/setup primero.');

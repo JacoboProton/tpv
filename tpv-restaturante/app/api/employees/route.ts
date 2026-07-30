@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'verify') {
-      const rl = rateLimit(`verify:${getClientIp(req)}`, 10, 60_000);
+      const rl = await rateLimit(`verify:${getClientIp(req)}`, 10, 60_000);
       if (!rl.allowed) return apiError(new Error('Demasiados intentos'), 429);
       const { pin, pinHash } = body as Record<string, unknown>;
       if (!pin && !pinHash) return apiBadRequest('PIN requerido');

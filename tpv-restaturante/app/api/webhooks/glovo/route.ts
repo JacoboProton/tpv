@@ -20,6 +20,9 @@ function normalizeGlovoProducts(products: any) {
   }));
 }
 
+// SIN requireRole — webhook de Glovo invocado por Glovo directamente.
+// GET: verificación del webhook (Glovo espera 200). POST: se autentica
+// vía firma HMAC (x-glovo-signature) contra GLOVO_WEBHOOK_SECRET.
 export async function GET(req: NextRequest) {
   console.log('[Glovo webhook] Verification GET from', req.headers.get('x-forwarded-for'));
   return apiOk({ status: 'ok', webhook: 'active' });

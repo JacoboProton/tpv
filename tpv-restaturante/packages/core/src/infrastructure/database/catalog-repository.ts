@@ -25,11 +25,11 @@ export interface CatalogProduct {
 export interface Catalog {
   products: CatalogProduct[]
   categories: string[]
-  combos: any[]
-  mealMenus: any[]
-  priceRules: any[]
-  carrusel?: any[]
-  cartas?: any[]
+  combos: unknown[]
+  mealMenus: unknown[]
+  priceRules: import('../../domain/types').PriceRule[]
+  carrusel?: unknown[]
+  cartas?: unknown[]
 }
 
 export function findProduct(catalog: Catalog | null, productId: string): CatalogProduct | null {

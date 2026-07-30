@@ -7,6 +7,9 @@ import { apiOk, apiError, apiBadRequest, apiNotFound } from '../../../lib/infras
 
 function makeId(prefix = 'qo') { return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 
+// SIN requireRole — endpoint público para que clientes creen pedidos
+// desde el menú QR. No requiere sesión TPV. Se autentica por tenantId
+// (header x-tenant-id) y se filtra por mesa activa.
 export async function POST(req: NextRequest) {
   try {
     const db = getDb();
@@ -94,6 +97,8 @@ export async function POST(req: NextRequest) {
   } catch (err) { return apiError(err); }
 }
 
+// SIN requireRole — endpoint público para que clientes consulten
+// el estado de su pedido QR. Identificado por orderId + tenantId.
 export async function GET(req: NextRequest) {
   try {
     const db = getDb();
@@ -149,6 +154,8 @@ export async function GET(req: NextRequest) {
   } catch (err) { return apiError(err); }
 }
 
+// SIN requireRole — endpoint público para que clientes actualicen
+// su pedido QR (cancelar, cambiar estado). Autenticado por id + tenantId.
 export async function PUT(req: NextRequest) {
   try {
     const db = getDb();

@@ -31,9 +31,9 @@ export interface Product {
   stockByLocation?: Record<string, StockEntry>
   discount?: number
   isMenu?: boolean
-  menuData?: any
+  menuData?: unknown
   isCombo?: boolean
-  comboData?: any
+  comboData?: unknown
 }
 
 export interface Category {
@@ -61,6 +61,12 @@ export interface StockDelta {
 }
 
 // ─── Orders ───
+export interface OrderItemModifier {
+  optionId: string
+  optionName?: string
+  extraPrice?: number
+}
+
 export interface OrderItem {
   id: string
   productId?: string | null
@@ -76,7 +82,30 @@ export interface OrderItem {
   voidedAt?: number
   sentAt?: number | null
   notes?: string
-  modifiers?: any[]
+  modifiers?: OrderItemModifier[]
+  course?: string
+  ubicacion?: string
+  lineDiscount?: number
+  isCourtesy?: boolean
+  overridePrice?: number
+  isMenuItem?: boolean
+  isMenuPrice?: boolean
+  isComboItem?: boolean
+  isComboPrice?: boolean
+}
+
+export interface SaleItem {
+  id: string
+  productId?: string | null
+  name: string
+  qty: number
+  price: number
+  voided?: boolean
+  sent?: boolean
+  ready?: boolean
+  served?: boolean
+  sentAt?: number | null
+  notes?: string
   course?: string
   ubicacion?: string
   lineDiscount?: number
@@ -95,13 +124,14 @@ export interface Order {
   employeeName?: string
   createdAt?: number
   label?: string
-  customer?: any
+  customer?: unknown
   _mergedFrom?: string[]
   _mergedLabel?: string
   personalDiscountApplied?: boolean
   personalDiscountEmployeeId?: string
   personalDiscountEmployeeName?: string
   closedAt?: number
+  reopenedAt?: number
 }
 
 export interface MenuExpansionItem {
@@ -153,7 +183,7 @@ export interface Table {
 export interface Floor {
   tables: Table[]
   orders: Record<string, Order>
-  history?: Record<string, any[]>
+  history?: Record<string, Order[]>
   id?: string
   name?: string
 }
@@ -184,7 +214,7 @@ export interface SaleRefund extends RefundInput {
 
 export interface Sale {
   id: string
-  items: any[]
+  items: SaleItem[]
   subtotal: number
   discount: number
   discountAmount?: number
@@ -215,7 +245,7 @@ export interface Sale {
   isDebtPayment?: boolean
   stripe_confirmed?: boolean
   dispute_status?: string
-  dispute_data?: any
+  dispute_data?: unknown
 }
 
 // ─── Auth ───
@@ -239,10 +269,10 @@ export interface Employee {
 export interface Catalog {
   products: Product[]
   categories: Category[]
-  offers?: any[]
-  combos?: any[]
-  mealMenus?: any[]
-  priceRules?: any[]
+  offers?: Offer[]
+  combos?: unknown[]
+  mealMenus?: unknown[]
+  priceRules?: PriceRule[]
 }
 
 // ─── Kitchen ───

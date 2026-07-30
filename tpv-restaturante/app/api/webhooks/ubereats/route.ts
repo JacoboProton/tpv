@@ -5,6 +5,9 @@ import { getTenantId } from '../../../../lib/tenant';
 import { deliveryOrders } from '../../../../db/schema';
 import { apiOk, apiError, apiUnauthorized } from '../../../../lib/infrastructure/response';
 
+// SIN requireRole — webhook de Uber Eats invocado por Uber directamente.
+// GET: verificación del webhook (devuelve challenge). POST: se autentica
+// vía firma HMAC (x-uber-signature) contra UBER_WEBHOOK_SECRET.
 function normalizeUberProducts(items: any) {
   if (!items || !Array.isArray(items)) return [];
   return items.map((p: any, i: any) => ({

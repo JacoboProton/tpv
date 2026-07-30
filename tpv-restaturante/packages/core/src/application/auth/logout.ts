@@ -12,6 +12,11 @@ export function logoutUser(
     deps.turnsApi(body)
     deps.logoutApi(currentUser.id).catch(() => {})
   }
-  if ((window as any).__keepaliveCleanup) (window as any).__keepaliveCleanup()
-  try { localStorage.removeItem('tpv:current_user'); (window as any).__employeeRole = ''; (window as any).__employeeId = ''; } catch {}
+  try {
+    const w = globalThis as Record<string, unknown>
+    if (typeof w.__keepaliveCleanup === 'function') (w.__keepaliveCleanup as () => void)()
+    if (typeof w.localStorage !== 'undefined') (w.localStorage as { removeItem: (k: string) => void }).removeItem('tpv:current_user')
+    w.__employeeRole = ''
+    w.__employeeId = ''
+  } catch {}
 }

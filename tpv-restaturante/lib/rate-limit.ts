@@ -1,49 +1,101 @@
-const attempts = new Map<string, { count: number; resetAt: number }>()
+interface RedisClient {
+  incr: (k: string) => Promise<number>;
+  expire: (k: string, s: number) => Promise<void>;
+  ttl: (k: string) => Promise<number>;
+}
 
+let redis: RedisClient | null = null;
+
+const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
+const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+const redisDirectUrl = process.env.REDIS_URL;
+if (redisUrl && redisToken) {
+  try {
+    const { Redis } = require('@upstash/redis');
+    const r = new Redis({ url: redisUrl, token: redisToken });
+    redis = {
+      incr: (k) => r.incr(k) as Promise<number>,
+      expire: (k, s) => r.expire(k, s) as Promise<void>,
+      ttl: (k) => r.ttl(k) as Promise<number>,
+    };
+  } catch {
+    redis = null;
+  }
+} else if (redisDirectUrl) {
+  try {
+    const { Redis } = require('@upstash/redis');
+    const r = new Redis(redisDirectUrl);
+    redis = {
+      incr: (k) => r.incr(k) as Promise<number>,
+      expire: (k, s) => r.expire(k, s) as Promise<void>,
+      ttl: (k) => r.ttl(k) as Promise<number>,
+    };
+  } catch {
+    redis = null;
+  }
+}
+
+const memStore = new Map<string, { count: number; resetAt: number }>();
 if (typeof setInterval !== 'undefined') {
   setInterval(() => {
-    const now = Date.now()
-    for (const [key, entry] of attempts) {
-      if (now > entry.resetAt) attempts.delete(key)
+    const now = Date.now();
+    for (const [key, entry] of memStore) {
+      if (now > entry.resetAt) memStore.delete(key);
     }
-  }, 300_000)
+  }, 300_000);
 }
 
-export function checkRateLimit(
-  key: string,
-  maxAttempts: number,
-  windowMs: number,
-): { allowed: boolean; remaining: number; resetAt: number } {
-  const now = Date.now()
-  const entry = attempts.get(key)
-
+async function memLimit(key: string, max: number, windowMs: number): Promise<{ allowed: boolean; remaining: number; reset: number }> {
+  const now = Date.now();
+  const entry = memStore.get(key);
   if (!entry || now > entry.resetAt) {
-    attempts.set(key, { count: 1, resetAt: now + windowMs })
-    return { allowed: true, remaining: maxAttempts - 1, resetAt: now + windowMs }
+    memStore.set(key, { count: 1, resetAt: now + windowMs });
+    return { allowed: true, remaining: max - 1, reset: now + windowMs };
   }
-
-  entry.count++
-
-  if (entry.count > maxAttempts) {
-    return { allowed: false, remaining: 0, resetAt: entry.resetAt }
+  entry.count++;
+  if (entry.count > max) {
+    return { allowed: false, remaining: 0, reset: entry.resetAt };
   }
-
-  return { allowed: true, remaining: maxAttempts - entry.count, resetAt: entry.resetAt }
+  return { allowed: true, remaining: max - entry.count, reset: entry.resetAt };
 }
 
-export function rateLimit(
+async function redisLimit(key: string, max: number, windowMs: number): Promise<{ allowed: boolean; remaining: number; reset: number }> {
+  if (!redis) return memLimit(key, max, windowMs);
+  const windowSeconds = Math.ceil(windowMs / 1000);
+  const count = await redis.incr(key);
+  if (count === 1) {
+    await redis.expire(key, windowSeconds);
+  }
+  const ttl = await redis.ttl(key);
+  const reset = ttl > 0 ? Date.now() + ttl * 1000 : Date.now() + windowMs;
+  return {
+    allowed: count <= max,
+    remaining: Math.max(0, max - count),
+    reset,
+  };
+}
+
+export async function rateLimit(
+  key: string,
+  max: number,
+  windowMs: number,
+): Promise<{ allowed: boolean; remaining: number; reset: number }> {
+  return redisLimit(key, max, windowMs);
+}
+
+export async function checkRateLimit(
   key: string,
   maxAttempts: number,
   windowMs: number,
-): { allowed: boolean; remaining: number; reset: number } {
-  const result = checkRateLimit(key, maxAttempts, windowMs)
-  return { allowed: result.allowed, remaining: result.remaining, reset: result.resetAt }
+): Promise<{ allowed: boolean; remaining: number; resetAt: number }> {
+  const result = await rateLimit(key, maxAttempts, windowMs);
+  return { allowed: result.allowed, remaining: result.remaining, resetAt: result.reset };
 }
 
 export function getClientIp(req: Request): string {
-  const forwarded = req.headers.get('x-forwarded-for')
-  if (forwarded) return forwarded.split(',')[0].trim()
-  const realIp = req.headers.get('x-real-ip')
-  if (realIp) return realIp
-  return '127.0.0.1'
+  const forwarded = req.headers.get('x-forwarded-for');
+  if (forwarded) return forwarded.split(',')[0].trim();
+  const realIp = req.headers.get('x-real-ip');
+  if (realIp) return realIp;
+  return '127.0.0.1';
 }

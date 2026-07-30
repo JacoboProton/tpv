@@ -28,11 +28,11 @@ export async function GET(req: NextRequest) {
     const since = Math.floor((Date.now() - days * 86400000) / 1000);
     const source = searchParams.get('source') || '';
 
-    const allPIs = [];
-    let lastId = null;
+    const allPIs: Stripe.PaymentIntent[] = [];
+    let lastId: string | null = null;
     for (let i = 0; i < 5; i++) {
-      const params = { limit: 100, created: { gte: since } };
-      if (lastId) (params as any).starting_after = lastId;
+      const params: Stripe.PaymentIntentListParams = { limit: 100, created: { gte: since } };
+      if (lastId) params.starting_after = lastId;
       const batch = await stripe.paymentIntents.list(params);
       allPIs.push(...batch.data);
       if (!batch.has_more) break;
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
     }
 
     const filteredPIs = source
-      ? allPIs.filter((pi: any) => pi.metadata?.source === source)
+      ? allPIs.filter((pi) => pi.metadata?.source === source)
       : allPIs;
 
     const saleRows = await db.select({
@@ -99,21 +99,20 @@ export async function GET(req: NextRequest) {
         });
       }
 
-      const piAny = pi as any;
-      const saleAny = sale as any;
-      const stripeRefunds = piAny.refunds?.data || piAny.refunds || [];
-      const saleRefunds = saleAny.refunds || [];
+      const stripeRefunds = ((pi as unknown as { refunds?: { data: Stripe.Refund[] } }).refunds?.data) ?? [];
+      const saleRec = sale as unknown as { refunds?: { stripeRefundId: string }[] };
+      const saleRefunds = saleRec.refunds || [];
       const saleStripeRefundIds = new Set(
-        saleRefunds.map((r: any) => r.stripeRefundId).filter(Boolean)
+        saleRefunds.map((r) => r.stripeRefundId).filter(Boolean)
       );
       const unrecordedRefunds = stripeRefunds.filter(
-        (r: any) => r.status === 'succeeded' && !saleStripeRefundIds.has(r.id)
+        (r) => r.status === 'succeeded' && !saleStripeRefundIds.has(r.id)
       );
       if (unrecordedRefunds.length > 0) {
         refundMismatches.push({
           paymentIntentId: pi.id,
           saleId: sale.id,
-          unrecordedRefunds: unrecordedRefunds.map((r: any) => ({
+          unrecordedRefunds: unrecordedRefunds.map((r) => ({
             id: r.id,
             amount: (r.amount / 100).toFixed(2),
             created: new Date(r.created * 1000).toISOString(),
@@ -131,10 +130,11 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const piIdsInStripe = new Set(filteredPIs.map((pi: any) => pi.id));
+    const piIdsInStripe = new Set(filteredPIs.map((pi) => pi.id));
+    type SaleRow = typeof saleRows[number];
     const salesNotInStripe = saleRows
-      .filter((s: any) => !piIdsInStripe.has(s.paymentIntentId))
-      .map((s: any) => ({
+      .filter((s: SaleRow) => !piIdsInStripe.has(s.paymentIntentId as string))
+      .map((s: SaleRow) => ({
         saleId: s.id,
         paymentIntentId: s.paymentIntentId,
         total: Number(s.totalWithTip || s.total || 0),

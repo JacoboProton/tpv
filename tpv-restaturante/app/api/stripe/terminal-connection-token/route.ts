@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-    const rl = rateLimit(`tct:${ip}`, 20, 60 * 1000);
+    const rl = await rateLimit(`tct:${ip}`, 20, 60 * 1000);
     if (!rl.allowed) {
       return NextResponse.json(
         { error: `Demasiadas solicitudes. Inténtalo de nuevo en ${Math.ceil((rl.reset - Date.now()) / 1000)}s.` },

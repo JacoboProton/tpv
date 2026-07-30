@@ -43,6 +43,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Check any count
+        run: npm run lint:any
+
       - name: Unit tests
         run: npm test -- --reporter=verbose
 

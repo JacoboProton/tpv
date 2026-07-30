@@ -6,10 +6,14 @@ import { requireAdminPin } from '../../../../lib/rbac';
 import { verifactuRegistros } from '../../../../db/schema';
 import { apiOk, apiError, apiUnauthorized } from '../../../../lib/infrastructure/response';
 
+// SIN requireRole — usa requireAdminPin (autenticación por PIN de administrador)
+// porque borra registros de prueba del Verifactu (AEAT). Solo el admin debe poder
+// hacerlo, y requiere PIN explícito para evitar limpiezas accidentales de la
+// contabilidad fiscal. Se llama desde Gestoría → Verifactu → Limpiar pruebas.
 export async function DELETE(req: NextRequest) {
   try {
-    const body = await req.json() as any;
-    const adminCheck = await requireAdminPin(req, body.adminPin);
+    const body: Record<string, unknown> = await req.json();
+    const adminCheck = await requireAdminPin(req, body.adminPin as string);
     if (!adminCheck.authorized) {
       return apiUnauthorized(adminCheck.error);
     }

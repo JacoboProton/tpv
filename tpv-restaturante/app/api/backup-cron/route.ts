@@ -5,15 +5,24 @@ import { backupAll } from '../../../lib/backup';
 import { getTenantId } from '../../../lib/tenant';
 import { apiOk, apiError, apiUnauthorized } from '../../../lib/infrastructure/response';
 
-export async function GET(req: NextRequest) {
+// SIN requireRole — endpoint invocado por cron externo (Render Cron Jobs)
+// sin sesión de usuario. Se autentica con CRON_SECRET vía header
+// Authorization: Bearer.
+function requireCronSecret(): string {
+  const val = process.env.CRON_SECRET;
+  if (!val) throw new Error('Falta variable de entorno: CRON_SECRET');
+  return val;
+}
+
+export async function GET(_req: NextRequest) {
   try {
-    const auth = req.headers.get('authorization');
-    const expected = process.env.CRON_SECRET;
-    if (expected && auth !== `Bearer ${expected}`) {
+    const expected = requireCronSecret();
+    const auth = _req.headers.get('authorization');
+    if (auth !== `Bearer ${expected}`) {
       return apiUnauthorized('Unauthorized');
     }
 
-    const tenantId = getTenantId(req);
+    const tenantId = getTenantId(_req);
     const db = getDb();
     const backup = await backupAll();
     const backupId = `backup_${Date.now()}`;

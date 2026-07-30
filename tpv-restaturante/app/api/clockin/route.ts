@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
   const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
-    const rl = rateLimit(`clockin:${getClientIp(req)}`, 20, 60_000);
+    const rl = await rateLimit(`clockin:${getClientIp(req)}`, 20, 60_000);
     if (!rl.allowed) return apiError(new Error('Demasiados intentos'), 429);
     const db = getDb();
     const tenantId = getTenantId(req);

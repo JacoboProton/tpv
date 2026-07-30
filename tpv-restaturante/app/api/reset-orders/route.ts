@@ -6,6 +6,10 @@ import { requireAdminPin } from '../../../lib/rbac';
 import { orders } from '../../../db/schema';
 import { apiOk, apiError } from '../../../lib/infrastructure/response';
 
+// SIN requireRole — usa requireAdminPin (autenticación por PIN de administrador)
+// porque es una operación peligrosa (borra todos los pedidos activos) que debe
+// confirmarse explícitamente con PIN, no solo con sesión. No la protege requireRole
+// porque no hay sesión activa: la llama el dueño desde Gestoría → Ajustes.
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json() as any;

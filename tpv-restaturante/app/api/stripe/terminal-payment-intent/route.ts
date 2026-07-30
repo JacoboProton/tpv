@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   const tenantId = getTenantId(req);
   try {
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-    const rl = rateLimit(`tpi:${ip}`, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW);
+    const rl = await rateLimit(`tpi:${ip}`, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW);
     if (!rl.allowed) {
       return NextResponse.json(
         { error: `Demasiadas solicitudes. Inténtalo de nuevo en ${Math.ceil((rl.reset - Date.now()) / 1000)}s.` },
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     if (!stripe) {
       return NextResponse.json({ error: 'Stripe no configurado' }, { status: 500 });
     }
-    const { amount, tableId, tableName, employeeName, idempotencyKey } = await req.json() as any;
+    const { amount, tableId, tableName, employeeName, idempotencyKey } = await req.json() as { amount: number; tableId: string; tableName: string; employeeName: string; idempotencyKey?: string };
 
     if (!amount || amount <= 0) {
       return apiBadRequest('Importe inválido');

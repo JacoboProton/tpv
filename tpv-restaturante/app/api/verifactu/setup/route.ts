@@ -4,7 +4,7 @@ import { apiOk, apiError } from '../../../../lib/infrastructure/response';
 import { requireRole } from '../../../../lib/rbac';
 
 export async function GET() {
-  const auth = await requireRole(['admin'])(null as any);
+  const auth = await requireRole(['admin'])(null as unknown as NextRequest);
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const config = await getFiskalyConfig();
@@ -17,18 +17,18 @@ export async function POST(req: NextRequest) {
   const auth = await requireRole(['admin'])(req);
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
-    const body = await req.json().catch(() => ({})) as Record<string, unknown>;
-    if ((body as any).testSigner) {
+    const body: Record<string, unknown> = await req.json().catch(() => ({}));
+    if (body.testSigner) {
       const s = await createSigner();
       return apiOk({ raw: s });
     }
-    if ((body as any).testClient) {
+    if (body.testClient) {
       const c = await createClient();
       return apiOk({ raw: c });
     }
-    if ((body as any).genAgreement) {
+    if (body.genAgreement) {
       const pdfBuffer = await (await import('../../../../lib/fiskaly')).generateTaxpayerAgreement();
-      return new Response(pdfBuffer as any, {
+      return new Response(pdfBuffer as unknown as ArrayBuffer, {
         status: 200,
         headers: {
           'Content-Type': 'application/pdf',
@@ -36,11 +36,11 @@ export async function POST(req: NextRequest) {
         },
       });
     }
-    if ((body as any).uploadAgreement) {
-      const r = await (await import('../../../../lib/fiskaly')).uploadTaxpayerAgreement((body as any).signedPdfBase64);
+    if (body.uploadAgreement) {
+      const r = await (await import('../../../../lib/fiskaly')).uploadTaxpayerAgreement(body.signedPdfBase64 as string);
       return apiOk(r);
     }
-    const result = await setupFiskaly((body as any).legalName);
+    const result = await setupFiskaly(body.legalName as string);
     return apiOk(result);
   } catch (err) { return apiError(err); }
 }

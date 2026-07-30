@@ -1,13 +1,22 @@
 import { euros } from '../../lib/utils'
 import { calculateIgic } from './invoice'
 
-import type { Sale } from '../types'
+import type { Sale, SaleItem } from '../types'
 
-export function buildInvoiceHtml(ticketSettings: Record<string, any>, sale: Sale): string {
+export interface TicketSettings {
+  restaurantName?: string
+  companyCif?: string
+  companyAddress?: string
+  companyPhone?: string
+  footerText?: string
+  [key: string]: unknown
+}
+
+export function buildInvoiceHtml(ticketSettings: TicketSettings, sale: Sale): string {
   const { restaurantName, companyCif, companyAddress, companyPhone, footerText } = ticketSettings
   const totalConIva = sale.total || 0
   const { baseImponible, cuotaIgic } = calculateIgic(totalConIva)
-  const itemsHtml = (sale.items || []).filter((i: any) => !i.voided).map((i: any) =>
+  const itemsHtml = (sale.items || []).filter((i: SaleItem) => !i.voided).map((i: SaleItem) =>
     `<tr><td style="padding:3px 0">${i.name.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</td><td style="text-align:center;width:40px">${i.qty}</td><td style="text-align:right;width:70px">${euros(i.price)}</td><td style="text-align:right;width:80px">${euros((i.price || 0) * (i.qty || 0))}</td></tr>`
   ).join('')
   return `<html><head><meta charset="utf-8"><style>
@@ -35,7 +44,7 @@ export function buildInvoiceHtml(ticketSettings: Record<string, any>, sale: Sale
         ${companyPhone ? `Tel: ${companyPhone}` : ''}
       </div>
       <div class="numero">${sale.invoiceNumber || sale.id} · Ticket #${sale.ticketNumber || '-'}</div>
-      <div class="info">${new Date(sale.closedAt).toLocaleDateString('es-ES', { day:'2-digit', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' as any })}</div>
+      <div class="info">${new Date(sale.closedAt).toLocaleDateString('es-ES', { day:'2-digit', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' } satisfies Intl.DateTimeFormatOptions)}</div>
     </div>
     <div class="client-box">
       <p><strong>Cliente:</strong> ${sale.invoiceName || '—'}</p>

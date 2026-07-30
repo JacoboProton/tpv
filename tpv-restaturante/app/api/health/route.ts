@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '../../../lib/drizzle';
 
+// SIN requireRole — endpoint de health check necesario para que el
+// orquestador (Render, Docker) verifique que la app responde. Revela
+// solo estado de BD + uptime, ningún dato sensible. El rate limit
+// global del middleware (120 req/min) aplica igualmente.
 export async function GET() {
   const checks: Record<string, string> = {};
   let ok = true;

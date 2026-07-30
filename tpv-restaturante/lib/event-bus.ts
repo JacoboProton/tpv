@@ -7,19 +7,21 @@ export interface OrderCreatedEvent {
   createdAt: string
 }
 
+import type { Payment, SaleItem } from '@tpv/core'
+
 export interface OrderClosedEvent {
   saleId: string
   invoiceNumber?: string
   tableId: string
   tableName: string
-  items: any[]
+  items: SaleItem[]
   subtotal: number
   discount: number
   total: number
   tip: number
   totalWithTip: number
   paymentMethod: string
-  payments: any[]
+  payments: Payment[]
   isFiado: boolean
   isDebtPayment: boolean
   employeeId: string | null
@@ -40,7 +42,7 @@ export interface PaymentCompletedEvent {
   tableId: string
   amount: number
   method: string
-  payments: any[]
+  payments: Payment[]
   employeeName: string | null
   timestamp: number
 }

@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { eq, and, asc } from 'drizzle-orm';
 import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
-import { registerSaleInFiskaly } from '../../../../lib/fiskaly';
+import { registerSaleInFiskaly, type FiskalyInvoiceResult } from '../../../../lib/fiskaly';
 import { generateRegistroFactura } from '../../../../lib/verifactu';
 import { verifactuRegistros, sales } from '../../../../db/schema';
 import { apiOk, apiError } from '../../../../lib/infrastructure/response';
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
           totalWithTip: saleRows[0].totalWithTip ? Number(saleRows[0].totalWithTip) : Number(saleRows[0].total),
           total: saleRows[0].total ? Number(saleRows[0].total) : 0,
           tableName: saleRows[0].tableName ?? undefined,
-          items: (saleRows[0].items ?? []) as any[],
+          items: (saleRows[0].items ?? []) as Record<string, unknown>[],
         };
 
         const fiskalyResult = await registerSaleInFiskaly(sale, reg.numSerie);
@@ -58,9 +58,9 @@ export async function POST(req: NextRequest) {
         await db.update(verifactuRegistros)
           .set({
             estado: 'registrado',
-            fiskalyInvoiceId: (fiskalyResult as any).fiskalyInvoiceId,
-            verificationUrl: (fiskalyResult as any).verificationUrl,
-            qrUrl: (fiskalyResult as any).qrUrl,
+            fiskalyInvoiceId: fiskalyResult.fiskalyInvoiceId,
+            verificationUrl: fiskalyResult.verificationUrl,
+            qrUrl: fiskalyResult.qrUrl,
             huella: localResult.hash,
             xmlRegistro: localResult.xml,
             fechaHoraFirma: localResult.fechaHoraFirma,
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
           saleId: reg.saleId,
           numSerie: reg.numSerie,
           success: true,
-          fiskalyInvoiceId: (fiskalyResult as any).fiskalyInvoiceId,
+          fiskalyInvoiceId: fiskalyResult.fiskalyInvoiceId,
         });
       } catch (err) {
         results.push({

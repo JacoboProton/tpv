@@ -35,14 +35,14 @@ async function markProcessed(eventId: string) {
     .where(eq(webhookEvents.eventId, eventId));
 }
 
-async function markFailed(eventId: string, eventData: any, errorMessage: string) {
+async function markFailed(eventId: string, eventData: unknown, errorMessage: string) {
   const db = getDb();
   await db.update(webhookEvents)
     .set({ status: 'failed', body: eventData, error: errorMessage })
     .where(eq(webhookEvents.eventId, eventId));
 }
 
-async function handlePaymentIntentSucceeded(pi: any) {
+async function handlePaymentIntentSucceeded(pi: Stripe.PaymentIntent) {
   const db = getDb();
   const { tableId, qrOrderId, source, tenantId } = pi.metadata || {};
   const tid = tenantId || 'default';
@@ -88,13 +88,14 @@ async function handlePaymentIntentSucceeded(pi: any) {
   }
 }
 
-async function handlePaymentIntentFailed(failed: any) {
-  console.error(`[Stripe Webhook] payment_intent.payment_failed: ${failed.id} — ${failed.last_payment_error?.message}`);
+async function handlePaymentIntentFailed(failed: Stripe.PaymentIntent) {
+  console.error(`[Stripe Webhook] payment_intent.payment_failed: ${failed.id} — ${(failed.last_payment_error as Stripe.PaymentIntent.LastPaymentError | null)?.message}`);
 }
 
-async function handleChargeDisputeCreated(dispute: any) {
+async function handleChargeDisputeCreated(dispute: Stripe.Dispute) {
   const db = getDb();
-  const piId = dispute.payment_intent?.id || dispute.charge?.payment_intent;
+  const pi = dispute.payment_intent;
+  const piId = typeof pi === 'string' ? pi : (pi as Stripe.PaymentIntent | null)?.id ?? null;
   const amount = dispute.amount;
   const metadata = dispute.metadata || {};
   const tid = metadata.tenantId || 'default';
@@ -130,9 +131,10 @@ async function handleChargeDisputeCreated(dispute: any) {
   });
 }
 
-async function handleChargeDisputeClosed(dispute: any) {
+async function handleChargeDisputeClosed(dispute: Stripe.Dispute) {
   const db = getDb();
-  const piId = dispute.payment_intent?.id || dispute.charge?.payment_intent;
+  const pi = dispute.payment_intent;
+  const piId = typeof pi === 'string' ? pi : (pi as Stripe.PaymentIntent | null)?.id ?? null;
   const closedStatus = dispute.status;
   const metadata = dispute.metadata || {};
   const tid = metadata.tenantId || 'default';
@@ -167,6 +169,9 @@ async function handleChargeDisputeClosed(dispute: any) {
   });
 }
 
+// SIN requireRole — webhook de Stripe invocado por Stripe directamente.
+// Se autentica vía firma HMAC (stripe-signature) verificada con
+// STRIPE_WEBHOOK_SECRET. No hay sesión de usuario TPV.
 export async function POST(req: NextRequest) {
   try {
     if (!webhookSecret) {
@@ -189,7 +194,7 @@ export async function POST(req: NextRequest) {
     let event;
     try {
       event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Firma Stripe inválida:', (err as Error).message);
       return apiBadRequest('Firma inválida');
     }
@@ -236,7 +241,7 @@ export async function POST(req: NextRequest) {
       });
 
       return apiOk({ received: true });
-    } catch (err: any) {
+    } catch (err: unknown) {
       const piErr = event.data.object as Stripe.PaymentIntent;
       await markFailed(event.id, piErr, (err as Error).message);
       logPayment({

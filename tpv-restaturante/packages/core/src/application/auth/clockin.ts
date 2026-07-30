@@ -31,7 +31,7 @@ export async function handleClockinAction(
       method: 'tpc',
       action,
     })
-    const data = await r.json()
+    const data = (await r.json()) as Record<string, unknown>
     if (data.ok) {
       deps.showToast(`✅ ${action} registrada`)
       loadClockinSummary(currentUser, deps)

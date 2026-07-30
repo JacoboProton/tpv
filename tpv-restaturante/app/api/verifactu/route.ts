@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server';
+import type { Sale } from '@tpv/core';
 import { eq, and, like, desc, sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
-import { registerSaleInFiskaly } from '../../../lib/fiskaly';
+import { registerSaleInFiskaly, type FiskalyInvoiceResult } from '../../../lib/fiskaly';
 import { generateRegistroFactura, formatFecha } from '../../../lib/verifactu';
 import { verifactuRegistros } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
@@ -28,7 +29,13 @@ export async function POST(req: NextRequest) {
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
-    const { saleId, sale } = await req.json() as any;
+    const bodyJson: { saleId: string; sale: Record<string, unknown> } = await req.json();
+    const { saleId } = bodyJson;
+    const sale = bodyJson.sale as {
+      closedAt?: number; total?: number; totalWithTip?: number;
+      paymentIntentId?: string; items?: { productId?: string; name?: string; qty?: number; price?: number }[];
+      id?: string; tableName?: string;
+    };
     if (!saleId || !sale) {
       return apiBadRequest('saleId y sale son requeridos');
     }
@@ -73,9 +80,9 @@ export async function POST(req: NextRequest) {
 
     try {
       const fiskalyResult = await registerSaleInFiskaly(sale, numSerie);
-      fiskalyInvoiceId = (fiskalyResult as any).fiskalyInvoiceId;
-      verificationUrl = (fiskalyResult as any).verificationUrl;
-      qrUrl = (fiskalyResult as any).qrUrl;
+      fiskalyInvoiceId = fiskalyResult.fiskalyInvoiceId;
+      verificationUrl = fiskalyResult.verificationUrl;
+      qrUrl = fiskalyResult.qrUrl;
       estado = 'registrado';
 
       const localResult = generateRegistroFactura(sale, previousHash, numSerie, {

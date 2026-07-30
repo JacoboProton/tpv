@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   try {
     const tenantId = getTenantId(req);
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-    const rl = rateLimit(`we:${ip}`, 30, 60 * 1000);
+    const rl = await rateLimit(`we:${ip}`, 30, 60 * 1000);
     if (!rl.allowed) {
       return NextResponse.json({ error: 'Demasiadas solicitudes' }, { status: 429 });
     }
@@ -44,12 +44,12 @@ export async function POST(req: NextRequest) {
   try {
     const tenantId = getTenantId(req);
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-    const rl = rateLimit(`we:${ip}`, 10, 60 * 1000);
+    const rl = await rateLimit(`we:${ip}`, 10, 60 * 1000);
     if (!rl.allowed) {
       return NextResponse.json({ error: 'Demasiadas solicitudes' }, { status: 429 });
     }
 
-    const { eventId } = await req.json() as any;
+    const { eventId } = await req.json() as { eventId: string };
 
     if (!eventId || typeof eventId !== 'string') {
       return apiBadRequest('eventId requerido');

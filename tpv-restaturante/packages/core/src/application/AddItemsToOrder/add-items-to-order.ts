@@ -1,6 +1,6 @@
 import { expandMenu, expandCombo } from '../../domain/order/menu-expansion'
 import type { MenuExpansionItem } from '../../domain/order/menu-expansion'
-import type { Floor, Catalog, Product, OrderItem } from '../../domain/types'
+import type { Floor, Catalog, Product, OrderItem, OrderItemModifier } from '../../domain/types'
 import { clone } from '../../lib/utils'
 
 function round2(n: number): number {
@@ -179,7 +179,7 @@ export function addComboItems(
 export interface EditItemModifiersInput {
   itemId: string
   product: Product
-  modifiers: any[]
+  modifiers: OrderItemModifier[]
   extraPrice: number
 }
 

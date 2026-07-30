@@ -16,6 +16,9 @@ function addMinutes(timeStr: string, mins: number) {
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
+// SIN requireRole — endpoint público para la página de reservas online
+// (app/reservar/page.jsx). Consulta disponibilidad de slots sin
+// autenticación. Solo expone horarios libres, ningún dato del negocio.
 export async function GET(req: NextRequest) {
   try {
     const db = getDb();

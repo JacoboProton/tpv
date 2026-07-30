@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     const db = getDb();
 
     if (action === 'login') {
-      const rl = rateLimit(`login:${getClientIp(req)}`, 10, 60_000);
+      const rl = await rateLimit(`login:${getClientIp(req)}`, 10, 60_000);
       if (!rl.allowed) return apiError(new Error('Demasiados intentos'), 429);
       // Login doesn't require session validation (it creates the session)
       // But we validate the employee exists via PIN verification before reaching here

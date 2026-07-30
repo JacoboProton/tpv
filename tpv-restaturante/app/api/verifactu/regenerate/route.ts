@@ -3,16 +3,20 @@ import { eq, desc } from 'drizzle-orm';
 import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
 import { requireAdminPin } from '../../../../lib/rbac';
-import { registerSaleInFiskaly } from '../../../../lib/fiskaly';
+import { registerSaleInFiskaly, type FiskalyInvoiceResult } from '../../../../lib/fiskaly';
 import { generateRegistroFactura, formatFecha } from '../../../../lib/verifactu';
 import { verifactuRegistros, sales, backups } from '../../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiUnauthorized } from '../../../../lib/infrastructure/response';
 
+// SIN requireRole — usa requireAdminPin (autenticación por PIN de administrador)
+// porque es una operación sensible (regenera registros Verifactu ante la AEAT) que
+// requiere confirmación explícita con PIN. La llama el admin desde Gestoría →
+// Verifactu cuando un registro falló y necesita reenviarse.
 export async function POST(req: NextRequest) {
   try {
     const db = getDb();
-    const body = await req.json() as any;
-    const adminCheck = await requireAdminPin(req, body.adminPin);
+    const body: Record<string, unknown> = await req.json();
+    const adminCheck = await requireAdminPin(req, body.adminPin as string);
     if (!adminCheck.authorized) {
       return apiUnauthorized(adminCheck.error);
     }
@@ -72,12 +76,12 @@ export async function POST(req: NextRequest) {
           const fiskalySale = {
             id: sale.id, total: Number(sale.total ?? 0), totalWithTip: Number(sale.totalWithTip ?? sale.total ?? 0),
             closedAt: sale.closedAt ? Number(sale.closedAt) : Date.now(),
-            items: (sale.items ?? []) as any[],
+            items: (sale.items ?? []) as Record<string, unknown>[],
           };
           const fiskalyResult = await registerSaleInFiskaly(fiskalySale, numSerie);
-          fiskalyInvoiceId = (fiskalyResult as any).fiskalyInvoiceId;
-          verificationUrl = (fiskalyResult as any).verificationUrl;
-          qrUrl = (fiskalyResult as any).qrUrl;
+          fiskalyInvoiceId = fiskalyResult.fiskalyInvoiceId;
+          verificationUrl = fiskalyResult.verificationUrl;
+          qrUrl = fiskalyResult.qrUrl;
           estado = 'registrado';
 
           const saleForVerifactu = {
@@ -85,7 +89,7 @@ export async function POST(req: NextRequest) {
             totalWithTip: sale.totalWithTip ? Number(sale.totalWithTip) : Number(sale.total),
             total: sale.total ? Number(sale.total) : 0,
             tableName: sale.tableName ?? undefined,
-            items: (sale.items ?? []) as any[],
+            items: (sale.items ?? []) as Record<string, unknown>[],
           };
 
           const localResult = generateRegistroFactura(saleForVerifactu, previousHash, numSerie);
@@ -101,7 +105,7 @@ export async function POST(req: NextRequest) {
             totalWithTip: sale.totalWithTip ? Number(sale.totalWithTip) : Number(sale.total),
             total: sale.total ? Number(sale.total) : 0,
             tableName: sale.tableName ?? undefined,
-            items: (sale.items ?? []) as any[],
+            items: (sale.items ?? []) as Record<string, unknown>[],
           };
 
           const fallback = generateRegistroFactura(saleForVerifactu, previousHash, numSerie);

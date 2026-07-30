@@ -209,7 +209,7 @@ export function executeCloseOrder(input: CloseOrderInput): CloseOrderResult {
   nextFloor.history[table.id].push(closedOrder)
   const todayStart = new Date()
   todayStart.setHours(0, 0, 0, 0)
-  nextFloor.history[table.id] = nextFloor.history[table.id].filter((h) => (h.closedAt || h.createdAt) >= todayStart.getTime())
+  nextFloor.history[table.id] = nextFloor.history[table.id].filter((h) => (h.closedAt ?? h.createdAt ?? 0) >= todayStart.getTime())
 
   const closedOid = table.orderId
   if (closedOid) {

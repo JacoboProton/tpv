@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
-    const { saleId } = await req.json() as any;
+    const { saleId } = await req.json() as { saleId: string };
     if (!saleId) {
       return apiBadRequest('saleId es requerido');
     }

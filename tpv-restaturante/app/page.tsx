@@ -167,8 +167,8 @@ export default function App() {
     onEscape: useCallback(() => { setShowCommands(false); setShowSettings(false); setSelectedTableId(null); setActiveTicketId(null); }, []),
     onFocusSearch: useCallback(() => {}, []),
     onOpenPayment: useCallback(() => { setPaymentSplits([]); setTipAmount(0); setTipMethod('efectivo'); setPaying(true); }, []),
-    onQuickCash: useCallback(() => { setPaymentSplits([{ method: 'efectivo', amount: 0 }]); setTipAmount(0); setTipMethod('efectivo'); setPaying(true); }, []),
-    onQuickCard: useCallback(() => { setPaymentSplits([{ method: 'tarjeta', amount: 0 }]); setTipAmount(0); setTipMethod('efectivo'); setPaying(true); }, []),
+    onQuickCash: useCallback(() => { setPaymentSplits([{ id: 'qc', method: 'efectivo', amount: 0 }]); setTipAmount(0); setTipMethod('efectivo'); setPaying(true); }, []),
+    onQuickCard: useCallback(() => { setPaymentSplits([{ id: 'qd', method: 'tarjeta', amount: 0 }]); setTipAmount(0); setTipMethod('efectivo'); setPaying(true); }, []),
   });
 
   useRealtimeSync({ tenantId, setFloor, setSales, onReadyNotification: handleReadyNotification });
