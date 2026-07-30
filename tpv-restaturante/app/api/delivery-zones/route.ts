@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiForbidden, apiTooManyRequests, apiCreated, apiServerError } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
+import { DeliveryZoneBody, IdBody } from '@/lib/schemas/api-schemas';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
@@ -22,7 +23,9 @@ export async function POST(req: NextRequest) {
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
-    const body = await req.json() as any;
+    const parsed = DeliveryZoneBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const body = parsed.data;
     const id = 'dz_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     await db.insert(deliveryZones).values({
       id, name: body.name,
@@ -42,7 +45,9 @@ export async function PUT(req: NextRequest) {
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
-    const body = await req.json() as any;
+    const parsed = DeliveryZoneBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const body = parsed.data;
     await db.update(deliveryZones).set({
       name: body.name, radiusKm: body.radiusKm || 0,
       cost: body.cost || 0, minOrder: body.minOrder || 0,
@@ -59,7 +64,9 @@ export async function DELETE(req: NextRequest) {
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
-    const { id } = await req.json() as any;
+    const parsed = IdBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const { id } = parsed.data;
     await db.delete(deliveryZones).where(and(eq(deliveryZones.id, id), eq(deliveryZones.tenantId, tenantId)));
     return apiOk();
   } catch (err) { return apiError(err); }

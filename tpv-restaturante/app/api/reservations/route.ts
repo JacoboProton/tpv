@@ -2,8 +2,9 @@ import { NextRequest } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
-import { apiOk, apiError } from '../../../lib/infrastructure/response';
+import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
+import { ReservationPostBody } from '@/lib/schemas/api-schemas';
 
 function makeId(): string { return 'res_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 
@@ -59,7 +60,9 @@ export async function POST(req: NextRequest) {
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
-    const r = await req.json() as any;
+    const parsed = ReservationPostBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const r = parsed.data;
     if (r.recurring) {
       const id = (r.id as string) || makeId().replace('res_', 'rec_');
       await db.execute(sql`

@@ -5,6 +5,7 @@ import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { combos, comboSlots, comboSlotItems, comboItems } from '../../../db/schema';
 import { requireRole } from '../../../lib/rbac';
+import { CombosBody } from '@/lib/schemas/api-schemas';
 
 export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin'])(req);
@@ -56,7 +57,9 @@ export async function PUT(req: NextRequest) {
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
-    const data = await req.json() as any[];
+    const parsed = CombosBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const data = parsed.data;
 
     await db.transaction(async (tx: any) => {
       await tx.delete(comboSlotItems).where(eq(comboSlotItems.tenantId, tenantId));
@@ -70,17 +73,19 @@ export async function PUT(req: NextRequest) {
           price: c.price, image: c.image || null, active: c.active ?? true,
           createdAt: Date.now(), discountPct: c.discountPct ?? 0, tenantId,
         });
-        if (c.slots) {
-          for (let si = 0; si < c.slots.length; si++) {
-            const slot = c.slots[si];
+        const slots = (c as unknown as { slots: any[] }).slots;
+        if (slots) {
+          for (let si = 0; si < slots.length; si++) {
+            const slot = slots[si];
             await tx.insert(comboSlots).values({
               id: slot.id, comboId: c.id, name: slot.name,
               minChoices: slot.minChoices ?? 1, maxChoices: slot.maxChoices ?? 1,
               sortOrder: si, tenantId,
             });
-            if (slot.items) {
-              for (let ii = 0; ii < slot.items.length; ii++) {
-                const item = slot.items[ii];
+            const slotItems = (slot as unknown as { items: any[] }).items;
+            if (slotItems) {
+              for (let ii = 0; ii < slotItems.length; ii++) {
+                const item = slotItems[ii];
                 await tx.insert(comboSlotItems).values({
                   id: item.id, slotId: slot.id, productId: item.product_id,
                   surcharge: item.surcharge ?? 0, sortOrder: ii, tenantId,

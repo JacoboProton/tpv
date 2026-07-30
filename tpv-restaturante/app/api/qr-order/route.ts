@@ -4,6 +4,7 @@ import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { qrOrders, orders, tables, deliveryOrders } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiNotFound } from '../../../lib/infrastructure/response';
+import { QrOrderPostBody } from '@/lib/schemas/api-schemas';
 
 function makeId(prefix = 'qo') { return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 
@@ -14,7 +15,9 @@ export async function POST(req: NextRequest) {
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
-    const body = await req.json() as any;
+    const parsed = QrOrderPostBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const body = parsed.data;
 
     if (body.action === 'status') {
       const [r] = await db.select().from(qrOrders)
@@ -160,7 +163,9 @@ export async function PUT(req: NextRequest) {
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
-    const body = await req.json() as any;
+    const parsed = QrOrderPostBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const body = parsed.data;
     const { action, id } = body;
 
     if (action === 'status') {

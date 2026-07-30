@@ -8,6 +8,7 @@ import { getCachedSettings, setCachedSettings } from '../../../../lib/settings-c
 import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized } from '../../../../lib/infrastructure/response';
 import { requireRole } from '../../../../lib/rbac';
 import { settings, sales } from '../../../../db/schema';
+import { InvoicePdfBody } from '@/lib/schemas/api-schemas';
 
 async function getSettings(tenantId: string) {
   const cached = getCachedSettings();
@@ -34,7 +35,9 @@ export async function POST(req: NextRequest) {
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
-    const { saleId, sale: inlineSale } = await req.json() as any;
+    const parsed = InvoicePdfBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const { saleId, sale: inlineSale } = parsed.data;
     let sale;
     if (inlineSale) {
       sale = inlineSale;

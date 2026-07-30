@@ -3,6 +3,9 @@ import { sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { requireRole } from '../../../lib/rbac';
+import { BuffetBody } from '@/lib/schemas/api-schemas';
+import { apiBadRequest } from '@/lib/infrastructure/response';
+import { z } from 'zod';
 
 function qr(db: ReturnType<typeof getDb>, q: any) {
   return db.execute(q).then((r: any) => r.rows as any[]);
@@ -51,11 +54,14 @@ export async function POST(req: NextRequest) {
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
-    const body = await req.json() as any;
+    const parsed = z.object({}).passthrough().safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const body = parsed.data as Record<string, unknown>;
     const { action } = body;
 
     if (action === 'open') {
-      const { tableId, tableName, adults, children, seniors, employeeName } = body;
+      const { tableId, tableName, adults: a, children: c, seniors: s, employeeName } = body;
+      const adults = Number(a) || 1, children = Number(c) || 0, seniors = Number(s) || 0;
 
       const [existing] = await qr(db, sql`SELECT id FROM buffet_sessions WHERE table_id = ${tableId} AND status = 'active' AND tenant_id = ${tenantId}`);
       if (existing) return Response.json({ error: 'La mesa ya tiene una sesión de buffet activa' }, { status: 409 });
@@ -82,7 +88,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'pause') {
-      const minutes = body.minutes || 5;
+      const minutes = Number(body.minutes) || 5;
       const pausedUntil = Date.now() + minutes * 60000;
       await db.execute(sql`UPDATE buffet_config SET paused_until = ${pausedUntil}, updated_at = ${Date.now()} WHERE id = 'default' AND tenant_id = ${tenantId}`);
       return Response.json({ pausedUntil });
@@ -153,7 +159,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'batch') {
-      const { batchAction, sessionIds, employeeName } = body;
+      const { batchAction, sessionIds: sids, employeeName } = body;
+      const sessionIds = (sids as string[]) || [];
 
       if (batchAction === 'close_all') {
         for (const sid of sessionIds) {
@@ -189,7 +196,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'create_round') {
-      const { tableId, items, employeeName } = body;
+      const { tableId, items: its, employeeName } = body;
+      const items = (its as any[]) || [];
       const [session] = await qr(db, sql`SELECT * FROM buffet_sessions WHERE table_id = ${tableId} AND status = 'active' AND tenant_id = ${tenantId}`);
       if (!session) return Response.json({ error: 'Esta mesa no tiene una sesión de buffet activa' }, { status: 400 });
 

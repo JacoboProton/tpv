@@ -48,7 +48,7 @@ export const AlbaranBody = z.object({
     productName: z.string().min(1),
     quantity: z.number().positive(),
     pricePerUnit: z.number().nonnegative(),
-})).optional(),
+}).passthrough()).optional(),
 }).passthrough()
 
 // ─── auto-order-settings ───
@@ -94,7 +94,7 @@ export const CatalogBody = z.object({
     id: z.string(),
     name: z.string(),
     sort: z.number().optional(),
-  })),
+  }).passthrough()),
   products: z.array(CatalogProductBody),
 }).passthrough()
 

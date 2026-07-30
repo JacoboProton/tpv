@@ -2,7 +2,8 @@ import { NextRequest } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
-import { apiOk, apiError } from '../../../lib/infrastructure/response';
+import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
+import { AutoOrderSettingsBody } from '@/lib/schemas/api-schemas';
 import { requireRole } from '../../../lib/rbac';
 
 export async function GET(req: NextRequest) {
@@ -21,7 +22,9 @@ export async function POST(req: NextRequest) {
   const auth = await requireRole(['admin'])(req);
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
-    const body = await req.json() as any;
+    const parsed = AutoOrderSettingsBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const body = parsed.data;
     const tenantId = getTenantId(req);
     const db = getDb();
     for (const [key, value] of Object.entries(body)) {

@@ -5,6 +5,7 @@ import { getTenantId } from '../../../lib/tenant';
 import { waitlist, settings } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiServerError } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
+import { WaitlistBody } from '@/lib/schemas/api-schemas';
 
 function makeId() { return 'wl_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 
@@ -79,7 +80,9 @@ export async function POST(req: NextRequest) {
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
-    const body = await req.json() as any;
+    const parsed = WaitlistBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const body = parsed.data;
     const { action } = body;
 
     if (action === 'join' || action === undefined) {

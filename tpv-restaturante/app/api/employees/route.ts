@@ -8,6 +8,7 @@ import { employees } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiNotFound } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
 import { rateLimit, getClientIp } from '../../../lib/rate-limit';
+import { EmployeePostBody, EmployeePutBody } from '@/lib/schemas/api-schemas';
 
 function sha256(s: string): string {
   return createHash('sha256').update(s, 'utf8').digest('hex');
@@ -40,7 +41,9 @@ export async function PUT(req: NextRequest) {
 
   try {
     const db = getDb();
-    const emps = await req.json() as any[];
+    const parsed = EmployeePutBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const emps = parsed.data;
     const tenantId = getTenantId(req);
     const ids = emps.map((e: any) => e.id);
     await db.transaction(async (tx: any) => {
@@ -84,7 +87,9 @@ export async function PUT(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const db = getDb();
-    const body = await req.json() as any;
+    const parsed = EmployeePostBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const body = parsed.data;
     const { action } = body;
     const tenantId = getTenantId(req);
 

@@ -5,6 +5,7 @@ import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { mealMenus, mealMenuCourses, mealMenuCourseItems, mealMenuSchedules, products } from '../../../db/schema';
 import { requireRole } from '../../../lib/rbac';
+import { MealMenuBody } from '@/lib/schemas/api-schemas';
 
 export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin'])(req);
@@ -68,7 +69,9 @@ export async function PUT(req: NextRequest) {
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
-    const menus = await req.json();
+    const parsed = MealMenuBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const menus = parsed.data;
     await db.execute(sql`DELETE FROM meal_menu_course_items WHERE tenant_id = ${tenantId}`);
     await db.execute(sql`DELETE FROM meal_menu_courses WHERE tenant_id = ${tenantId}`);
     await db.execute(sql`DELETE FROM meal_menu_schedules WHERE tenant_id = ${tenantId}`);

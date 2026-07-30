@@ -5,6 +5,7 @@ import { getTenantId } from '../../../../lib/tenant';
 import { sales } from '../../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized } from '../../../../lib/infrastructure/response';
 import { requireRole } from '../../../../lib/rbac';
+import { InvoiceSendBody } from '@/lib/schemas/api-schemas';
 
 export async function POST(req: NextRequest) {
   const auth = await requireRole(['admin'])(req);
@@ -12,7 +13,9 @@ export async function POST(req: NextRequest) {
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
-    const { saleId, pdfBase64, filename, to } = await req.json() as any;
+    const parsed = InvoiceSendBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const { saleId, pdfBase64, filename, to } = parsed.data;
 
     if (!saleId || !pdfBase64) {
       return apiBadRequest('saleId y pdfBase64 requeridos');

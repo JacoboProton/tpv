@@ -5,6 +5,7 @@ import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { offers } from '../../../db/schema';
 import { requireRole } from '../../../lib/rbac';
+import { OffersBody } from '@/lib/schemas/api-schemas';
 
 export async function GET(req: NextRequest) {
   try {
@@ -31,7 +32,9 @@ export async function PUT(req: NextRequest) {
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
-    const data = await req.json() as any[];
+    const parsed = OffersBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const data = parsed.data;
     await db.delete(offers).where(eq(offers.tenantId, tenantId));
     for (const o of data) {
       await db.insert(offers).values({

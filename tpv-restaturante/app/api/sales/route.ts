@@ -5,6 +5,7 @@ import { getTenantId } from '../../../lib/tenant';
 import { sales, verifactuRegistros, ticketCounters } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
+import { SalePostBody } from '@/lib/schemas/api-schemas';
 
 export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin', 'camarero'])(req);
@@ -82,7 +83,9 @@ export async function POST(req: NextRequest) {
 
   try {
     const db = getDb();
-    const s = await req.json() as any;
+    const parsed = SalePostBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const s = parsed.data;
     const tenantId = getTenantId(req);
 
     const year = new Date(Number(s.closedAt || Date.now())).getFullYear();

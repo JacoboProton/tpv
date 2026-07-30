@@ -5,6 +5,7 @@ import { getTenantId } from '../../../../lib/tenant';
 import { deliveryOrders } from '../../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized } from '../../../../lib/infrastructure/response';
 import { requireRole } from '../../../../lib/rbac';
+import { DeliveryOrderBody } from '@/lib/schemas/api-schemas';
 
 export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin', 'camarero'])(req);
@@ -26,7 +27,9 @@ export async function POST(req: NextRequest) {
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
-    const body = await req.json() as any;
+    const parsed = DeliveryOrderBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const body = parsed.data;
     const id = 'del_' + Date.now();
     await db.insert(deliveryOrders).values({
       id, tenantId,
@@ -53,7 +56,9 @@ export async function PUT(req: NextRequest) {
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
-    const body = await req.json() as any;
+    const parsed = DeliveryOrderBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const body = parsed.data;
     await db.update(deliveryOrders)
       .set({
         status: body.status,

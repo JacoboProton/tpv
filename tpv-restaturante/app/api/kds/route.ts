@@ -5,6 +5,7 @@ import { getTenantId } from '../../../lib/tenant';
 import { kdsPairings } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
+import { KdsBody, IdBody } from '@/lib/schemas/api-schemas';
 
 function makeId() { return 'k_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 function generateCode() {
@@ -52,7 +53,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json() as any;
+    const parsed = KdsBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const body = parsed.data;
     const { action } = body;
 
     if (action === 'verify') {
@@ -99,9 +102,9 @@ export async function DELETE(req: NextRequest) {
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
-    const body = await req.json() as any;
-    const { id } = body;
-    if (!id) return apiBadRequest('id required');
+    const parsed = IdBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const { id } = parsed.data;
     await db.update(kdsPairings).set({ revoked: true }).where(and(eq(kdsPairings.id, id), eq(kdsPairings.tenantId, tenantId)));
     return apiOk();
   } catch (err) { return apiError(err); }

@@ -5,6 +5,7 @@ import { getTenantId } from '../../../lib/tenant';
 import { employeeShifts } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiServerError } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
+import { ShiftBody } from '@/lib/schemas/api-schemas';
 
 export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin', 'camarero'])(req);
@@ -46,7 +47,9 @@ export async function POST(req: NextRequest) {
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const tenantId = getTenantId(req);
-    const body = await req.json() as any;
+    const parsed = ShiftBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const body = parsed.data;
     const { action } = body;
     const db = getDb();
 
@@ -123,7 +126,9 @@ export async function DELETE(req: NextRequest) {
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const tenantId = getTenantId(req);
-    const { id } = await req.json() as any;
+    const parsed = ShiftBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const { id } = parsed.data;
     const db = getDb();
     await db.delete(employeeShifts)
       .where(and(eq(employeeShifts.id, id), eq(employeeShifts.tenantId, tenantId)));

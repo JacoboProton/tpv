@@ -5,6 +5,8 @@ import { getTenantId } from '../../../lib/tenant';
 import { products, categories, productStock, combos, comboSlots, comboSlotItems, productPriceRules, mealMenus, mealMenuCourses, mealMenuCourseItems, mealMenuSchedules } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
+import { IdBody } from '@/lib/schemas/api-schemas';
+import { z } from 'zod';
 
 export async function GET(req: NextRequest) {
   try {
@@ -128,7 +130,12 @@ export async function PUT(req: NextRequest) {
 
   try {
     const db = getDb();
-    const { categories: catData, products: prodData, combos: comboData } = await req.json() as { categories: any[]; products: any[]; combos: any[] };
+    const parsed = z.object({}).passthrough().safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const body = parsed.data as Record<string, unknown>;
+    const catData = body.categories as any[] | undefined;
+    const prodData = body.products as any[] | undefined;
+    const comboData = body.combos as any[] | undefined;
     const tenantId = getTenantId(req);
 
     await db.transaction(async (tx: any) => {
@@ -236,7 +243,11 @@ export async function PATCH(req: NextRequest) {
 
   try {
     const db = getDb();
-    const { action, data } = await req.json() as { action: string; data: any };
+    const parsed = z.object({ action: z.string().min(1) }).passthrough().safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const body = parsed.data as Record<string, unknown>;
+    const action = body.action as string;
+    const data = body.data as any;
     const tenantId = getTenantId(req);
 
     if (action === 'reorder-categories') {

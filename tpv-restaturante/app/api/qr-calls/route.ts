@@ -3,8 +3,9 @@ import { eq, and, desc } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { qrCalls, tables } from '../../../db/schema';
-import { apiOk, apiError } from '../../../lib/infrastructure/response';
+import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
+import { QrCallBody, QrCallAckBody } from '@/lib/schemas/api-schemas';
 
 const callsCache: Record<string, any> = {};
 const cacheTime: Record<string, any> = {};
@@ -36,7 +37,9 @@ export async function POST(req: NextRequest) {
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const tenantId = getTenantId(req);
-    const body = await req.json() as any;
+    const parsed = QrCallBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const body = parsed.data;
     const db = getDb();
 
     let tableName = body.tableName || '';
@@ -63,7 +66,9 @@ export async function PUT(req: NextRequest) {
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const tenantId = getTenantId(req);
-    const body = await req.json() as any;
+    const parsed = QrCallAckBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const body = parsed.data;
     const db = getDb();
     await db.update(qrCalls).set({ acknowledged: true })
       .where(and(eq(qrCalls.id, body.id), eq(qrCalls.tenantId, tenantId)));

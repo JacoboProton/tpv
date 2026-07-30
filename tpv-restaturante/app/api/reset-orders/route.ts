@@ -4,7 +4,8 @@ import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { requireAdminPin } from '../../../lib/rbac';
 import { orders } from '../../../db/schema';
-import { apiOk, apiError } from '../../../lib/infrastructure/response';
+import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
+import { ResetOrdersBody } from '@/lib/schemas/api-schemas';
 
 // SIN requireRole — usa requireAdminPin (autenticación por PIN de administrador)
 // porque es una operación peligrosa (borra todos los pedidos activos) que debe
@@ -12,7 +13,9 @@ import { apiOk, apiError } from '../../../lib/infrastructure/response';
 // porque no hay sesión activa: la llama el dueño desde Gestoría → Ajustes.
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json() as any;
+    const parsed = ResetOrdersBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const body = parsed.data;
     const adminCheck = await requireAdminPin(req, body.adminPin);
     if (!adminCheck.authorized) {
       return apiError(new Error(adminCheck.error), adminCheck.status);

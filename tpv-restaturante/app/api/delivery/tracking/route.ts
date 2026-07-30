@@ -4,6 +4,7 @@ import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
 import { deliveryTracking, deliveryOrders } from '../../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized } from '../../../../lib/infrastructure/response';
+import { DeliveryTrackingBody } from '@/lib/schemas/api-schemas';
 
 // SIN requireRole — endpoint de tracking público para que el cliente
 // delivery pueda consultar el estado de su pedido sin autenticación.
@@ -41,7 +42,9 @@ export async function POST(req: NextRequest) {
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
-    const body = await req.json() as any;
+    const parsed = DeliveryTrackingBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const body = parsed.data;
     const { deliveryId, status, locationLat, locationLng, note } = body;
     const [delivery] = await db.select({ id: deliveryOrders.id })
       .from(deliveryOrders)

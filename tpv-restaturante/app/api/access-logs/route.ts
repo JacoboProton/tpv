@@ -3,7 +3,8 @@ import { eq, sql, desc } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { accessLogs } from '../../../db/schema';
-import { apiOk, apiError } from '../../../lib/infrastructure/response';
+import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
+import { AccessLogQuery } from '@/lib/schemas/api-schemas';
 import { requireRole } from '../../../lib/rbac';
 
 export async function POST(req: NextRequest) {
@@ -11,7 +12,9 @@ export async function POST(req: NextRequest) {
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const tenantId = getTenantId(req);
-    const { employeeId, employeeName, role, entryPoint } = await req.json() as any;
+    const parsed = AccessLogQuery.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const { employeeId, employeeName, role, entryPoint } = parsed.data;
     const db = getDb();
     await db.insert(accessLogs).values({
       employeeId, employeeName, role, entryPoint, loggedAt: Date.now(), tenantId,
@@ -48,7 +51,7 @@ export async function GET(req: NextRequest) {
       db.execute(sql`SELECT COUNT(*)::int AS total FROM access_logs WHERE tenant_id = ${tenantId}`),
     ]);
 
-    const total = (countResult as any).rows?.[0]?.total ?? 0;
+    const total = (countResult as unknown as { rows: { total: number }[] }).rows?.[0]?.total ?? 0;
 
     return apiOk({
       rows,

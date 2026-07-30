@@ -4,6 +4,7 @@ import { getDb } from '../../../lib/drizzle';
 import { tenants } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiServerError } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
+import { TenantPostBody, TenantPutBody, IdBody } from '@/lib/schemas/api-schemas';
 
 export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin'])(req);
@@ -25,7 +26,9 @@ export async function POST(req: NextRequest) {
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
 
   try {
-    const body = await req.json() as any;
+    const parsed = TenantPostBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const body = parsed.data;
     const { name, slug } = body;
     if (!name || !slug) return apiBadRequest('name and slug required');
     const db = getDb();
@@ -46,7 +49,9 @@ export async function PUT(req: NextRequest) {
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
 
   try {
-    const body = await req.json() as any;
+    const parsed = TenantPutBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const body = parsed.data;
     const { id, name, address, phone, email, nif, active } = body;
     if (!id) return apiBadRequest('id required');
     const db = getDb();
@@ -68,8 +73,10 @@ export async function DELETE(req: NextRequest) {
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
 
   try {
-    const { id } = await req.json() as any;
-    if (!id || id === 'default') return apiBadRequest('cannot delete default tenant');
+    const parsed = IdBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const { id } = parsed.data;
+    if (id === 'default') return apiBadRequest('cannot delete default tenant');
     const db = getDb();
     await db.delete(tenants).where(eq(tenants.id, id));
     return apiOk();

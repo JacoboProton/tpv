@@ -3,7 +3,8 @@ import { eq, desc } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { cancelledOrders } from '../../../db/schema';
-import { apiOk, apiError } from '../../../lib/infrastructure/response';
+import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
+import { CancelOrderBody } from '@/lib/schemas/api-schemas';
 import { requireRole } from '../../../lib/rbac';
 
 export async function GET(req: NextRequest) {
@@ -37,7 +38,9 @@ export async function POST(req: NextRequest) {
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const tenantId = getTenantId(req);
-    const b = await req.json();
+    const parsed = CancelOrderBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const b = parsed.data;
     const db = getDb();
     const [row] = await db.insert(cancelledOrders).values({
       orderId: b.orderId, tableId: b.tableId, tableName: b.tableName,

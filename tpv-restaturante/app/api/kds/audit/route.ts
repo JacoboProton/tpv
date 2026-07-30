@@ -5,12 +5,15 @@ import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
 import { kdsAuditLog } from '../../../../db/schema';
 import { requireRole } from '../../../../lib/rbac';
+import { KdsAuditBody } from '@/lib/schemas/api-schemas';
 
 export async function POST(req: NextRequest) {
   const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
-    const body = await req.json() as any;
+    const parsed = KdsAuditBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const body = parsed.data;
     const { action, details } = body;
     if (!action) return apiBadRequest('action required');
     const db = getDb();

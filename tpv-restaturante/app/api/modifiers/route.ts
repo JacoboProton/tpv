@@ -5,6 +5,7 @@ import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { modifierGroups, modifierOptions, productModifiers } from '../../../db/schema';
 import { requireRole } from '../../../lib/rbac';
+import { ModifiersBody } from '@/lib/schemas/api-schemas';
 
 export async function GET(req: NextRequest) {
   try {
@@ -48,7 +49,9 @@ export async function PUT(req: NextRequest) {
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
-    const { groups, productModifiers: pmData } = await req.json() as any;
+    const parsed = ModifiersBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const { groups, productModifiers: pmData } = parsed.data;
 
     const warnings: string[] = [];
     for (const g of groups) {

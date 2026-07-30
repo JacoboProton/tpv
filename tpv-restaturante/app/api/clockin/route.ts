@@ -7,6 +7,8 @@ import { getTenantId } from '../../../lib/tenant';
 import { clockinLogs, clockinCorrections, employees } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiForbidden } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
+import { ClockinBody } from '@/lib/schemas/api-schemas';
+import { z } from 'zod';
 import { rateLimit, getClientIp } from '../../../lib/rate-limit';
 
 function sha256(s: string): string {
@@ -103,12 +105,14 @@ export async function POST(req: NextRequest) {
     if (!rl.allowed) return apiError(new Error('Demasiados intentos'), 429);
     const db = getDb();
     const tenantId = getTenantId(req);
-    const body = await req.json() as any;
+    const parsed = ClockinBody.extend({ action: z.string().min(1) }).safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const body = parsed.data;
     const today = new Date().toISOString().slice(0, 10);
 
     if (body.pin) {
       const [emp] = await db.select({ id: employees.id, pinHash: employees.pinHash }).from(employees)
-        .where(and(eq(employees.id, body.employeeId), eq(employees.tenantId, tenantId)));
+        .where(and(eq(employees.id, body.employeeId ?? ''), eq(employees.tenantId, tenantId)));
       if (!emp || !emp.pinHash) return apiForbidden('PIN incorrecto');
       if (!bcrypt.compareSync(body.pin, emp.pinHash) && !bcrypt.compareSync(sha256(body.pin), emp.pinHash)) return apiForbidden('PIN incorrecto');
     }
@@ -116,7 +120,7 @@ export async function POST(req: NextRequest) {
     let action = body.action;
     if (!action) {
       const [last] = await db.select({ action: clockinLogs.action }).from(clockinLogs)
-        .where(and(eq(clockinLogs.employeeId, body.employeeId), eq(clockinLogs.clockinDate, today), eq(clockinLogs.tenantId, tenantId)))
+        .where(and(eq(clockinLogs.employeeId, body.employeeId ?? ''), eq(clockinLogs.clockinDate, today), eq(clockinLogs.tenantId, tenantId)))
         .orderBy(desc(clockinLogs.createdAt)).limit(1);
       if (!last) action = 'entrada';
       else if (last.action === 'entrada') action = 'salida';
@@ -125,7 +129,7 @@ export async function POST(req: NextRequest) {
     }
 
     await db.insert(clockinLogs).values({
-      employeeId: body.employeeId, employeeName: body.employeeName || '',
+      employeeId: body.employeeId ?? '', employeeName: body.employeeName ?? '',
       action, method: body.method || 'tpc', clockinDate: today,
       createdAt: Date.now(), tenantId,
     });
@@ -140,11 +144,16 @@ export async function PUT(req: NextRequest) {
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
-    const body = await req.json() as any;
-    const { action: putAction } = body;
+    const parsed = z.object({ action: z.string().min(1) }).passthrough().safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const body = parsed.data as Record<string, unknown>;
+    const putAction = body.action as string;
 
     if (putAction === 'edit-record') {
-      const { id, createdAt, recordAction: newAction } = body;
+      const recordAction = body.recordAction as string | undefined;
+      const newAction = recordAction;
+      const createdAt = Number(body.createdAt) || Date.now();
+      const id = Number(body.id);
       await db.update(clockinLogs).set({
         createdAt, action: newAction,
         edited: true, editedBy: body.editedBy || '', editReason: body.editReason || '',
@@ -183,19 +192,25 @@ export async function PUT(req: NextRequest) {
     }
 
     if (putAction === 'correction-request') {
-      const { id, employeeId, employeeName, requestedAction, reason } = body;
+      const id = Number(body.id) || 0;
+      const employeeId = String(body.employeeId ?? '');
+      const employeeName = String(body.employeeName ?? '');
+      const requestedAction = String(body.requestedAction ?? '');
+      const reason = String(body.reason ?? '');
       await db.insert(clockinCorrections).values({
-        clockinId: id || 0, employeeId, employeeName: employeeName || '',
-        requestedAction: requestedAction || '', reason: reason || '',
+        clockinId: id, employeeId, employeeName,
+        requestedAction, reason,
         status: 'pending', createdAt: Date.now(),
       });
       return apiOk();
     }
 
     if (putAction === 'resolve-correction') {
-      const { correctionId, status, resolvedBy } = body;
+      const correctionId = Number(body.correctionId);
+      const status = String(body.status ?? '');
+      const resolvedBy = String(body.resolvedBy ?? '');
       await db.update(clockinCorrections)
-        .set({ status, resolvedBy: resolvedBy || '' })
+        .set({ status, resolvedBy })
         .where(eq(clockinCorrections.id, correctionId));
       return apiOk();
     }

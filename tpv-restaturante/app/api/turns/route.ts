@@ -5,6 +5,7 @@ import { getTenantId } from '../../../lib/tenant';
 import { employeeTurns } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiServerError } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
+import { TurnBody } from '@/lib/schemas/api-schemas';
 
 export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin', 'camarero'])(req);
@@ -39,7 +40,9 @@ export async function POST(req: NextRequest) {
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const tenantId = getTenantId(req);
-    const { employeeId, employeeName, action, turnDate } = await req.json() as any;
+    const parsed = TurnBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const { employeeId, employeeName, action, turnDate } = parsed.data;
     const time = Date.now();
     const db = getDb();
 

@@ -4,8 +4,9 @@ import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { invalidateSettingsCache } from '../../../lib/settings-cache';
 import { settings } from '../../../db/schema';
-import { apiOk, apiError } from '../../../lib/infrastructure/response';
+import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
+import { SettingsBody } from '@/lib/schemas/api-schemas';
 
 export async function GET(req: NextRequest) {
   try {
@@ -26,7 +27,9 @@ export async function PUT(req: NextRequest) {
 
   try {
     const db = getDb();
-    const body = await req.json() as any;
+    const parsed = SettingsBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const body = parsed.data;
     const tenantId = getTenantId(req);
     for (const [key, value] of Object.entries(body)) {
       await db.insert(settings).values({

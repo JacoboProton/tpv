@@ -5,6 +5,8 @@ import { getTenantId } from '../../../../lib/tenant';
 import { deliveryRunners } from '../../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized } from '../../../../lib/infrastructure/response';
 import { requireRole } from '../../../../lib/rbac';
+import { DeliveryRunnerBody, IdBody } from '@/lib/schemas/api-schemas';
+import { z } from 'zod';
 
 export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin', 'camarero'])(req);
@@ -24,7 +26,9 @@ export async function PUT(req: NextRequest) {
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const tenantId = getTenantId(req);
-    const runners = await req.json();
+    const parsed = z.array(DeliveryRunnerBody).safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const runners = parsed.data;
     const db = getDb();
     for (const r of runners) {
       if (r.id) {
@@ -46,7 +50,9 @@ export async function DELETE(req: NextRequest) {
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const tenantId = getTenantId(req);
-    const { id } = await req.json() as any;
+    const parsed = IdBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const { id } = parsed.data;
     const db = getDb();
     await db.delete(deliveryRunners)
       .where(eq(deliveryRunners.id, id));

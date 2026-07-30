@@ -5,6 +5,7 @@ import { getTenantId } from '../../../lib/tenant';
 import { stockLog } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiServerError } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
+import { StockLogBody } from '@/lib/schemas/api-schemas';
 
 export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin'])(req);
@@ -48,7 +49,9 @@ export async function POST(req: NextRequest) {
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
-    const { productId, productName, oldStock, newStock, reason, employeeName } = await req.json() as any;
+    const parsed = StockLogBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const { productId, productName, oldStock, newStock, reason, employeeName } = parsed.data;
 
     const changeAmount = newStock - oldStock;
 

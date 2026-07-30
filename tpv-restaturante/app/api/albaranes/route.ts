@@ -4,6 +4,7 @@ import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { apiOk, apiError, apiBadRequest, apiNotFound } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
+import { AlbaranBody } from '@/lib/schemas/api-schemas';
 
 function qr(db: ReturnType<typeof getDb>, q: any) {
   return db.execute(q).then((r: any) => r.rows as any[]);
@@ -73,16 +74,19 @@ export async function POST(req: NextRequest) {
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
-    const body = await req.json() as any;
-    const { action } = body;
+    const parsed = AlbaranBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const body = parsed.data;
+    const action = (body as unknown as { action: string }).action;
 
     if (action === 'create') {
-      const { supplierId, supplierName, albaranNumber, deliveryDate, invoiceNumber, notes, lines, receivedBy, headerDiscountPct, recargoEquivalenciaPct, portesAmount, linkedPurchaseOrderId } = body;
+      const { supplierId, supplierName, albaranNumber, deliveryDate, invoiceNumber, notes, lines: rawLines, receivedBy, headerDiscountPct, recargoEquivalenciaPct, portesAmount, linkedPurchaseOrderId } = body;
+      const lines = rawLines as any[] | undefined;
       const id = 'alb_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
 
       let totalNet = 0;
       let totalIva = 0;
-      const processedLines = [];
+      const processedLines: any[] = [];
 
       for (const line of lines || []) {
         const packSize = parseFloat(line.packSize || 1);
@@ -104,12 +108,12 @@ export async function POST(req: NextRequest) {
         processedLines.push({ ...line, packSize, pricePerPack, pricePerUnit, lineDiscountAmount, subtotal, ivaAmount, totalLine });
       }
 
-      const headerDiscountPctVal = parseFloat(headerDiscountPct || 0);
+      const headerDiscountPctVal = parseFloat(String(headerDiscountPct ?? 0));
       const headerDiscountAmount = totalNet * (headerDiscountPctVal / 100);
       const afterHeaderDiscount = totalNet - headerDiscountAmount;
-      const recargoEquivalenciaPctVal = parseFloat(recargoEquivalenciaPct || 0);
+      const recargoEquivalenciaPctVal = parseFloat(String(recargoEquivalenciaPct ?? 0));
       const recargoAmount = afterHeaderDiscount * (recargoEquivalenciaPctVal / 100);
-      const portesAmountVal = parseFloat(portesAmount || 0);
+      const portesAmountVal = parseFloat(String(portesAmount ?? 0));
       const totalAmount = afterHeaderDiscount + recargoAmount + portesAmountVal + totalIva;
 
       await db.execute(sql`
@@ -128,7 +132,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'update') {
-      const { id, supplierId, supplierName, albaranNumber, deliveryDate, invoiceNumber, notes, lines, receivedBy, headerDiscountPct, recargoEquivalenciaPct, portesAmount } = body;
+      const { id, supplierId, supplierName, albaranNumber, deliveryDate, invoiceNumber, notes, lines: rawLines, receivedBy, headerDiscountPct, recargoEquivalenciaPct, portesAmount } = body;
+      const lines = rawLines as any[] | undefined;
 
       const [existing] = await qr(db, sql`SELECT status FROM albaranes WHERE id = ${id} AND tenant_id = ${tenantId}`);
       if (existing?.status === 'confirmed') {
@@ -137,7 +142,7 @@ export async function POST(req: NextRequest) {
 
       let totalNet = 0;
       let totalIva = 0;
-      const processedLines = [];
+      const processedLines: any[] = [];
 
       for (const line of lines || []) {
         const packSize = parseFloat(line.packSize || 1);
@@ -159,12 +164,12 @@ export async function POST(req: NextRequest) {
         processedLines.push({ ...line, packSize, pricePerPack, pricePerUnit, lineDiscountAmount, subtotal, ivaAmount, totalLine });
       }
 
-      const headerDiscountPctVal = parseFloat(headerDiscountPct || 0);
+      const headerDiscountPctVal = parseFloat(String(headerDiscountPct ?? 0));
       const headerDiscountAmount = totalNet * (headerDiscountPctVal / 100);
       const afterHeaderDiscount = totalNet - headerDiscountAmount;
-      const recargoEquivalenciaPctVal = parseFloat(recargoEquivalenciaPct || 0);
+      const recargoEquivalenciaPctVal = parseFloat(String(recargoEquivalenciaPct ?? 0));
       const recargoAmount = afterHeaderDiscount * (recargoEquivalenciaPctVal / 100);
-      const portesAmountVal = parseFloat(portesAmount || 0);
+      const portesAmountVal = parseFloat(String(portesAmount ?? 0));
       const totalAmount = afterHeaderDiscount + recargoAmount + portesAmountVal + totalIva;
 
       await db.execute(sql`
@@ -245,7 +250,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'confirm') {
-      const { id, batches } = body;
+      const { id } = body;
+      const batches = (body as unknown as { batches: any[] }).batches;
       const [albaran] = await qr(db, sql`SELECT * FROM albaranes WHERE id = ${id} AND tenant_id = ${tenantId}`);
       if (!albaran) return apiNotFound('Albarán no encontrado');
       if (albaran.status !== 'draft') return apiBadRequest('Solo se pueden confirmar albaranes en borrador');

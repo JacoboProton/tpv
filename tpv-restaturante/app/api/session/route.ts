@@ -6,11 +6,14 @@ import { sessions } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
 import { rateLimit, getClientIp } from '../../../lib/rate-limit';
+import { SessionBody } from '@/lib/schemas/api-schemas';
 
 export async function POST(req: NextRequest) {
   try {
     const tid = getTenantId(req);
-    const body = await req.json() as any;
+    const parsed = SessionBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const body = parsed.data;
     const { action, employeeId, employeeRole, deviceId } = body;
     const db = getDb();
 

@@ -3,7 +3,8 @@ import { eq, sql, desc } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { closures } from '../../../db/schema';
-import { apiOk, apiError } from '../../../lib/infrastructure/response';
+import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
+import { ClosureBody } from '@/lib/schemas/api-schemas';
 import { requireRole } from '../../../lib/rbac';
 
 export async function GET(req: NextRequest) {
@@ -25,7 +26,9 @@ export async function POST(req: NextRequest) {
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
-    const body = await req.json() as any;
+    const parsed = ClosureBody.safeParse(await req.json());
+    if (!parsed.success) return apiBadRequest(parsed.error.message);
+    const body = parsed.data;
 
     if (body.action === 'delete') {
       await db.delete(closures)
