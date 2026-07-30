@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
     const body = parsed.data;
 
     if (body.action === 'delete') {
+      if (!body.id) return apiBadRequest('id is required for delete');
       await db.delete(closures)
         .where(eq(closures.id, body.id));
       return apiOk();
