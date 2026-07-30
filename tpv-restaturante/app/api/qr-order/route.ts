@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
     const body = parsed.data;
 
     if (body.action === 'status') {
+      if (!body.orderId) return apiBadRequest('orderId required');
       const [r] = await db.select().from(qrOrders)
         .where(and(eq(qrOrders.id, body.orderId), eq(qrOrders.tenantId, tenantId))).limit(1);
       if (!r) return apiNotFound('not_found');
@@ -166,21 +167,25 @@ export async function PUT(req: NextRequest) {
     const parsed = QrOrderPostBody.safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
     const body = parsed.data;
-    const { action, id } = body;
+    const { action } = body;
+    const id = typeof body.id === 'string' ? body.id : '';
 
     if (action === 'status') {
+      if (!id) return apiBadRequest('id required');
       await db.update(qrOrders).set({ orderStatus: body.status, updatedAt: Date.now() })
         .where(and(eq(qrOrders.id, id), eq(qrOrders.tenantId, tenantId)));
       return apiOk();
     }
 
     if (action === 'accept') {
+      if (!id) return apiBadRequest('id required');
       await db.update(qrOrders).set({ accepted: true, orderStatus: 'confirmed', updatedAt: Date.now() })
         .where(and(eq(qrOrders.id, id), eq(qrOrders.tenantId, tenantId)));
       return apiOk();
     }
 
     if (action === 'update_items') {
+      if (!id) return apiBadRequest('id required');
       await db.update(qrOrders).set({ items: body.items, updatedAt: Date.now() })
         .where(and(eq(qrOrders.id, id), eq(qrOrders.tenantId, tenantId)));
       return apiOk();

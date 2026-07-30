@@ -55,6 +55,7 @@ export async function POST(req: NextRequest) {
 
     if (action === 'copy-week') {
       const { fromWeekStart, toWeekStart } = body;
+      if (!fromWeekStart || !toWeekStart) return apiBadRequest('fromWeekStart and toWeekStart required');
       const fromEnd = new Date(new Date(fromWeekStart).getTime() + 6 * 86400000).toISOString().slice(0, 10);
       const toEnd = new Date(new Date(toWeekStart).getTime() + 6 * 86400000).toISOString().slice(0, 10);
 
@@ -101,11 +102,14 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'delete-objective') {
-      await db.execute(sql`DELETE FROM shift_objectives WHERE id=${body.id} AND tenant_id = ${tenantId}`);
+      const objId = typeof body.id === 'string' ? body.id : '';
+      if (!objId) return apiBadRequest('id required');
+      await db.execute(sql`DELETE FROM shift_objectives WHERE id=${objId} AND tenant_id = ${tenantId}`);
       return apiOk();
     }
 
-    const { id, employeeId, employeeName, date, startTime, endTime, position, notes, color } = body;
+    const { employeeId, employeeName, date, startTime, endTime, position, notes, color } = body;
+    const id = typeof body.id === 'string' ? body.id : '';
     if (id) {
       await db.update(employeeShifts).set({
         employeeId, employeeName, date, startTime, endTime, position, notes, color,
@@ -128,7 +132,8 @@ export async function DELETE(req: NextRequest) {
     const tenantId = getTenantId(req);
     const parsed = ShiftBody.safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
-    const { id } = parsed.data;
+    const id = typeof parsed.data.id === 'string' ? parsed.data.id : '';
+    if (!id) return apiBadRequest('id required');
     const db = getDb();
     await db.delete(employeeShifts)
       .where(and(eq(employeeShifts.id, id), eq(employeeShifts.tenantId, tenantId)));

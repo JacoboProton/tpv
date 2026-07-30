@@ -48,6 +48,7 @@ export async function PUT(req: NextRequest) {
     const parsed = DeliveryZoneBody.safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
     const body = parsed.data;
+    if (!body.id) return apiBadRequest('id is required for update');
     await db.update(deliveryZones).set({
       name: body.name, radiusKm: body.radiusKm || 0,
       cost: body.cost || 0, minOrder: body.minOrder || 0,

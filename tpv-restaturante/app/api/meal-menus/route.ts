@@ -104,7 +104,7 @@ export async function PUT(req: NextRequest) {
           }
         }
       }
-      if (m.schedules) {
+      if (Array.isArray(m.schedules)) {
         for (const s of m.schedules) {
           await db.insert(mealMenuSchedules).values({
             id: s.id, menuId: m.id, dayOfWeek: s.day_of_week,

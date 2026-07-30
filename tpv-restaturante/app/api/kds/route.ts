@@ -60,6 +60,7 @@ export async function POST(req: NextRequest) {
 
     if (action === 'verify') {
       const { code, label, deviceId } = body;
+      if (!code) return apiBadRequest('code required');
       const db = getDb();
       const rows = await db.select().from(kdsPairings)
         .where(and(eq(kdsPairings.code, code), eq(kdsPairings.revoked, false)))

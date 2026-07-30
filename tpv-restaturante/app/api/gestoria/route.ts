@@ -182,6 +182,7 @@ export async function PUT(req: NextRequest) {
     const { action } = body;
 
     if (action === 'settings') {
+      if (!body.settings) return apiBadRequest('settings required');
       for (const [key, value] of Object.entries(body.settings)) {
         await db.execute(sql`INSERT INTO gestoria_settings (key, value, tenant_id) VALUES (${key}, ${String(value)}, ${tenantId}) ON CONFLICT (key, tenant_id) DO UPDATE SET value = EXCLUDED.value`);
       }

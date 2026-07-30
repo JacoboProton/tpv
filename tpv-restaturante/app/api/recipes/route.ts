@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
         .where(sql`${eq(recipes.productId, productId)} AND ${eq(recipes.tenantId, tenantId)}`)
         .limit(1);
       const recipeId = recipe?.id || 'rec_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
-      const yieldQtyVal = parseFloat(yieldQty || 1);
+      const yieldQtyVal = yieldQty || 1;
 
       const processedIngredients: any[] = [];
       for (const ing of ingredients) {

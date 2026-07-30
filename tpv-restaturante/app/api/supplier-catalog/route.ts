@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
               SELECT id FROM supplier_catalog WHERE supplier_id=${supplierId} AND product_id=${productId} AND tenant_id = ${tenantId} LIMIT 1
             `).then((r: any) => r.rows as any[]);
         if (catRow?.id) {
-          const ppu = parseFloat(price) / parseFloat(packSize || 1);
+          const ppu = (price || 0) / (packSize || 1);
           await db.execute(sql`
             INSERT INTO supplier_price_history (catalog_id, supplier_id, product_id, pack_price, pack_size, price_per_unit, source, created_at, tenant_id)
             VALUES (${catRow.id}, ${supplierId}, ${productId}, ${price}, ${packSize || 1}, ${ppu}, 'manual', ${Date.now()}, ${tenantId})

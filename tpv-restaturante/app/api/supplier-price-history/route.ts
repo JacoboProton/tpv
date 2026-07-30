@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) return apiBadRequest(parsed.error.message);
     const body = parsed.data;
     const { catalogId, supplierId, productId, packPrice, packSize, source } = body;
-    const ppu = parseFloat(packPrice) / parseFloat(packSize || 1);
+    const ppu = (packPrice || 0) / (packSize || 1);
     await db.execute(sql`
       INSERT INTO supplier_price_history (catalog_id, supplier_id, product_id, pack_price, pack_size, price_per_unit, source, created_at, tenant_id)
       VALUES (${catalogId}, ${supplierId}, ${productId}, ${packPrice}, ${packSize || 1}, ${ppu}, ${source || 'manual'}, ${Date.now()}, ${tenantId})

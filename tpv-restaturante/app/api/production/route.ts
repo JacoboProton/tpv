@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
         return apiBadRequest('El producto no tiene una receta asignada');
       }
 
-      const qty = parseFloat(quantity);
+      const qty = quantity || 0;
       const yieldQty = parseFloat(recipe.yieldQty as any || 1);
       const scaleFactor = qty / yieldQty;
       const prodLocation = location || 'Cocina';
@@ -157,7 +157,7 @@ export async function POST(req: NextRequest) {
         return apiBadRequest(errors.join('; '));
       }
 
-      const finalCostPerUnit = parseFloat(costPerUnit) || (suggestedCost / qty);
+      const finalCostPerUnit = costPerUnit || (suggestedCost / qty);
       const totalCost = finalCostPerUnit * qty;
       const id = 'prod_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
 
@@ -199,6 +199,7 @@ export async function POST(req: NextRequest) {
 
     if (action === 'void') {
       const { id, reason, anuladoBy } = body;
+      if (typeof id !== 'string') return apiBadRequest('id required');
       const [prod] = await db.select().from(productions)
         .where(sql`${eq(productions.id, id)} AND ${eq(productions.tenantId, tenantId)}`)
         .limit(1);

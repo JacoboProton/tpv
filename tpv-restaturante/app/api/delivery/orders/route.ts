@@ -59,6 +59,7 @@ export async function PUT(req: NextRequest) {
     const parsed = DeliveryOrderBody.safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
     const body = parsed.data;
+    if (!body.id) return apiBadRequest('id required for update');
     await db.update(deliveryOrders)
       .set({
         status: body.status,

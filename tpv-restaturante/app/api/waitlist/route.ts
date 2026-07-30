@@ -109,7 +109,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'call') {
-      const { id } = body;
+      const id = typeof body.id === 'string' ? body.id : '';
+      if (!id) return apiBadRequest('id required');
       const [entry] = await db.select({ name: waitlist.name, phone: waitlist.phone }).from(waitlist)
         .where(and(eq(waitlist.id, id), eq(waitlist.tenantId, tenantId))).limit(1);
       await db.update(waitlist).set({
@@ -124,7 +125,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'seat') {
-      const { id, tableId } = body;
+      const id = typeof body.id === 'string' ? body.id : '';
+      if (!id) return apiBadRequest('id required');
+      const tableId = typeof body.tableId === 'string' ? body.tableId : '';
       await db.update(waitlist).set({
         status: 'seated', seatedAt: Date.now(), tableId: tableId || '',
         updatedAt: Date.now(),
@@ -133,21 +136,23 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'cancel') {
-      const { id } = body;
+      const id = typeof body.id === 'string' ? body.id : '';
+      if (!id) return apiBadRequest('id required');
       await db.update(waitlist).set({ status: 'cancelled', updatedAt: Date.now() })
         .where(and(eq(waitlist.id, id), eq(waitlist.tenantId, tenantId)));
       return apiOk();
     }
 
     if (action === 'noshow') {
-      const { id } = body;
+      const id = typeof body.id === 'string' ? body.id : '';
+      if (!id) return apiBadRequest('id required');
       await db.update(waitlist).set({ status: 'noshow', updatedAt: Date.now() })
         .where(and(eq(waitlist.id, id), eq(waitlist.tenantId, tenantId)));
       return apiOk();
     }
 
     if (action === 'reorder') {
-      const { ids } = body;
+      const ids = Array.isArray(body.ids) ? body.ids : [];
       for (let i = 0; i < ids.length; i++) {
         await db.update(waitlist).set({ position: i + 1, updatedAt: Date.now() })
           .where(and(eq(waitlist.id, ids[i]), eq(waitlist.tenantId, tenantId)));
