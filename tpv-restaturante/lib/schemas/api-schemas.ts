@@ -115,6 +115,7 @@ export const ClockinBody = z.object({
 
 export const ClosureBody = z.object({
   action: z.string().min(1),
+  id: z.string().optional(),
   date: z.string().optional(),
   employeeId: z.string().optional(),
   employeeName: z.string().optional(),
