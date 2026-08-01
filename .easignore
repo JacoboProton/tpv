@@ -1,0 +1,62 @@
+# EAS Build archive ignore (repo root)
+# .easignore DEBE estar en el root del repositorio git.
+# Cuando existe, los .gitignore de subdirectorios NO se respetan.
+# EAS Build solo necesita: tpv-restaturante/mobile/ y packages/core/ (dependencia file:)
+
+# Git metadata
+.git/
+
+# Monorepo: solo necesitamos mobile y packages/core
+nimbalyst-local/
+
+# Web app (no necesaria para el build de mobile)
+# Se excluyen solo los directorios grandes; el resto de tpv-restaturante es fuente pequeña
+tpv-restaturante/node_modules/
+tpv-restaturante/.next/
+tpv-restaturante/out/
+tpv-restaturante/build/
+
+# Mobile app - artefactos que no se suben
+tpv-restaturante/mobile/node_modules/
+tpv-restaturante/mobile/android/
+tpv-restaturante/mobile/ios/
+tpv-restaturante/mobile/dist/
+tpv-restaturante/mobile/web-build/
+tpv-restaturante/mobile/.expo/
+tpv-restaturante/mobile/.expo-shared/
+tpv-restaturante/mobile/.gradle/
+tpv-restaturante/mobile/coverage/
+
+# packages/core - artefactos
+packages/core/node_modules/
+packages/core/dist/
+packages/core/coverage/
+
+# Environment files (nunca subir)
+.env
+.env.local
+.env.*.local
+
+# Credenciales
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.cer
+
+# OS / IDE / logs
+.DS_Store
+.idea/
+.vscode/
+*.log
+npm-debug.*
+yarn-debug.log*
+yarn-error.log*
+
+# TypeScript build artifacts
+*.tsbuildinfo
+
+# Tests
+__tests__/
+.eslintcache
