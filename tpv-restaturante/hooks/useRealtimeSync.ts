@@ -23,7 +23,7 @@ export function useRealtimeSync({ tenantId, setFloor, setSales, onReadyNotificat
       ch.on('broadcast', { event: 'floor:updated' }, ({ payload }) => {
         const floorData = payload.floor as Floor
         setFloor(floorData)
-        setLastFloor(floorData)
+        setLastFloor(floorData as unknown as Record<string, unknown>)
       })
       ch.on('broadcast', { event: 'ready:notification' }, ({ payload }) => {
         onReadyNotification(payload)

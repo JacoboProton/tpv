@@ -15,15 +15,11 @@ const ICON_MAP: Record<string, LucideIcon> = {
   carrusel: Star, precios: Euro, reparto: Truck,
 };
 
-interface NavItem {
-  id: string;
-  label: string;
-  icon?: LucideIcon;
-}
+import type { NavItem } from '@/modules/core/nav-config'
 
 interface FloorTable {
   id: string;
-  name: string;
+  name?: string;
   status: string;
 }
 
@@ -69,7 +65,7 @@ export default function CommandPalette({ isOpen, onClose, navItems, floor, onSel
     })));
     if (floor?.tables) {
       items.push(...floor.tables.map(t => ({
-        id: `table_${t.id}`, label: t.name,
+        id: `table_${t.id}`, label: t.name || t.id,
         searchText: `${t.name} ${t.id} mesa`,
         category: 'Mesas',
         icon: null,

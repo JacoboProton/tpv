@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import type { Employee } from '../domain/types'
 import {
   runMigrate, fetchCatalog, saveCatalog,
   fetchFloor, saveFloor,
@@ -66,22 +65,22 @@ export function useAppInit({
       if (!cat?.products || cat.products.length === 0) {
         const seed = seedCatalog()
         await saveCatalog(seed)
-        setCatalog(seed)
+        setCatalog(seed as unknown as Catalog)
       } else {
         setCatalog(cat)
       }
 
       if (!flr?.tables || flr.tables.length === 0) {
         const seed = seedFloor()
-        await saveFloor(seed)
-        setFloor(seed)
+        await saveFloor(seed as unknown as Record<string, unknown>)
+        setFloor(seed as unknown as Floor)
       } else {
         const normalized = normalizeTableFields(flr.tables)
         flr.tables = normalized
         if (flr.tables.filter((t) => t.type === 'barra').length < 6) {
           const migrated = migrateTo3ColumnLayout(flr)
           Object.assign(flr, migrated)
-          await saveFloor(flr)
+          await saveFloor(flr as unknown as Record<string, unknown>)
         }
         setFloor(flr)
       }
@@ -89,7 +88,7 @@ export function useAppInit({
       if (!emps?.length) {
         const seed = seedEmployees()
         await saveEmployees(seed)
-        setEmployees(seed)
+        setEmployees(seed as unknown as Employee[])
       } else {
         setEmployees(emps)
       }

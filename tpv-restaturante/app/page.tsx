@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 import { type Theme, THEMES, clone } from '../components/constants';
-import type { Floor, Catalog, Sale, Employee, Offer, Combo, Table, TicketSettings, ClockinSummary, Tenant, QrCall } from '../domain/types'
+import type { Floor, Catalog, Sale, Employee, Offer, Combo, Table, TicketSettings, ClockinSummary, Tenant, QrCall, Product } from '../domain/types'
 import type { ModifierData } from '../domain/catalog/modifier-groups'
 import { FatalError } from '../components/app/FatalError';
 import { LoginGuard } from '../components/app/LoginGuard';
@@ -41,8 +41,9 @@ import MenuPrincipal        from '../components/app/MenuPrincipal';
 import LoginScreen          from '../components/auth/LoginScreen';
 import CommandPalette       from '../components/app/CommandPalette';
 import PaymentModal         from '../modules/payment/PaymentModal';
-import ModifierSelector     from '../components/modals/ModifierSelector';
-import ComandaDrawer        from '../modules/salon/ComandaDrawer';
+import ModifierSelector, { type ModifierSelectorProps }     from '../components/modals/ModifierSelector';
+import ComandaDrawer        from '../modules/salon/ComandaDrawer'
+import type { ComandaDrawerProps } from '../modules/salon/ComandaDrawer/types';
 import ClockinModal         from '../components/modals/ClockinModal';
 import { EventLog }          from '../modules/debug/EventLog';
 import SettingsModal        from '../components/modals/SettingsModal';
@@ -101,7 +102,7 @@ export default function App() {
     printESCPOS(escposOpenDrawer()).then(() => {}).catch(() => {});
   }
 
-  const emp = useEmployees({ employees, setEmployees, showToast, floor, setFloor });
+  const emp = useEmployees({ employees, setEmployees, showToast, floor: floor as Floor, setFloor });
   const {
     currentUser, setCurrentUser, loginSelected, setLoginSelected, pinInput, setPinInput,
     trainingMode, setTrainingMode, savedFloor, setSavedFloor,
@@ -112,7 +113,7 @@ export default function App() {
   } = emp;
 
   const orders = useOrders({
-    floor, setFloor, catalog, setCatalog, sales, setSales,
+    floor: floor as Floor, setFloor, catalog: catalog as Catalog, setCatalog, sales, setSales,
     employees, setEmployees, currentUser, tenantId, modifierData,
     ticketSettings, offers, trainingMode, showToast,
   });
@@ -148,7 +149,7 @@ export default function App() {
     closeBill, handlePrint, debtFloorRef,
   } = orders;
 
-  const kitchen = useKitchen({ floor, setFloor, persistFloor, catalog, setCatalog, showToast, handlePrint, tenantId });
+  const kitchen = useKitchen({ floor: floor as Floor, setFloor, persistFloor, catalog: catalog as Catalog, setCatalog, showToast, handlePrint, tenantId });
   const { updateItemState, advanceOrder, agotarProducto, reprintKitchenTicket, handleReadyNotification } = kitchen;
 
   const { loading, fatalError } = useAppInit({
@@ -173,11 +174,11 @@ export default function App() {
     onQuickCard: useCallback(() => { setPaymentSplits([{ id: 'qd', method: 'tarjeta', amount: 0 }]); setTipAmount(0); setTipMethod('efectivo'); setPaying(true); }, []),
   });
 
-  useRealtimeSync({ tenantId, setFloor, setSales, onReadyNotification: handleReadyNotification });
+  useRealtimeSync({ tenantId, setFloor, setSales, onReadyNotification: handleReadyNotification as (payload: unknown) => void });
   useQrPolling(setQrCalls);
-  useDebtOrder({ selectedTable, selectedTableId, currentUser, sales, floor, setFloor, showToast, debtFloorRef });
+  useDebtOrder({ selectedTable, selectedTableId, currentUser, sales, floor: floor as Floor, setFloor, showToast, debtFloorRef });
 
-  const inv = useInventory({ catalog, setCatalog, offers, setOffers, combos, setCombos, showToast });
+  const inv = useInventory({ catalog: catalog as Catalog, setCatalog, offers, setOffers, combos, setCombos, showToast });
   const {
     newProductOpen, setNewProductOpen, confirmDeleteId, setConfirmDeleteId,
     lowStockProducts, addProduct, updateProductField, deleteProduct,
@@ -190,7 +191,7 @@ export default function App() {
 
   useEffect(() => {
     if (!catalog) return;
-    fetchModifiers().then(data => { if (data) setModifierData(data); }).catch(() => {});
+    fetchModifiers().then(data => { if (data) setModifierData(data as ModifierData); }).catch(() => {});
   }, [catalog]);
 
   useEffect(() => {
@@ -214,7 +215,7 @@ export default function App() {
 
   return (
     <div style={{ background: C.base, color: C.cream, minHeight: '100vh' }} className="flex">
-      <Sidebar menuMode={menuMode} currentUser={currentUser} tenants={tenants} tenantId={tenantId} setTenantId={setTenantId} view={view} setView={setView as (v: string) => void} colors={C} lowStockProducts={lowStockProducts} pendingBarCount={pendingBarCount} pendingCocinaCount={pendingCocinaCount} />
+      <Sidebar menuMode={menuMode} currentUser={currentUser} tenants={tenants as { id: string; name: string }[]} tenantId={tenantId} setTenantId={setTenantId} view={view} setView={setView as (v: string) => void} colors={C} lowStockProducts={lowStockProducts} pendingBarCount={pendingBarCount} pendingCocinaCount={pendingCocinaCount} />
 
       <div className="flex flex-col flex-1 min-w-0" style={{ maxHeight: '100vh', overflowY: 'auto' }}>
 
@@ -222,7 +223,7 @@ export default function App() {
 
       <QrCallBanner qrCalls={qrCalls} colors={C} onDismiss={dismissQrCalls} />
 
-      <TopBar colors={C} theme={theme} toggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} currentUser={currentUser} trainingMode={trainingMode} toggleTraining={toggleTraining} handlePrint={handlePrint} setShowSettings={setShowSettings} logout={logout} showToast={showToast} ticketSettings={ticketSettings} loadClockinSummary={loadClockinSummary} setShowClockinModal={setShowClockinModal} clockinSummary={clockinSummary} />
+      <TopBar colors={C} theme={theme} toggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} currentUser={currentUser} trainingMode={trainingMode} toggleTraining={toggleTraining} handlePrint={handlePrint} setShowSettings={setShowSettings} logout={logout} showToast={showToast} ticketSettings={ticketSettings} loadClockinSummary={loadClockinSummary} setShowClockinModal={setShowClockinModal} clockinSummary={clockinSummary as { totalHours?: number; entries?: unknown[] } | null} />
 
       <main className="px-4 sm:px-6 py-6 max-w-6xl mx-auto">
         <ViewRouter view={view} handlers={{ setSelectedTableId, setActiveCategory, setShowFloorEditor, setAlmacenUbicacion, setView, markReady, updateItemState, advanceOrder, agotarProducto, reprintKitchenTicket, updateProductField, addProduct, deleteProduct, saveCartas, saveOffersFn, saveCombosFn, saveMealMenusFn, saveCarrusel, savePriceRulesFn, handleRefund, handleConfirmBizum, printInvoice, handleDownloadPdf, handleSendInvoiceEmail, addEmployee, updateEmployeeField, deleteEmployee }} data={{ floor, catalog, sales, employees, offers, combos, colors: C, ticketSettings, currentUser, showToast, almacenUbicacion, showFloorEditor, persistFloor, newProductOpen, setNewProductOpen, confirmDeleteId, setConfirmDeleteId }} />
@@ -231,29 +232,30 @@ export default function App() {
       {selectedTable && (
         <ComandaDrawer
           selectedTable={selectedTable} selectedOrder={selectedOrder}
-          catalog={catalog} activeCategory={activeCategory} setActiveCategory={setActiveCategory}
+          catalog={catalog as unknown as ComandaDrawerProps['catalog']} activeCategory={activeCategory} setActiveCategory={setActiveCategory}
           orderTotal={orderTotal} orderDiscount={orderDiscount} setOrderDiscount={setOrderDiscount}
           tipAmount={tipAmount} finalTotal={finalTotal}
           onClose={() => { setSelectedTableId(null); setActiveTicketId(null); }}
-          onAddItem={addItem} onChangeQty={changeQty} onRemoveItem={removeItem}
+          onAddItem={addItem as unknown as ComandaDrawerProps['onAddItem']} onChangeQty={changeQty} onRemoveItem={removeItem}
           onCancelTable={cancelTable}
           onSendToKitchenCourse={sendToKitchenCourse} onSendItemToKitchen={sendItemToKitchen} onToggleCuenta={toggleCuenta}
           onOpenPayment={() => { setPaymentSplits([]); setTipAmount(0); setTipMethod('efectivo'); setInvoiceNif(''); setInvoiceName(''); setInvoiceAddress(''); setInvoiceEmail(''); setPaying(true); }}
-          onResetTable={() => { const next = clone(floor); const table = next?.tables?.find((t: any) => t.id === selectedTableId); if (!table) return; table.status = 'libre'; table.orderId = null; table.orderIds = []; persistFloor(next); setSelectedTableId(null); setActiveTicketId(null); }}
-          onUpdateNotes={updateItemNotes} onUpdateItemCourse={updateItemCourse} onEditItemModifiers={editItemModifiers}
+          onResetTable={() => { const next = clone(floor as Floor); const table = next?.tables?.find((t) => t.id === selectedTableId); if (!table) return; table.status = 'libre'; table.orderId = null; table.orderIds = []; persistFloor(next); setSelectedTableId(null); setActiveTicketId(null); }}
+          onUpdateNotes={updateItemNotes} onUpdateItemCourse={updateItemCourse as unknown as ComandaDrawerProps['onUpdateItemCourse']}
+          onEditItemModifiers={editItemModifiers as unknown as ComandaDrawerProps['onEditItemModifiers']}
           onSetItemDiscount={setItemDiscount} onRemoveItemDiscount={removeItemDiscount} onSetItemCourtesy={setItemCourtesy} onRemoveItemCourtesy={removeItemCourtesy} onSetItemPrice={setItemPrice as (itemId: string, price: number | null) => void}
           onVoidSentItem={voidSentItem}
           onApplyPersonalDiscount={applyPersonalDiscount} onRemovePersonalDiscount={removePersonalDiscount}
-          employees={employees} ticketSettings={ticketSettings} floor={floor}
+          employees={employees as unknown as ComandaDrawerProps['employees']} ticketSettings={ticketSettings} floor={floor as unknown as ComandaDrawerProps['floor']}
           onMoveTable={moveTable as (currentId: string, destId: string | null) => void} onMergeTables={mergeTables}
-          currentTableId={selectedTableId} activeTicketId={activeTicketId}
+          currentTableId={selectedTableId ?? ''} activeTicketId={activeTicketId ?? ''}
           onSwitchTicket={(tid, oid) => setActiveTicketId(oid)} onCreateTicket={createNewTicket} onDeleteEmptyTicket={deleteEmptyTicket}
-          onRenameTicket={(oid, label) => renameTicket(selectedTableId, oid, label)}
+          onRenameTicket={(oid, label) => renameTicket(selectedTableId ?? '', oid, label)}
           onLinkCustomer={(oid: string | undefined, customer) => linkCustomer(oid!, customer)} onUnlinkCustomer={(oid) => unlinkCustomer(oid)}
-          onReopenOrder={reopenOrder} onVoidTable={() => voidTable()}
-          todayHistory={floor?.history?.[selectedTableId] || []}
-          combos={combos} mealMenus={catalog?.mealMenus || []} colors={C}
-        />
+          onReopenOrder={reopenOrder as unknown as ComandaDrawerProps['onReopenOrder']} onVoidTable={() => voidTable()}
+          todayHistory={(floor?.history?.[selectedTableId ?? ''] || []) as unknown as ComandaDrawerProps['todayHistory']}
+          combos={combos as unknown as ComandaDrawerProps['combos']} mealMenus={(catalog?.mealMenus || []) as unknown as ComandaDrawerProps['mealMenus']} colors={C}
+         />
       )}
 
       {paying && selectedOrder && (
@@ -273,7 +275,7 @@ export default function App() {
       )}
 
       {showModifierSelector && (
-        <ModifierSelector product={showModifierSelector.product} modifierGroups={showModifierSelector.groups} onConfirm={confirmModifiersAndAdd} onCancel={() => { setShowModifierSelector(null); setEditingItemModifiers(null); }} colors={C} initialModifiers={editingItemModifiers?.item?.modifiers} />
+        <ModifierSelector product={showModifierSelector.product} modifierGroups={showModifierSelector.groups} onConfirm={confirmModifiersAndAdd as unknown as ModifierSelectorProps['onConfirm']} onCancel={() => { setShowModifierSelector(null); setEditingItemModifiers(null); }} colors={C} initialModifiers={editingItemModifiers?.item?.modifiers} />
       )}
 
       {toast && (
@@ -289,7 +291,7 @@ export default function App() {
       )}
 
       <EventLog />
-      <CommandPalette isOpen={showCommands} onClose={() => setShowCommands(false)} navItems={navGroups.flatMap((g: any) => g.items)} floor={floor} onSelectTable={(id) => { setSelectedTableId(id); setActiveCategory('Todos'); }} onNavigate={(id) => { setView(id as View); }} onAction={(action) => { if (action === 'openDrawer') openDrawer(); else if (action === 'toggleTraining') toggleTraining(); else if (action === 'print') handlePrint(); }} C={C} />
+      <CommandPalette isOpen={showCommands} onClose={() => setShowCommands(false)} navItems={navGroups.flatMap((g) => g.items)} floor={floor} onSelectTable={(id) => { setSelectedTableId(id); setActiveCategory('Todos'); }} onNavigate={(id) => { setView(id as View); }} onAction={(action) => { if (action === 'openDrawer') openDrawer(); else if (action === 'toggleTraining') toggleTraining(); else if (action === 'print') handlePrint(); }} C={C} />
       </div>
     </div>
   );

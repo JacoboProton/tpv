@@ -122,7 +122,7 @@ export function useEmployees({
       fetch(`/api/clockin?employeeId=${employeeId}&date=${date}`).then(r => r.ok ? r.json() : Promise.reject()),
     fetchClockin: (body: { employeeId: string; employeeName: string; method: string; action: string }) => fetch('/api/clockin', { method: 'POST', body: JSON.stringify(body) }),
     showToast,
-    setClockinSummary,
+    setClockinSummary: (s: unknown) => setClockinSummary(s as ClockinSummary | null),
     setClockinLoading,
   }
 

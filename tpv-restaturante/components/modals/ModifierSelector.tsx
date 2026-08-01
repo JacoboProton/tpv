@@ -5,24 +5,24 @@ import type { Theme } from '../constants';
 
 interface ModifierOption {
   id: string;
-  name: string;
-  priceDelta: number;
-  isDefault: boolean;
+  name?: string;
+  priceDelta?: number;
+  isDefault?: boolean;
 }
 
 interface ModifierGroup {
   id: string;
-  name: string;
-  type: 'single' | 'multiple';
-  required: boolean;
+  name?: string;
+  type?: 'single' | 'multiple';
+  required?: boolean;
   options: ModifierOption[];
 }
 
 interface ModifierSelection {
   groupId: string;
-  groupName: string;
+  groupName?: string;
   optionId: string;
-  optionName: string;
+  optionName?: string;
   priceDelta: number;
 }
 
@@ -36,7 +36,7 @@ interface ProductInfo {
   price?: number;
 }
 
-interface ModifierSelectorProps {
+export interface ModifierSelectorProps {
   product: ProductInfo;
   modifierGroups: ModifierGroup[];
   onConfirm: (selections: ModifierSelection[]) => void;
@@ -194,8 +194,8 @@ export default function ModifierSelector({ product, modifierGroups, onConfirm, o
                       )}
                       <span>{o.name}</span>
                     </div>
-                    {o.priceDelta > 0 && (
-                      <span className="font-mono text-xs">+{euros(o.priceDelta)}</span>
+                    {(o.priceDelta ?? 0) > 0 && (
+                      <span className="font-mono text-xs">+{euros(o.priceDelta ?? 0)}</span>
                     )}
                   </button>
                 );

@@ -17,20 +17,26 @@ import {
   removeItemCourtesy as removeItemCourtesyOp,
   setItemOverridePrice as setItemOverridePriceOp,
 } from '../application/OrderItemOperations/order-item-operations'
-import type { Floor, Catalog, CurrentUser } from '../domain/types'
-import type { ModifierData } from '../domain/catalog/modifier-groups'
+import type { Floor, Catalog, CurrentUser, OrderItem, Product } from '../domain/types'
+import type { ModifierData, ModifierGroup } from '../domain/catalog/modifier-groups'
+import type { ModifierSelection as SelectedModifier } from '@tpv/core'
 import { eventBus } from '../lib/event-bus'
 import { getModifierGroupsForProduct as getModifierGroups } from '../domain/catalog/modifier-groups'
 
-interface ModifierSelection {
-  product: any
-  groups: any[]
+export interface ModifierSelectionState {
+  product: Product
+  groups: ModifierGroup[]
 }
 
-interface ItemModifierEdit {
-  item: any
-  product: any
-  groups: any[]
+export interface ItemModifierEdit {
+  item: OrderItem
+  product: Product
+  groups: ModifierGroup[]
+}
+
+export interface AddableProduct extends Product {
+  menuSel?: { productId: string }[]
+  comboSel?: { productId: string }[]
 }
 
 export function useOrderItems(
@@ -40,9 +46,9 @@ export function useOrderItems(
   catalog: Catalog,
   currentUser: CurrentUser | null,
   modifierData: ModifierData,
-  showModifierSelector: ModifierSelection | null,
+  showModifierSelector: ModifierSelectionState | null,
   editingItemModifiers: ItemModifierEdit | null,
-  setShowModifierSelector: (v: ModifierSelection | null) => void,
+  setShowModifierSelector: (v: ModifierSelectionState | null) => void,
   setEditingItemModifiers: (v: ItemModifierEdit | null) => void,
   setActiveTicketId: (v: string | null) => void,
   persistFloor: (next: Floor) => Promise<void>,
@@ -52,8 +58,8 @@ export function useOrderItems(
 ) {
   const getContext = useCallback(() => {
     if (!selectedTableId || !floor) return null
-    const table = floor?.tables?.find((t: any) => t.id === selectedTableId)
-    if (!table) return null
+    const table = floor?.tables?.find((t) => t.id === selectedTableId)
+    if (!table) return
     const activeOid = activeTicketId || table.orderIds?.[0] || table.orderId
     const order = activeOid ? floor.orders[activeOid] : null
     return { table, order, activeOid }
@@ -63,7 +69,7 @@ export function useOrderItems(
     return getModifierGroups(modifierData, productId)
   }, [modifierData])
 
-  const addItemWithPrice = useCallback((product: any, modifiers: any[], extraPrice: number) => {
+  const addItemWithPrice = useCallback((product: Product, modifiers: SelectedModifier[], extraPrice: number) => {
     if (!selectedTableId) return
     const result = addNormalItem(floor, selectedTableId, catalog, {
       product, modifiers, extraPrice,
@@ -72,20 +78,20 @@ export function useOrderItems(
     })
     if (!result) return
     if (result.isNewOrder) {
-      const order = (result.floor as any).orders[result.orderId]
-      const table = floor?.tables?.find((t: any) => t.id === selectedTableId)
+      const order = result.floor.orders[result.orderId]
+      const table = floor?.tables?.find((t) => t.id === selectedTableId)
       eventBus.emit('order:created', {
         orderId: result.orderId, tableId: selectedTableId,
         tableName: table?.name || '',
-        items: order.items.map((i: any) => ({ productId: i.productId, name: i.name, qty: i.qty })),
-        employeeName: currentUser?.name || null, createdAt: order.createdAt,
+        items: order.items.map((i) => ({ productId: i.productId ?? '', name: i.name, qty: i.qty })),
+        employeeName: currentUser?.name || null, createdAt: String(order.createdAt ?? ''),
       })
       setActiveTicketId(result.orderId)
     }
     persistFloor(result.floor)
   }, [floor, catalog, selectedTableId, activeTicketId, currentUser, persistFloor])
 
-  const handleAddItemWithModifiers = useCallback((product: any) => {
+  const handleAddItemWithModifiers = useCallback((product: AddableProduct) => {
     const groups = getModifierGroupsForProduct(product.id)
     if (groups.length > 0) {
       setShowModifierSelector({ product, groups })
@@ -94,7 +100,7 @@ export function useOrderItems(
     }
   }, [getModifierGroupsForProduct, addItemWithPrice])
 
-  const addItem = useCallback((product: any) => {
+  const addItem = useCallback((product: AddableProduct) => {
     if (product.isMenu && product.menuData) {
       if (!selectedTableId) return
       const result = addMenuItems(floor, selectedTableId, catalog, {
@@ -116,10 +122,10 @@ export function useOrderItems(
     handleAddItemWithModifiers(product)
   }, [floor, catalog, selectedTableId, currentUser, persistFloor, handleAddItemWithModifiers])
 
-  const confirmModifiersAndAdd = useCallback((modifiers: any[]) => {
+  const confirmModifiersAndAdd = useCallback((modifiers: SelectedModifier[]) => {
     if (!showModifierSelector) return
     const product = showModifierSelector.product
-    const extraPrice = modifiers.reduce((s: any, m: any) => s + (m.priceDelta || 0), 0)
+    const extraPrice = modifiers.reduce((s: number, m) => s + (m.priceDelta || 0), 0)
     setShowModifierSelector(null)
     if (editingItemModifiers) {
       if (!selectedTableId) return
@@ -185,7 +191,7 @@ export function useOrderItems(
     if (next) persistFloor(next)
   }, [floor, getContext, persistFloor])
 
-  const editItemModifiers = useCallback((item: any, product: any) => {
+  const editItemModifiers = useCallback((item: OrderItem, product: Product) => {
     const groups = getModifierGroupsForProduct(String(product.id))
     if (groups.length === 0) return
     setEditingItemModifiers({ item, product, groups })

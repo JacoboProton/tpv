@@ -1,8 +1,10 @@
 "use client"
 
 import { useState, useMemo, useCallback, useRef } from 'react'
-import type { Floor, Catalog, Sale, Employee, CurrentUser, Offer } from '../domain/types'
+import type { Floor, Catalog, Sale, Employee, CurrentUser, Offer, OrderItem, TicketSettings } from '../domain/types'
 import type { ModifierData } from '../domain/catalog/modifier-groups'
+import type { ModifierSelectionState, ItemModifierEdit } from './useOrderItems'
+import type { FloorData } from '../infrastructure/database/floor-repository'
 import { round2, euros } from '../components/constants'
 import { addSale } from '../lib/api'
 import { enqueueMutation, cacheSet } from '../lib/offline'
@@ -20,17 +22,17 @@ export type View = 'salon' | 'comandas' | 'cocina' | 'inventario' | 'almacen' | 
 
 interface UseOrdersProps {
   floor: Floor
-  setFloor: (f: any) => void
+  setFloor: (f: Floor) => void
   catalog: Catalog
-  setCatalog: (c: any) => void
+  setCatalog: (c: Catalog) => void
   sales: Sale[]
-  setSales: (s: any) => void
+  setSales: React.Dispatch<React.SetStateAction<Sale[]>>
   employees: Employee[]
-  setEmployees: (e: any) => void
+  setEmployees: (e: Employee[]) => void
   currentUser: CurrentUser | null
   tenantId: string
   modifierData: ModifierData
-  ticketSettings: Record<string, any>
+  ticketSettings: TicketSettings
   offers: Offer[]
   trainingMode: boolean
   showToast: (msg: string) => void
@@ -43,14 +45,14 @@ export function useOrders({
   ticketSettings, offers, trainingMode, showToast,
 }: UseOrdersProps) {
 
-  const [selectedTableId, setSelectedTableId] = useState<any>(null as any)
-  const [activeTicketId, setActiveTicketId] = useState<any>(null as any)
+  const [selectedTableId, setSelectedTableId] = useState<string | null>(null)
+  const [activeTicketId, setActiveTicketId] = useState<string | null>(null)
   const [activeCategory, setActiveCategory] = useState<string>('Todos')
 
-  const [showModifierSelector, setShowModifierSelector] = useState<any>(null as any)
-  const [editingItemModifiers, setEditingItemModifiers] = useState<any>(null as any)
+  const [showModifierSelector, setShowModifierSelector] = useState<ModifierSelectionState | null>(null)
+  const [editingItemModifiers, setEditingItemModifiers] = useState<ItemModifierEdit | null>(null)
 
-  const salesQueue = useRef<any[]>([])
+  const salesQueue = useRef<Sale[]>([])
   const salesProcessing = useRef<boolean>(false)
 
   // ---------- Computed ----------
@@ -59,22 +61,22 @@ export function useOrders({
   const selectedOrder = activeOrderId ? floor?.orders?.[activeOrderId] : null
 
   const pendingBarCount = useMemo(() =>
-    floor?.orders ? (Object.values(floor.orders) as any[]).reduce((s: any, o: any) =>
-      s + o.items.filter((i: any) => i.sent && !i.ready && i.ubicacion === 'Bar').length, 0) : 0,
+    floor?.orders ? Object.values(floor.orders).reduce((s: number, o) =>
+      s + (o.items?.filter((i) => i.sent && !i.ready && i.ubicacion === 'Bar').length ?? 0), 0) : 0,
     [floor]
   )
   const pendingCocinaCount = useMemo(() =>
-    floor?.orders ? (Object.values(floor.orders) as any[]).reduce((s: any, o: any) =>
-      s + o.items.filter((i: any) => i.sent && !i.ready && i.ubicacion !== 'Bar').length, 0) : 0,
+    floor?.orders ? Object.values(floor.orders).reduce((s: number, o) =>
+      s + (o.items?.filter((i) => i.sent && !i.ready && i.ubicacion !== 'Bar').length ?? 0), 0) : 0,
     [floor]
   )
 
   // ---------- Persistence ----------
-  const persistFloor = useCallback(async (next: any) => {
+  const persistFloor = useCallback(async (next: Floor) => {
     setFloor(next)
     if (trainingMode) return
     try {
-      await saveFloor(next)
+      await saveFloor(next as unknown as FloorData)
       broadcastFloorUpdate(next, tenantId)
     } catch {
       enqueueMutation('/api/floor', JSON.stringify(next))
@@ -91,7 +93,7 @@ export function useOrders({
     })
   }, [setSales, showToast])
 
-  const persistSales = useCallback((next: any) => {
+  const persistSales = useCallback((next: Sale[]) => {
     setSales(next)
     cacheSet('sales', next)
     const newSale = next[next.length - 1]
@@ -129,8 +131,8 @@ export function useOrders({
   const handlePrint = useCallback(() => {
     const order = selectedOrder
     if (!order) return
-    const items = order.items.filter((i: any) => i.productId)
-    const subtotal = items.reduce((s: any, i: any) => s + i.price * i.qty, 0)
+    const items = order.items.filter((i) => i.productId)
+    const subtotal = items.reduce((s: number, i) => s + i.price * i.qty, 0)
     const discountAmount = round2(subtotal * (orderDiscount / 100))
     const totalConIgic = subtotal - discountAmount
     const { baseImponible, cuotaIgic } = calculateIgic(totalConIgic)
@@ -150,12 +152,12 @@ export function useOrders({
     printTicketHtml(html)
   }, [selectedOrder, orderDiscount, tipAmount, tipMethod, ticketSettings, selectedTable, currentUser, catalog])
 
-  const handlePrintInvoice = useCallback((sale: any) => {
+  const handlePrintInvoice = useCallback((sale: Sale) => {
     if (!sale) return
     const { restaurantName, companyCif, companyAddress, companyPhone, footerText } = ticketSettings
     const totalConIva = sale.total || 0
     const { baseImponible, cuotaIgic } = calculateIgic(totalConIva)
-    const itemsHtml = (sale.items || []).filter((i: any) => !i.voided).map((i: any) =>
+    const itemsHtml = (sale.items || []).filter((i) => !i.voided).map((i) =>
       `<tr><td style="padding:3px 0">${i.name.replace(/</g, '&lt;')}</td><td style="text-align:center;width:40px">${i.qty}</td><td style="text-align:right;width:70px">${euros(i.price)}</td><td style="text-align:right;width:80px">${euros((i.price || 0) * (i.qty || 0))}</td></tr>`
     ).join('')
     const html = `<html><head><meta charset="utf-8"><style>
@@ -210,7 +212,7 @@ export function useOrders({
   }, [ticketSettings])
 
   // ---------- Debt order auto-creation ----------
-  const debtFloorRef = useRef<any>(null as any)
+  const debtFloorRef = useRef<Floor | null>(null)
 
   return {
     selectedTableId, setSelectedTableId,

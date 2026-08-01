@@ -46,7 +46,7 @@ export function useKitchen({
       const order = next.orders?.[action.orderId]
       const item = order?.items?.find((i) => i.id === action.itemId)
       const table = next.tables?.find((t) => t.id === order?.tableId)
-      if (item) broadcastReadyNotification(table?.name || order?.tableId, [item.name], order?.employeeName, tenantId)
+      if (item) broadcastReadyNotification(table?.name || order?.tableId || '', [item.name], order?.employeeName || '', tenantId)
     }
     persistFloor(next)
   }, [setFloor, persistFloor, tenantId])

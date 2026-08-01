@@ -153,9 +153,17 @@ export interface Table {
 export interface Floor {
   tables: Table[]
   orders: Record<string, Order>
-  history?: Record<string, any[]>
+  history?: Record<string, unknown[]>
   id?: string
   name?: string
+  zones?: Zone[]
+  background?: string | null
+}
+
+export interface Zone {
+  id: string
+  name: string
+  color: string
 }
 
 // ─── Payments ───
