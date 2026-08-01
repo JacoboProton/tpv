@@ -5,9 +5,9 @@ import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
 import { settings, tables, reservations } from '../../../../db/schema';
 
-function parseJSON(val: any, fallback: any) {
+function parseJSON<T>(val: string | null | undefined, fallback: T): T {
   if (!val) return fallback;
-  try { return JSON.parse(val); } catch { return fallback; }
+  try { return JSON.parse(val) as T; } catch { return fallback; }
 }
 
 function addMinutes(timeStr: string, mins: number) {
@@ -34,8 +34,11 @@ export async function GET(req: NextRequest) {
       db.select().from(tables).where(sql`${tables.type} IN ('mesa','barra') AND ${eq(tables.tenantId, tenantId)}`),
       db.select().from(reservations).where(sql`${eq(reservations.date, date)} AND ${sql.raw(`status NOT IN ('cancelada','noshow')`)} AND ${eq(reservations.tenantId, tenantId)}`),
     ]);
+    const settingsRowsTyped: Array<typeof settings.$inferSelect> = settingsRows as Array<typeof settings.$inferSelect>;
+    const tableRowsTyped: Array<typeof tables.$inferSelect> = tableRows as Array<typeof tables.$inferSelect>;
+    const existingRowsTyped: Array<typeof reservations.$inferSelect> = existingRows as Array<typeof reservations.$inferSelect>;
 
-    const settingsMap = Object.fromEntries(settingsRows.map((r: any) => [r.key, r.value]));
+    const settingsMap = Object.fromEntries(settingsRowsTyped.map((r) => [r.key, r.value]));
 
     const dur = Number(settingsMap.reservationDuration || 90);
     const interval = Number(settingsMap.reservationInterval || 30);
@@ -47,16 +50,16 @@ export async function GET(req: NextRequest) {
     let openTime = '00:00', closeTime = '23:59';
     let isClosed = false;
     const scheduleType = settingsMap.reservationScheduleType;
-    const closedDays = parseJSON(settingsMap.reservationClosedDays, []);
+    const closedDays = parseJSON<number[]>(settingsMap.reservationClosedDays, []);
     const dayOfWeek = new Date(date + 'T12:00').getDay();
     isClosed = closedDays.includes(dayOfWeek);
 
     if (!isClosed && scheduleType === 'advanced') {
-      const shifts = parseJSON(settingsMap.reservationShifts, []);
-      const dayShifts = shifts.filter((s: any) => s.days?.includes(dayOfWeek));
+      const shifts = parseJSON<Array<{ days?: number[]; open: string; close: string }>>(settingsMap.reservationShifts, []);
+      const dayShifts = shifts.filter((s) => s.days?.includes(dayOfWeek));
       if (dayShifts.length > 0) {
-        const opens = dayShifts.map((s: any) => s.open).sort();
-        const closes = dayShifts.map((s: any) => s.close).sort().reverse();
+        const opens = dayShifts.map((s) => s.open).sort();
+        const closes = dayShifts.map((s) => s.close).sort().reverse();
         openTime = opens[0];
         closeTime = closes[0];
       }
@@ -65,8 +68,8 @@ export async function GET(req: NextRequest) {
       closeTime = settingsMap.reservationCloseTime || '23:00';
     }
 
-    const totalSeats = tableRows.reduce((s: number, t: any) => s + (t.seats || 4), 0);
-    const existingPax = existingRows.reduce((s: number, r: any) => s + (r.pax || 0), 0);
+    const totalSeats = tableRowsTyped.reduce((s: number, t) => s + (t.seats || 4), 0);
+    const existingPax = existingRowsTyped.reduce((s: number, r) => s + (r.pax || 0), 0);
     const availableSeats = Math.max(0, totalSeats - existingPax);
 
     const [openH, openM] = openTime.split(':').map(Number);
@@ -76,10 +79,10 @@ export async function GET(req: NextRequest) {
     const now = new Date();
     const today = new Date().toISOString().slice(0, 10);
 
-    const blocked = parseJSON(settingsMap.reservationBlockedDates, []);
-    const isBlocked = blocked.some((b: any) => b.date === date);
+    const blocked = parseJSON<Array<{ date: string }>>(settingsMap.reservationBlockedDates, []);
+    const isBlocked = blocked.some((b) => b.date === date);
 
-    const slots = [];
+    const slots: Array<{ time: string; available: boolean; paxRemaining: number }> = [];
     while (current + dur <= close) {
       const h = Math.floor(current / 60);
       const m = current % 60;
@@ -89,11 +92,11 @@ export async function GET(req: NextRequest) {
       const slotDate = new Date(date + 'T' + timeStr);
       const isPast = slotDate < now && date === today;
 
-      const overlapping = existingRows.filter((r: any) =>
+      const overlapping = existingRowsTyped.filter((r) =>
         r.time < `${String(Math.floor(slotEnd / 60)).padStart(2, '0')}:${String(slotEnd % 60).padStart(2, '0')}` &&
         `${String(Math.floor(current / 60)).padStart(2, '0')}:${String(current % 60).padStart(2, '0')}` < addMinutes(r.time, dur)
       );
-      const slotOccupied = overlapping.reduce((s: number, r: any) => s + (r.pax || 0), 0);
+      const slotOccupied = overlapping.reduce((s: number, r) => s + (r.pax || 0), 0);
       const slotAvailable = availableSeats - slotOccupied;
 
       slots.push({ time: timeStr, available: slotAvailable >= pax && !isPast, paxRemaining: slotAvailable });

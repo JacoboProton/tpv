@@ -7,6 +7,12 @@ import * as XLSX from 'xlsx';
 import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized } from '../../../../lib/infrastructure/response';
 import { requireRole } from '../../../../lib/rbac';
 
+type Row = Record<string, unknown>;
+
+function num(v: unknown, fallback = 0): number {
+  return Number(v) || fallback;
+}
+
 export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin'])(req);
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
@@ -31,7 +37,7 @@ export async function GET(req: NextRequest) {
       ))
       .orderBy(sales.closedAt);
 
-    const rows = result.map((s: any) => {
+    const rows = result.map((s) => {
       const itemsArr = typeof s.items === 'string' ? JSON.parse(s.items) : (s.items || []);
       const date = new Date(s.closedAt).toLocaleDateString('es-ES');
       return {
@@ -39,7 +45,7 @@ export async function GET(req: NextRequest) {
         Mesa: s.tableName || '',
         'Tipo de pago': s.paymentMethod || '',
         Empleado: s.employeeName || '',
-        'Nº artículos': (itemsArr as any[]).reduce((sum: number, i: any) => sum + (i.qty || 1), 0),
+        'Nº artículos': (itemsArr as Array<Record<string, unknown>>).reduce((sum: number, i: Row) => sum + num(i.qty, 1), 0),
         Total: Number(s.totalWithTip) || 0,
         Descuento: Number(s.discount) || 0,
         Propina: Number(s.tip) || 0,

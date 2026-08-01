@@ -7,8 +7,10 @@ import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/resp
 import { requireRole } from '../../../lib/rbac';
 import { QrCallBody, QrCallAckBody } from '@/lib/schemas/api-schemas';
 
-const callsCache: Record<string, any> = {};
-const cacheTime: Record<string, any> = {};
+type Row = Record<string, unknown>;
+
+const callsCache: Record<string, Row[]> = {};
+const cacheTime: Record<string, number> = {};
 
 export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin', 'camarero'])(req);
@@ -23,7 +25,7 @@ export async function GET(req: NextRequest) {
     const rows = await db.select().from(qrCalls)
       .where(and(eq(qrCalls.acknowledged, false), eq(qrCalls.tenantId, tenantId)))
       .orderBy(desc(qrCalls.createdAt));
-    callsCache[tenantId] = rows.map((r: any) => ({
+    callsCache[tenantId] = rows.map((r: typeof qrCalls.$inferSelect) => ({
       id: r.id, tableId: r.tableId, tableName: r.tableName,
       zone: r.zone, acknowledged: r.acknowledged, createdAt: r.createdAt,
     }));

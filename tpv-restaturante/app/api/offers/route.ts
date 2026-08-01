@@ -38,11 +38,11 @@ export async function PUT(req: NextRequest) {
     await db.delete(offers).where(eq(offers.tenantId, tenantId));
     for (const o of data) {
       await db.insert(offers).values({
-        id: o.id, name: o.name, type: o.type, days: o.days,
-        startHour: o.startHour, endHour: o.endHour,
-        discountPct: o.discountPct ?? null,
-        fixedPrice: o.fixedPrice ?? null,
-        productIds: o.productIds, active: o.active, tenantId,
+        id: o.id, name: o.name, type: o.type, days: o.days ?? [1, 2, 3, 4, 5],
+        startHour: Number(o.startHour ?? 13), endHour: Number(o.endHour ?? 16),
+        discountPct: o.discountPct != null ? String(o.discountPct) : '15',
+        fixedPrice: o.fixedPrice != null ? String(o.fixedPrice) : null,
+        productIds: o.productIds ?? [''], active: o.active ?? true, tenantId,
       });
     }
     return apiOk();

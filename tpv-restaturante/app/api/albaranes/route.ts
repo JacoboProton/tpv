@@ -1,13 +1,16 @@
 import { NextRequest } from 'next/server';
-import { sql } from 'drizzle-orm';
+import { sql, SQL } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { apiOk, apiError, apiBadRequest, apiNotFound } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
 import { AlbaranBody } from '@/lib/schemas/api-schemas';
 
-function qr(db: ReturnType<typeof getDb>, q: any) {
-  return db.execute(q).then((r: any) => r.rows as any[]);
+type Row = Record<string, unknown>;
+
+async function qr<T extends Row = Row>(db: ReturnType<typeof getDb>, q: SQL): Promise<T[]> {
+  const r = await db.execute(q);
+  return r.rows as T[];
 }
 
 export async function GET(req: NextRequest) {
@@ -28,7 +31,7 @@ export async function GET(req: NextRequest) {
     if (startDate) conds.push(sql`delivery_date >= ${startDate}`);
     if (endDate) conds.push(sql`delivery_date <= ${endDate}`);
     if (status) conds.push(sql`status = ${status}`);
-    if (conds.length > 0) query = sql`${query} AND ${conds.reduce((a: any, c: any) => sql`${a} AND ${c}`)}`;
+    if (conds.length > 0) query = sql`${query} AND ${conds.reduce((a: SQL, c: SQL) => sql`${a} AND ${c}`)}`;
     query = sql`${query} ORDER BY delivery_date DESC, created_at DESC LIMIT 200`;
 
     const albaranes = await qr(db, query);
@@ -40,32 +43,32 @@ export async function GET(req: NextRequest) {
         id: a.id, supplierId: a.supplier_id, supplierName: a.supplier_name,
         albaranNumber: a.albaran_number, deliveryDate: a.delivery_date,
         invoiceNumber: a.invoice_number, notes: a.notes,
-        totalAmount: parseFloat(a.total_amount), totalNet: parseFloat(a.total_net || 0),
-        totalIva: parseFloat(a.total_iva || 0),
-        headerDiscountPct: parseFloat(a.header_discount_pct || 0),
-        headerDiscountAmount: parseFloat(a.header_discount_amount || 0),
-        recargoEquivalenciaPct: parseFloat(a.recargo_equivalencia_pct || 0),
-        recargoAmount: parseFloat(a.recargo_amount || 0),
-        portesAmount: parseFloat(a.portes_amount || 0),
-        status: a.status || 'draft', receivedBy: a.received_by,
+        totalAmount: parseFloat(a.total_amount as string), totalNet: parseFloat((a.total_net as string) || '0'),
+        totalIva: parseFloat((a.total_iva as string) || '0'),
+        headerDiscountPct: parseFloat((a.header_discount_pct as string) || '0'),
+        headerDiscountAmount: parseFloat((a.header_discount_amount as string) || '0'),
+        recargoEquivalenciaPct: parseFloat((a.recargo_equivalencia_pct as string) || '0'),
+        recargoAmount: parseFloat((a.recargo_amount as string) || '0'),
+        portesAmount: parseFloat((a.portes_amount as string) || '0'),
+        status: a.status as string || 'draft', receivedBy: a.received_by,
         anuladoBy: a.anulado_by, anuladoAt: a.anulado_at ? Number(a.anulado_at) : null,
         anuladoReason: a.anulado_reason, linkedPurchaseOrderId: a.linked_purchase_order_id,
         createdAt: Number(a.created_at), updatedAt: a.updated_at ? Number(a.updated_at) : null,
-        lines: lines.map((l: any) => ({
+        lines: lines.map((l) => ({
           id: l.id, productId: l.product_id, productName: l.product_name,
-          quantity: parseFloat(l.quantity), packSize: parseFloat(l.pack_size || 1),
-          pricePerPack: parseFloat(l.price_per_pack), pricePerUnit: parseFloat(l.price_per_unit),
-          supplierSku: l.supplier_sku, ivaPct: parseFloat(l.iva_pct || 0),
-          lineDiscountPct: parseFloat(l.line_discount_pct || 0),
-          lineDiscountAmount: parseFloat(l.line_discount_amount || 0),
-          subtotal: parseFloat(l.subtotal), ivaAmount: parseFloat(l.iva_amount || 0),
-          totalLine: parseFloat(l.total_line), batchNumber: l.batch_number,
-          expiryDate: l.expiry_date, location: l.location || 'Almacén',
+          quantity: parseFloat(l.quantity as string), packSize: parseFloat((l.pack_size as string) || '1'),
+          pricePerPack: parseFloat(l.price_per_pack as string), pricePerUnit: parseFloat(l.price_per_unit as string),
+          supplierSku: l.supplier_sku, ivaPct: parseFloat((l.iva_pct as string) || '0'),
+          lineDiscountPct: parseFloat((l.line_discount_pct as string) || '0'),
+          lineDiscountAmount: parseFloat((l.line_discount_amount as string) || '0'),
+          subtotal: parseFloat(l.subtotal as string), ivaAmount: parseFloat((l.iva_amount as string) || '0'),
+          totalLine: parseFloat(l.total_line as string), batchNumber: l.batch_number,
+          expiryDate: l.expiry_date, location: (l.location as string) || 'Almacén',
         })),
       });
     }
     return apiOk(result);
-  } catch (err: any) { return apiError(err); }
+  } catch (err) { return apiError(err); }
 }
 
 export async function POST(req: NextRequest) {
@@ -81,20 +84,20 @@ export async function POST(req: NextRequest) {
 
     if (action === 'create') {
       const { supplierId, supplierName, albaranNumber, deliveryDate, invoiceNumber, notes, lines: rawLines, receivedBy, headerDiscountPct, recargoEquivalenciaPct, portesAmount, linkedPurchaseOrderId } = body;
-      const lines = rawLines as any[] | undefined;
+      const lines = rawLines as Row[] | undefined;
       const id = 'alb_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
 
       let totalNet = 0;
       let totalIva = 0;
-      const processedLines: any[] = [];
+      const processedLines: Row[] = [];
 
       for (const line of lines || []) {
-        const packSize = parseFloat(line.packSize || 1);
-        const pricePerPack = parseFloat(line.pricePerPack || line.pricePerUnit);
+        const packSize = Number(line.packSize) || 1;
+        const pricePerPack = Number(line.pricePerPack) || Number(line.pricePerUnit) || 0;
         const pricePerUnit = pricePerPack / packSize;
-        const quantity = parseFloat(line.quantity || 0);
-        const lineDiscountPct = parseFloat(line.lineDiscountPct || 0);
-        const ivaPct = parseFloat(line.ivaPct || 0);
+        const quantity = Number(line.quantity) || 0;
+        const lineDiscountPct = Number(line.lineDiscountPct) || 0;
+        const ivaPct = Number(line.ivaPct) || 0;
 
         const subtotal = quantity * pricePerPack;
         const lineDiscountAmount = subtotal * (lineDiscountPct / 100);
@@ -108,12 +111,12 @@ export async function POST(req: NextRequest) {
         processedLines.push({ ...line, packSize, pricePerPack, pricePerUnit, lineDiscountAmount, subtotal, ivaAmount, totalLine });
       }
 
-      const headerDiscountPctVal = parseFloat(String(headerDiscountPct ?? 0));
+      const headerDiscountPctVal = Number(headerDiscountPct) || 0;
       const headerDiscountAmount = totalNet * (headerDiscountPctVal / 100);
       const afterHeaderDiscount = totalNet - headerDiscountAmount;
-      const recargoEquivalenciaPctVal = parseFloat(String(recargoEquivalenciaPct ?? 0));
+      const recargoEquivalenciaPctVal = Number(recargoEquivalenciaPct) || 0;
       const recargoAmount = afterHeaderDiscount * (recargoEquivalenciaPctVal / 100);
-      const portesAmountVal = parseFloat(String(portesAmount ?? 0));
+      const portesAmountVal = Number(portesAmount) || 0;
       const totalAmount = afterHeaderDiscount + recargoAmount + portesAmountVal + totalIva;
 
       await db.execute(sql`
@@ -133,7 +136,7 @@ export async function POST(req: NextRequest) {
 
     if (action === 'update') {
       const { id, supplierId, supplierName, albaranNumber, deliveryDate, invoiceNumber, notes, lines: rawLines, receivedBy, headerDiscountPct, recargoEquivalenciaPct, portesAmount } = body;
-      const lines = rawLines as any[] | undefined;
+      const lines = rawLines as Row[] | undefined;
 
       const [existing] = await qr(db, sql`SELECT status FROM albaranes WHERE id = ${id} AND tenant_id = ${tenantId}`);
       if (existing?.status === 'confirmed') {
@@ -142,15 +145,15 @@ export async function POST(req: NextRequest) {
 
       let totalNet = 0;
       let totalIva = 0;
-      const processedLines: any[] = [];
+      const processedLines: Row[] = [];
 
       for (const line of lines || []) {
-        const packSize = parseFloat(line.packSize || 1);
-        const pricePerPack = parseFloat(line.pricePerPack || line.pricePerUnit);
+        const packSize = Number(line.packSize) || 1;
+        const pricePerPack = Number(line.pricePerPack) || Number(line.pricePerUnit) || 0;
         const pricePerUnit = pricePerPack / packSize;
-        const quantity = parseFloat(line.quantity || 0);
-        const lineDiscountPct = parseFloat(line.lineDiscountPct || 0);
-        const ivaPct = parseFloat(line.ivaPct || 0);
+        const quantity = Number(line.quantity) || 0;
+        const lineDiscountPct = Number(line.lineDiscountPct) || 0;
+        const ivaPct = Number(line.ivaPct) || 0;
 
         const subtotal = quantity * pricePerPack;
         const lineDiscountAmount = subtotal * (lineDiscountPct / 100);
@@ -164,12 +167,12 @@ export async function POST(req: NextRequest) {
         processedLines.push({ ...line, packSize, pricePerPack, pricePerUnit, lineDiscountAmount, subtotal, ivaAmount, totalLine });
       }
 
-      const headerDiscountPctVal = parseFloat(String(headerDiscountPct ?? 0));
+      const headerDiscountPctVal = Number(headerDiscountPct) || 0;
       const headerDiscountAmount = totalNet * (headerDiscountPctVal / 100);
       const afterHeaderDiscount = totalNet - headerDiscountAmount;
-      const recargoEquivalenciaPctVal = parseFloat(String(recargoEquivalenciaPct ?? 0));
+      const recargoEquivalenciaPctVal = Number(recargoEquivalenciaPct) || 0;
       const recargoAmount = afterHeaderDiscount * (recargoEquivalenciaPctVal / 100);
-      const portesAmountVal = parseFloat(String(portesAmount ?? 0));
+      const portesAmountVal = Number(portesAmount) || 0;
       const totalAmount = afterHeaderDiscount + recargoAmount + portesAmountVal + totalIva;
 
       await db.execute(sql`
@@ -213,14 +216,14 @@ export async function POST(req: NextRequest) {
         const lines = await qr(db, sql`SELECT * FROM albaran_lines WHERE albaran_id = ${id} AND tenant_id = ${tenantId}`);
 
         for (const line of lines) {
-          const quantity = parseFloat(line.quantity) * parseFloat(line.pack_size || 1);
+          const quantity = Number(line.quantity) * (Number(line.pack_size) || 1);
           const existingStock = await qr(db, sql`SELECT * FROM product_stock WHERE product_id = ${line.product_id} AND tenant_id = ${tenantId}`);
 
           for (const stock of existingStock) {
-            const newStock = Math.max(0, parseFloat(stock.stock) - quantity);
+            const newStock = Math.max(0, Number(stock.stock) - quantity);
             await db.execute(sql`UPDATE product_stock SET stock = ${newStock} WHERE product_id = ${line.product_id} AND location = ${stock.location} AND tenant_id = ${tenantId}`);
             await db.execute(sql`INSERT INTO stock_log (product_id, product_name, old_stock, new_stock, change_amount, reason, reference, employee_name, created_at, tenant_id)
-              VALUES (${line.product_id}, ${line.product_name}, ${stock.stock}, ${newStock}, ${newStock - stock.stock}, 'devolución', 'Reverse:Albarán: ' || ${albaran.albaran_number}, ${anuladoBy || 'sistema'}, ${Date.now()}, ${tenantId})`);
+              VALUES (${line.product_id}, ${line.product_name}, ${stock.stock}, ${newStock}, ${newStock - Number(stock.stock)}, 'devolución', 'Reverse:Albarán: ' || ${albaran.albaran_number}, ${anuladoBy || 'sistema'}, ${Date.now()}, ${tenantId})`);
           }
 
           await db.execute(sql`UPDATE product_batches SET status = 'depleted', remaining_quantity = 0
@@ -230,16 +233,16 @@ export async function POST(req: NextRequest) {
         if (albaran.linked_purchase_order_id) {
           const poLines = await qr(db, sql`SELECT * FROM purchase_order_lines WHERE order_id = ${albaran.linked_purchase_order_id} AND tenant_id = ${tenantId}`);
           for (const poLine of poLines) {
-            const albLine = lines.find((l: any) => l.product_id === poLine.product_id);
+            const albLine = lines.find((l) => l.product_id === poLine.product_id);
             if (albLine) {
-              const receivedQty = parseFloat(poLine.received_qty || 0) - (parseFloat(albLine.quantity) * parseFloat(albLine.pack_size || 1));
+              const receivedQty = Number(poLine.received_qty) - (Number(albLine.quantity) * Number(albLine.pack_size) || 1);
               await db.execute(sql`UPDATE purchase_order_lines SET received_qty = ${Math.max(0, receivedQty)} WHERE id = ${poLine.id} AND tenant_id = ${tenantId}`);
             }
           }
 
           const allPoLines = await qr(db, sql`SELECT * FROM purchase_order_lines WHERE order_id = ${albaran.linked_purchase_order_id} AND tenant_id = ${tenantId}`);
-          const allReceived = allPoLines.every((l: any) => parseFloat(l.received_qty) >= parseFloat(l.quantity));
-          const anyReceived = allPoLines.some((l: any) => parseFloat(l.received_qty) > 0);
+          const allReceived = allPoLines.every((l) => Number(l.received_qty) >= Number(l.quantity));
+          const anyReceived = allPoLines.some((l) => Number(l.received_qty) > 0);
           const newStatus = allReceived ? 'received' : anyReceived ? 'partial' : 'sent';
           await db.execute(sql`UPDATE purchase_orders SET status = ${newStatus} WHERE id = ${albaran.linked_purchase_order_id} AND tenant_id = ${tenantId}`);
         }
@@ -251,7 +254,7 @@ export async function POST(req: NextRequest) {
 
     if (action === 'confirm') {
       const { id } = body;
-      const batches = (body as unknown as { batches: any[] }).batches;
+      const batches = (body as unknown as { batches: Row[] }).batches;
       const [albaran] = await qr(db, sql`SELECT * FROM albaranes WHERE id = ${id} AND tenant_id = ${tenantId}`);
       if (!albaran) return apiNotFound('Albarán no encontrado');
       if (albaran.status !== 'draft') return apiBadRequest('Solo se pueden confirmar albaranes en borrador');
@@ -259,12 +262,12 @@ export async function POST(req: NextRequest) {
       const lines = await qr(db, sql`SELECT * FROM albaran_lines WHERE albaran_id = ${id} AND tenant_id = ${tenantId}`);
 
       for (const line of lines) {
-        const batchData = batches?.find((b: any) => b.productId === line.product_id);
+        const batchData = batches?.find((b) => b.productId === line.product_id);
         const location = batchData?.location || 'Almacén';
         const expiryDate = batchData?.expiryDate || line.expiry_date || null;
         const batchNumber = batchData?.batchNumber || line.batch_number || `${albaran.albaran_number}-${line.id}`;
-        const quantity = parseFloat(line.quantity) * parseFloat(line.pack_size || 1);
-        const netCostPerUnit = parseFloat(line.price_per_unit);
+        const quantity = Number(line.quantity) * (Number(line.pack_size) || 1);
+        const netCostPerUnit = Number(line.price_per_unit);
 
         const batchId = 'batch_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
         await db.execute(sql`INSERT INTO product_batches (id, product_id, albaran_id, batch_number, quantity, remaining_quantity, location, cost_per_unit, expiry_date, received_at, status, active, tenant_id)
@@ -272,14 +275,15 @@ export async function POST(req: NextRequest) {
 
         const [existingStock] = await qr(db, sql`SELECT * FROM product_stock WHERE product_id = ${line.product_id} AND location = ${location} AND tenant_id = ${tenantId}`);
         if (existingStock) {
-          const newStock = parseFloat(existingStock.stock) + quantity;
+          const newStock = Number(existingStock.stock) + quantity;
           await db.execute(sql`UPDATE product_stock SET stock = ${newStock} WHERE product_id = ${line.product_id} AND location = ${location} AND tenant_id = ${tenantId}`);
         } else {
           await db.execute(sql`INSERT INTO product_stock (product_id, location, stock, low_stock, tenant_id) VALUES (${line.product_id}, ${location}, ${quantity}, 5, ${tenantId})`);
         }
 
+        const oldStock = existingStock ? Number(existingStock.stock) : 0;
         await db.execute(sql`INSERT INTO stock_log (product_id, product_name, old_stock, new_stock, change_amount, reason, reference, employee_name, created_at, tenant_id)
-          VALUES (${line.product_id}, ${line.product_name}, ${parseFloat(existingStock?.stock || 0)}, ${parseFloat(existingStock?.stock || 0) + quantity}, ${quantity}, 'compra', 'Albarán: ' || ${albaran.albaran_number}, ${albaran.received_by || 'sistema'}, ${Date.now()}, ${tenantId})`);
+          VALUES (${line.product_id}, ${line.product_name}, ${oldStock}, ${oldStock + quantity}, ${quantity}, 'compra', 'Albarán: ' || ${albaran.albaran_number}, ${albaran.received_by || 'sistema'}, ${Date.now()}, ${tenantId})`);
 
         const [catalog] = await qr(db, sql`SELECT sc.id FROM supplier_catalog sc WHERE sc.supplier_id = ${albaran.supplier_id} AND sc.product_id = ${line.product_id} AND sc.tenant_id = ${tenantId} LIMIT 1`);
         if (catalog) {
@@ -291,16 +295,16 @@ export async function POST(req: NextRequest) {
       if (albaran.linked_purchase_order_id) {
         const poLines = await qr(db, sql`SELECT * FROM purchase_order_lines WHERE order_id = ${albaran.linked_purchase_order_id} AND tenant_id = ${tenantId}`);
         for (const poLine of poLines) {
-          const albLine = lines.find((l: any) => l.product_id === poLine.product_id);
+          const albLine = lines.find((l) => l.product_id === poLine.product_id);
           if (albLine) {
-            const receivedQty = parseFloat(poLine.received_qty || 0) + (parseFloat(albLine.quantity) * parseFloat(albLine.pack_size || 1));
+            const receivedQty = Number(poLine.received_qty) + (Number(albLine.quantity) * (Number(albLine.pack_size) || 1));
             await db.execute(sql`UPDATE purchase_order_lines SET received_qty = ${receivedQty} WHERE id = ${poLine.id} AND tenant_id = ${tenantId}`);
           }
         }
 
         const allPoLines = await qr(db, sql`SELECT * FROM purchase_order_lines WHERE order_id = ${albaran.linked_purchase_order_id} AND tenant_id = ${tenantId}`);
-        const allReceived = allPoLines.every((l: any) => parseFloat(l.received_qty) >= parseFloat(l.quantity));
-        const anyReceived = allPoLines.some((l: any) => parseFloat(l.received_qty) > 0);
+        const allReceived = allPoLines.every((l) => Number(l.received_qty) >= Number(l.quantity));
+        const anyReceived = allPoLines.some((l) => Number(l.received_qty) > 0);
         const newStatus = allReceived ? 'received' : anyReceived ? 'partial' : 'sent';
         await db.execute(sql`UPDATE purchase_orders SET status = ${newStatus} WHERE id = ${albaran.linked_purchase_order_id} AND tenant_id = ${tenantId}`);
       }
@@ -310,5 +314,5 @@ export async function POST(req: NextRequest) {
     }
 
     return apiBadRequest('Unknown action');
-  } catch (err: any) { return apiError(err); }
+  } catch (err) { return apiError(err); }
 }

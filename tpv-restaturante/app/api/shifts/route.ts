@@ -1,11 +1,18 @@
 import { NextRequest } from 'next/server';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, sql, SQL } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { employeeShifts } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiServerError } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
 import { ShiftBody } from '@/lib/schemas/api-schemas';
+
+type Row = Record<string, unknown>;
+
+async function qr(query: SQL): Promise<Row[]> {
+  const db = getDb();
+  return db.execute(query).then((r: { rows: Row[] }) => r.rows);
+}
 
 export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin', 'camarero'])(req);
@@ -20,8 +27,8 @@ export async function GET(req: NextRequest) {
     const db = getDb();
 
     if (objectives) {
-      const result = await db.execute(sql`SELECT * FROM shift_objectives WHERE tenant_id = ${tenantId} ORDER BY day_of_week, start_time`);
-      return apiOk((result as any).rows);
+      const rows = await qr(sql`SELECT * FROM shift_objectives WHERE tenant_id = ${tenantId} ORDER BY day_of_week, start_time`);
+      return apiOk(rows);
     }
 
     const conditions = [eq(employeeShifts.tenantId, tenantId)];
@@ -33,7 +40,7 @@ export async function GET(req: NextRequest) {
       .where(and(...conditions))
       .orderBy(employeeShifts.date, employeeShifts.startTime);
 
-    return apiOk(rows.map((r: any) => ({
+    return apiOk(rows.map((r: typeof employeeShifts.$inferSelect) => ({
       id: r.id, employeeId: r.employeeId, employeeName: r.employeeName,
       date: r.date, startTime: r.startTime, endTime: r.endTime,
       position: r.position, notes: r.notes, color: r.color,
@@ -49,7 +56,12 @@ export async function POST(req: NextRequest) {
     const tenantId = getTenantId(req);
     const parsed = ShiftBody.safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
-    const body = parsed.data;
+    const body = parsed.data as {
+      action: string; fromWeekStart?: string; toWeekStart?: string;
+      id?: string; employeeId?: string; employeeName?: string; date?: string;
+      startTime?: string; endTime?: string; position?: string; notes?: string;
+      color?: string; dayOfWeek?: number; minPeople?: number; maxPeople?: number;
+    };
     const { action } = body;
     const db = getDb();
 
@@ -112,12 +124,15 @@ export async function POST(req: NextRequest) {
     const id = typeof body.id === 'string' ? body.id : '';
     if (id) {
       await db.update(employeeShifts).set({
-        employeeId, employeeName, date, startTime, endTime, position, notes, color,
+        employeeId: employeeId ?? '', employeeName: employeeName ?? '',
+        date: date ?? '', startTime: startTime ?? '', endTime: endTime ?? '',
+        position: position ?? '', notes: notes ?? '', color: color ?? '',
       }).where(and(eq(employeeShifts.id, id), eq(employeeShifts.tenantId, tenantId)));
     } else {
       await db.insert(employeeShifts).values({
         id: 'shift_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-        employeeId, employeeName, date, startTime, endTime,
+        employeeId: employeeId ?? '', employeeName: employeeName ?? '',
+        date: date ?? '', startTime: startTime ?? '', endTime: endTime ?? '',
         position, notes, color, createdAt: Date.now(), tenantId,
       });
     }

@@ -58,7 +58,7 @@ export async function PUT(req: NextRequest) {
       }
     }
 
-    const updated = [...(currentRefunds as any[]), { ...refund, stripeRefundId }];
+    const updated = [...(currentRefunds as unknown as Array<Record<string, unknown>>), { ...(refund as Record<string, unknown>), stripeRefundId }];
     await db.update(sales).set({ refunds: updated }).where(eq(sales.id, saleId));
 
     return Response.json({ ok: true, refunds: updated, stripeRefundId });

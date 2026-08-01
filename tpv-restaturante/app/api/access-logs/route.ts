@@ -14,7 +14,8 @@ export async function POST(req: NextRequest) {
     const tenantId = getTenantId(req);
     const parsed = AccessLogQuery.safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
-    const { employeeId, employeeName, role, entryPoint } = parsed.data;
+    const b = parsed.data as { employeeId: string; employeeName: string; role: string; entryPoint: string };
+    const { employeeId, employeeName, role, entryPoint } = b;
     const db = getDb();
     await db.insert(accessLogs).values({
       employeeId, employeeName, role, entryPoint, loggedAt: Date.now(), tenantId,

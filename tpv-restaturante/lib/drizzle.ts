@@ -1,8 +1,17 @@
 import { Pool } from 'pg';
-import { drizzle } from 'drizzle-orm/node-postgres';
+import { drizzle, NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../db/schema';
 
-let _db: ReturnType<typeof drizzle> | undefined;
+type Db = NodePgDatabase<typeof schema>;
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __drizzleDb: Db | undefined;
+  // eslint-disable-next-line no-var
+  var __pgPool: Pool | undefined;
+}
+
+let _db: Db | undefined;
 
 function buildConnectionString(): string {
   // Priority: DATABASE_URL_POOLER -> DATABASE_URL with replaced port -> DATABASE_URL
@@ -22,7 +31,7 @@ function buildConnectionString(): string {
   }
 }
 
-export function getDb() {
+export function getDb(): Db {
   if (_db) return _db;
 
   const connectionString = buildConnectionString();
@@ -31,19 +40,18 @@ export function getDb() {
   }
 
   // Reuse global pool/drizzle instances in serverless environments
-  const globalAny: any = globalThis as any;
-  if (globalAny.__drizzleDb) return globalAny.__drizzleDb;
+  if (globalThis.__drizzleDb) return globalThis.__drizzleDb;
 
-  const pool = globalAny.__pgPool || new Pool({
+  const pool = globalThis.__pgPool || new Pool({
     connectionString,
     max: Number(process.env.DB_POOL_MAX || process.env.PGPOOL_MAX || 10),
     idleTimeoutMillis: Number(process.env.DB_POOL_IDLE_MS || 10000),
     connectionTimeoutMillis: Number(process.env.DB_CONN_TIMEOUT_MS || 5000),
   });
 
-  globalAny.__pgPool = pool;
+  globalThis.__pgPool = pool;
   const db = drizzle(pool, { schema });
-  globalAny.__drizzleDb = db;
+  globalThis.__drizzleDb = db;
   _db = db;
   return db;
 }

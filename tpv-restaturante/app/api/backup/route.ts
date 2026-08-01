@@ -39,8 +39,8 @@ export async function GET(req: NextRequest) {
       deliveryRunners: deliveryRunnersRows, deliveryOrders: deliveryOrdersRows, deliveryTracking: deliveryTrackingRows,
     };
 
-    const stats: Record<string, any> = {};
-    for (const [key, val] of Object.entries(data as Record<string, any>)) {
+    const stats: Record<string, number> = {};
+    for (const [key, val] of Object.entries(data)) {
       stats[key] = Array.isArray(val) ? val.length : 0;
     }
 
@@ -50,5 +50,5 @@ export async function GET(req: NextRequest) {
       stats,
       data,
     });
-  } catch (err: any) { return apiError(err); }
+  } catch (err) { return apiError(err); }
 }

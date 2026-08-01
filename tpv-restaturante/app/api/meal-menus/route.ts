@@ -1,11 +1,18 @@
 import { NextRequest } from 'next/server';
 import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiForbidden, apiTooManyRequests, apiCreated, apiServerError } from '../../../lib/infrastructure/response';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, SQL } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { mealMenus, mealMenuCourses, mealMenuCourseItems, mealMenuSchedules, products } from '../../../db/schema';
 import { requireRole } from '../../../lib/rbac';
 import { MealMenuBody } from '@/lib/schemas/api-schemas';
+
+type Row = Record<string, unknown>;
+
+async function qr(query: SQL): Promise<Row[]> {
+  const db = getDb();
+  return db.execute(query).then((r: { rows: Row[] }) => r.rows);
+}
 
 export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin'])(req);
@@ -19,35 +26,36 @@ export async function GET(req: NextRequest) {
     const courses = await db.select().from(mealMenuCourses)
       .where(eq(mealMenuCourses.tenantId, tenantId))
       .orderBy(mealMenuCourses.sortOrder);
-    const items = await db.execute(sql`
+    const items = await qr(sql`
       SELECT mmci.id, mmci.course_id, mmci.product_id, mmci.surcharge::float AS surcharge, mmci.sort_order,
         p.name AS product_name, p.price::float AS product_price
       FROM meal_menu_course_items mmci
       JOIN products p ON p.id = mmci.product_id
       WHERE mmci.tenant_id = ${tenantId}
       ORDER BY mmci.sort_order
-    `).then((r: any) => r.rows as any[]);
+    `);
     const schedules = await db.select().from(mealMenuSchedules)
       .where(eq(mealMenuSchedules.tenantId, tenantId))
       .orderBy(mealMenuSchedules.dayOfWeek, mealMenuSchedules.startTime);
 
-    const itemsByCourse: Record<string, any> = {};
+    const itemsByCourse: Record<string, Row[]> = {};
     for (const item of items) {
-      if (!itemsByCourse[item.course_id]) itemsByCourse[item.course_id] = [];
-      itemsByCourse[item.course_id].push(item);
+      const courseId = String(item.course_id);
+      if (!itemsByCourse[courseId]) itemsByCourse[courseId] = [];
+      itemsByCourse[courseId].push(item);
     }
-    const coursesByMenu: Record<string, any> = {};
+    const coursesByMenu: Record<string, Row[]> = {};
     for (const c of courses) {
       if (!coursesByMenu[c.menuId]) coursesByMenu[c.menuId] = [];
       coursesByMenu[c.menuId].push({ ...c, items: itemsByCourse[c.id] || [] });
     }
-    const schedulesByMenu: Record<string, any> = {};
+    const schedulesByMenu: Record<string, Row[]> = {};
     for (const s of schedules) {
       if (!schedulesByMenu[s.menuId]) schedulesByMenu[s.menuId] = [];
       schedulesByMenu[s.menuId].push(s);
     }
 
-    const data = menus.map((m: any) => ({
+    const data = menus.map((m: typeof mealMenus.$inferSelect) => ({
       ...m,
       active: !!m.active,
       includesPan: !!m.includesPan,
@@ -58,7 +66,7 @@ export async function GET(req: NextRequest) {
       schedules: schedulesByMenu[m.id] || [],
     }));
 
-    return apiOk(data.map(({ tenantId: _t, ...rest }: any) => rest));
+    return apiOk(data.map(({ tenantId: _t, ...rest }: typeof mealMenus.$inferSelect) => rest));
   } catch (err) { return apiError(err); }
 }
 
@@ -80,7 +88,7 @@ export async function PUT(req: NextRequest) {
     for (const m of menus) {
       await db.insert(mealMenus).values({
         id: m.id, name: m.name, description: m.description || '',
-        price: m.price, image: m.image || null,
+        price: String(m.price), image: m.image ?? null,
         includesPan: m.includesPan ?? false, includesBebida: m.includesBebida ?? false,
         includesCafe: m.includesCafe ?? false,
         active: m.active ?? true, createdAt: Date.now(),
@@ -98,7 +106,7 @@ export async function PUT(req: NextRequest) {
               const item = course.items[ii];
               await db.insert(mealMenuCourseItems).values({
                 id: item.id, courseId: course.id, productId: item.product_id,
-                surcharge: item.surcharge ?? 0, sortOrder: ii, tenantId,
+                surcharge: item.surcharge != null ? String(item.surcharge) : '0', sortOrder: ii, tenantId,
               });
             }
           }

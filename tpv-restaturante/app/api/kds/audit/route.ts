@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
       .orderBy(desc(kdsAuditLog.createdAt))
       .limit(limit).offset(offset);
 
-    return apiOk(rows.map((r: any) => ({
+    return apiOk(rows.map((r) => ({
       id: r.id, action: r.action,
       details: typeof r.details === 'string' ? JSON.parse(r.details) : r.details,
       createdAt: r.createdAt,

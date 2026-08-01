@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { sql } from 'drizzle-orm';
+import { sql, SQL } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { requireRole } from '../../../lib/rbac';
@@ -7,42 +7,48 @@ import { BuffetBody } from '@/lib/schemas/api-schemas';
 import { apiBadRequest } from '@/lib/infrastructure/response';
 import { z } from 'zod';
 
-function qr(db: ReturnType<typeof getDb>, q: any) {
-  return db.execute(q).then((r: any) => r.rows as any[]);
+type Row = Record<string, unknown>;
+
+async function qr(query: SQL): Promise<Row[]> {
+  const db = getDb();
+  return db.execute(query).then((r: { rows: Row[] }) => r.rows);
+}
+
+function num(v: unknown, fallback = 0): number {
+  return Number(v) || fallback;
 }
 
 export async function GET(req: NextRequest) {
   try {
-    const db = getDb();
     const tenantId = getTenantId(req);
     const url = new URL(req.url);
     const scope = url.searchParams.get('scope') || 'sessions';
 
     if (scope === 'config') {
-      const [config] = await qr(db, sql`SELECT * FROM buffet_config WHERE id = 'default' AND tenant_id = ${tenantId}`);
+      const [config] = await qr(sql`SELECT * FROM buffet_config WHERE id = 'default' AND tenant_id = ${tenantId}`);
       return Response.json(config || null);
     }
 
     if (scope === 'table_session') {
       const tableId = url.searchParams.get('tableId');
       if (!tableId) return Response.json(null);
-      const [session] = await qr(db, sql`SELECT * FROM buffet_sessions WHERE table_id = ${tableId} AND status = 'active' AND tenant_id = ${tenantId}`);
+      const [session] = await qr(sql`SELECT * FROM buffet_sessions WHERE table_id = ${tableId} AND status = 'active' AND tenant_id = ${tenantId}`);
       if (!session) return Response.json(null);
-      const [cfg] = await qr(db, sql`SELECT * FROM buffet_config WHERE id = 'default' AND tenant_id = ${tenantId}`);
+      const [cfg] = await qr(sql`SELECT * FROM buffet_config WHERE id = 'default' AND tenant_id = ${tenantId}`);
       return Response.json({ session, config: cfg || null });
     }
 
     if (scope === 'rounds') {
       const sessionId = url.searchParams.get('sessionId');
       if (!sessionId) return Response.json([]);
-      const rounds = await qr(db, sql`SELECT * FROM buffet_rounds WHERE session_id = ${sessionId} AND tenant_id = ${tenantId} ORDER BY round_number DESC`);
+      const rounds = await qr(sql`SELECT * FROM buffet_rounds WHERE session_id = ${sessionId} AND tenant_id = ${tenantId} ORDER BY round_number DESC`);
       return Response.json(rounds);
     }
 
-    const sessions = await qr(db, sql`SELECT * FROM buffet_sessions WHERE status = 'active' AND tenant_id = ${tenantId} ORDER BY started_at DESC`);
-    const [config] = await qr(db, sql`SELECT * FROM buffet_config WHERE id = 'default' AND tenant_id = ${tenantId}`);
+    const sessions = await qr(sql`SELECT * FROM buffet_sessions WHERE status = 'active' AND tenant_id = ${tenantId} ORDER BY started_at DESC`);
+    const [config] = await qr(sql`SELECT * FROM buffet_config WHERE id = 'default' AND tenant_id = ${tenantId}`);
     return Response.json({ sessions, config: config || null });
-  } catch (e: any) {
+  } catch (e) {
     return Response.json({ error: (e as Error).message }, { status: 500 });
   }
 }
@@ -63,12 +69,12 @@ export async function POST(req: NextRequest) {
       const { tableId, tableName, adults: a, children: c, seniors: s, employeeName } = body;
       const adults = Number(a) || 1, children = Number(c) || 0, seniors = Number(s) || 0;
 
-      const [existing] = await qr(db, sql`SELECT id FROM buffet_sessions WHERE table_id = ${tableId} AND status = 'active' AND tenant_id = ${tenantId}`);
+      const [existing] = await qr(sql`SELECT id FROM buffet_sessions WHERE table_id = ${tableId} AND status = 'active' AND tenant_id = ${tenantId}`);
       if (existing) return Response.json({ error: 'La mesa ya tiene una sesión de buffet activa' }, { status: 409 });
 
-      const [cfg] = await qr(db, sql`SELECT * FROM buffet_config WHERE id = 'default' AND tenant_id = ${tenantId}`);
+      const [cfg] = await qr(sql`SELECT * FROM buffet_config WHERE id = 'default' AND tenant_id = ${tenantId}`);
       if (!cfg?.enabled) return Response.json({ error: 'El buffet no está habilitado' }, { status: 400 });
-      if (cfg.paused_until > Date.now()) return Response.json({ error: 'El buffet está en pausa' }, { status: 400 });
+      if (num(cfg.paused_until) > Date.now()) return Response.json({ error: 'El buffet está en pausa' }, { status: 400 });
 
       const id = 'bf_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
       const startedAt = Date.now();
@@ -101,19 +107,20 @@ export async function POST(req: NextRequest) {
 
     if (action === 'close') {
       const { sessionId, adults, children, seniors, employeeName } = body;
-      const [session] = await qr(db, sql`SELECT * FROM buffet_sessions WHERE id = ${sessionId} AND tenant_id = ${tenantId}`);
+      const [session] = await qr(sql`SELECT * FROM buffet_sessions WHERE id = ${sessionId} AND tenant_id = ${tenantId}`);
       if (!session) return Response.json({ error: 'Sesión no encontrada' }, { status: 404 });
 
-      const a = adults ?? session.adult_count;
-      const c = children ?? session.child_count;
-      const s = seniors ?? session.senior_count;
-      const coverEffective = session.override_cover_price > 0 ? session.override_cover_price : session.cover_price_snapshot;
-      const estimated = a * Number(coverEffective) + c * Number(session.child_price_snapshot) + s * Number(session.senior_price_snapshot) + Number(session.waste_amount);
+      const a = num(adults ?? session.adult_count);
+      const c = num(children ?? session.child_count);
+      const s = num(seniors ?? session.senior_count);
+      const coverEffective = num(session.override_cover_price) > 0 ? num(session.override_cover_price) : num(session.cover_price_snapshot);
+      const estimated = a * coverEffective + c * num(session.child_price_snapshot) + s * num(session.senior_price_snapshot) + num(session.waste_amount);
 
       if (session.order_id) {
-        const [existingOrder] = await qr(db, sql`SELECT * FROM orders WHERE id = ${session.order_id} AND tenant_id = ${tenantId}`);
+        const [existingOrder] = await qr(sql`SELECT * FROM orders WHERE id = ${session.order_id} AND tenant_id = ${tenantId}`);
         if (existingOrder) {
-          const items = (existingOrder.items || []).filter((i: any) => i.productId !== 'buffet_cover' && i.productId !== 'buffet_child' && i.productId !== 'buffet_senior');
+          const existingItems = (existingOrder.items as Array<Record<string, unknown>>) || [];
+          const items = existingItems.filter((i) => i.productId !== 'buffet_cover' && i.productId !== 'buffet_child' && i.productId !== 'buffet_senior');
           items.push({ id: 'cvr_' + Date.now(), productId: 'buffet_cover', name: `Buffet cubierto ${a} adulto${a !== 1 ? 's' : ''}`, price: Number(coverEffective), qty: a, sent: true, ready: true, sentAt: existingOrder.created_at, notes: '', modifiers: [], course: 'buffet' });
           if (c > 0) items.push({ id: 'cvr_' + Date.now() + '_1', productId: 'buffet_child', name: `Buffet ${c} niño${c !== 1 ? 's' : ''}`, price: Number(session.child_price_snapshot), qty: c, sent: true, ready: true, sentAt: existingOrder.created_at, notes: '', modifiers: [], course: 'buffet' });
           if (s > 0) items.push({ id: 'cvr_' + Date.now() + '_2', productId: 'buffet_senior', name: `Buffet ${s} mayor${s !== 1 ? 'es' : ''}`, price: Number(session.senior_price_snapshot), qty: s, sent: true, ready: true, sentAt: existingOrder.created_at, notes: '', modifiers: [], course: 'buffet' });
@@ -129,7 +136,7 @@ export async function POST(req: NextRequest) {
 
     if (action === 'void') {
       const { sessionId, reason, employeeName } = body;
-      const [session] = await qr(db, sql`SELECT * FROM buffet_sessions WHERE id = ${sessionId} AND tenant_id = ${tenantId}`);
+      const [session] = await qr(sql`SELECT * FROM buffet_sessions WHERE id = ${sessionId} AND tenant_id = ${tenantId}`);
       if (!session) return Response.json({ error: 'Sesión no encontrada' }, { status: 404 });
 
       await db.execute(sql`UPDATE buffet_sessions SET status = 'voided', void_reason = ${reason || 'sin motivo'}, voided_by = ${employeeName || null}, closed_at = ${Date.now()} WHERE id = ${sessionId} AND tenant_id = ${tenantId}`);
@@ -164,18 +171,23 @@ export async function POST(req: NextRequest) {
 
       if (batchAction === 'close_all') {
         for (const sid of sessionIds) {
-          const [s] = await qr(db, sql`SELECT * FROM buffet_sessions WHERE id = ${sid} AND tenant_id = ${tenantId}`);
+          const [s] = await qr(sql`SELECT * FROM buffet_sessions WHERE id = ${sid} AND tenant_id = ${tenantId}`);
           if (!s) continue;
-          const coverEff = s.override_cover_price > 0 ? s.override_cover_price : s.cover_price_snapshot;
-          const est = s.adult_count * Number(coverEff) + s.child_count * Number(s.child_price_snapshot) + s.senior_count * Number(s.senior_price_snapshot) + Number(s.waste_amount);
+          const adultCount = num(s.adult_count);
+          const childCount = num(s.child_count);
+          const seniorCount = num(s.senior_count);
+          const wasteAmount = num(s.waste_amount);
+          const coverEff = num(s.override_cover_price) > 0 ? num(s.override_cover_price) : num(s.cover_price_snapshot);
+          const est = adultCount * coverEff + childCount * num(s.child_price_snapshot) + seniorCount * num(s.senior_price_snapshot) + wasteAmount;
           if (s.order_id) {
-            const [o] = await qr(db, sql`SELECT * FROM orders WHERE id = ${s.order_id} AND tenant_id = ${tenantId}`);
+            const [o] = await qr(sql`SELECT * FROM orders WHERE id = ${s.order_id} AND tenant_id = ${tenantId}`);
             if (o) {
-              const items = (o.items || []).filter((i: any) => i.productId !== 'buffet_cover' && i.productId !== 'buffet_child' && i.productId !== 'buffet_senior');
-              items.push({ id: 'cvr_' + Date.now(), productId: 'buffet_cover', name: `Buffet cubierto ${s.adult_count} adultos`, price: Number(coverEff), qty: s.adult_count, sent: true, ready: true, sentAt: o.created_at, notes: '', modifiers: [], course: 'buffet' });
-              if (s.child_count > 0) items.push({ id: 'cvr_' + Date.now() + '_1', productId: 'buffet_child', name: `Buffet ${s.child_count} niños`, price: Number(s.child_price_snapshot), qty: s.child_count, sent: true, ready: true, sentAt: o.created_at, notes: '', modifiers: [], course: 'buffet' });
-              if (s.senior_count > 0) items.push({ id: 'cvr_' + Date.now() + '_2', productId: 'buffet_senior', name: `Buffet ${s.senior_count} mayores`, price: Number(s.senior_price_snapshot), qty: s.senior_count, sent: true, ready: true, sentAt: o.created_at, notes: '', modifiers: [], course: 'buffet' });
-              if (Number(s.waste_amount) > 0) items.push({ id: 'wst_' + Date.now(), productId: 'buffet_waste', name: 'Desperdicio buffet', price: Number(s.waste_amount), qty: 1, sent: true, ready: true, sentAt: Date.now(), notes: '', modifiers: [], course: 'buffet' });
+              const oItems = (o.items as Array<Record<string, unknown>>) || [];
+              const items = oItems.filter((i) => i.productId !== 'buffet_cover' && i.productId !== 'buffet_child' && i.productId !== 'buffet_senior');
+              items.push({ id: 'cvr_' + Date.now(), productId: 'buffet_cover', name: `Buffet cubierto ${adultCount} adultos`, price: coverEff, qty: adultCount, sent: true, ready: true, sentAt: o.created_at, notes: '', modifiers: [], course: 'buffet' });
+              if (childCount > 0) items.push({ id: 'cvr_' + Date.now() + '_1', productId: 'buffet_child', name: `Buffet ${childCount} niños`, price: num(s.child_price_snapshot), qty: childCount, sent: true, ready: true, sentAt: o.created_at, notes: '', modifiers: [], course: 'buffet' });
+              if (seniorCount > 0) items.push({ id: 'cvr_' + Date.now() + '_2', productId: 'buffet_senior', name: `Buffet ${seniorCount} mayores`, price: num(s.senior_price_snapshot), qty: seniorCount, sent: true, ready: true, sentAt: o.created_at, notes: '', modifiers: [], course: 'buffet' });
+              if (wasteAmount > 0) items.push({ id: 'wst_' + Date.now(), productId: 'buffet_waste', name: 'Desperdicio buffet', price: wasteAmount, qty: 1, sent: true, ready: true, sentAt: Date.now(), notes: '', modifiers: [], course: 'buffet' });
               await db.execute(sql`UPDATE orders SET items = ${JSON.stringify(items)} WHERE id = ${s.order_id} AND tenant_id = ${tenantId}`);
             }
           }
@@ -197,29 +209,29 @@ export async function POST(req: NextRequest) {
 
     if (action === 'create_round') {
       const { tableId, items: its, employeeName } = body;
-      const items = (its as any[]) || [];
-      const [session] = await qr(db, sql`SELECT * FROM buffet_sessions WHERE table_id = ${tableId} AND status = 'active' AND tenant_id = ${tenantId}`);
+      const items = (its as Array<Record<string, unknown>>) || [];
+      const [session] = await qr(sql`SELECT * FROM buffet_sessions WHERE table_id = ${tableId} AND status = 'active' AND tenant_id = ${tenantId}`);
       if (!session) return Response.json({ error: 'Esta mesa no tiene una sesión de buffet activa' }, { status: 400 });
 
-      const [cfg] = await qr(db, sql`SELECT * FROM buffet_config WHERE id = 'default' AND tenant_id = ${tenantId}`);
-      if (cfg?.paused_until > Date.now()) return Response.json({ error: 'El buffet está en pausa' }, { status: 400 });
-      if (session.cooldown_until > Date.now()) return Response.json({ error: `Espera ${Math.ceil((session.cooldown_until - Date.now()) / 1000)}s antes de pedir otra ronda` }, { status: 400 });
+      const [cfg] = await qr(sql`SELECT * FROM buffet_config WHERE id = 'default' AND tenant_id = ${tenantId}`);
+      if (num(cfg?.paused_until) > Date.now()) return Response.json({ error: 'El buffet está en pausa' }, { status: 400 });
+      if (num(session.cooldown_until) > Date.now()) return Response.json({ error: `Espera ${Math.ceil((num(session.cooldown_until) - Date.now()) / 1000)}s antes de pedir otra ronda` }, { status: 400 });
 
-      const cap = session.override_round_cap > 0 ? session.override_round_cap : (cfg?.round_cap || 3);
-      const totalPeople = session.adult_count + session.child_count + session.senior_count;
+      const cap = num(session.override_round_cap) > 0 ? num(session.override_round_cap) : num(cfg?.round_cap, 3);
+      const totalPeople = num(session.adult_count) + num(session.child_count) + num(session.senior_count);
       const maxItems = cap * totalPeople;
       if (items.length > maxItems) return Response.json({ error: `Máximo ${maxItems} items por ronda (${cap} × ${totalPeople} personas)` }, { status: 400 });
 
       const roundId = 'br_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
-      const newRound = session.round + 1;
-      const cooldownMin = session.override_cooldown > 0 ? session.override_cooldown : (cfg?.cooldown || 5);
+      const newRound = num(session.round) + 1;
+      const cooldownMin = num(session.override_cooldown) > 0 ? num(session.override_cooldown) : num(cfg?.cooldown, 5);
       const cooldownUntil = Date.now() + cooldownMin * 60000;
 
       await db.execute(sql`INSERT INTO buffet_rounds (id, session_id, round_number, items, item_count, requested_at, status, tenant_id) VALUES (${roundId}, ${session.id}, ${newRound}, ${JSON.stringify(items)}, ${items.length}, ${Date.now()}, 'pending', ${tenantId})`);
       await db.execute(sql`UPDATE buffet_sessions SET round = ${newRound}, cooldown_until = ${cooldownUntil} WHERE id = ${session.id} AND tenant_id = ${tenantId}`);
 
       const orderId = 'bo_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
-      const orderItems = items.map((i: any) => ({
+      const orderItems = items.map((i) => ({
         id: i.id || 'bi_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
         productId: i.productId, name: i.name, price: 0, qty: i.qty || 1,
         sent: true, ready: false, sentAt: Date.now(), notes: i.notes || '',
@@ -232,7 +244,7 @@ export async function POST(req: NextRequest) {
 
     if (action === 'deliver_round') {
       const { roundId } = body;
-      const [round] = await qr(db, sql`SELECT * FROM buffet_rounds WHERE id = ${roundId} AND tenant_id = ${tenantId}`);
+      const [round] = await qr(sql`SELECT * FROM buffet_rounds WHERE id = ${roundId} AND tenant_id = ${tenantId}`);
       if (!round) return Response.json({ error: 'Ronda no encontrada' }, { status: 404 });
       await db.execute(sql`UPDATE buffet_rounds SET status = 'delivered', delivered_at = ${Date.now()} WHERE id = ${roundId} AND tenant_id = ${tenantId}`);
       return Response.json({ ok: true });
@@ -240,9 +252,9 @@ export async function POST(req: NextRequest) {
 
     if (action === 'call_customer') {
       const { sessionId } = body;
-      const [session] = await qr(db, sql`SELECT * FROM buffet_sessions WHERE id = ${sessionId} AND tenant_id = ${tenantId}`);
+      const [session] = await qr(sql`SELECT * FROM buffet_sessions WHERE id = ${sessionId} AND tenant_id = ${tenantId}`);
       if (!session) return Response.json({ error: 'Sesión no encontrada' }, { status: 404 });
-      const [qrOrder] = await qr(db, sql`SELECT customer_name FROM qr_orders WHERE table_id = ${session.table_id} AND tenant_id = ${tenantId} ORDER BY created_at DESC LIMIT 1`);
+      const [qrOrder] = await qr(sql`SELECT customer_name FROM qr_orders WHERE table_id = ${session.table_id} AND tenant_id = ${tenantId} ORDER BY created_at DESC LIMIT 1`);
       return Response.json({ ok: true, customerName: qrOrder?.customer_name || null });
     }
 
@@ -253,7 +265,7 @@ export async function POST(req: NextRequest) {
     }
 
     return Response.json({ error: 'Acción desconocida' }, { status: 400 });
-  } catch (e: any) {
+  } catch (e) {
     return Response.json({ error: (e as Error).message }, { status: 500 });
   }
 }

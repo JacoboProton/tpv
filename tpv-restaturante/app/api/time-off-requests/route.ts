@@ -1,10 +1,17 @@
 import { NextRequest } from 'next/server';
-import { sql } from 'drizzle-orm';
+import { sql, SQL } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiServerError } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
 import { TimeOffBody } from '@/lib/schemas/api-schemas';
+
+type Row = Record<string, unknown>;
+
+async function qr(query: SQL): Promise<Row[]> {
+  const db = getDb();
+  return db.execute(query).then((r: { rows: Row[] }) => r.rows);
+}
 
 export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin', 'camarero'])(req);
@@ -23,9 +30,8 @@ export async function GET(req: NextRequest) {
     if (conds.length > 0) query = sql`${query} AND ${conds.reduce((a, c) => sql`${a} AND ${c}`)}`;
     query = sql`${query} ORDER BY created_at DESC LIMIT 500`;
 
-    const result = await db.execute(query);
-    const rows = (result as any).rows;
-    return apiOk(rows.map((r: any) => ({
+    const rows = await qr(query);
+    return apiOk(rows.map((r) => ({
       id: r.id, employeeId: r.employee_id, employeeName: r.employee_name,
       reason: r.reason, fromDate: r.from_date, toDate: r.to_date,
       notes: r.notes, status: r.status,

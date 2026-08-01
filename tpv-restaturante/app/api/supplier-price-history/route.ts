@@ -1,11 +1,22 @@
 import { NextRequest } from 'next/server';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, SQL } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { supplierPriceHistory, suppliers, products } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiServerError } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
 import { SupplierPriceHistoryBody } from '@/lib/schemas/api-schemas';
+
+type Row = Record<string, unknown>;
+
+async function qr(query: SQL): Promise<Row[]> {
+  const db = getDb();
+  return db.execute(query).then((r: { rows: Row[] }) => r.rows);
+}
+
+function num(v: unknown, fallback = 0): number {
+  return Number(v) || fallback;
+}
 
 export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin', 'camarero'])(req);
@@ -25,20 +36,20 @@ export async function GET(req: NextRequest) {
       JOIN products p ON p.id = sph.product_id
       WHERE sph.tenant_id = ${tenantId}
     `;
-    const conds = [];
+    const conds: SQL[] = [];
     if (catalogId) conds.push(sql`sph.catalog_id = ${catalogId}`);
     if (productId) conds.push(sql`sph.product_id = ${productId}`);
     if (supplierId) conds.push(sql`sph.supplier_id = ${supplierId}`);
-    if (conds.length > 0) query = sql`${query} AND ${conds.reduce((a: any, c: any) => sql`${a} AND ${c}`)}`;
+    if (conds.length > 0) query = sql`${query} AND ${conds.reduce((a, c) => sql`${a} AND ${c}`)}`;
     query = sql`${query} ORDER BY sph.created_at DESC LIMIT 50`;
 
-    const rows = await db.execute(query).then((r: any) => r.rows as any[]);
+    const rows = await qr(query);
 
-    return apiOk(rows.map((r: any) => ({
+    return apiOk(rows.map((r) => ({
       id: r.id, catalogId: r.catalog_id, supplierId: r.supplier_id, supplierName: r.supplier_name,
       productId: r.product_id, productName: r.product_name,
-      packPrice: parseFloat(r.pack_price), packSize: parseFloat(r.pack_size),
-      pricePerUnit: parseFloat(r.price_per_unit),
+      packPrice: num(r.pack_price), packSize: num(r.pack_size),
+      pricePerUnit: num(r.price_per_unit),
       source: r.source, createdAt: Number(r.created_at),
     })));
   } catch (err) { return apiError(err); }

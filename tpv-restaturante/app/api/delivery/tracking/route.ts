@@ -55,8 +55,8 @@ export async function POST(req: NextRequest) {
     }
     await db.insert(deliveryTracking).values({
       deliveryId, status,
-      locationLat: locationLat ?? null,
-      locationLng: locationLng ?? null,
+      locationLat: locationLat != null ? String(locationLat) : null,
+      locationLng: locationLng != null ? String(locationLng) : null,
       note: note || '',
       createdAt: Date.now(),
       tenantId,

@@ -40,12 +40,16 @@ export async function POST(req: NextRequest) {
     const tenantId = getTenantId(req);
     const parsed = CancelOrderBody.safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
-    const b = parsed.data;
+    const b = parsed.data as {
+      orderId: string; tableId?: string; tableName?: string;
+      items?: unknown; total?: string | number; employeeName?: string; reason?: string;
+    };
     const db = getDb();
     const [row] = await db.insert(cancelledOrders).values({
-      orderId: b.orderId, tableId: b.tableId, tableName: b.tableName,
-      items: b.items, total: b.total, employeeName: b.employeeName,
-      reason: b.reason, cancelledAt: Date.now(), tenantId,
+      orderId: b.orderId, tableId: b.tableId ?? null, tableName: b.tableName ?? null,
+      items: b.items ?? [], total: b.total != null ? String(b.total) : null,
+      employeeName: b.employeeName ?? null, reason: b.reason ?? null,
+      cancelledAt: Date.now(), tenantId,
     }).returning();
     return apiOk(row);
   } catch (err) { return apiError(err); }

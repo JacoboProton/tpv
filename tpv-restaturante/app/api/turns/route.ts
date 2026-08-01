@@ -47,7 +47,8 @@ export async function POST(req: NextRequest) {
     const db = getDb();
 
     await db.insert(employeeTurns).values({
-      employeeId, employeeName, action, turnDate, time, tenantId,
+      employeeId, employeeName, action, turnDate: turnDate ?? new Date().toISOString().slice(0, 10),
+      time, tenantId,
     });
     return apiOk();
   } catch (err) { return apiError(err); }

@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
             estado: 'registrado',
             fiskalyInvoiceId: fiskalyResult.fiskalyInvoiceId,
             verificationUrl: fiskalyResult.verificationUrl,
-            qrUrl: fiskalyResult.qrUrl,
+            qrUrl: fiskalyResult.qrUrl ?? '',
             huella: localResult.hash,
             xmlRegistro: localResult.xml,
             fechaHoraFirma: localResult.fechaHoraFirma,

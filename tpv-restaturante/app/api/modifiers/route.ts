@@ -6,6 +6,11 @@ import { getTenantId } from '../../../lib/tenant';
 import { modifierGroups, modifierOptions, productModifiers } from '../../../db/schema';
 import { requireRole } from '../../../lib/rbac';
 import { ModifiersBody } from '@/lib/schemas/api-schemas';
+import type { NodePgTransaction } from 'drizzle-orm/node-postgres/session';
+import type { TablesRelationalConfig } from 'drizzle-orm/relations';
+
+type Row = Record<string, unknown>;
+type Tx = NodePgTransaction<Record<string, unknown>, TablesRelationalConfig>;
 
 export async function GET(req: NextRequest) {
   try {
@@ -27,9 +32,9 @@ export async function GET(req: NextRequest) {
       }).from(productModifiers).where(eq(productModifiers.tenantId, tenantId)),
     ]);
 
-    const data = groups.map((g: any) => ({
+    const data = groups.map((g: typeof modifierGroups.$inferSelect) => ({
       ...g,
-      options: options.filter((o: any) => o.groupId === g.id).map((o: any) => ({
+      options: options.filter((o: Row) => o.groupId === g.id).map((o: Row) => ({
         ...o, isDefault: !!o.isDefault, stockDeduct: !!o.stockDeduct,
       })),
     }));
@@ -67,7 +72,7 @@ export async function PUT(req: NextRequest) {
       return apiBadRequest(warnings.join(', '));
     }
 
-    await db.transaction(async (tx: any) => {
+    await db.transaction(async (tx: Tx) => {
       await tx.delete(modifierOptions).where(eq(modifierOptions.tenantId, tenantId));
       await tx.delete(productModifiers).where(eq(productModifiers.tenantId, tenantId));
       await tx.delete(modifierGroups).where(eq(modifierGroups.tenantId, tenantId));

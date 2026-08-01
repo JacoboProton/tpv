@@ -1,10 +1,17 @@
 import { NextRequest } from 'next/server';
-import { sql } from 'drizzle-orm';
+import { sql, SQL } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
 import { AutoOrderSettingsBody } from '@/lib/schemas/api-schemas';
 import { requireRole } from '../../../lib/rbac';
+
+type Row = Record<string, unknown>;
+
+async function qr(query: SQL): Promise<Row[]> {
+  const db = getDb();
+  return db.execute(query).then((r: { rows: Row[] }) => r.rows);
+}
 
 export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin'])(req);
@@ -12,8 +19,8 @@ export async function GET(req: NextRequest) {
   try {
     const tenantId = getTenantId(req);
     const db = getDb();
-    const rows = await db.execute(sql`SELECT * FROM auto_order_settings WHERE tenant_id = ${tenantId}`);
-    const obj = Object.fromEntries((rows as any).rows.map((r: any) => [r.key, r.value]));
+    const rows = await qr(sql`SELECT * FROM auto_order_settings WHERE tenant_id = ${tenantId}`);
+    const obj = Object.fromEntries(rows.map((r: Row) => [String(r.key), r.value]));
     return apiOk(obj);
   } catch (err) { return apiError(err); }
 }

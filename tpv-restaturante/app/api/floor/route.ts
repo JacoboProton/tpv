@@ -7,6 +7,10 @@ import { putFloorInTransaction, deleteTablesInTransaction, deleteOrdersInTransac
 import { apiOk, apiError } from '../../../lib/infrastructure/response';
 import { parseBody } from '../../../lib/infrastructure/validate';
 import { requireRole } from '../../../lib/rbac';
+import type { NodePgTransaction } from 'drizzle-orm/node-postgres/session';
+import type { TablesRelationalConfig } from 'drizzle-orm/relations';
+
+type Tx = NodePgTransaction<Record<string, unknown>, TablesRelationalConfig>;
 
 export async function GET(req: NextRequest) {
   try {
@@ -24,8 +28,8 @@ export async function PUT(req: NextRequest) {
     const body = await parseBody(req, FloorPutBodySchema);
     const db = getDb();
     const tenantId = getTenantId(req);
-    await db.transaction(async (tx: any) => {
-      await putFloorInTransaction(tx, body.tables as any[], body.orders as any, body.zones, body.background, tenantId);
+    await db.transaction(async (tx: Tx) => {
+      await putFloorInTransaction(tx, body.tables, body.orders, body.zones, body.background, tenantId);
     });
     const fullFloor = await fetchFullFloor(tenantId);
     await broadcastFloorUpdateServer(fullFloor, tenantId).catch(() => {});
@@ -44,10 +48,10 @@ export async function PATCH(req: NextRequest) {
     const { updatedTables, deletedTableIds, updatedOrders, deletedOrderIds } = body;
     const db = getDb();
     const tenantId = getTenantId(req);
-    await db.transaction(async (tx: any) => {
+    await db.transaction(async (tx: Tx) => {
       await deleteTablesInTransaction(tx, deletedTableIds, tenantId);
       await deleteOrdersInTransaction(tx, deletedOrderIds, tenantId);
-      await putFloorInTransaction(tx, (updatedTables || []) as any[], (updatedOrders || {}) as any, null, null, tenantId);
+      await putFloorInTransaction(tx, (updatedTables || []) as Array<Record<string, unknown>>, (updatedOrders || {}) as Record<string, Record<string, unknown>>, null, null, tenantId);
     });
     const fullFloor = await fetchFullFloor(tenantId);
     await broadcastFloorUpdateServer(fullFloor, tenantId).catch(() => {});

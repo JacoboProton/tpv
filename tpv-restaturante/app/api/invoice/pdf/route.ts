@@ -118,8 +118,9 @@ export async function POST(req: NextRequest) {
     }
     y = cy + 6;
 
-    const items = (sale.items || []).filter((i: any) => !i.voided);
-    const bodyRows = items.map((i: any) => [
+    const items = ((sale.items || []) as Array<{ voided?: boolean; name?: string; qty?: number; price?: number }>)
+      .filter((i) => !i.voided);
+    const bodyRows = items.map((i) => [
       i.name?.slice(0, 40) || '',
       String(i.qty || 1),
       `${(i.price || 0).toFixed(2)}`,
@@ -149,10 +150,12 @@ export async function POST(req: NextRequest) {
         2: { cellWidth: 30, halign: 'right' },
         3: { cellWidth: 30, halign: 'right' },
       },
-      didParseCell: (data: any) => {
-        if (data.section === 'foot' && data.row.index === 2) {
-          data.cell.styles.fontStyle = 'bold';
-          data.cell.styles.fontSize = 10;
+      didParseCell: (data: { section?: string; row?: { index: number }; cell?: { styles?: Record<string, unknown> } }) => {
+        if (data.section === 'foot' && data.row?.index === 2) {
+          if (data.cell?.styles) {
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.fontSize = 10;
+          }
         }
       },
     });

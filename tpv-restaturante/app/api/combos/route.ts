@@ -33,17 +33,17 @@ export async function GET(req: NextRequest) {
         .where(eq(comboSlotItems.tenantId, tenantId)),
     ]);
 
-    const itemsBySlot: Record<string, any[]> = {};
+    const itemsBySlot: Record<string, typeof slotItemRows[number][]> = {};
     for (const item of slotItemRows) {
       if (!itemsBySlot[item.slotId]) itemsBySlot[item.slotId] = [];
       itemsBySlot[item.slotId].push(item);
     }
-    const slotsByCombo: Record<string, any[]> = {};
+    const slotsByCombo: Record<string, (typeof slotRows[number] & { items: typeof slotItemRows[number][] })[]> = {};
     for (const s of slotRows) {
       if (!slotsByCombo[s.comboId]) slotsByCombo[s.comboId] = [];
       slotsByCombo[s.comboId].push({ ...s, items: itemsBySlot[s.id] || [] });
     }
-    const data = comboRows.map((c: any) => ({
+    const data = comboRows.map((c) => ({
       ...c, active: !!c.active, slots: slotsByCombo[c.id] || [],
     }));
     return apiOk(data);
@@ -59,9 +59,16 @@ export async function PUT(req: NextRequest) {
     const tenantId = getTenantId(req);
     const parsed = CombosBody.safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
-    const data = parsed.data;
+    const data = parsed.data as Array<{
+      id: string; name: string; description?: string; price: number; image?: string | null;
+      active?: boolean; discountPct?: number;
+      slots?: Array<{
+        id: string; name: string; minChoices?: number; maxChoices?: number;
+        items?: Array<{ id: string; product_id?: string; surcharge?: number }>;
+      }>;
+    }>;
 
-    await db.transaction(async (tx: any) => {
+    await db.transaction(async (tx) => {
       await tx.delete(comboSlotItems).where(eq(comboSlotItems.tenantId, tenantId));
       await tx.delete(comboSlots).where(eq(comboSlots.tenantId, tenantId));
       await tx.delete(comboItems).where(eq(comboItems.tenantId, tenantId));
@@ -70,10 +77,10 @@ export async function PUT(req: NextRequest) {
       for (const c of data) {
         await tx.insert(combos).values({
           id: c.id, name: c.name, description: c.description || '',
-          price: c.price, image: c.image || null, active: c.active ?? true,
-          createdAt: Date.now(), discountPct: c.discountPct ?? 0, tenantId,
+          price: String(c.price), image: c.image || null, active: c.active ?? true,
+          createdAt: Date.now(), discountPct: String(c.discountPct ?? 0), tenantId,
         });
-        const slots = (c as unknown as { slots: any[] }).slots;
+        const slots = c.slots;
         if (slots) {
           for (let si = 0; si < slots.length; si++) {
             const slot = slots[si];
@@ -82,13 +89,13 @@ export async function PUT(req: NextRequest) {
               minChoices: slot.minChoices ?? 1, maxChoices: slot.maxChoices ?? 1,
               sortOrder: si, tenantId,
             });
-            const slotItems = (slot as unknown as { items: any[] }).items;
+            const slotItems = slot.items;
             if (slotItems) {
               for (let ii = 0; ii < slotItems.length; ii++) {
                 const item = slotItems[ii];
                 await tx.insert(comboSlotItems).values({
-                  id: item.id, slotId: slot.id, productId: item.product_id,
-                  surcharge: item.surcharge ?? 0, sortOrder: ii, tenantId,
+                  id: item.id, slotId: slot.id, productId: item.product_id ?? '',
+                  surcharge: String(item.surcharge ?? 0), sortOrder: ii, tenantId,
                 });
               }
             }

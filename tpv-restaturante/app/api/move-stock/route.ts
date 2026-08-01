@@ -44,6 +44,6 @@ export async function POST(req: NextRequest) {
           ));
       }
     }
-    return apiOk({ ok: true, movidos: rows.map((r: any) => r.name) });
+    return apiOk({ ok: true, movidos: rows.map((r) => r.name) });
   } catch (err) { return apiError(err); }
 }

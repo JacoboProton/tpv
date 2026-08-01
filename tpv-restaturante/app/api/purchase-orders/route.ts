@@ -1,11 +1,18 @@
 import { NextRequest } from 'next/server';
-import { sql } from 'drizzle-orm';
+import { sql, SQL } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
 import { PurchaseOrderBody } from '@/lib/schemas/api-schemas';
 import { z } from 'zod';
+
+type Row = Record<string, unknown>;
+
+async function qr(query: SQL): Promise<Row[]> {
+  const db = getDb();
+  return db.execute(query).then((r: { rows: Row[] }) => r.rows);
+}
 
 export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin', 'camarero'])(req);
@@ -21,24 +28,24 @@ export async function GET(req: NextRequest) {
     const conds = [];
     if (supplierId) conds.push(sql`supplier_id = ${supplierId}`);
     if (status) conds.push(sql`status = ${status}`);
-    if (conds.length > 0) query = sql`${query} AND ${conds.reduce((a: any, c: any) => sql`${a} AND ${c}`)}`;
+    if (conds.length > 0) query = sql`${query} AND ${conds.reduce((a: SQL, c: SQL) => sql`${a} AND ${c}`)}`;
     query = sql`${query} ORDER BY created_at DESC LIMIT 200`;
 
-    const orders = await db.execute(query).then((r: any) => r.rows as any[]);
+    const orders = await qr(query);
     const result = [];
 
     for (const o of orders) {
-      const lines = await db.execute(sql`
+      const lines = await qr(sql`
         SELECT * FROM purchase_order_lines WHERE order_id = ${o.id} AND tenant_id = ${tenantId} ORDER BY id
-      `).then((r: any) => r.rows as any[]);
+      `);
       result.push({
         id: o.id, supplierId: o.supplier_id, supplierName: o.supplier_name,
         status: o.status, expectedDate: o.expected_date, notes: o.notes,
         createdBy: o.created_by, createdAt: Number(o.created_at), updatedAt: o.updated_at ? Number(o.updated_at) : null,
-        lines: lines.map((l: any) => ({
+        lines: lines.map((l) => ({
           id: l.id, productId: l.product_id, productName: l.product_name,
-          quantity: parseFloat(l.quantity), pricePerUnit: parseFloat(l.price_per_unit),
-          supplierSku: l.supplier_sku, receivedQty: parseFloat(l.received_qty),
+          quantity: Number(l.quantity), pricePerUnit: Number(l.price_per_unit),
+          supplierSku: l.supplier_sku, receivedQty: Number(l.received_qty),
         })),
       });
     }
@@ -91,24 +98,24 @@ export async function POST(req: NextRequest) {
       for (const l of lines || []) {
         await db.execute(sql`UPDATE purchase_order_lines SET received_qty=${l.receivedQty || 0} WHERE id=${l.lineId} AND order_id=${id} AND tenant_id = ${tenantId}`);
       }
-      const [order] = await db.execute(sql`SELECT * FROM purchase_orders WHERE id=${id} AND tenant_id = ${tenantId}`).then((r: any) => r.rows as any[]);
+      const [order] = await qr(sql`SELECT * FROM purchase_orders WHERE id=${id} AND tenant_id = ${tenantId}`);
       for (const l of lines || []) {
-        const [line] = await db.execute(sql`SELECT * FROM purchase_order_lines WHERE id=${l.lineId} AND order_id=${id} AND tenant_id = ${tenantId}`).then((r: any) => r.rows as any[]);
+        const [line] = await qr(sql`SELECT * FROM purchase_order_lines WHERE id=${l.lineId} AND order_id=${id} AND tenant_id = ${tenantId}`);
         if (line && l.receivedQty > 0) {
-          const [cat] = await db.execute(sql`
+          const [cat] = await qr(sql`
             SELECT sc.id FROM supplier_catalog sc
             WHERE sc.supplier_id = ${order.supplier_id} AND sc.product_id = ${line.product_id} AND sc.tenant_id = ${tenantId} LIMIT 1
-          `).then((r: any) => r.rows as any[]);
+          `);
           if (cat) {
-            const ppu = parseFloat(line.price_per_unit);
+            const ppu = Number(line.price_per_unit);
             await db.execute(sql`INSERT INTO supplier_price_history (catalog_id, supplier_id, product_id, pack_price, pack_size, price_per_unit, source, created_at, tenant_id)
               VALUES (${cat.id}, ${order.supplier_id}, ${line.product_id}, ${ppu}, 1, ${ppu}, 'receipt', ${Date.now()}, ${tenantId})`);
           }
         }
       }
-      const allLines = await db.execute(sql`SELECT quantity, received_qty FROM purchase_order_lines WHERE order_id=${id} AND tenant_id = ${tenantId}`).then((r: any) => r.rows as any[]);
-      const allReceived = allLines.every((l: any) => parseFloat(l.received_qty) >= parseFloat(l.quantity));
-      const anyReceived = allLines.some((l: any) => parseFloat(l.received_qty) > 0);
+      const allLines = await qr(sql`SELECT quantity, received_qty FROM purchase_order_lines WHERE order_id=${id} AND tenant_id = ${tenantId}`);
+      const allReceived = allLines.every((l) => Number(l.received_qty) >= Number(l.quantity));
+      const anyReceived = allLines.some((l) => Number(l.received_qty) > 0);
       const newStatus = allReceived ? 'received' : anyReceived ? 'partial' : 'draft';
       await db.execute(sql`UPDATE purchase_orders SET status=${newStatus}, updated_at=${Date.now()} WHERE id=${id} AND tenant_id = ${tenantId}`);
       return apiOk({ newStatus });
@@ -129,57 +136,59 @@ export async function POST(req: NextRequest) {
 }
 
 async function getAutoSettings(tenantId: string) {
-  const db = getDb();
-  const rows = await db.execute(sql`SELECT * FROM auto_order_settings WHERE tenant_id = ${tenantId}`).then((r: any) => r.rows as any[]);
-  return Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
+  const rows = await qr(sql`SELECT * FROM auto_order_settings WHERE tenant_id = ${tenantId}`);
+  return Object.fromEntries(rows.map((r) => [r.key, r.value]));
 }
 
-async function handleAutoPreview(body: any) {
-  const db = getDb();
-  const tenantId = body.tenantId || 'default';
-  const settings = await getAutoSettings(tenantId);
-  const leadTimeDays = parseInt(body.leadTimeDays || settings.leadTimeDays || '2');
-  const safetyStockDays = parseInt(body.safetyStockDays || settings.safetyStockDays || '3');
-  const minOrderValue = parseFloat(body.minOrderValue || settings.minOrderValue || '50');
-  const consolidateBySupplier = (body.consolidateBySupplier ?? settings.consolidateBySupplier) === 'true';
+function num(v: unknown, fallback = 0): number {
+  return Number(v) || fallback;
+}
 
-  const products = await db.execute(sql`
+async function handleAutoPreview(body: Record<string, unknown>) {
+  const tenantId = (body.tenantId as string) || 'default';
+  const settings = await getAutoSettings(tenantId);
+  const leadTimeDays = num(body.leadTimeDays) || num(settings.leadTimeDays) || 2;
+  const safetyStockDays = num(body.safetyStockDays) || num(settings.safetyStockDays) || 3;
+  const minOrderValue = num(body.minOrderValue) || num(settings.minOrderValue) || 50;
+  const consolidateBySupplier = String(body.consolidateBySupplier ?? settings.consolidateBySupplier) === 'true';
+
+  const products = await qr(sql`
     SELECT p.id, p.name, p.type,
       COALESCE((SELECT SUM(ps.stock) FROM product_stock ps WHERE ps.product_id = p.id AND ps.tenant_id = ${tenantId}), 0) AS total_stock
     FROM products p WHERE p.active = true AND p.tenant_id = ${tenantId}
-  `).then((r: any) => r.rows as any[]);
+  `);
 
-  const toReplenish: any[] = [];
+  const toReplenish: Row[] = [];
   for (const p of products) {
     if (p.type === 'elaborado') continue;
-    const stock = parseInt(p.total_stock);
-    const estimatedDailyConsumption = await estimateDailyConsumption(p.id, tenantId);
-    const neededForLeadTime = estimatedDailyConsumption * leadTimeDays;
-    const safetyStock = estimatedDailyConsumption * safetyStockDays;
+    const stock = num(p.total_stock);
+    const dailyConsumption = await estimateDailyConsumption(p.id as string, tenantId);
+    const neededForLeadTime = dailyConsumption * leadTimeDays;
+    const safetyStock = dailyConsumption * safetyStockDays;
     if (stock < (neededForLeadTime + safetyStock)) toReplenish.push(p);
   }
 
-  const needSupplier = [];
-  const noOfferProducts = [];
+  const needSupplier: Array<{ product: Row; offer: Row; neededQty: number }> = [];
+  const noOfferProducts: Row[] = [];
 
   for (const prod of toReplenish) {
-    const stock = parseInt(prod.total_stock);
-    const dailyConsumption = await estimateDailyConsumption(prod.id, tenantId);
+    const stock = num(prod.total_stock);
+    const dailyConsumption = await estimateDailyConsumption(prod.id as string, tenantId);
     const neededQty = Math.max(0, (dailyConsumption * (leadTimeDays + safetyStockDays)) - stock);
 
-    let offers = await db.execute(sql`
+    let offers = await qr(sql`
       SELECT sc.*, s.name AS supplier_name FROM supplier_catalog sc
       JOIN suppliers s ON s.id = sc.supplier_id
       WHERE sc.product_id = ${prod.id} AND sc.active = true AND sc.is_preferred = true AND sc.tenant_id = ${tenantId}
       ORDER BY sc.price LIMIT 1
-    `).then((r: any) => r.rows as any[]);
+    `);
     if (offers.length === 0) {
-      offers = await db.execute(sql`
+      offers = await qr(sql`
         SELECT sc.*, s.name AS supplier_name FROM supplier_catalog sc
         JOIN suppliers s ON s.id = sc.supplier_id
         WHERE sc.product_id = ${prod.id} AND sc.active = true AND sc.tenant_id = ${tenantId}
         ORDER BY sc.price LIMIT 1
-      `).then((r: any) => r.rows as any[]);
+      `);
     }
 
     if (offers.length === 0) {
@@ -190,42 +199,43 @@ async function handleAutoPreview(body: any) {
     needSupplier.push({ product: prod, offer: offers[0], neededQty });
   }
 
-  const bySupplier: Record<string, any> = {};
+  const bySupplier: Record<string, { supplierId: string; supplierName: string; lines: Row[]; total: number }> = {};
   for (const item of needSupplier) {
-    const sid = item.offer.supplier_id;
-    if (!bySupplier[sid]) bySupplier[sid] = { supplierId: sid, supplierName: item.offer.supplier_name, lines: [], total: 0 };
-    const qty = Math.ceil(item.neededQty / parseFloat(item.offer.pack_size || 1)) * parseFloat(item.offer.pack_size || 1);
-    const finalQty = Math.max(qty, parseFloat(item.offer.min_order || 0));
-    const lineTotal = finalQty * parseFloat(item.offer.price);
+    const sid = item.offer.supplier_id as string;
+    if (!bySupplier[sid]) bySupplier[sid] = { supplierId: sid, supplierName: item.offer.supplier_name as string, lines: [], total: 0 };
+    const packSize = num(item.offer.pack_size, 1);
+    const qty = Math.ceil(item.neededQty / packSize) * packSize;
+    const finalQty = Math.max(qty, num(item.offer.min_order));
+    const lineTotal = finalQty * num(item.offer.price);
     bySupplier[sid].lines.push({
       productId: item.product.id, productName: item.product.name,
-      quantity: finalQty, pricePerUnit: parseFloat(item.offer.price),
+      quantity: finalQty, pricePerUnit: num(item.offer.price),
       supplierSku: item.offer.sku || '',
     });
     bySupplier[sid].total += lineTotal;
   }
 
   const validSuppliers = consolidateBySupplier
-    ? Object.values(bySupplier).filter((s: any) => s.total >= minOrderValue)
+    ? Object.values(bySupplier).filter((s) => s.total >= minOrderValue)
     : Object.values(bySupplier);
 
   return apiOk({
     preview: validSuppliers,
-    noOfferProducts: noOfferProducts.map((p: any) => ({ id: p.id, name: p.name })),
+    noOfferProducts: noOfferProducts.map((p) => ({ id: p.id, name: p.name })),
     skippedByMin: consolidateBySupplier
-      ? Object.values(bySupplier).filter((s: any) => s.total < minOrderValue).map((s: any) => ({ supplierName: s.supplierName, total: s.total, minOrderValue }))
+      ? Object.values(bySupplier).filter((s) => s.total < minOrderValue).map((s) => ({ supplierName: s.supplierName, total: s.total, minOrderValue }))
       : [],
     settings,
   });
 }
 
-async function handleAutoGenerate(body: any) {
+async function handleAutoGenerate(body: Record<string, unknown>) {
   const db = getDb();
   const previewRes = await handleAutoPreview(body);
   const preview = await previewRes.json();
 
-  const tenantId = body.tenantId || 'default';
-  const created = [];
+  const tenantId = (body.tenantId as string) || 'default';
+  const created: Array<Record<string, unknown>> = [];
   for (const group of preview.preview) {
     const id = 'po_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
     await db.execute(sql`INSERT INTO purchase_orders (id, supplier_id, supplier_name, status, created_by, notes, created_at, tenant_id)
@@ -248,11 +258,11 @@ async function estimateDailyConsumption(productId: string, tenantId: string): Pr
   try {
     const db = getDb();
     const thirtyDaysAgo = Date.now() - 30 * 86400000;
-    const [log] = await db.execute(sql`
+    const [log] = await qr(sql`
       SELECT SUM(ABS(change_amount)) AS total FROM stock_log
       WHERE product_id = ${productId} AND reason = 'venta' AND created_at >= ${thirtyDaysAgo} AND tenant_id = ${tenantId}
-    `).then((r: any) => r.rows as any[]);
-    const total = parseInt(log?.total || 0);
+    `);
+    const total = num(log?.total);
     return Math.max(0.5, total / 30);
   } catch {
     return 1;

@@ -25,14 +25,17 @@ export async function POST(req: NextRequest) {
     const tenantId = getTenantId(req);
     const parsed = DeliveryZoneBody.safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
-    const body = parsed.data;
+    const b = parsed.data as {
+      id?: string; name: string; radiusKm?: string | number; cost?: string | number;
+      minOrder?: string | number; estimatedMinutes?: number; active?: boolean;
+    };
     const id = 'dz_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     await db.insert(deliveryZones).values({
-      id, name: body.name,
-      radiusKm: body.radiusKm || 0, cost: body.cost || 0,
-      minOrder: body.minOrder || 0,
-      estimatedMinutes: body.estimatedMinutes || 30,
-      active: body.active !== false,
+      id, name: b.name,
+      radiusKm: String(b.radiusKm ?? 0), cost: String(b.cost ?? 0),
+      minOrder: String(b.minOrder ?? 0),
+      estimatedMinutes: Number(b.estimatedMinutes ?? 30),
+      active: b.active !== false,
       createdAt: Date.now(), tenantId,
     });
     return apiOk({ ok: true, id });
@@ -47,14 +50,17 @@ export async function PUT(req: NextRequest) {
     const tenantId = getTenantId(req);
     const parsed = DeliveryZoneBody.safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
-    const body = parsed.data;
-    if (!body.id) return apiBadRequest('id is required for update');
+    const b = parsed.data as {
+      id?: string; name: string; radiusKm?: string | number; cost?: string | number;
+      minOrder?: string | number; estimatedMinutes?: number; active?: boolean;
+    };
+    if (!b.id) return apiBadRequest('id is required for update');
     await db.update(deliveryZones).set({
-      name: body.name, radiusKm: body.radiusKm || 0,
-      cost: body.cost || 0, minOrder: body.minOrder || 0,
-      estimatedMinutes: body.estimatedMinutes || 30,
-      active: body.active !== false,
-    }).where(eq(deliveryZones.id, body.id));
+      name: b.name, radiusKm: String(b.radiusKm ?? 0),
+      cost: String(b.cost ?? 0), minOrder: String(b.minOrder ?? 0),
+      estimatedMinutes: Number(b.estimatedMinutes ?? 30),
+      active: b.active !== false,
+    }).where(eq(deliveryZones.id, b.id));
     return apiOk();
   } catch (err) { return apiError(err); }
 }

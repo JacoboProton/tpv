@@ -75,47 +75,47 @@ export async function GET(req: NextRequest) {
       if (!stockByProduct[s.productId]) stockByProduct[s.productId] = {};
       stockByProduct[s.productId][s.location] = { stock: s.stock, lowStock: s.lowStock };
     }
-    const productsMapped = rows.map((p: any) => ({
+    const productsMapped = rows.map((p) => ({
       ...p, stockByLocation: stockByProduct[p.id] || {},
     }));
 
-    const itemsBySlot: Record<string, any[]> = {};
+    const itemsBySlot: Record<string, typeof slotItemRows[number][]> = {};
     for (const item of slotItemRows) {
       if (!itemsBySlot[item.slotId]) itemsBySlot[item.slotId] = [];
       itemsBySlot[item.slotId].push(item);
     }
-    const slotsByCombo: Record<string, any[]> = {};
+    const slotsByCombo: Record<string, (typeof slotRows[number] & { items: typeof slotItemRows[number][] })[]> = {};
     for (const s of slotRows) {
       if (!slotsByCombo[s.comboId]) slotsByCombo[s.comboId] = [];
       slotsByCombo[s.comboId].push({ ...s, items: itemsBySlot[s.id] || [] });
     }
-    const combosMapped = comboRows.map((c: any) => ({
+    const combosMapped = comboRows.map((c) => ({
       ...c, active: !!c.active, slots: slotsByCombo[c.id] || [],
     }));
 
-    const mmItemsByCourse: Record<string, any[]> = {};
+    const mmItemsByCourse: Record<string, typeof mmItemRows[number][]> = {};
     for (const item of mmItemRows) {
       if (!mmItemsByCourse[item.courseId]) mmItemsByCourse[item.courseId] = [];
       mmItemsByCourse[item.courseId].push(item);
     }
-    const mmCoursesByMenu: Record<string, any[]> = {};
+    const mmCoursesByMenu: Record<string, (typeof mmCourseRows[number] & { items: typeof mmItemRows[number][] })[]> = {};
     for (const c of mmCourseRows) {
       if (!mmCoursesByMenu[c.menuId]) mmCoursesByMenu[c.menuId] = [];
       mmCoursesByMenu[c.menuId].push({ ...c, items: mmItemsByCourse[c.id] || [] });
     }
-    const mmSchedByMenu: Record<string, any[]> = {};
+    const mmSchedByMenu: Record<string, typeof mmSchedRows[number][]> = {};
     for (const s of mmSchedRows) {
       if (!mmSchedByMenu[s.menuId]) mmSchedByMenu[s.menuId] = [];
       mmSchedByMenu[s.menuId].push(s);
     }
-    const mealMenusMapped = mmRows.map((m: any) => ({
+    const mealMenusMapped = mmRows.map((m) => ({
       ...m, active: !!m.active, includesPan: !!m.includesPan,
       includesBebida: !!m.includesBebida, includesCafe: !!m.includesCafe,
       extras: typeof m.extras === 'string' ? JSON.parse(m.extras) : (m.extras || []),
       courses: mmCoursesByMenu[m.id] || [], schedules: mmSchedByMenu[m.id] || [],
     }));
 
-    const priceRulesNormalized = priceRuleRows.map((r: any) => ({ ...r, active: !!r.active }));
+    const priceRulesNormalized = priceRuleRows.map((r) => ({ ...r, active: !!r.active }));
     return apiOk({
       categories: catRows, products: productsMapped,
       combos: combosMapped, mealMenus: mealMenusMapped,
@@ -133,12 +133,29 @@ export async function PUT(req: NextRequest) {
     const parsed = z.object({}).passthrough().safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
     const body = parsed.data as Record<string, unknown>;
-    const catData = body.categories as any[] | undefined;
-    const prodData = body.products as any[] | undefined;
-    const comboData = body.combos as any[] | undefined;
+    const catData = body.categories as Array<{
+      id?: string; name?: string; sort_order?: number; active?: boolean;
+      printer_zone?: string; show_qr?: boolean;
+    }> | undefined;
+    const prodData = body.products as Array<{
+      id: string; name: string; category: string; price: string | number;
+      ubicacion?: string; course?: string; image?: string | null;
+      allergens?: string[]; description?: string | null; featured?: boolean;
+      active?: boolean; show_tpv?: boolean; show_qr?: boolean; agotado?: boolean;
+      carousel_sort?: number | null; type?: string; inventariable?: boolean;
+      stockByLocation?: Record<string, { stock?: number; lowStock?: number }>;
+    }> | undefined;
+    const comboData = body.combos as Array<{
+      id: string; name: string; description?: string; price: string | number;
+      image?: string | null; active?: boolean; discountPct?: number;
+      slots?: Array<{
+        id: string; name: string; minChoices?: number; maxChoices?: number;
+        items?: Array<{ id: string; product_id?: string; surcharge?: number }>;
+      }>;
+    }> | undefined;
     const tenantId = getTenantId(req);
 
-    await db.transaction(async (tx: any) => {
+    await db.transaction(async (tx) => {
       await tx.delete(comboSlotItems).where(eq(comboSlotItems.tenantId, tenantId));
       await tx.delete(comboSlots).where(eq(comboSlots.tenantId, tenantId));
       await tx.delete(combos).where(eq(combos.tenantId, tenantId));
@@ -148,7 +165,7 @@ export async function PUT(req: NextRequest) {
       if (catData) {
         for (let i = 0; i < catData.length; i++) {
           const cat = catData[i];
-          const name = typeof cat === 'string' ? cat : cat.name;
+          const name = typeof cat === 'string' ? cat : (cat.name ?? '');
           const sortOrder = cat.sort_order ?? i;
           const active = cat.active ?? true;
           const printerZone = cat.printer_zone ?? '';
@@ -165,7 +182,7 @@ export async function PUT(req: NextRequest) {
         for (const p of prodData) {
           await tx.insert(products).values({
             tenantId, id: p.id, name: p.name, category: p.category,
-            price: p.price, ubicacion: p.ubicacion ?? 'Bar',
+            price: String(p.price), ubicacion: p.ubicacion ?? 'Bar',
             course: p.course ?? '', image: p.image ?? null,
             allergens: p.allergens ?? [], description: p.description ?? null,
             featured: p.featured ?? false, active: p.active ?? true,
@@ -188,10 +205,9 @@ export async function PUT(req: NextRequest) {
 
           const sbl = p.stockByLocation || {};
           for (const [loc, entry] of Object.entries(sbl)) {
-            const e = entry as any;
             await tx.insert(productStock).values({
               tenantId, productId: p.id, location: loc,
-              stock: e.stock ?? 0, lowStock: e.lowStock ?? 5,
+              stock: entry.stock ?? 0, lowStock: entry.lowStock ?? 5,
             }).onConflictDoUpdate({
               target: [productStock.productId, productStock.location],
               set: {
@@ -207,8 +223,8 @@ export async function PUT(req: NextRequest) {
         for (const c of comboData) {
           await tx.insert(combos).values({
             tenantId, id: c.id, name: c.name, description: c.description || '',
-            price: c.price, image: c.image || null, active: c.active ?? true,
-            createdAt: Date.now(), discountPct: c.discountPct ?? 0,
+            price: String(c.price), image: c.image || null, active: c.active ?? true,
+            createdAt: Date.now(), discountPct: String(c.discountPct ?? 0),
           });
           if (c.slots) {
             for (let si = 0; si < c.slots.length; si++) {
@@ -222,8 +238,8 @@ export async function PUT(req: NextRequest) {
                 for (let ii = 0; ii < slot.items.length; ii++) {
                   const item = slot.items[ii];
                   await tx.insert(comboSlotItems).values({
-                    tenantId, id: item.id, slotId: slot.id, productId: item.product_id,
-                    surcharge: item.surcharge ?? 0, sortOrder: ii,
+                    tenantId, id: item.id, slotId: slot.id, productId: item.product_id ?? '',
+                    surcharge: String(item.surcharge ?? 0), sortOrder: ii,
                   });
                 }
               }
@@ -247,34 +263,35 @@ export async function PATCH(req: NextRequest) {
     if (!parsed.success) return apiBadRequest(parsed.error.message);
     const body = parsed.data as Record<string, unknown>;
     const action = body.action as string;
-    const data = body.data as any;
+    const data = body.data as unknown;
     const tenantId = getTenantId(req);
 
     if (action === 'reorder-categories') {
-      for (const cat of data) {
+      const list = data as Array<{ id: string; sort_order?: number }>;
+      for (const cat of list) {
         await db.update(categories)
-          .set({ sortOrder: cat.sort_order })
+          .set({ sortOrder: cat.sort_order ?? 0 })
           .where(and(eq(categories.id, cat.id), eq(categories.tenantId, tenantId)));
       }
       return apiOk();
     }
 
     if (action === 'toggle-product' || action === 'update-product') {
-      const { id, field, value } = data;
-      const fieldMap: Record<string, any> = {
-        name: { name: value },
-        price: { price: value },
-        description: { description: value },
-        show_tpv: { showTpv: value },
-        show_qr: { showQr: value },
-        agotado: { agotado: value },
-        course: { course: value },
-        ubicacion: { ubicacion: value },
-        carousel_sort: { carouselSort: value },
-        sort_order: { carouselSort: value },
+      const { id, field, value } = data as { id?: string; field?: string; value?: unknown };
+      const fieldMap = {
+        name: { name: String(value ?? '') },
+        price: { price: String(value ?? '0') },
+        description: { description: String(value ?? '') },
+        show_tpv: { showTpv: Boolean(value) },
+        show_qr: { showQr: Boolean(value) },
+        agotado: { agotado: Boolean(value) },
+        course: { course: String(value ?? '') },
+        ubicacion: { ubicacion: String(value ?? 'Bar') },
+        carousel_sort: { carouselSort: Number(value ?? 0) },
+        sort_order: { carouselSort: Number(value ?? 0) },
       };
-      const setValues = fieldMap[field];
-      if (!setValues) return apiBadRequest('Campo no permitido');
+      const setValues = fieldMap[field as keyof typeof fieldMap];
+      if (!setValues || !id) return apiBadRequest('Campo no permitido');
       await db.update(products)
         .set(setValues)
         .where(and(eq(products.id, id), eq(products.tenantId, tenantId)));
@@ -282,14 +299,14 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (action === 'toggle-category') {
-      const { id, field, value } = data;
-      const fieldMap: Record<string, any> = {
-        name: { name: value },
-        show_qr: { showQr: value },
-        sort_order: { sortOrder: value },
+      const { id, field, value } = data as { id?: string; field?: string; value?: unknown };
+      const fieldMap = {
+        name: { name: String(value ?? '') },
+        show_qr: { showQr: Boolean(value) },
+        sort_order: { sortOrder: Number(value ?? 0) },
       };
-      const setValues = fieldMap[field];
-      if (!setValues) return apiBadRequest('Campo no permitido');
+      const setValues = fieldMap[field as keyof typeof fieldMap];
+      if (!setValues || !id) return apiBadRequest('Campo no permitido');
       await db.update(categories)
         .set(setValues)
         .where(and(eq(categories.id, id), eq(categories.tenantId, tenantId)));
@@ -297,13 +314,15 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (action === 'delete-product') {
+      const { id } = data as { id?: string };
       await db.delete(products)
-        .where(and(eq(products.id, data.id), eq(products.tenantId, tenantId)));
+        .where(and(eq(products.id, id ?? ''), eq(products.tenantId, tenantId)));
       return apiOk();
     }
 
     if (action === 'reorder-carousel') {
-      for (const item of data) {
+      const list = data as Array<{ id: string; carousel_sort?: number | null }>;
+      for (const item of list) {
         await db.update(products)
           .set({ carouselSort: item.carousel_sort ?? null })
           .where(and(eq(products.id, item.id), eq(products.tenantId, tenantId)));

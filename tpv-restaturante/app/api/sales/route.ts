@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
       .where(and(...conditions))
       .orderBy(desc(sales.closedAt));
 
-    const saleIds = rows.map((r: any) => r.id);
+    const saleIds = rows.map((r: typeof sales.$inferSelect) => r.id);
     const verifactuMap: Record<string, { estado: string; numSerie: string }> = {};
     if (saleIds.length > 0) {
       const verifactuRows = await db
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const mapped = rows.map((r: any) => ({
+    const mapped = rows.map((r: typeof sales.$inferSelect) => ({
       id: r.id, tableId: r.tableId, tableName: r.tableName,
       items: r.items, subtotal: Number(r.subtotal),
       discount: Number(r.discount), discountAmount: Number(r.discountAmount),
@@ -105,9 +105,9 @@ export async function POST(req: NextRequest) {
         await db.update(sales).set({
           tenantId, id: s.id, tableId: s.tableId, tableName: s.tableName,
           items: s.items,
-          subtotal: s.subtotal, discount: s.discount ?? 0, discountAmount: s.discountAmount ?? 0,
-          total: s.total, tip: s.tip ?? 0, totalWithTip: s.totalWithTip,
-          payments: s.payments, paymentMethod: s.paymentMethod, tipMethod: s.tipMethod ?? '',
+          subtotal: String(s.subtotal), discount: String(s.discount ?? 0), discountAmount: String(s.discountAmount ?? 0),
+          total: String(s.total), tip: String(s.tip ?? 0), totalWithTip: String(s.totalWithTip ?? 0),
+          payments: s.payments ?? [], paymentMethod: s.paymentMethod ?? null, tipMethod: s.tipMethod ?? '',
           isFiado: s.isFiado ?? false, isDebtPayment: s.isDebtPayment ?? false,
           employeeId: s.employeeId ?? null, employeeName: s.employeeName ?? null,
           closedAt: s.closedAt,
@@ -125,9 +125,9 @@ export async function POST(req: NextRequest) {
     await db.insert(sales).values({
       tenantId, id: s.id, tableId: s.tableId, tableName: s.tableName,
       items: s.items,
-      subtotal: s.subtotal, discount: s.discount ?? 0, discountAmount: s.discountAmount ?? 0,
-      total: s.total, tip: s.tip ?? 0, totalWithTip: s.totalWithTip,
-      payments: s.payments, paymentMethod: s.paymentMethod, tipMethod: s.tipMethod ?? '',
+      subtotal: String(s.subtotal), discount: String(s.discount ?? 0), discountAmount: String(s.discountAmount ?? 0),
+      total: String(s.total), tip: String(s.tip ?? 0), totalWithTip: String(s.totalWithTip ?? 0),
+      payments: s.payments ?? [], paymentMethod: s.paymentMethod ?? null, tipMethod: s.tipMethod ?? '',
       isFiado: s.isFiado ?? false, isDebtPayment: s.isDebtPayment ?? false,
       employeeId: s.employeeId ?? null, employeeName: s.employeeName ?? null,
       closedAt: s.closedAt,

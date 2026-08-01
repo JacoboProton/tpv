@@ -48,10 +48,10 @@ export async function GET(req: NextRequest) {
 
     let entrada: typeof rows[0] | null = null;
     let salida: typeof rows[0] | null = null;
-    const pausas: any[] = [];
+    const pausas: Array<typeof rows[0] & { vuelta?: typeof rows[0] }> = [];
     let totalMinutes = 0;
     let effectiveMinutes = 0;
-    let lastPausaStart: any = null;
+    let lastPausaStart: typeof rows[0] | null = null;
 
     for (const r of rows) {
       if (r.action === 'entrada') entrada = r;
@@ -64,9 +64,9 @@ export async function GET(req: NextRequest) {
     }
 
     if (entrada) {
-      const end: any = salida ? new Date(Number(salida.createdAt)) : new Date();
-      const start: any = new Date(Number(entrada.createdAt));
-      totalMinutes = Math.round((end - start) / 60000);
+      const end = salida ? new Date(Number(salida.createdAt)) : new Date();
+      const start = new Date(Number(entrada.createdAt));
+      totalMinutes = Math.round((end.getTime() - start.getTime()) / 60000);
       let pauseMinutes = 0;
       pausas.forEach(p => {
         if (p.vuelta) pauseMinutes += (Number(p.vuelta.createdAt) - Number(p.createdAt)) / 60000;
@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
         lastAction,
         isActive: !!entrada && !salida,
         isOnPause: lastAction === 'pausa',
-        edited: rows.some((r: any) => r.edited),
+        edited: rows.some((r) => r.edited),
       },
     });
   } catch (err) { return apiError(err); }
@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
 
     await db.insert(clockinLogs).values({
       employeeId: body.employeeId ?? '', employeeName: body.employeeName ?? '',
-      action, method: body.method || 'tpc', clockinDate: today,
+      action, method: String(body.method || 'tpc'), clockinDate: today,
       createdAt: Date.now(), tenantId,
     });
 
@@ -156,15 +156,15 @@ export async function PUT(req: NextRequest) {
       const id = Number(body.id);
       await db.update(clockinLogs).set({
         createdAt, action: newAction,
-        edited: true, editedBy: body.editedBy || '', editReason: body.editReason || '',
+        edited: true, editedBy: String(body.editedBy || ''), editReason: String(body.editReason || ''),
       }).where(eq(clockinLogs.id, id));
       return apiOk();
     }
 
     if (putAction === 'close-open') {
       const { date: closeDate, defaultEndTime, editedBy } = body;
-      const targetDate = closeDate || new Date().toISOString().slice(0, 10);
-      const endTime = defaultEndTime || '23:59';
+      const targetDate = String(closeDate || new Date().toISOString().slice(0, 10));
+      const endTime = String(defaultEndTime || '23:59');
 
       const openLogs = (await db.execute(sql`
         SELECT DISTINCT employee_id, employee_name FROM clockin_logs
@@ -183,7 +183,7 @@ export async function PUT(req: NextRequest) {
           employeeId: e.employee_id, employeeName: e.employee_name,
           action: 'salida', method: 'auto', clockinDate: targetDate,
           createdAt: closeAt.getTime(), edited: true,
-          editedBy: editedBy || '', editReason: 'Cierre automático — entrada sin salida',
+          editedBy: String(editedBy || ''), editReason: 'Cierre automático — entrada sin salida',
           tenantId,
         });
       }

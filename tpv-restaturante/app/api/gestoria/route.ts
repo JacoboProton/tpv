@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { sql } from 'drizzle-orm';
+import { sql, SQL } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { validateRequest, ConfirmSchema } from '../../../lib/gestoriaSchemas';
@@ -7,10 +7,13 @@ import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized } from '..
 import { requireRole } from '../../../lib/rbac';
 import { GestoriaBody } from '@/lib/schemas/api-schemas';
 
+type Row = Record<string, unknown>;
+
 function makeId() { return 'g_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8); }
 
-function qr(db: ReturnType<typeof getDb>, q: any) {
-  return db.execute(q).then((r: any) => r.rows as any[]);
+async function qr<T extends Row = Row>(db: ReturnType<typeof getDb>, q: SQL): Promise<T[]> {
+  const r = await db.execute(q);
+  return r.rows as T[];
 }
 
 async function getOperationsData(tenantId: string) {
@@ -30,16 +33,16 @@ async function getOperationsData(tenantId: string) {
   const adquisiciones_intra = [];
 
   for (const d of docs) {
-    const lines = typeof d.lines === 'string' ? JSON.parse(d.lines) : d.lines;
-    const euLines = lines.filter((l: any) => l.zone === 'eu');
+    const lines = (typeof d.lines === 'string' ? JSON.parse(d.lines as string) : d.lines) as Row[];
+    const euLines = lines.filter((l) => l.zone === 'eu');
     for (const l of euLines) {
-      const entry = { nif: d.provider_nif || '', name: d.provider_name || d.file_name || '', base: Number(l.base_amount || 0), operacion: l.type === 'service' ? 'servicio' : 'bien' };
+      const entry = { nif: (d.provider_nif as string) || '', name: (d.provider_name as string) || (d.file_name as string) || '', base: Number(l.base_amount || 0), operacion: (l.type as string) === 'service' ? 'servicio' : 'bien' };
       if (d.type === 'expense') adquisiciones_intra.push(entry);
       else entregas_intra.push(entry);
     }
   }
 
-  const total = [...entregas_intra, ...adquisiciones_intra].reduce((s: any, e: any) => s + e.base, 0);
+  const total = [...entregas_intra, ...adquisiciones_intra].reduce((s: number, e) => s + e.base, 0);
   return { entregas_intra, adquisiciones_intra, total_operaciones: round2(total) };
 }
 
@@ -58,8 +61,8 @@ export async function GET(req: NextRequest) {
     }
 
     if (action === 'settings') {
-      const rows = await qr(db, sql`SELECT key, value FROM gestoria_settings WHERE tenant_id = ${tenantId}`);
-      const s: Record<string, any> = {};
+      const rows = await qr<{ key: string; value: string }>(db, sql`SELECT key, value FROM gestoria_settings WHERE tenant_id = ${tenantId}`);
+      const s: Record<string, string> = {};
       for (const r of rows) s[r.key] = r.value;
       return apiOk(s);
     }
@@ -85,7 +88,7 @@ export async function GET(req: NextRequest) {
 
     if (action === 'payrolls') {
       const rows = await qr(db, sql`SELECT * FROM gestoria_payrolls WHERE tenant_id = ${tenantId} ORDER BY year DESC, month DESC, created_at DESC`);
-      return apiOk(rows.map((r: any) => ({
+      return apiOk(rows.map((r) => ({
         id: r.id, employeeName: r.employee_name, employeeNif: r.employee_nif,
         month: r.month, year: r.year, grossAmount: Number(r.gross_amount),
         irpfWithholding: Number(r.irpf_withholding),
@@ -96,7 +99,7 @@ export async function GET(req: NextRequest) {
 
     if (action === 'taxmodels') {
       const rows = await qr(db, sql`SELECT * FROM gestoria_tax_models WHERE tenant_id = ${tenantId} ORDER BY year DESC, model_code, quarter`);
-      return apiOk(rows.map((r: any) => ({ ...r, data: typeof r.data === 'string' ? JSON.parse(r.data) : r.data })));
+      return apiOk(rows.map((r) => ({ ...r, data: typeof r.data === 'string' ? JSON.parse(r.data as string) : r.data })));
     }
 
     if (action === 'authorization') {
@@ -117,7 +120,7 @@ export async function POST(req: NextRequest) {
     const parsed = GestoriaBody.safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
     const body = parsed.data;
-    try { validateRequest(body); } catch (e: any) { return apiBadRequest(e.errors || (e as Error).message); }
+    try { validateRequest(body); } catch (e) { return apiBadRequest((e as { errors?: string }).errors || (e as Error).message); }
     const { action } = body;
 
     if (action === 'document') {
@@ -152,7 +155,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'calculate') {
-      const { modelCode, year, quarter } = body;
+      const modelCode = String(body.modelCode || '');
+      const year = Number(body.year) || 0;
+      const quarter = Number(body.quarter) || 0;
+      if (!modelCode || !year || !quarter) return apiBadRequest('modelCode, year, quarter required');
       const data = await calculateTaxModelDraft(modelCode, year, quarter, tenantId);
       const [existing] = await qr(db, sql`SELECT id FROM gestoria_tax_models WHERE model_code = ${modelCode} AND year = ${year} AND quarter = ${quarter} AND tenant_id = ${tenantId}`);
       if (existing) {
@@ -178,7 +184,7 @@ export async function PUT(req: NextRequest) {
     const parsed = GestoriaBody.safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
     const body = parsed.data;
-    try { validateRequest(body); } catch (e: any) { return apiBadRequest(e.errors || (e as Error).message); }
+    try { validateRequest(body); } catch (e) { return apiBadRequest((e as { errors?: string }).errors || (e as Error).message); }
     const { action } = body;
 
     if (action === 'settings') {
@@ -222,7 +228,7 @@ export async function DELETE(req: NextRequest) {
     const parsed = GestoriaBody.safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
     const body = parsed.data;
-    try { ConfirmSchema.parse(body); } catch (e: any) { return apiBadRequest(e.errors || (e as Error).message); }
+    try { ConfirmSchema.parse(body); } catch (e) { return apiBadRequest((e as { errors?: string }).errors || (e as Error).message); }
     const { action, id } = body;
     if (action === 'document') {
       await db.execute(sql`DELETE FROM gestoria_documents WHERE id = ${id} AND tenant_id = ${tenantId}`);
@@ -236,45 +242,40 @@ export async function DELETE(req: NextRequest) {
   } catch (err) { return apiError(err); }
 }
 
-function getDueDate(modelCode: any, year: any, quarter: any) {
+function getDueDate(modelCode: string, year: number, quarter: number) {
   if (['390','190','180'].includes(modelCode)) return `${year + 1}-01-31`;
-  const deadlines: any = { 1: '04-20', 2: '07-20', 3: '10-20', 4: '01-30' };
+  const deadlines: Record<number, string> = { 1: '04-20', 2: '07-20', 3: '10-20', 4: '01-30' };
   const dd = deadlines[quarter] || '01-30';
   const y = quarter === 4 ? year + 1 : year;
   return `${y}-${dd}`;
 }
 
-async function calculateTaxModelDraft(modelCode: any, year: any, quarter: any, tenantId: any): Promise<Record<string, any>> {
+async function calculateTaxModelDraft(modelCode: string, year: number, quarter: number, tenantId: string): Promise<Record<string, unknown>> {
   const db = getDb();
   const qStart = new Date(year, (quarter - 1) * 3, 1).getTime();
   const qEnd = new Date(year, quarter * 3, 0, 23, 59, 59, 999).getTime();
 
-  const sales = await qr(db, sql`SELECT * FROM sales WHERE closed_at >= ${qStart} AND closed_at <= ${qEnd} AND tenant_id = ${tenantId} ORDER BY closed_at`);
-  const confirmedDocs = await qr(db, sql`SELECT d.*, (SELECT json_agg(l.*) FROM gestoria_document_lines l WHERE l.document_id = d.id) as lines FROM gestoria_documents d WHERE d.confirmed = true AND d.tenant_id = ${tenantId} AND d.created_at >= ${qStart} AND d.created_at <= ${qEnd}`);
+  const sales: Row[] = await qr(db, sql`SELECT * FROM sales WHERE closed_at >= ${qStart} AND closed_at <= ${qEnd} AND tenant_id = ${tenantId} ORDER BY closed_at`);
+  const confirmedDocs: Row[] = await qr(db, sql`SELECT d.*, (SELECT json_agg(l.*) FROM gestoria_document_lines l WHERE l.document_id = d.id) as lines FROM gestoria_documents d WHERE d.confirmed = true AND d.tenant_id = ${tenantId} AND d.created_at >= ${qStart} AND d.created_at <= ${qEnd}`);
 
-  const salesTotal = sales.reduce((s: any, r: any) => s + Number(r.total || 0), 0);
+  const salesTotal = sales.reduce((s: number, r) => s + Number(r.total || 0), 0);
   const salesVat = salesTotal * 0.21;
-  const expenseTotal = confirmedDocs.reduce((s: any, d: any) => {
-    const lines = typeof d.lines === 'string' ? JSON.parse(d.lines) : (d.lines || []);
-    return s + lines.reduce((sl: any, l: any) => sl + Number(l.base_amount || 0), 0);
-  }, 0);
-  const expenseVat = confirmedDocs.reduce((s: any, d: any) => {
-    const lines = typeof d.lines === 'string' ? JSON.parse(d.lines) : (d.lines || []);
-    return s + lines.reduce((sl: any, l: any) => sl + Number(l.vat_amount || 0), 0);
-  }, 0);
+  const toLines = (d: Row) => (typeof d.lines === 'string' ? JSON.parse(d.lines as string) : (d.lines || [])) as Row[];
+  const sumBase = (s: number, l: Row) => s + Number(l.base_amount || 0);
+  const sumVat = (s: number, l: Row) => s + Number(l.vat_amount || 0);
+  const expenseTotal = confirmedDocs.reduce((s: number, d) => s + toLines(d).reduce(sumBase, 0), 0);
+  const expenseVat = confirmedDocs.reduce((s: number, d) => s + toLines(d).reduce(sumVat, 0), 0);
 
-  const payrolls = await qr(db, sql`SELECT * FROM gestoria_payrolls WHERE tenant_id = ${tenantId} AND year = ${year} AND ((${quarter} = 1 AND month >= 1 AND month <= 3) OR (${quarter} = 2 AND month >= 4 AND month <= 6) OR (${quarter} = 3 AND month >= 7 AND month <= 9) OR (${quarter} = 4 AND month >= 10 AND month <= 12))`);
+  const payrolls: Row[] = await qr(db, sql`SELECT * FROM gestoria_payrolls WHERE tenant_id = ${tenantId} AND year = ${year} AND ((${quarter} = 1 AND month >= 1 AND month <= 3) OR (${quarter} = 2 AND month >= 4 AND month <= 6) OR (${quarter} = 3 AND month >= 7 AND month <= 9) OR (${quarter} = 4 AND month >= 10 AND month <= 12))`);
 
-  const totalIrpfWithholding = payrolls.reduce((s: any, p: any) => s + Number(p.irpf_withholding || 0), 0);
-  const totalSsCompany = payrolls.reduce((s: any, p: any) => s + Number(p.social_security_company || 0), 0);
+  const totalIrpfWithholding = payrolls.reduce((s: number, p) => s + Number(p.irpf_withholding || 0), 0);
+  const totalSsCompany = payrolls.reduce((s: number, p) => s + Number(p.social_security_company || 0), 0);
+  const sumGross = (s: number, p: Row) => s + Number(p.gross_amount || 0);
 
   switch (modelCode) {
     case '303': {
       const euSales = salesTotal * 0.01;
-      const euPurchases = confirmedDocs.reduce((s: any, d: any) => {
-        const lines = typeof d.lines === 'string' ? JSON.parse(d.lines) : (d.lines || []);
-        return s + lines.filter((l: any) => l.zone === 'eu').reduce((sl: any, l: any) => sl + Number(l.base_amount || 0), 0);
-      }, 0);
+      const euPurchases = confirmedDocs.reduce((s: number, d) => s + toLines(d).filter((l) => l.zone === 'eu').reduce(sumBase, 0), 0);
       return {
         casilla_01: round2(salesTotal), casilla_03: round2(salesVat), casilla_07: round2(euSales),
         casilla_08: round2(salesTotal + euSales), casilla_09: round2(expenseTotal), casilla_11: round2(expenseVat),
@@ -286,25 +287,26 @@ async function calculateTaxModelDraft(modelCode: any, year: any, quarter: any, t
       const income = salesTotal; const expenses = expenseTotal + totalSsCompany; const netIncome = income - expenses; const taxBase = netIncome > 0 ? netIncome : 0;
       return { ingresos: round2(income), gastos: round2(expenses), rendimiento: round2(netIncome), base_imponible: round2(taxBase), cuota_integra: round2(taxBase * 0.20), retenciones: round2(totalIrpfWithholding), resultado: round2(taxBase * 0.20 - totalIrpfWithholding) };
     }
-    case '111': return { trabajadores: payrolls.length, total_remuneraciones: round2(payrolls.reduce((s: any, p: any) => s + Number(p.gross_amount || 0), 0)), retencion_trabajo: round2(totalIrpfWithholding), retencion_profesionales: 0, total_retenciones: round2(totalIrpfWithholding) };
+    case '111': return { trabajadores: payrolls.length, total_remuneraciones: round2(payrolls.reduce(sumGross, 0)), retencion_trabajo: round2(totalIrpfWithholding), retencion_profesionales: 0, total_retenciones: round2(totalIrpfWithholding) };
     case '115': return { alquileres: 0, base_retencion: 0, retencion_ingresada: 0, nota: 'No hay alquileres registrados' };
     case '349': {
-      const euDocs = confirmedDocs.reduce((acc: any, d: any) => {
-        const lines = typeof d.lines === 'string' ? JSON.parse(d.lines) : (d.lines || []);
-        return acc.concat(lines.filter((l: any) => l.zone === 'eu').map((l: any) => ({ nif: d.provider_nif || '', name: d.provider_name || d.file_name || '', base: Number(l.base_amount || 0), operacion: l.type === 'service' ? 'servicio' : 'bien' })));
+      const euDocs = confirmedDocs.reduce((acc: Array<{ nif: string; name: string; base: number; operacion: string }>, d) => {
+        const lines = toLines(d).filter((l) => l.zone === 'eu');
+        return acc.concat(lines.map((l) => ({ nif: (d.provider_nif as string) || '', name: (d.provider_name as string) || (d.file_name as string) || '', base: Number(l.base_amount || 0), operacion: (l.type as string) === 'service' ? 'servicio' : 'bien' })));
       }, []);
-      return { entregas_intra: [], adquisiciones_intra: euDocs, total_operaciones: round2(euDocs.reduce((s: any, e: any) => s + e.base, 0)) };
+      return { entregas_intra: [], adquisiciones_intra: euDocs, total_operaciones: round2(euDocs.reduce((s: number, e) => s + e.base, 0)) };
     }
     case '347': {
-      const providers = confirmedDocs.reduce((acc: any, d: any) => {
+      interface ProviderAcc { nif: string; name: string; total: number; operations: number }
+      const providers = confirmedDocs.reduce((acc: Record<string, ProviderAcc>, d) => {
         if (!d.provider_nif) return acc;
-        const base = (() => { const lines = typeof d.lines === 'string' ? JSON.parse(d.lines) : (d.lines || []); return lines.reduce((s: any, l: any) => s + Number(l.base_amount || 0), 0); })();
+        const base = toLines(d).reduce(sumBase, 0);
         if (base < 3005.06) return acc;
-        const key = d.provider_nif;
-        if (!acc[key]) acc[key] = { nif: d.provider_nif, name: d.provider_name || '', total: 0, operations: 0 };
+        const key = d.provider_nif as string;
+        if (!acc[key]) acc[key] = { nif: key, name: (d.provider_name as string) || '', total: 0, operations: 0 };
         acc[key].total += base; acc[key].operations++;
         return acc;
-      }, {});
+      }, {} as Record<string, ProviderAcc>);
       return { operaciones: Object.values(providers), nota: 'Solo operaciones > 3.005,06€' };
     }
     case '390': {
@@ -314,10 +316,10 @@ async function calculateTaxModelDraft(modelCode: any, year: any, quarter: any, t
       const q4 = await calculateTaxModelDraft('303', year, 4, tenantId);
       return { anual: true, base_imponible: round2(Number(q1.casilla_01 || 0) + Number(q2.casilla_01 || 0) + Number(q3.casilla_01 || 0) + Number(q4.casilla_01 || 0)), iva_devengado: round2(Number(q1.casilla_03 || 0) + Number(q2.casilla_03 || 0) + Number(q3.casilla_03 || 0) + Number(q4.casilla_03 || 0)), iva_deducible: round2(Number(q1.casilla_11 || 0) + Number(q2.casilla_11 || 0) + Number(q3.casilla_11 || 0) + Number(q4.casilla_11 || 0)), resultado: round2(Number(q1.resultado || 0) + Number(q2.resultado || 0) + Number(q3.resultado || 0) + Number(q4.resultado || 0)), trimestres: [q1, q2, q3, q4] };
     }
-    case '190': return { anual: true, empleados: payrolls.length, total_remuneraciones: round2(payrolls.reduce((s: any, p: any) => s + Number(p.gross_amount || 0), 0)), retenciones: round2(payrolls.reduce((s: any, p: any) => s + Number(p.irpf_withholding || 0), 0)) };
+    case '190': return { anual: true, empleados: payrolls.length, total_remuneraciones: round2(payrolls.reduce(sumGross, 0)), retenciones: round2(payrolls.reduce((s: number, p) => s + Number(p.irpf_withholding || 0), 0)) };
     case '180': return { anual: true, alquileres: 0, retencion_ingresada: 0, nota: 'No hay alquileres registrados' };
     default: return { nota: `Modelo ${modelCode} no implementado` };
   }
 }
 
-function round2(n: any) { return Math.round(Number(n) * 100) / 100; }
+function round2(n: string | number) { return Math.round(Number(n) * 100) / 100; }

@@ -16,11 +16,12 @@ export async function GET(req: NextRequest) {
         AND table_name IN ('categories','products','tables','orders','sales','employees','access_logs')
       ORDER BY table_name, ordinal_position
     `);
-    const rows = (result as any).rows;
-    const byTable: Record<string, any> = {};
+    const rows = (result as unknown as { rows: Array<Record<string, unknown>> }).rows;
+    const byTable: Record<string, unknown[]> = {};
     for (const r of rows) {
-      if (!byTable[r.table_name]) byTable[r.table_name] = [];
-      byTable[r.table_name].push(`${r.column_name} (${r.data_type})`);
+      const tableName = String(r.table_name);
+      if (!byTable[tableName]) byTable[tableName] = [];
+      byTable[tableName].push(`${String(r.column_name)} (${String(r.data_type)})`);
     }
     return apiOk(byTable);
   } catch (err) { return apiError(err); }

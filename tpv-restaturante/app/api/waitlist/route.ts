@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, sql, SQL } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { waitlist, settings } from '../../../db/schema';
@@ -7,13 +7,24 @@ import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiServer
 import { requireRole } from '../../../lib/rbac';
 import { WaitlistBody } from '@/lib/schemas/api-schemas';
 
+type Row = Record<string, unknown>;
+
+async function qr(query: SQL): Promise<Row[]> {
+  const db = getDb();
+  return db.execute(query).then((r: { rows: Row[] }) => r.rows);
+}
+
+function num(v: unknown, fallback = 0): number {
+  return Number(v) || fallback;
+}
+
 function makeId() { return 'wl_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 
 async function getSettings(tenantId: string) {
   const db = getDb();
   const rows = await db.select().from(settings)
     .where(sql`${settings.key} LIKE 'waitlist%' AND ${eq(settings.tenantId, tenantId)}`);
-  const s: Record<string, any> = {};
+  const s: Record<string, string> = {};
   for (const r of rows) s[r.key] = r.value;
   return s;
 }
@@ -32,7 +43,7 @@ async function sendTwilioSms(accountSid: string, authToken: string, from: string
   }
 }
 
-async function sendNotifications(entry: any, s: Record<string, any>, tenantId: string) {
+async function sendNotifications(entry: { name?: string; phone?: string }, s: Record<string, string>, tenantId: string) {
   const sid = s.waitlistTwilioSid;
   const token = s.waitlistTwilioToken;
   const twilioPhone = s.waitlistTwilioPhone;
@@ -64,7 +75,7 @@ export async function GET(req: NextRequest) {
     const rows = await db.select().from(waitlist)
       .where(eq(waitlist.tenantId, tenantId))
       .orderBy(waitlist.position, waitlist.createdAt);
-    return apiOk(rows.map((r: any) => ({
+    return apiOk(rows.map((r: typeof waitlist.$inferSelect) => ({
       id: r.id, name: r.name, phone: r.phone, pax: r.pax,
       status: r.status, calledCount: r.calledCount, calledAt: r.calledAt,
       seatedAt: r.seatedAt, tableId: r.tableId,
@@ -86,22 +97,24 @@ export async function POST(req: NextRequest) {
     const { action } = body;
 
     if (action === 'join' || action === undefined) {
-      const { name, phone, pax, notes, source } = body;
-      const [maxPos] = await db.execute(sql`
+      const { name, phone, pax, notes, source } = body as {
+        name?: string; phone?: string; pax?: number; notes?: string; source?: string;
+      };
+      const [maxPos] = await qr(sql`
         SELECT COALESCE(MAX(position), 0) + 1 AS pos FROM waitlist WHERE status = 'waiting' AND tenant_id = ${tenantId}
-      `).then((r: any) => r.rows as any[]);
-      const pos = maxPos.pos;
+      `);
+      const pos = num(maxPos.pos);
       const id = makeId();
       if (action === 'join') {
         await db.insert(waitlist).values({
-          id, name, phone: phone || '', pax: pax || 2, status: 'waiting',
-          position: pos, source: source || 'manual',
+          id, name: name ?? '', phone: phone ?? '', pax: pax ?? 2, status: 'waiting',
+          position: pos, source: source ?? 'manual',
           createdAt: Date.now(), updatedAt: Date.now(), tenantId,
         });
       } else {
         await db.insert(waitlist).values({
-          id, name, phone: phone || '', pax: pax || 2, status: 'waiting',
-          position: pos, notes: notes || '', source: source || 'manual',
+          id, name: name ?? '', phone: phone ?? '', pax: pax ?? 2, status: 'waiting',
+          position: pos, notes: notes ?? '', source: source ?? 'manual',
           createdAt: Date.now(), updatedAt: Date.now(), tenantId,
         });
       }
@@ -119,7 +132,7 @@ export async function POST(req: NextRequest) {
       }).where(and(eq(waitlist.id, id), eq(waitlist.tenantId, tenantId)));
       if (entry) {
         const s = await getSettings(tenantId);
-        sendNotifications({ name: entry.name, phone: entry.phone }, s, tenantId).catch(() => {});
+        sendNotifications({ name: entry.name ?? undefined, phone: entry.phone ?? undefined }, s, tenantId).catch(() => {});
       }
       return apiOk();
     }

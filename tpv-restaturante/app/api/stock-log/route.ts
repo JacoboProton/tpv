@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
       db.execute(sql`SELECT COUNT(*)::int AS total FROM stock_log WHERE tenant_id = ${tenantId}`),
     ]);
 
-    const total = ((countResult as any).rows?.[0]?.total ?? 0) as number;
+    const total = Number((countResult as unknown as { rows: { total: number }[] }).rows?.[0]?.total ?? 0);
 
     return apiOk({
       rows,
@@ -56,8 +56,8 @@ export async function POST(req: NextRequest) {
     const changeAmount = newStock - oldStock;
 
     const [record] = await db.insert(stockLog).values({
-      productId, productName, oldStock, newStock,
-      changeAmount, reason, employeeName, createdAt: Date.now(), tenantId,
+      productId, productName: productName ?? '', oldStock, newStock,
+      changeAmount, reason, employeeName: employeeName ?? null, createdAt: Date.now(), tenantId,
     }).returning({
       id: stockLog.id, productId: stockLog.productId, productName: stockLog.productName,
       oldStock: stockLog.oldStock, newStock: stockLog.newStock,

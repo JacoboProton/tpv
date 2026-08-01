@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiForbidden, apiTooManyRequests, apiCreated, apiServerError } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
-import { and, desc, eq, gte, lte, like, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, lte, like, sql, SQL } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { sales } from '../../../db/schema';
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     const maxAmount = searchParams.get('maxAmount');
     const status = searchParams.get('status');
 
-    const conditions: any[] = [eq(sales.tenantId, tenantId)];
+    const conditions: SQL[] = [eq(sales.tenantId, tenantId)];
 
     if (from) conditions.push(gte(sales.closedAt, Number(from)));
     if (to) conditions.push(lte(sales.closedAt, Number(to)));
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
     let grandTotal = 0;
     let grandCount = 0;
 
-    const mapped = rows.map((r: any) => {
+    const mapped = rows.map((r: typeof sales.$inferSelect) => {
       const total = Number(r.totalWithTip || r.total || 0);
       const methodLabel = r.paymentMethod || 'desconocido';
       const date = r.closedAt ? new Date(Number(r.closedAt)).toISOString() : '';

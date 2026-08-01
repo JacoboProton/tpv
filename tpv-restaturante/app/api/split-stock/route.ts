@@ -6,6 +6,12 @@ import { products, productStock } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiServerError } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
 
+type Row = Record<string, unknown>;
+
+function num(v: unknown, fallback = 0): number {
+  return Number(v) || fallback;
+}
+
 const SPLIT: Record<string, { loc: string; keep: number }> = {
   Bebidas:    { loc: 'Bar',    keep: 25 },
   Tapas:      { loc: 'Cocina', keep: 12 },
@@ -36,11 +42,11 @@ export async function POST(req: NextRequest) {
       }).from(productStock)
         .where(and(eq(productStock.productId, p.id), eq(productStock.tenantId, tenantId)));
 
-      const totalStock = stockRows.reduce((sum: any, r: any) => sum + r.stock, 0);
+      const totalStock = stockRows.reduce((sum: number, r: Row) => sum + num(r.stock), 0);
       if (totalStock === 0) continue;
 
-      const servingRow = stockRows.find((r: any) => r.location === servingLoc);
-      const almacenRow = stockRows.find((r: any) => r.location === 'Almacén');
+      const servingRow = stockRows.find((r: Row) => r.location === servingLoc);
+      const almacenRow = stockRows.find((r: Row) => r.location === 'Almacén');
 
       const servingStock = Math.min(keep, totalStock);
       const almacenStock = totalStock - servingStock;
@@ -59,7 +65,7 @@ export async function POST(req: NextRequest) {
       }
 
       if (almacenStock > 0) {
-        const lowStock = almacenRow ? almacenRow.lowStock : 20;
+        const lowStock = almacenRow ? num(almacenRow.lowStock) : 20;
         if (almacenRow) {
           await db.update(productStock).set({ stock: almacenStock, lowStock })
             .where(and(

@@ -2,7 +2,9 @@
 
 import { useEffect } from 'react'
 
-export function useQrPolling(setQrCalls: (c: any[]) => void) {
+import type { QrCall } from '../domain/types'
+
+export function useQrPolling(setQrCalls: (c: QrCall[]) => void) {
   useEffect(() => {
     async function pollCalls() {
       try {

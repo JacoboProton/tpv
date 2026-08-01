@@ -44,7 +44,10 @@ export async function POST(req: NextRequest) {
     const orderId = makeId('qo');
     const now = Date.now();
 
-    const orderItems = items.map((it: any, i: number) => ({
+    const orderItems = (items as Array<{
+      productId?: string; name?: string; price?: string | number;
+      qty?: number; notes?: string; modifiers?: unknown; course?: string;
+    }>).map((it, i) => ({
       id: 'i_' + now + '_' + i + Math.random().toString(36).slice(2, 6),
       productId: it.productId, name: it.name, price: it.price,
       qty: it.qty || 1, notes: it.notes || '', modifiers: it.modifiers || [],
@@ -63,7 +66,7 @@ export async function POST(req: NextRequest) {
       const [table] = await db.select({ orderIds: tables.orderIds }).from(tables)
         .where(and(eq(tables.id, tableId), eq(tables.tenantId, tenantId))).limit(1);
       const existingIds = Array.isArray(table?.orderIds) ? table.orderIds : [];
-      const newIds = [...existingIds.filter((x: any) => x), tpvOrderId];
+      const newIds = [...existingIds.filter((x): x is string => !!x), tpvOrderId];
       await db.update(tables).set({
         status: 'ocupada', orderId: tpvOrderId, orderIds: newIds,
       }).where(and(eq(tables.id, tableId), eq(tables.tenantId, tenantId)));
@@ -77,7 +80,9 @@ export async function POST(req: NextRequest) {
       deliveryCost: String(deliveryCost || 0),
       customerName: customerName || '', customerPhone: customerPhone || '',
       customerEmail: customerEmail || '', notes: notes || '',
-      address: address || '', addressLat: addressLat ?? null, addressLng: addressLng ?? null,
+      address: address || '',
+      addressLat: addressLat != null ? String(addressLat) : null,
+      addressLng: addressLng != null ? String(addressLng) : null,
       zoneId: zoneId || '', scheduledAt: scheduledAt ?? null,
       accepted: body.autoAccept !== false,
       createdAt: now, updatedAt: now, tenantId,
@@ -88,7 +93,9 @@ export async function POST(req: NextRequest) {
       await db.insert(deliveryOrders).values({
         id: delId, orderId, tableId: qrTableId,
         customerName: customerName || '', customerPhone: customerPhone || '',
-        address: address || '', addressLat: addressLat ?? null, addressLng: addressLng ?? null,
+        address: address || '',
+        addressLat: addressLat != null ? String(addressLat) : null,
+        addressLng: addressLng != null ? String(addressLng) : null,
         notes: notes || '', items: orderItems, status: 'pending',
         createdAt: now, estimatedAt: scheduledAt ?? null, tenantId,
       });
@@ -131,7 +138,7 @@ export async function GET(req: NextRequest) {
       }).from(qrOrders)
         .where(sql`${eq(qrOrders.tableId, tableId)} AND ${qrOrders.orderStatus} != 'cancelled' AND ${eq(qrOrders.tenantId, tenantId)}`)
         .orderBy(desc(qrOrders.createdAt)).limit(20);
-      return apiOk(rows.map((r: any) => ({ ...r, amount: Number(r.amount) })));
+      return apiOk(rows.map((r) => ({ ...r, amount: Number(r.amount) })));
     }
     const modality = searchParams.get('modality');
     if (modality) {
@@ -142,12 +149,12 @@ export async function GET(req: NextRequest) {
       }).from(qrOrders)
         .where(sql`${eq(qrOrders.modality, modality)} AND ${eq(qrOrders.tenantId, tenantId)}`)
         .orderBy(desc(qrOrders.createdAt)).limit(50);
-      return apiOk(rows.map((r: any) => ({ ...r, amount: Number(r.amount) })));
+      return apiOk(rows.map((r) => ({ ...r, amount: Number(r.amount) })));
     }
     const allRows = await db.select().from(qrOrders)
       .where(eq(qrOrders.tenantId, tenantId))
       .orderBy(desc(qrOrders.createdAt)).limit(100);
-    return apiOk(allRows.map((r: any) => ({
+    return apiOk(allRows.map((r) => ({
       id: r.id, tableId: r.tableId, modality: r.modality, orderStatus: r.orderStatus,
       customerName: r.customerName, customerPhone: r.customerPhone,
       customerEmail: r.customerEmail, address: r.address, zoneId: r.zoneId,
@@ -172,7 +179,7 @@ export async function PUT(req: NextRequest) {
 
     if (action === 'status') {
       if (!id) return apiBadRequest('id required');
-      await db.update(qrOrders).set({ orderStatus: body.status, updatedAt: Date.now() })
+      await db.update(qrOrders).set({ orderStatus: String(body.status), updatedAt: Date.now() })
         .where(and(eq(qrOrders.id, id), eq(qrOrders.tenantId, tenantId)));
       return apiOk();
     }

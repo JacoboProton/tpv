@@ -1,17 +1,27 @@
 import { NextRequest } from 'next/server';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, SQL } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { supplierCatalog, suppliers, products, supplierPriceHistory } from '../../../db/schema';
-import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiServerError } from '../../../lib/infrastructure/response';
+import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
 import { SupplierCatalogPostBody } from '@/lib/schemas/api-schemas';
+
+type Row = Record<string, unknown>;
+
+async function qr(query: SQL): Promise<Row[]> {
+  const db = getDb();
+  return db.execute(query).then((r: { rows: Row[] }) => r.rows);
+}
+
+function num(v: unknown, fallback = 0): number {
+  return Number(v) || fallback;
+}
 
 export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin', 'camarero'])(req);
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
-    const db = getDb();
     const tenantId = getTenantId(req);
     const { searchParams } = new URL(req.url);
     const supplierId = searchParams.get('supplierId');
@@ -24,25 +34,25 @@ export async function GET(req: NextRequest) {
       JOIN products p ON p.id = sc.product_id
       WHERE sc.tenant_id = ${tenantId}
     `;
-    const conds = [];
+    const conds: SQL[] = [];
     if (supplierId) conds.push(sql`sc.supplier_id = ${supplierId}`);
     if (productId) conds.push(sql`sc.product_id = ${productId}`);
-    if (conds.length > 0) query = sql`${query} AND ${conds.reduce((a: any, c: any) => sql`${a} AND ${c}`)}`;
+    if (conds.length > 0) query = sql`${query} AND ${conds.reduce((a, c) => sql`${a} AND ${c}`)}`;
     query = sql`${query} ORDER BY s.name, p.name`;
 
-    const rows = await db.execute(query).then((r: any) => r.rows as any[]);
+    const rows = await qr(query);
 
-    const result = [];
+    const result: Array<Record<string, unknown>> = [];
     for (const r of rows) {
-      const [history] = await db.execute(sql`
+      const [history] = await qr(sql`
         SELECT price_per_unit, pack_price, pack_size, source, created_at
         FROM supplier_price_history
         WHERE catalog_id = ${r.id} AND tenant_id = ${tenantId}
         ORDER BY created_at DESC LIMIT 2
-      `).then((r: any) => r.rows as any[]);
+      `);
 
-      const prevPrice = history ? parseFloat(history.price_per_unit) : null;
-      const currPrice = parseFloat(r.price) / parseFloat(r.pack_size || 1);
+      const prevPrice = history ? num(history.price_per_unit) : null;
+      const currPrice = num(r.price) / (num(r.pack_size, 1));
       const trend = prevPrice !== null && prevPrice > 0
         ? ((currPrice - prevPrice) / prevPrice) * 100
         : null;
@@ -50,8 +60,8 @@ export async function GET(req: NextRequest) {
       result.push({
         id: r.id, supplierId: r.supplier_id, supplierName: r.supplier_name,
         productId: r.product_id, productName: r.product_name,
-        sku: r.sku, price: parseFloat(r.price), packSize: parseFloat(r.pack_size),
-        minOrder: parseFloat(r.min_order), deliveryDays: r.delivery_days || 0,
+        sku: r.sku, price: num(r.price), packSize: num(r.pack_size),
+        minOrder: num(r.min_order), deliveryDays: num(r.delivery_days),
         isPreferred: !!r.is_preferred, active: r.active,
         pricePerUnit: currPrice, trend, prevPrice,
       });
@@ -100,9 +110,9 @@ export async function POST(req: NextRequest) {
       if (id || !id) {
         const [catRow] = id
           ? [{ id }]
-          : await db.execute(sql`
+          : await qr(sql`
               SELECT id FROM supplier_catalog WHERE supplier_id=${supplierId} AND product_id=${productId} AND tenant_id = ${tenantId} LIMIT 1
-            `).then((r: any) => r.rows as any[]);
+            `);
         if (catRow?.id) {
           const ppu = (price || 0) / (packSize || 1);
           await db.execute(sql`
@@ -115,16 +125,16 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'delete') {
-      const [cat] = await db.execute(sql`
+      const [cat] = await qr(sql`
         SELECT supplier_id, product_id, is_preferred FROM supplier_catalog WHERE id=${body.id} AND tenant_id = ${tenantId}
-      `).then((r: any) => r.rows as any[]);
+      `);
       await db.execute(sql`DELETE FROM supplier_catalog WHERE id=${body.id} AND tenant_id = ${tenantId}`);
 
       if (cat?.is_preferred) {
-        const [next] = await db.execute(sql`
+        const [next] = await qr(sql`
           SELECT id FROM supplier_catalog WHERE product_id = ${cat.product_id} AND active = true AND tenant_id = ${tenantId}
           ORDER BY price LIMIT 1
-        `).then((r: any) => r.rows as any[]);
+        `);
         if (next?.id) {
           await db.execute(sql`UPDATE supplier_catalog SET is_preferred = true WHERE id = ${next.id} AND tenant_id = ${tenantId}`);
         }

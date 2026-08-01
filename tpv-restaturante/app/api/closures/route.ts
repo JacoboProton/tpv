@@ -28,26 +28,32 @@ export async function POST(req: NextRequest) {
     const tenantId = getTenantId(req);
     const parsed = ClosureBody.safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
-    const body = parsed.data;
+    const b = parsed.data as {
+      action: string; id?: string; date?: string; total?: string | number;
+      ticket_count?: number; avg_ticket?: string | number; methods?: unknown;
+      employees?: unknown; sales_ids?: string[]; closed_at?: number;
+      employee_name?: string; cuadratura?: unknown; cuadratura_expected?: unknown;
+      cuadratura_counted?: unknown; cuadratura_diff?: unknown;
+    };
 
-    if (body.action === 'delete') {
-      if (!body.id) return apiBadRequest('id is required for delete');
+    if (b.action === 'delete') {
+      if (!b.id) return apiBadRequest('id is required for delete');
       await db.delete(closures)
-        .where(eq(closures.id, body.id));
+        .where(eq(closures.id, b.id));
       return apiOk();
     }
 
     await db.insert(closures).values({
-      id: body.id, tenantId, date: body.date,
-      total: body.total, ticketCount: body.ticket_count,
-      avgTicket: body.avg_ticket,
-      methods: body.methods,
-      employees: body.employees,
-      salesIds: body.sales_ids,
-      closedAt: body.closed_at,
-      employeeName: body.employee_name,
-      cuadratura: body.cuadratura
-        ? { denoms: body.cuadratura, expected: body.cuadratura_expected, counted: body.cuadratura_counted, diff: body.cuadratura_diff }
+      id: b.id!, tenantId, date: b.date ?? '',
+      total: String(b.total ?? 0), ticketCount: Number(b.ticket_count ?? 0),
+      avgTicket: String(b.avg_ticket ?? 0),
+      methods: b.methods ?? [],
+      employees: b.employees ?? [],
+      salesIds: b.sales_ids ?? [''],
+      closedAt: Number(b.closed_at ?? Date.now()),
+      employeeName: b.employee_name ?? '',
+      cuadratura: b.cuadratura
+        ? { denoms: b.cuadratura, expected: b.cuadratura_expected, counted: b.cuadratura_counted, diff: b.cuadratura_diff }
         : [],
     }).onConflictDoUpdate({
       target: [closures.id, closures.tenantId],

@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
         .where(and(eq(sales.id, saleId), eq(sales.tenantId, tenantId)))
         .limit(1);
       if (rows.length === 0) return apiNotFound('Venta no encontrada');
-      email = rows[0].invoiceEmail;
+      email = rows[0].invoiceEmail ?? '';
     }
 
     if (!email) {
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
           attachments: [{ filename: filename || `factura_${saleId}.pdf`, content: pdfBase64, encoding: 'base64' }],
         });
         return apiOk({ method: 'smtp', email });
-      } catch (smtpErr: any) {
+      } catch (smtpErr) {
         console.warn('[Invoice Send] SMTP falló, modo descarga:', (smtpErr as Error).message);
         return apiOk({ ok: false, method: 'smtp_failed', error: (smtpErr as Error).message, email });
       }

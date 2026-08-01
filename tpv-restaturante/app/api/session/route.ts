@@ -53,11 +53,11 @@ export async function POST(req: NextRequest) {
 
       const now = Date.now();
       await db.insert(sessions).values({
-        tenantId: tid, employeeId, deviceId, role: employeeRole,
+        tenantId: tid, employeeId, deviceId, role: employeeRole ?? '',
         active: true, createdAt: now, lastSeen: now,
       }).onConflictDoUpdate({
         target: [sessions.tenantId, sessions.employeeId, sessions.deviceId],
-        set: { active: true, lastSeen: now, role: employeeRole },
+        set: { active: true, lastSeen: now, role: employeeRole ?? '' },
       });
 
       return apiOk();

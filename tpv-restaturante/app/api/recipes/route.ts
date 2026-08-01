@@ -1,11 +1,22 @@
 import { NextRequest } from 'next/server';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, SQL } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { recipes, recipeIngredients } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
 import { RecipeBody } from '@/lib/schemas/api-schemas';
+
+type Row = Record<string, unknown>;
+
+async function qr(query: SQL): Promise<Row[]> {
+  const db = getDb();
+  return db.execute(query).then((r: { rows: Row[] }) => r.rows);
+}
+
+function num(v: unknown, fallback = 0): number {
+  return Number(v) || fallback;
+}
 
 export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin', 'camarero'])(req);
@@ -16,7 +27,7 @@ export async function GET(req: NextRequest) {
     const recipeRows = await db.select().from(recipes)
       .where(eq(recipes.tenantId, tenantId))
       .orderBy(recipes.productName);
-    const result = [];
+    const result: Array<Record<string, unknown>> = [];
     for (const r of recipeRows) {
       const ingredients = await db.select().from(recipeIngredients)
         .where(sql`${eq(recipeIngredients.recipeId, r.id)} AND ${eq(recipeIngredients.tenantId, tenantId)}`)
@@ -25,17 +36,17 @@ export async function GET(req: NextRequest) {
         id: r.id,
         productId: r.productId,
         productName: r.productName,
-        costPerUnit: parseFloat(r.costPerUnit as any || 0),
-        yieldQty: parseFloat(r.yieldQty as any || 1),
+        costPerUnit: num(r.costPerUnit),
+        yieldQty: num(r.yieldQty, 1),
         updatedAt: Number(r.updatedAt),
-        ingredients: ingredients.map((ing: any) => ({
+        ingredients: ingredients.map((ing) => ({
           id: ing.id,
           ingredientId: ing.ingredientId,
           ingredientName: ing.ingredientName,
-          quantity: parseFloat(ing.quantity as any),
+          quantity: num(ing.quantity),
           unit: ing.unit,
-          costPerUnit: parseFloat(ing.costPerUnit as any || 0),
-          totalCost: parseFloat(ing.totalCost as any || 0),
+          costPerUnit: num(ing.costPerUnit),
+          totalCost: num(ing.totalCost),
         })),
       });
     }
@@ -67,18 +78,18 @@ export async function POST(req: NextRequest) {
       const recipeId = recipe?.id || 'rec_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
       const yieldQtyVal = yieldQty || 1;
 
-      const processedIngredients: any[] = [];
+      const processedIngredients: Array<{ ingredientId: string; ingredientName: string; quantity: number; unit: string; costPerUnit: number; totalCost: number }> = [];
       for (const ing of ingredients) {
-        const iQty = parseFloat(ing.quantity || 0);
-        const iCostPerUnit = parseFloat(ing.costPerUnit || 0);
+        const iQty = num(ing.quantity);
+        const iCostPerUnit = num(ing.costPerUnit);
         const iTotal = iQty * iCostPerUnit;
 
-        const [latestBatch] = await db.execute(sql`
+        const [latestBatch] = await qr(sql`
           SELECT cost_per_unit FROM product_batches
           WHERE product_id = ${ing.ingredientId} AND status = 'active' AND tenant_id = ${tenantId}
           ORDER BY received_at DESC LIMIT 1
-        `).then((r: any) => r.rows as any[]);
-        const currentCost = latestBatch ? parseFloat(latestBatch.cost_per_unit) : iCostPerUnit;
+        `);
+        const currentCost = latestBatch ? num(latestBatch.cost_per_unit) : iCostPerUnit;
 
         processedIngredients.push({
           ingredientId: ing.ingredientId,
@@ -90,7 +101,7 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      const totalRecipeCost = processedIngredients.reduce((s: number, i: any) => s + i.totalCost, 0);
+      const totalRecipeCost = processedIngredients.reduce((s: number, i) => s + i.totalCost, 0);
       const costPerUnit = totalRecipeCost / yieldQtyVal;
 
       if (recipe) {

@@ -6,15 +6,17 @@ import { qrOrders, deliveryOrders } from '../../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized } from '../../../../lib/infrastructure/response';
 import { requireRole } from '../../../../lib/rbac';
 
-function parseItems(raw: any) {
+type Item = { price?: string | number; qty?: number };
+
+function parseItems(raw: unknown): Item[] {
   if (!raw) return [];
-  if (typeof raw === 'string') { try { return JSON.parse(raw); } catch { return []; } }
-  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'string') { try { return JSON.parse(raw) as Item[]; } catch { return []; } }
+  if (Array.isArray(raw)) return raw as Item[];
   return [];
 }
 
-function calcAmount(items: any[]) {
-  return items.reduce((s: number, i: any) => s + (parseFloat(i.price) || 0) * (i.qty || 1), 0);
+function calcAmount(items: Item[]) {
+  return items.reduce((s: number, i) => s + (parseFloat(String(i.price)) || 0) * (i.qty || 1), 0);
 }
 
 export async function GET(req: NextRequest) {
@@ -30,7 +32,7 @@ export async function GET(req: NextRequest) {
         .orderBy(desc(deliveryOrders.createdAt)).limit(100),
     ]);
 
-    const mappedQR = qrRows.map((r: any) => ({
+    const mappedQR = qrRows.map((r) => ({
       id: r.id, type: 'qr',
       tableId: r.tableId, modality: r.modality,
       orderStatus: r.orderStatus,
@@ -43,7 +45,7 @@ export async function GET(req: NextRequest) {
       source: r.modality === 'dinein' ? 'qr_mesa' : 'qr_online',
     }));
 
-    const mappedDel = delRows.map((r: any) => {
+    const mappedDel = delRows.map((r) => {
       const items = parseItems(r.items);
       return {
         id: r.id, type: 'platform',

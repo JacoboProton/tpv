@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     const tenantId = getTenantId(req);
     const rows = await db.select().from(employees)
       .where(eq(employees.tenantId, tenantId));
-    return apiOk(rows.map((r: any) => ({
+    return apiOk(rows.map((r) => ({
       id: r.id, name: r.name, role: r.role,
       personalDiscountEnabled: r.personalDiscountEnabled,
       monthlyLimit: Number(r.monthlyLimit || 0),
@@ -45,17 +45,17 @@ export async function PUT(req: NextRequest) {
     if (!parsed.success) return apiBadRequest(parsed.error.message);
     const emps = parsed.data;
     const tenantId = getTenantId(req);
-    const ids = emps.map((e: any) => e.id);
-    await db.transaction(async (tx: any) => {
+    const ids = emps.map((e) => e.id);
+    await db.transaction(async (tx) => {
       for (const e of emps) {
         await tx.insert(employees).values({
           tenantId, id: e.id, name: e.name, pin: '',
           pinHash: e.pin ? bcrypt.hashSync(sha256(e.pin), 10) : (e.pinHash || ''),
           role: e.role || 'camarero', position: e.position || '',
-          workType: e.workType || '', workPct: e.workPct || 100, dni: e.dni || '',
+          workType: e.workType || '', workPct: String(e.workPct ?? 100), dni: e.dni || '',
           notes: e.notes || '',
           personalDiscountEnabled: e.personalDiscountEnabled || false,
-          monthlyLimit: e.monthlyLimit || 0, monthlyUsed: e.monthlyUsed || 0,
+          monthlyLimit: String(e.monthlyLimit ?? 0), monthlyUsed: String(e.monthlyUsed ?? 0),
           monthlyUsedMonth: e.monthlyUsedMonth || '',
           whatsappCode: e.whatsappCode || '', whatsappLinked: e.whatsappLinked || false,
           createdAt: e.createdAt || Date.now(),
@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
       const emps = await db.select({ id: employees.id, name: employees.name })
         .from(employees)
         .where(and(eq(employees.tenantId, tenantId), eq(employees.whatsappLinked, false)));
-      const codes = emps.map((e: any) => {
+      const codes = emps.map((e) => {
         const code = Math.random().toString(36).slice(2, 8).toUpperCase();
         return { employeeId: e.id, name: e.name, code };
       });
@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
       if (!pin && !pinHash) return apiBadRequest('PIN requerido');
       const emps = await db.select().from(employees)
         .where(eq(employees.tenantId, tenantId));
-      const emp = emps.find((r: any) => {
+      const emp = emps.find((r) => {
         const ph = r.pinHash ?? '';
         if (!ph) return false;
         if (pin && bcrypt.compareSync(pin as string, ph)) return true;

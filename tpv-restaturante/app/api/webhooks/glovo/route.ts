@@ -5,9 +5,9 @@ import { getTenantId } from '../../../../lib/tenant';
 import { deliveryOrders } from '../../../../db/schema';
 import { apiOk, apiError, apiUnauthorized } from '../../../../lib/infrastructure/response';
 
-function normalizeGlovoProducts(products: any) {
+function normalizeGlovoProducts(products: unknown) {
   if (!products || !Array.isArray(products)) return [];
-  return products.map((p: any, i: any) => ({
+  return products.map((p, i) => ({
     id: 'g_' + Date.now() + '_' + i + Math.random().toString(36).slice(2, 6),
     productId: p.id || p.product_id || '',
     name: p.name || p.title || 'Producto',

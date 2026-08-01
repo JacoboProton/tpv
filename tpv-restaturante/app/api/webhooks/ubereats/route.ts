@@ -8,9 +8,9 @@ import { apiOk, apiError, apiUnauthorized } from '../../../../lib/infrastructure
 // SIN requireRole — webhook de Uber Eats invocado por Uber directamente.
 // GET: verificación del webhook (devuelve challenge). POST: se autentica
 // vía firma HMAC (x-uber-signature) contra UBER_WEBHOOK_SECRET.
-function normalizeUberProducts(items: any) {
+function normalizeUberProducts(items: unknown) {
   if (!items || !Array.isArray(items)) return [];
-  return items.map((p: any, i: any) => ({
+  return items.map((p, i) => ({
     id: 'ue_' + Date.now() + '_' + i + Math.random().toString(36).slice(2, 6),
     productId: p.id || p.product_id || '',
     name: p.title || p.name || 'Producto',
