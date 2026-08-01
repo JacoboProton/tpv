@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { euros, round2, clone } from '../lib/utils'
+import { euros, round2, generateId, clone } from '../lib/utils'
 
 describe('euros', () => {
   it('formats numbers as euros', () => {
@@ -35,6 +35,21 @@ describe('round2', () => {
 
   it('handles whole numbers', () => {
     expect(round2(5)).toBe(5)
+  })
+})
+
+describe('generateId', () => {
+  it('prefixes with the given string', () => {
+    expect(generateId('i')).toMatch(/^i_/)
+    expect(generateId('o')).toMatch(/^o_/)
+  })
+
+  it('generates unique ids', () => {
+    expect(generateId('i')).not.toBe(generateId('i'))
+  })
+
+  it('includes a timestamp component', () => {
+    expect(generateId('i')).toMatch(/^i_\d+/)
   })
 })
 

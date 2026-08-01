@@ -260,9 +260,13 @@ import { round2, generateId } from '../../lib/utils'
    - Agregar README.md a `packages/core`
    - Documentar arquitectura y patrones de uso
 
+**✅ RESUELTO:** Creado `packages/core/README.md` con estructura, estrategia de exports (Opción B documentada), capas, scripts y convenciones.
+
 7. **Agregar más tests**
    - Actualmente 7 tests
    - Objetivo: cobertura >80% para domain layer
+
+**✅ RESUELTO:** Cobertura: 96% statements, 100% lines, 100% functions. Domain layer ~100%. 108 tests en 7 archivos. Script `npm run test:coverage` disponible.
 
 ---
 
@@ -282,6 +286,10 @@ La Fase 2 ha logrado integrar exitosamente el application layer en `@tpv/core`, 
 - 🔴 Archivo login.ts faltante — ✅ resuelto (eliminado index.ts)
 - ⚠️ Inconsistencia en estrategia de exports — ✅ resuelto (Opción B)
 - ⚠️ invoice-html.ts con posibles dependencias web — ✅ verificado, sin dependencias
+
+**Documentación (largo plazo):**
+- README.md de @tpv/core — ✅ creado
+- Tests y cobertura >80% — ✅ 96% statements, 108 tests
 
 **Estado General:** ✅ LISTO PARA FASE 3
 
