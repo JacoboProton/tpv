@@ -2,6 +2,7 @@
 
 import { useCallback } from 'react'
 import type { Floor, CurrentUser } from '../domain/types'
+import type { CustomerInfo } from '../domain/types'
 import { createTicket, deleteTicket, renameTicket as renameTicketOp, linkCustomer as linkCustomerOp, unlinkCustomer as unlinkCustomerOp } from '../domain/orders/multi-ticket'
 
 export function useOrderTickets(
@@ -35,7 +36,7 @@ export function useOrderTickets(
     persistFloor(renameTicketOp(floor, orderId, label))
   }, [floor, persistFloor])
 
-  const linkCustomer = useCallback((orderId: string, customer: any) => {
+  const linkCustomer = useCallback((orderId: string, customer: CustomerInfo | null) => {
     persistFloor(linkCustomerOp(floor, orderId, customer))
   }, [floor, persistFloor])
 

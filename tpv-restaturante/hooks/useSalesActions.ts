@@ -10,7 +10,7 @@ import { confirmBizumPayments } from '../domain/payments/bizum'
 
 interface UseSalesActionsProps {
   sales: Sale[]
-  setSales: (s: any) => void
+  setSales: (s: Sale[]) => void
   currentUser: CurrentUser | null
 }
 

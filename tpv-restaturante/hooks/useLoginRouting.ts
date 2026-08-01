@@ -7,12 +7,12 @@ type View = 'salon' | 'comandas' | 'cocina' | 'inventario' | 'almacen' | 'albara
 
 interface UseLoginRoutingProps {
   currentUser: CurrentUser | null
-  setCurrentUser: (u: any) => void
+  setCurrentUser: (u: CurrentUser | null) => void
   entryPoint: string
   setView: (v: View) => void
   setMenuMode: (m: string) => void
-  setSelectedTableId: (id: any) => void
-  setAlmacenUbicacion: (u: any) => void
+  setSelectedTableId: (id: string | null) => void
+  setAlmacenUbicacion: (u: string | null) => void
   showToast: (msg: string) => void
 }
 

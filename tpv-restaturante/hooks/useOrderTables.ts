@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react'
 import { saveCancelledOrder } from '../lib/api'
-import type { Floor, CurrentUser } from '../domain/types'
+import type { Floor, CurrentUser, Order } from '../domain/types'
 import { moveTableOrder, mergeTables as mergeTableOrders, reopenOrder as reopenTableOrder } from '../domain/tables/table-operations'
 import { cancelTable as cancelTableOp, voidTable as voidTableOp } from '../application/CancelTable/cancel-table'
 import { toggleCuentaStatus } from '../application/TableStatus/toggle-table-status'
@@ -19,7 +19,7 @@ export function useOrderTables(
 ) {
   const cancelTable = useCallback(() => {
     if (!selectedTableId) return
-    const table = floor?.tables?.find((t: any) => t.id === selectedTableId)
+    const table = floor?.tables?.find((t) => t.id === selectedTableId)
     if (!table) return
     const result = cancelTableOp(floor, selectedTableId, currentUser?.name)
     for (const c of result.cancelled) {
@@ -32,7 +32,7 @@ export function useOrderTables(
 
   const voidTable = useCallback((reason: string = '') => {
     if (!selectedTableId) return
-    const table = floor?.tables?.find((t: any) => t.id === selectedTableId)
+    const table = floor?.tables?.find((t) => t.id === selectedTableId)
     if (!table) return
     const result = voidTableOp(floor, selectedTableId, reason, currentUser?.name)
     for (const c of result.cancelled) {
@@ -46,11 +46,11 @@ export function useOrderTables(
 
   const moveTable = useCallback((tableId: string, destTableId: string) => {
     if (tableId === destTableId) { showToast('No puedes mover una mesa sobre sí misma'); return }
-    const src = floor?.tables?.find((t: any) => t.id === tableId)
+    const src = floor?.tables?.find((t) => t.id === tableId)
     if (!src?.orderId) { showToast('La mesa origen no tiene pedido'); return }
     const next = moveTableOrder(floor, tableId, destTableId)
     if (next === floor) return
-    const dst = next?.tables?.find((t: any) => t.id === destTableId)
+    const dst = next?.tables?.find((t) => t.id === destTableId)
     persistFloor(next)
     setSelectedTableId(destTableId)
     showToast(`Pedido movido a ${dst?.name}`)
@@ -59,12 +59,12 @@ export function useOrderTables(
   const mergeTables = useCallback((tableId: string, sourceTableIds: string[]) => {
     const next = mergeTableOrders(floor, tableId, sourceTableIds, currentUser?.name)
     if (next === floor) return
-    const dst = next?.tables?.find((t: any) => t.id === tableId)
+    const dst = next?.tables?.find((t) => t.id === tableId)
     persistFloor(next)
     showToast(`Pedidos fusionados en ${dst?.name}`)
   }, [floor, currentUser, persistFloor, showToast])
 
-  const reopenOrder = useCallback((tableId: string, historyEntry: any) => {
+  const reopenOrder = useCallback((tableId: string, historyEntry: Order) => {
     const result = reopenTableOrder(floor, tableId, historyEntry)
     if (!result.orderId) return
     persistFloor(result.floor)

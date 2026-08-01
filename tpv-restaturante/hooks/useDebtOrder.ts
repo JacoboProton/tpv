@@ -11,9 +11,9 @@ interface UseDebtOrderProps {
   currentUser: CurrentUser | null
   sales: Sale[]
   floor: Floor
-  setFloor: (f: any) => void
+  setFloor: (f: Floor) => void
   showToast: (msg: string) => void
-  debtFloorRef: React.MutableRefObject<any>
+  debtFloorRef: React.MutableRefObject<Floor | null>
 }
 
 export function useDebtOrder({

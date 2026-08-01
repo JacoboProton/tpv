@@ -1,5 +1,4 @@
 export type * from './domain/types';
-export * from './domain/types';
 export * from './domain/tables/table';
 export * from './domain/tables/table-operations';
 export * from './domain/tables/floor-layout';

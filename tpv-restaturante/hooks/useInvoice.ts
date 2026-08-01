@@ -3,10 +3,11 @@
 import { useCallback } from 'react'
 import type { Sale } from '@tpv/core'
 import { buildInvoiceHtml } from '@tpv/core'
+import type { TicketSettings } from '../domain/types'
 import { b64ToBlob } from '@/lib/encoding'
 
 interface UseInvoiceProps {
-  ticketSettings: Record<string, any>
+  ticketSettings: TicketSettings
   showToast: (msg: string) => void
 }
 

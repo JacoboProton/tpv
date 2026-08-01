@@ -1,4 +1,3 @@
-export * from './domain/types';
 // Domain logic
 export * from './domain/tables/table';
 export * from './domain/tables/table-operations';

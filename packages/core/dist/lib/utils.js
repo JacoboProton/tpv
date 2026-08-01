@@ -4,6 +4,9 @@ export function euros(n) {
 export function round2(n) {
     return Math.round((n + Number.EPSILON) * 100) / 100;
 }
+export function generateId(prefix) {
+    return prefix + '_' + Date.now() + Math.random().toString(16).slice(2);
+}
 export function clone(obj) {
     return JSON.parse(JSON.stringify(obj));
 }

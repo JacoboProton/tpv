@@ -6,6 +6,10 @@ export function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100
 }
 
+export function generateId(prefix: string): string {
+  return prefix + '_' + Date.now() + Math.random().toString(16).slice(2)
+}
+
 export function clone<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj))
 }

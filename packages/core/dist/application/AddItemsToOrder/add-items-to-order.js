@@ -1,11 +1,5 @@
 import { expandMenu, expandCombo } from '../../domain/order/menu-expansion';
-import { clone } from '../../lib/utils';
-function round2(n) {
-    return Math.round((n + Number.EPSILON) * 100) / 100;
-}
-function generateId(prefix) {
-    return prefix + '_' + Date.now() + Math.random().toString(16).slice(2);
-}
+import { clone, generateId, round2 } from '../../lib/utils';
 function findOrCreateOrder(floor, tableId, employeeName, activeTicketId) {
     var _a;
     const table = floor.tables.find((t) => t.id === tableId);

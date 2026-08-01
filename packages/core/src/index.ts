@@ -1,6 +1,5 @@
 // Domain types
 export type * from './domain/types'
-export * from './domain/types'
 
 // Domain logic
 export * from './domain/tables/table'

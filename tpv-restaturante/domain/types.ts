@@ -225,6 +225,18 @@ export interface CurrentUser {
   role: EmployeeRole
 }
 
+export interface CustomerInfo {
+  id: string
+  name: string
+  phone: string
+}
+
+export interface LoginEmployee {
+  id: string
+  name: string
+  role: string
+}
+
 // ─── Employees ───
 export interface Employee {
   id: string
@@ -239,10 +251,10 @@ export interface Employee {
 export interface Catalog {
   products: Product[]
   categories: Category[]
-  offers?: any[]
-  combos?: any[]
-  mealMenus?: any[]
-  priceRules?: any[]
+  offers?: Offer[]
+  combos?: Combo[]
+  mealMenus?: MealMenu[]
+  priceRules?: PriceRule[]
 }
 
 // ─── Kitchen ───
@@ -277,4 +289,99 @@ export interface PriceRule {
   productId?: string
   discountPct?: number
   type?: string
+}
+
+export interface Tenant {
+  id: string
+  name?: string
+}
+
+export interface QrCall {
+  id: string
+  tableId: string
+  tableName?: string
+  zone?: string
+  acknowledged: boolean
+  createdAt: number
+}
+
+export interface ComboSlotItem {
+  id: string
+  product_id: string
+  surcharge: number
+}
+
+export interface ComboSlot {
+  id: string
+  name: string
+  minChoices?: number
+  maxChoices?: number
+  items?: ComboSlotItem[]
+}
+
+export interface Combo {
+  id: string
+  name: string
+  price: number | string
+  active?: boolean
+  discountPct?: number
+  slots?: ComboSlot[]
+  category?: string
+  description?: string
+}
+
+export interface MealMenuItem {
+  id: string
+  product_id: string
+  surcharge: number
+}
+
+export interface MealCourse {
+  id: string
+  name: string
+  items: MealMenuItem[]
+}
+
+export interface MealSchedule {
+  day_of_week: number
+  start_time: string
+  end_time: string
+}
+
+export interface MealExtra {
+  name: string
+  price: number
+}
+
+export interface MealMenu {
+  id: string
+  name: string
+  price: number | string
+  active?: boolean
+  includesPan?: boolean
+  includesBebida?: boolean
+  includesCafe?: boolean
+  courses?: MealCourse[]
+  schedules?: MealSchedule[]
+  extras?: MealExtra[]
+}
+
+export interface ClockinSummary {
+  isActive: boolean
+  isOnPause?: boolean
+  entrada?: number
+  salida?: number
+  pausas?: Array<{ start: number; end?: number }>
+  effectiveMinutes?: number
+}
+
+export interface TicketSettings {
+  restaurantName?: string
+  companyCif?: string
+  companyAddress?: string
+  companyPhone?: string
+  logoUrl?: string
+  footerText?: string
+  ticketWidth?: string
+  [key: string]: unknown
 }

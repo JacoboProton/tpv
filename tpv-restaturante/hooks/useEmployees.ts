@@ -10,13 +10,14 @@ import { createEmployee, canDeleteEmployee, buildTrainingFloor } from '../domain
 import { executeLogin as executeLoginOp, tryRestoreSession as tryRestoreSessionOp } from '../application/auth/login'
 import { logoutUser } from '../application/auth/logout'
 import { handleClockinAction as handleClockinActionOp, loadClockinSummary as loadClockinSummaryOp } from '../application/auth/clockin'
+import type { LoginEmployee, ClockinSummary } from '../domain/types'
 
 interface UseEmployeesProps {
   employees: Employee[]
-  setEmployees: (e: any) => void
+  setEmployees: (e: Employee[]) => void
   showToast: (msg: string) => void
   floor: Floor
-  setFloor: (f: any) => void
+  setFloor: (f: Floor) => void
 }
 
 export function useEmployees({
@@ -26,15 +27,15 @@ export function useEmployees({
 }: UseEmployeesProps) {
 
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
-  const [loginSelected, setLoginSelected] = useState<any>(null)
+  const [loginSelected, setLoginSelected] = useState<LoginEmployee | null>(null)
   const [pinInput, setPinInput] = useState<string>('')
   const [trainingMode, setTrainingMode] = useState(false)
   const [savedFloor, setSavedFloor] = useState<Floor | null>(null)
   const [showClockinModal, setShowClockinModal] = useState(false)
-  const [clockinSummary, setClockinSummary] = useState<any>(null)
+  const [clockinSummary, setClockinSummary] = useState<ClockinSummary | null>(null)
   const [clockinLoading, setClockinLoading] = useState(false)
 
-  const persistEmployees = useCallback(async (next: any) => {
+  const persistEmployees = useCallback(async (next: Employee[]) => {
     setEmployees(next)
     try { await saveEmployees(next) }
     catch {
@@ -47,7 +48,7 @@ export function useEmployees({
     persistEmployees([...employees, createEmployee(emp)])
   }, [employees, persistEmployees])
 
-  const updateEmployeeField = useCallback((id: string, f: string, value: any) => {
+  const updateEmployeeField = useCallback((id: string, f: string, value: string | number | boolean) => {
     persistEmployees(employees.map((e: Employee) => e.id === id ? { ...e, [f]: value } : e))
   }, [employees, persistEmployees])
 
@@ -98,7 +99,7 @@ export function useEmployees({
     })
     if (emp) {
       setCurrentUser(emp)
-      try { localStorage.setItem('tpv:current_user', emp.id); (window as any).__employeeRole = emp.role; (window as any).__employeeId = emp.id; } catch {}
+      try { localStorage.setItem('tpv:current_user', emp.id); window.__employeeRole = emp.role; window.__employeeId = emp.id; } catch {}
       setLoginSelected(null)
     }
   }, [showToast, logout])
@@ -119,7 +120,7 @@ export function useEmployees({
   const clockDeps = {
     fetchSummary: (employeeId: string, date: string) =>
       fetch(`/api/clockin?employeeId=${employeeId}&date=${date}`).then(r => r.ok ? r.json() : Promise.reject()),
-    fetchClockin: (body: any) => fetch('/api/clockin', { method: 'POST', body: JSON.stringify(body) }),
+    fetchClockin: (body: { employeeId: string; employeeName: string; method: string; action: string }) => fetch('/api/clockin', { method: 'POST', body: JSON.stringify(body) }),
     showToast,
     setClockinSummary,
     setClockinLoading,

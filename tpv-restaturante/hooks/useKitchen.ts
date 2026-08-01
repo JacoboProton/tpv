@@ -9,10 +9,10 @@ import { toggleProductAgotado } from '../domain/catalog/product-operations'
 
 interface UseKitchenProps {
   floor: Floor
-  setFloor: (f: any) => void
-  persistFloor: (f: any) => void
+  setFloor: (f: Floor) => void
+  persistFloor: (f: Floor) => void
   catalog: Catalog
-  setCatalog: (c: any) => void
+  setCatalog: (c: Catalog) => void
   showToast: (msg: string) => void
   handlePrint: () => void
   tenantId: string
@@ -40,18 +40,18 @@ export function useKitchen({
     prevPendingRef.current = pending
   }, [floor])
 
-  const updateItemState = useCallback((next: any, action: { orderId: string, itemId: string | null, previousState: string | null }) => {
+  const updateItemState = useCallback((next: Floor, action: { orderId: string, itemId: string | null, previousState: string | null }) => {
     setFloor(next)
     if (action?.previousState === 'preparing') {
       const order = next.orders?.[action.orderId]
-      const item = order?.items?.find((i: any) => i.id === action.itemId)
-      const table = next.tables?.find((t: any) => t.id === order?.tableId)
+      const item = order?.items?.find((i) => i.id === action.itemId)
+      const table = next.tables?.find((t) => t.id === order?.tableId)
       if (item) broadcastReadyNotification(table?.name || order?.tableId, [item.name], order?.employeeName, tenantId)
     }
     persistFloor(next)
   }, [setFloor, persistFloor, tenantId])
 
-  const advanceOrder = useCallback((next: any) => {
+  const advanceOrder = useCallback((next: Floor) => {
     setFloor(next)
     persistFloor(next)
   }, [setFloor, persistFloor])

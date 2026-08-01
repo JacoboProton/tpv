@@ -1,7 +1,7 @@
 # Auditoría del Proyecto TPV - Fase 2
 
 **Fecha:** 31 de julio de 2026  
-**Estado:** ⚠️ PROBLEMAS DETECTADOS
+**Estado:** ✅ PROBLEMAS CRÍTICOS RESUELTOS
 
 ## Resumen Ejecutivo
 
@@ -32,6 +32,8 @@ export * from './domain/types'
 
 **Recomendación:** Eliminar una de las líneas. Preferiblemente mantener solo `export type * from './domain/types'` y luego exportar los valores específicos que se necesiten.
 
+**✅ RESUELTO:** Se eliminó `export * from './domain/types'`, dejando solo `export type *`.
+
 ---
 
 #### 2. Funciones utilitarias duplicadas
@@ -46,6 +48,8 @@ export * from './domain/types'
 import { round2, generateId } from '../../lib/utils'
 ```
 
+**✅ RESUELTO:** `generateId` añadido a `lib/utils.ts` y `add-items-to-order.ts` ahora importa `clone, generateId, round2` desde allí.
+
 ---
 
 #### 3. Archivo `login.ts` faltante
@@ -58,6 +62,8 @@ import { round2, generateId } from '../../lib/utils'
 **Recomendación:** 
 - Opción A: Crear `application/auth/login.ts` si se necesita
 - Opción B: Eliminar la referencia de `application/index.ts`
+
+**✅ RESUELTO (Opción B + #4):** Se eliminó `application/index.ts` completo (todo comentado y sin uso). `src/index.ts` es ahora el único barril de exports.
 
 ---
 
@@ -76,6 +82,8 @@ import { round2, generateId } from '../../lib/utils'
 - **Opción A:** Usar `application/index.ts` como barril central
 - **Opción B:** Eliminar `application/index.ts` y usar solo `src/index.ts`
 
+**✅ RESUELTO (Opción B):** Eliminado `application/index.ts`. Solo `src/index.ts` exporta.
+
 ---
 
 #### 5. `invoice-html.ts` exportado con posibles dependencias web
@@ -85,6 +93,8 @@ import { round2, generateId } from '../../lib/utils'
 **Problema:** En la Fase 1 se excluyó `invoice-html.ts` por dependencias web (`@/components/constants`), pero ahora está exportado en `src/index.ts`.
 
 **Recomendación:** Verificar si `invoice-html.ts` tiene dependencias web. Si las tiene, excluirlo del export o refactorizar.
+
+**✅ VERIFICADO:** No tiene dependencias web. Solo importa `lib/utils` (`euros`) y `domain/invoice/invoice` (`calculateIgic`). Se mantiene exportado.
 
 ---
 
@@ -267,12 +277,12 @@ La Fase 2 ha logrado integrar exitosamente el application layer en `@tpv/core`, 
 - ✅ Tests presentes y funcionales
 
 **Problemas:**
-- 🔴 Duplicación de exports
-- 🔴 Funciones utilitarias duplicadas
-- 🔴 Archivo login.ts faltante
-- ⚠️ Inconsistencia en estrategia de exports
-- ⚠️ invoice-html.ts potencialmente con dependencias web
+- 🔴 Duplicación de exports — ✅ resuelto
+- 🔴 Funciones utilitarias duplicadas — ✅ resuelto
+- 🔴 Archivo login.ts faltante — ✅ resuelto (eliminado index.ts)
+- ⚠️ Inconsistencia en estrategia de exports — ✅ resuelto (Opción B)
+- ⚠️ invoice-html.ts con posibles dependencias web — ✅ verificado, sin dependencias
 
-**Estado General:** ⚠️ FUNCIONAL PERO REQUIERE LIMPIEZA
+**Estado General:** ✅ LISTO PARA FASE 3
 
 Se recomienda abordar los problemas críticos antes de continuar con la Fase 3.

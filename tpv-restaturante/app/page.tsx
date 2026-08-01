@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 import { type Theme, THEMES, clone } from '../components/constants';
+import type { Floor, Catalog, Sale, Employee, Offer, Combo, Table, TicketSettings, ClockinSummary, Tenant, QrCall } from '../domain/types'
+import type { ModifierData } from '../domain/catalog/modifier-groups'
 import { FatalError } from '../components/app/FatalError';
 import { LoginGuard } from '../components/app/LoginGuard';
 import { LoadingSkeleton } from '../components/app/LoadingSkeleton';
@@ -53,38 +55,38 @@ export default function App() {
   const [theme, setTheme] = useState<string>('dark');
   const C: Theme = THEMES[theme as keyof typeof THEMES];
 
-  const [tenants, setTenants]       = useState<any[]>([]);
+  const [tenants, setTenants]       = useState<Tenant[]>([]);
   const [tenantId, setTenantId]     = useState<string>(() => {
     if (typeof window === 'undefined') return 'default';
     try { return localStorage.getItem('tpv:tenant') || 'default'; } catch { return 'default'; }
   });
 
-  const [catalog, setCatalog]       = useState<any>(null);
-  const [floor, setFloor]           = useState<any>(null);
-  const [sales, setSales]           = useState<any[]>([]);
-  const [employees, setEmployees]   = useState<any[]>([]);
+  const [catalog, setCatalog]       = useState<Catalog | null>(null);
+  const [floor, setFloor]           = useState<Floor | null>(null);
+  const [sales, setSales]           = useState<Sale[]>([]);
+  const [employees, setEmployees]   = useState<Employee[]>([]);
 
   const [menuMode, setMenuMode]           = useState<string>('menu');
   const [entryPoint, setEntryPoint]       = useState<string>('entrada');
   const [view, setView]                   = useState<View>('salon');
-  const [almacenUbicacion, setAlmacenUbicacion] = useState<any>(null);
+  const [almacenUbicacion, setAlmacenUbicacion] = useState<string | null>(null);
 
   const [toast, setToast]                  = useState<string | null>(null);
-  const [modifierData, setModifierData]    = useState<any>({ groups: [], productModifiers: {} });
-  const [ticketSettings, setTicketSettings] = useState<Record<string, any>>({
+  const [modifierData, setModifierData]    = useState<ModifierData>({ groups: [], productModifiers: {} });
+  const [ticketSettings, setTicketSettings] = useState<TicketSettings>({
     restaurantName: 'LA COMANDA', companyCif: '78406450W', companyAddress: '', companyPhone: '', logoUrl: '', footerText: 'Gracias por su visita', ticketWidth: '80mm',
   });
   const [showSettings, setShowSettings]     = useState(false);
-  const [offers, setOffers]                = useState<any[]>([]);
-  const [combos, setCombos]                = useState<any[]>([]);
+  const [offers, setOffers]                = useState<Offer[]>([]);
+  const [combos, setCombos]                = useState<Combo[]>([]);
 
   const [showCommands, setShowCommands]             = useState(false);
   const [showClockinModal, setShowClockinModal]     = useState(false);
-  const [clockinSummary, setClockinSummary]         = useState<any>(null);
+  const [clockinSummary, setClockinSummary]         = useState<ClockinSummary | null>(null);
   const [clockinLoading, setClockinLoading]         = useState(false);
   const [showFloorEditor, setShowFloorEditor]       = useState(false);
 
-  const [qrCalls, setQrCalls] = useState<any[]>([]);
+  const [qrCalls, setQrCalls] = useState<QrCall[]>([]);
 
   const [paying, setPaying] = useState(false);
 
