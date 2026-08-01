@@ -57,7 +57,7 @@ interface CoverageSlot extends Objective {
   ok: boolean;
 }
 
-interface TurnosViewProps {
+export interface TurnosViewProps {
   employees: Employee[];
   colors: Theme;
 }

@@ -13,7 +13,7 @@ interface KDSPairing {
   createdAt: number;
 }
 
-interface PairingPanelProps {
+export interface PairingPanelProps {
   colors: Theme;
 }
 

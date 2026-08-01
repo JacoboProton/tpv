@@ -39,7 +39,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
   noshow:   { label: 'No-show',   color: '#b05e5e', icon: Trash2 },
 };
 
-interface WaitlistViewProps {
+export interface WaitlistViewProps {
   colors: Theme;
 }
 

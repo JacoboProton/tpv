@@ -129,7 +129,7 @@ interface FilteredOrder {
   [key: string]: unknown;
 }
 
-interface KDSViewProps {
+export interface KDSViewProps {
   floor: KDSFloor | null;
   catalog: KDSCatalog | null;
   onReady?: (id: string) => void;

@@ -18,7 +18,7 @@ interface DetalleCatalog {
   products: DetalleProduct[];
 }
 
-interface AlmacenDetalleViewProps {
+export interface AlmacenDetalleViewProps {
   catalog: DetalleCatalog;
   ubicacion: string;
   onBack: () => void;

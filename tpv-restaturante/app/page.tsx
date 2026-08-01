@@ -226,7 +226,7 @@ export default function App() {
       <TopBar colors={C} theme={theme} toggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} currentUser={currentUser} trainingMode={trainingMode} toggleTraining={toggleTraining} handlePrint={handlePrint} setShowSettings={setShowSettings} logout={logout} showToast={showToast} ticketSettings={ticketSettings} loadClockinSummary={loadClockinSummary} setShowClockinModal={setShowClockinModal} clockinSummary={clockinSummary as { totalHours?: number; entries?: unknown[] } | null} />
 
       <main className="px-4 sm:px-6 py-6 max-w-6xl mx-auto">
-        <ViewRouter view={view} handlers={{ setSelectedTableId, setActiveCategory, setShowFloorEditor, setAlmacenUbicacion, setView, markReady, updateItemState, advanceOrder, agotarProducto, reprintKitchenTicket, updateProductField, addProduct, deleteProduct, saveCartas, saveOffersFn, saveCombosFn, saveMealMenusFn, saveCarrusel, savePriceRulesFn, handleRefund, handleConfirmBizum, printInvoice, handleDownloadPdf, handleSendInvoiceEmail, addEmployee, updateEmployeeField, deleteEmployee }} data={{ floor, catalog, sales, employees, offers, combos, colors: C, ticketSettings, currentUser, showToast, almacenUbicacion, showFloorEditor, persistFloor, newProductOpen, setNewProductOpen, confirmDeleteId, setConfirmDeleteId }} />
+        <ViewRouter view={view} handlers={{ setSelectedTableId, setActiveCategory, setShowFloorEditor, setAlmacenUbicacion, setView: setView as unknown as (v: string) => void, markReady, updateItemState, advanceOrder, agotarProducto, reprintKitchenTicket, updateProductField, addProduct, deleteProduct, saveCartas, saveOffersFn, saveCombosFn, saveMealMenusFn, saveCarrusel, savePriceRulesFn, handleRefund, handleConfirmBizum, printInvoice, handleDownloadPdf, handleSendInvoiceEmail, addEmployee, updateEmployeeField, deleteEmployee }} data={{ floor, catalog, sales, employees, offers, combos, colors: C, ticketSettings, currentUser, showToast, almacenUbicacion, showFloorEditor, persistFloor, newProductOpen, setNewProductOpen, confirmDeleteId, setConfirmDeleteId }} />
       </main>
 
       {selectedTable && (
@@ -241,19 +241,19 @@ export default function App() {
           onSendToKitchenCourse={sendToKitchenCourse} onSendItemToKitchen={sendItemToKitchen} onToggleCuenta={toggleCuenta}
           onOpenPayment={() => { setPaymentSplits([]); setTipAmount(0); setTipMethod('efectivo'); setInvoiceNif(''); setInvoiceName(''); setInvoiceAddress(''); setInvoiceEmail(''); setPaying(true); }}
           onResetTable={() => { const next = clone(floor as Floor); const table = next?.tables?.find((t) => t.id === selectedTableId); if (!table) return; table.status = 'libre'; table.orderId = null; table.orderIds = []; persistFloor(next); setSelectedTableId(null); setActiveTicketId(null); }}
-          onUpdateNotes={updateItemNotes} onUpdateItemCourse={updateItemCourse as unknown as ComandaDrawerProps['onUpdateItemCourse']}
-          onEditItemModifiers={editItemModifiers as unknown as ComandaDrawerProps['onEditItemModifiers']}
+          onUpdateNotes={updateItemNotes} onUpdateItemCourse={updateItemCourse}
+          onEditItemModifiers={editItemModifiers}
           onSetItemDiscount={setItemDiscount} onRemoveItemDiscount={removeItemDiscount} onSetItemCourtesy={setItemCourtesy} onRemoveItemCourtesy={removeItemCourtesy} onSetItemPrice={setItemPrice as (itemId: string, price: number | null) => void}
           onVoidSentItem={voidSentItem}
           onApplyPersonalDiscount={applyPersonalDiscount} onRemovePersonalDiscount={removePersonalDiscount}
-          employees={employees as unknown as ComandaDrawerProps['employees']} ticketSettings={ticketSettings} floor={floor as unknown as ComandaDrawerProps['floor']}
+          employees={employees} ticketSettings={ticketSettings} floor={floor}
           onMoveTable={moveTable as (currentId: string, destId: string | null) => void} onMergeTables={mergeTables}
           currentTableId={selectedTableId ?? ''} activeTicketId={activeTicketId ?? ''}
           onSwitchTicket={(tid, oid) => setActiveTicketId(oid)} onCreateTicket={createNewTicket} onDeleteEmptyTicket={deleteEmptyTicket}
           onRenameTicket={(oid, label) => renameTicket(selectedTableId ?? '', oid, label)}
           onLinkCustomer={(oid: string | undefined, customer) => linkCustomer(oid!, customer)} onUnlinkCustomer={(oid) => unlinkCustomer(oid)}
-          onReopenOrder={reopenOrder as unknown as ComandaDrawerProps['onReopenOrder']} onVoidTable={() => voidTable()}
-          todayHistory={(floor?.history?.[selectedTableId ?? ''] || []) as unknown as ComandaDrawerProps['todayHistory']}
+          onReopenOrder={reopenOrder} onVoidTable={() => voidTable()}
+          todayHistory={floor?.history?.[selectedTableId ?? ''] || []}
           combos={combos as unknown as ComandaDrawerProps['combos']} mealMenus={(catalog?.mealMenus || []) as unknown as ComandaDrawerProps['mealMenus']} colors={C}
          />
       )}

@@ -89,11 +89,13 @@ interface BuffetRound {
   requested_at: number;
 }
 
-export default function BuffetKioskView({ floor, currentUser, onToast }: {
+export interface BuffetKioskViewProps {
   floor: Floor | null;
   currentUser: { name?: string } | null;
   onToast?: (msg: string) => void;
-}) {
+}
+
+export default function BuffetKioskView({ floor, currentUser, onToast }: BuffetKioskViewProps) {
   const [sessions, setSessions] = useState<BuffetSession[]>([]);
   const [config, setConfig] = useState<BuffetConfig | null>(null);
   const [now, setNow] = useState(Date.now());

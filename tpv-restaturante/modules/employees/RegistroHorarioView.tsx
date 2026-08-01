@@ -41,7 +41,7 @@ interface Session {
   edited: boolean;
 }
 
-interface RegistroHorarioViewProps {
+export interface RegistroHorarioViewProps {
   employees: Employee[];
   colors: Theme;
 }

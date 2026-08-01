@@ -17,7 +17,7 @@ interface StockProduct {
   stockByLocation?: Record<string, StockLocation>
 }
 
-interface StockAlertasViewProps {
+export interface StockAlertasViewProps {
   catalog: { products?: StockProduct[] } | null
   colors: Theme
   onNavigateToProduct?: (productId: string) => void

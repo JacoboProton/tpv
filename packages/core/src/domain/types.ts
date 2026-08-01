@@ -21,6 +21,7 @@ export interface Product {
   category?: string
   description?: string
   agotado?: boolean
+  active?: boolean
   show_tpv?: boolean
   show_qr?: boolean
   course?: string
@@ -31,6 +32,8 @@ export interface Product {
   lowStock?: number
   stockByLocation?: Record<string, StockEntry>
   discount?: number
+  featured?: boolean
+  carousel_sort?: number | null
   isMenu?: boolean
   menuData?: any
   isCombo?: boolean
@@ -63,6 +66,16 @@ export interface StockDelta {
 }
 
 // ─── Orders ───
+export interface ModifierInfo {
+  optionName: string
+}
+
+export interface OrderItemModifier {
+  optionId: string
+  optionName?: string
+  extraPrice?: number
+}
+
 export interface OrderItem {
   id: string
   productId?: string | null
@@ -84,9 +97,18 @@ export interface OrderItem {
   modifiers?: any[]
   course?: string
   ubicacion?: string
+  category?: string
+  allergens?: string[]
   lineDiscount?: number
   isCourtesy?: boolean
-  overridePrice?: number
+  overridePrice?: number | null
+  isFreeItem?: boolean
+  isCombo?: boolean
+  comboData?: any
+  comboSel?: any
+  isMenu?: boolean
+  menuData?: any
+  menuSel?: any
   isMenuItem?: boolean
   isMenuPrice?: boolean
   isComboItem?: boolean
@@ -100,14 +122,38 @@ export interface Order {
   employeeName?: string
   createdAt?: number
   source?: string
+  reopenedAt?: number
   label?: string
-  customer?: any
+  customer?: CustomerInfo | null | any
   _mergedFrom?: string[]
   _mergedLabel?: string
   personalDiscountApplied?: boolean
   personalDiscountEmployeeId?: string
   personalDiscountEmployeeName?: string
   closedAt?: number
+}
+
+export interface CustomerInfo {
+  id: string
+  name: string
+  phone: string
+  tableId?: string
+}
+
+export interface HistoryEntry extends Order {
+  closedAt: number
+  createdAt: number
+}
+
+export interface TicketSettings {
+  restaurantName?: string
+  companyCif?: string
+  companyAddress?: string
+  companyPhone?: string
+  logoUrl?: string
+  footerText?: string
+  ticketWidth?: string
+  [key: string]: unknown
 }
 
 export interface MenuExpansionItem {
@@ -166,7 +212,8 @@ export interface Table {
 export interface Floor {
   tables: Table[]
   orders: Record<string, Order>
-  history?: Record<string, any[]>
+  history?: Record<string, HistoryEntry[]>
+  customers?: CustomerInfo[]
   id?: string
   name?: string
   zones?: Zone[]
@@ -270,10 +317,10 @@ export interface Employee {
 export interface Catalog {
   products: Product[]
   categories: Category[]
-  offers?: any[]
-  combos?: any[]
-  mealMenus?: any[]
-  priceRules?: any[]
+  offers?: Offer[]
+  combos?: Combo[]
+  mealMenus?: MealMenu[]
+  priceRules?: PriceRule[]
 }
 
 // ─── Kitchen ───
@@ -341,4 +388,97 @@ export interface Zone {
   id: string
   name: string
   color: string
+}
+
+// ─── Auth / Session ───
+export interface LoginEmployee {
+  id: string
+  name: string
+  role: string
+}
+
+export interface Tenant {
+  id: string
+  name?: string
+}
+
+export interface ClockinSummary {
+  isActive: boolean
+  isOnPause?: boolean
+  entrada?: number
+  salida?: number
+  pausas?: Array<{ start: number; end?: number }>
+  effectiveMinutes?: number
+}
+
+// ─── Qr / Table calls ───
+export interface QrCall {
+  id: string
+  tableId: string
+  tableName?: string
+  zone?: string
+  acknowledged: boolean
+  createdAt: number
+}
+
+// ─── Combos / Menus ───
+export interface ComboSlotItem {
+  id: string
+  product_id: string
+  surcharge: number
+}
+
+export interface ComboSlot {
+  id: string
+  name: string
+  minChoices?: number
+  maxChoices?: number
+  items?: ComboSlotItem[]
+}
+
+export interface Combo {
+  id: string
+  name: string
+  price: number | string
+  active?: boolean
+  discountPct?: number
+  slots?: ComboSlot[]
+  category?: string
+  description?: string
+}
+
+export interface MealMenuItem {
+  id: string
+  product_id: string
+  surcharge: number
+}
+
+export interface MealCourse {
+  id: string
+  name: string
+  items: MealMenuItem[]
+}
+
+export interface MealSchedule {
+  day_of_week: number
+  start_time: string
+  end_time: string
+}
+
+export interface MealExtra {
+  name: string
+  price: number
+}
+
+export interface MealMenu {
+  id: string
+  name: string
+  price: number | string
+  active?: boolean
+  includesPan?: boolean
+  includesBebida?: boolean
+  includesCafe?: boolean
+  courses?: MealCourse[]
+  schedules?: MealSchedule[]
+  extras?: MealExtra[]
 }

@@ -67,7 +67,7 @@ interface CatalogProduct {
   price: number;
 }
 
-interface DeliveryViewProps {
+export interface DeliveryViewProps {
   catalog: { products: CatalogProduct[] };
 }
 

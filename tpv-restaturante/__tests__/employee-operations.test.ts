@@ -46,7 +46,7 @@ describe('buildTrainingFloor', () => {
       { id: 't2', name: 'Mesa 2' },
     ],
     orders: { o1: { id: 'o1', items: [] } },
-    history: { some: ['data'] },
+    history: { some: [{ id: 'h1', items: [], closedAt: 1, createdAt: 1 }] },
   }
 
   it('resets all tables to free', () => {

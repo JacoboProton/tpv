@@ -55,7 +55,7 @@ interface CatalogProduct {
   category?: string;
 }
 
-interface PreciosPanelProps {
+export interface PreciosPanelProps {
   catalog: { products: CatalogProduct[] };
   priceRules: PriceRule[];
   onSaveRules: (rules: PriceRule[]) => Promise<void>;

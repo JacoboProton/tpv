@@ -19,7 +19,7 @@ interface TimeOffRequest {
   resolvedNote?: string;
 }
 
-interface SolicitudesViewProps {
+export interface SolicitudesViewProps {
   colors: Theme;
 }
 

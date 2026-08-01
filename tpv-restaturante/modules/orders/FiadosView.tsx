@@ -35,7 +35,7 @@ interface DebtInfo {
   customerName?: string;
 }
 
-interface FiadosViewProps {
+export interface FiadosViewProps {
   sales: FiadoSale[];
   floor: FiadoFloor | null;
   onNavigateToTable?: (tableId: string) => void;

@@ -19,7 +19,9 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@tpv/core": ["../packages/core/src"],
+      "@tpv/core/*": ["../packages/core/src/*"]
     }
   },
   "include": [

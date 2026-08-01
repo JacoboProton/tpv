@@ -32,7 +32,7 @@ interface AbiertasFloor {
   orders: Record<string, AbiertasOrder>;
 }
 
-interface ComandasAbiertasViewProps {
+export interface ComandasAbiertasViewProps {
   floor: AbiertasFloor;
   colors: Theme;
 }

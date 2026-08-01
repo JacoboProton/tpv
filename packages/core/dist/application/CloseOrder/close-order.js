@@ -52,7 +52,7 @@ function buildStockLogs(order, catalog, modOptMap, employeeName) {
     return { nextCatalog, stockLogs };
 }
 export function executeCloseOrder(input) {
-    var _a;
+    var _a, _b;
     const { floor, selectedTableId, order, catalog, modifierData, offers, orderDiscount, tipAmount, tipMethod, paymentSplits, paymentIntentId, currentUser, invoice, trainingMode } = input;
     const nextFloor = clone(floor);
     const table = nextFloor.tables.find((t) => t.id === selectedTableId);
@@ -114,7 +114,7 @@ export function executeCloseOrder(input) {
         closedAt: Date.now(),
         ticketNumber: Date.now(),
     };
-    const closedOrder = Object.assign(Object.assign({}, order), { closedAt: Date.now() });
+    const closedOrder = Object.assign(Object.assign({}, order), { closedAt: Date.now(), createdAt: (_b = order.createdAt) !== null && _b !== void 0 ? _b : Date.now() });
     if (!nextFloor.history)
         nextFloor.history = {};
     if (!nextFloor.history[table.id])

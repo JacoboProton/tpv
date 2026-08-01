@@ -98,7 +98,7 @@ export function reopenOrder(
   table.status = 'ocupada'
 
   if (next.history?.[tableId]) {
-    next.history[tableId] = next.history[tableId].filter((h: any) => h.id !== historyEntry.id)
+    next.history[tableId] = next.history[tableId].filter((h) => h.id !== historyEntry.id)
   }
 
   return { floor: next, orderId: reopenedId }

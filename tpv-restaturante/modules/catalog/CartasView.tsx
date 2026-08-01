@@ -93,11 +93,13 @@ function Toggle({ value, onChange, label, color, C }: ToggleProps) {
   );
 }
 
-export default function CartasView({ catalog, onSave, colors: C }: {
+export interface CartasViewProps {
   catalog: Catalog;
   onSave: (c: Catalog) => void;
   colors: Theme;
-}) {
+}
+
+export default function CartasView({ catalog, onSave, colors: C }: CartasViewProps) {
   const [local, setLocal] = useState<Catalog>(() => JSON.parse(JSON.stringify(catalog)));
   const [activeTab, setActiveTab] = useState('categorias');
   const [editingProduct, setEditingProduct] = useState<string | null>(null);

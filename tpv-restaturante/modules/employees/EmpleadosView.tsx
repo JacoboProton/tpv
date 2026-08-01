@@ -33,7 +33,7 @@ interface WACode {
   code: string;
 }
 
-interface EmpleadosViewProps {
+export interface EmpleadosViewProps {
   employees: Employee[];
   colors: Theme;
   onAdd: (emp: Employee) => void;

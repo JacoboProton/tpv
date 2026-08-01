@@ -37,7 +37,7 @@ interface NewOfferFormData {
   deliveryDays: number; isPreferred: boolean;
 }
 
-interface Props {
+export interface Props {
   catalog: Catalog;
   colors: Record<string, string>;
   onUpdateField: (id: string, field: string, value: unknown) => void;

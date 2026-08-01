@@ -24,7 +24,7 @@ interface AuditLog {
   createdAt: number;
 }
 
-interface AuditViewProps {
+export interface AuditViewProps {
   colors: Theme;
 }
 

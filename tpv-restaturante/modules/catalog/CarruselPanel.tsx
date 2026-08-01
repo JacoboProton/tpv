@@ -16,7 +16,7 @@ interface Catalog {
   products: CatalogProduct[];
 }
 
-interface CarruselPanelProps {
+export interface CarruselPanelProps {
   catalog: Catalog;
   onSave: (data: { id: string; carousel_sort: number | null }[]) => void;
   colors: Theme;

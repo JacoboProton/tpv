@@ -66,7 +66,7 @@ interface Catalog {
   products: CatalogProduct[];
 }
 
-interface ProduccionViewProps {
+export interface ProduccionViewProps {
   catalog: Catalog;
   colors: Theme;
 }

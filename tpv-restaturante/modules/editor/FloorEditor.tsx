@@ -65,11 +65,13 @@ function getShapeStyle(table: FloorTable, zones: FloorZone[], C: Theme) {
   };
 }
 
-export default function FloorEditor({ floor, persistFloor, colors: C }: {
+export interface FloorEditorProps {
   floor: FloorData;
   persistFloor: (f: FloorData) => void;
   colors: Theme;
-}) {
+}
+
+export default function FloorEditor({ floor, persistFloor, colors: C }: FloorEditorProps) {
   const [locked, setLocked] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showProps, setShowProps] = useState(false);

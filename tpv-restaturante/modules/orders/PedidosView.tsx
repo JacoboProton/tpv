@@ -38,7 +38,7 @@ interface PedidoSale {
   verifactuStatus?: string;
 }
 
-interface PedidosViewProps {
+export interface PedidosViewProps {
   sales: PedidoSale[];
   onRefund: (saleId: string, refund: Refund) => void;
   onConfirmBizum: (saleId: string) => void;

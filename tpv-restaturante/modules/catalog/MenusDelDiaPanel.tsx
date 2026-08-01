@@ -56,7 +56,7 @@ interface MealMenu {
   schedules: Schedule[];
 }
 
-interface MenusDelDiaPanelProps {
+export interface MenusDelDiaPanelProps {
   mealMenus: MealMenu[];
   catalog: { products: { id: string; name: string; price: number }[] };
   onSave: (menus: MealMenu[]) => void;

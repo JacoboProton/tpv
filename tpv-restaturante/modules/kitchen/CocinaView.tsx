@@ -35,7 +35,7 @@ interface CocinaFloor {
   orders: Record<string, CocinaOrder>;
 }
 
-interface CocinaViewProps {
+export interface CocinaViewProps {
   floor: CocinaFloor;
   catalog?: Catalog;
   onReady: (orderId: string, ubicacion: string) => void;

@@ -59,7 +59,7 @@ interface SlotData {
   existingPax: number;
 }
 
-interface ReservasViewProps {
+export interface ReservasViewProps {
   floor: Floor;
   catalog: unknown;
   colors: Theme;

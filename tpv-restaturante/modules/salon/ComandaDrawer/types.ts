@@ -1,90 +1,20 @@
-import type { Table, Order } from '@tpv/core';
+import type { Table, Order, Floor, OrderItem, CustomerInfo, HistoryEntry, TicketSettings, Employee, Product } from '@tpv/core';
 import type { Theme } from '@/components/constants';
 
-export interface CatalogProduct {
-  id: string;
-  name: string;
-  price: number;
-  category: string;
-  course: string;
-  ubicacion: string;
-  allergens: string[];
-  stock: number;
-  discount: number;
-  agotado?: boolean;
-  active?: boolean;
-  carousel_sort?: number | null;
-  image?: string;
-  description?: string;
-  featured?: boolean;
-}
+export type { Table, Order, Floor, OrderItem, CustomerInfo, HistoryEntry, TicketSettings, Employee } from '@tpv/core';
 
 export interface CategoryInfo {
   id: string;
   name: string;
 }
 
-export interface ModifierInfo {
-  optionName: string;
-}
-
-export interface OrderItem {
-  id: string;
-  name: string;
-  price: number;
-  qty: number;
-  sent?: boolean;
-  ready?: boolean;
-  notes?: string;
-  productId?: string | null;
-  modifiers?: ModifierInfo[];
-  lineDiscount?: number;
-  isCourtesy?: boolean;
-  overridePrice?: number | null;
-  voided?: boolean;
-  voidReason?: string;
-  isFreeItem?: boolean;
-  category?: string;
-  course?: string;
-  ubicacion?: string;
-  allergens?: string[];
-  isCombo?: boolean;
-  comboData?: unknown;
-  comboSel?: unknown;
-  isMenu?: boolean;
-  menuData?: unknown;
-  menuSel?: unknown;
-}
-
-export interface CustomerInfo {
-  id: string;
-  name: string;
-  phone: string;
-}
-
-export interface OrderInfo extends Omit<Order, 'items'> {
-  items: OrderItem[];
-  label?: string;
-  customer?: CustomerInfo | null;
-  personalDiscountApplied?: boolean;
-  personalDiscountEmployeeName?: string;
-  _mergedLabel?: string;
-  closedAt?: number;
-  createdAt?: number;
-}
-
-export interface FloorData {
-  tables: Table[];
-  orders: Record<string, OrderInfo>;
-  customers: CustomerInfo[];
-}
-
-export interface HistoryEntry {
-  id: string;
-  label: string;
-  items: OrderItem[];
-  closedAt: number;
-  createdAt: number;
+export interface CatalogProduct extends Product {
+  category: string;
+  course: string;
+  ubicacion: string;
+  allergens: string[];
+  stock: number;
+  discount: number;
 }
 
 export interface ComboSlotGroupItem {
@@ -149,16 +79,9 @@ export interface MealMenuData {
   extras: MealExtra[];
 }
 
-export interface EmployeeInfo {
-  id: string;
-  name: string;
-  pin: string;
-  role: string;
-}
-
-export interface TicketSettings {
-  [key: string]: unknown;
-}
+export type OrderInfo = Order;
+export type FloorData = Floor;
+export type EmployeeInfo = Employee;
 
 export interface ComandaDrawerProps {
   selectedTable: Table;

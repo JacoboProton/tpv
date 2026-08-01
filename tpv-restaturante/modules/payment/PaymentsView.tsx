@@ -38,7 +38,7 @@ interface PaymentsData {
   payments: PaymentItem[];
 }
 
-interface PaymentsViewProps {
+export interface PaymentsViewProps {
   colors: Theme;
 }
 

@@ -33,7 +33,7 @@ interface BarraFloor {
   orders: Record<string, BarraOrder>;
 }
 
-interface BarraViewProps {
+export interface BarraViewProps {
   floor: BarraFloor;
   catalog?: Catalog;
   onReady: (orderId: string, ubicacion: string) => void;

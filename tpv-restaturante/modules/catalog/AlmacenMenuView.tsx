@@ -17,7 +17,7 @@ interface InventoryCatalog {
   products: InventoryProduct[];
 }
 
-interface AlmacenMenuViewProps {
+export interface AlmacenMenuViewProps {
   catalog: InventoryCatalog;
   onSelectUbicacion: (ubicacion: string) => void;
   onSelectAlbaranes?: () => void;

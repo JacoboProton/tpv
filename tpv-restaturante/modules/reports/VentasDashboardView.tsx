@@ -16,7 +16,7 @@ interface DashboardSale {
   tip?: number
 }
 
-interface VentasDashboardViewProps {
+export interface VentasDashboardViewProps {
   sales: DashboardSale[]
   colors: Theme
 }

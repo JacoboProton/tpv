@@ -6,7 +6,7 @@ import { deductStock } from '../../domain/inventory/stock'
 import { clone } from '../../lib/utils'
 import type { CatalogProduct } from '../../infrastructure/database/catalog-repository'
 import { generateInvoiceNumber } from '../../domain/invoice/invoice'
-import type { Floor, Order, Catalog, Offer, PaymentSplit, Sale } from '../../domain/types'
+import type { Floor, Order, Catalog, Offer, PaymentSplit, Sale, HistoryEntry } from '../../domain/types'
 
 export interface CloseOrderItem {
   id: string
@@ -203,7 +203,7 @@ export function executeCloseOrder(input: CloseOrderInput): CloseOrderResult {
     ticketNumber: Date.now(),
   }
 
-  const closedOrder = { ...order, closedAt: Date.now() }
+  const closedOrder: HistoryEntry = { ...order, closedAt: Date.now(), createdAt: order.createdAt ?? Date.now() }
   if (!nextFloor.history) nextFloor.history = {}
   if (!nextFloor.history[table.id]) nextFloor.history[table.id] = []
   nextFloor.history[table.id].push(closedOrder)

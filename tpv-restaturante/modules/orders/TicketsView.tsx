@@ -38,7 +38,7 @@ interface TicketSettings {
   ticketWidth?: number | string;
 }
 
-interface TicketsViewProps {
+export interface TicketsViewProps {
   sales?: TicketSale[];
   colors: Theme;
   ticketSettings?: TicketSettings;

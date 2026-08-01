@@ -29,7 +29,7 @@ interface OfferCatalog {
   products: OfferProduct[];
 }
 
-interface OfertasPanelProps {
+export interface OfertasPanelProps {
   offers: OfferData[];
   catalog: OfferCatalog;
   onSave: (offers: OfferData[]) => void;

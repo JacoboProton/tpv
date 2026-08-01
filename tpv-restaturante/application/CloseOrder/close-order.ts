@@ -196,7 +196,7 @@ export function executeCloseOrder(input: CloseOrderInput): CloseOrderResult {
     ticketNumber: Date.now(),
   }
 
-  const closedOrder = { ...order, closedAt: Date.now() }
+  const closedOrder = { ...order, closedAt: Date.now(), createdAt: order.createdAt ?? Date.now() }
   if (!nextFloor.history) nextFloor.history = {}
   if (!nextFloor.history[table.id]) nextFloor.history[table.id] = []
   nextFloor.history[table.id].push(closedOrder)

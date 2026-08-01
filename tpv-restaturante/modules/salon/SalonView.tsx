@@ -14,7 +14,7 @@ interface SalonOrderItem { price: number; qty: number; sent: boolean; ready: boo
 interface SalonOrder { items: SalonOrderItem[] }
 interface SalonFloor { tables: SalonTable[]; orders: Record<string, SalonOrder> }
 
-interface SalonViewProps {
+export interface SalonViewProps {
   floor: SalonFloor
   onSelect: (tableId: string) => void
   persistFloor: (floor: SalonFloor) => void

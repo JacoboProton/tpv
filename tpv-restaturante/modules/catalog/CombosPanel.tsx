@@ -41,7 +41,7 @@ interface ComboCatalog {
   products: ComboProduct[];
 }
 
-interface CombosPanelProps {
+export interface CombosPanelProps {
   combos: Combo[];
   catalog: ComboCatalog;
   onSave: (combos: Combo[]) => void;

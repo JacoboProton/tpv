@@ -42,7 +42,7 @@ interface StatusConfig {
   next?: OrderStatus | null;
 }
 
-interface OnlineOrdersViewProps {
+export interface OnlineOrdersViewProps {
   colors: Theme;
 }
 
