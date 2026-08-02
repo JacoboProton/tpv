@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useCallback, useRef } from 'react'
-import type { Floor, Catalog, Sale, Employee, CurrentUser, Offer, OrderItem, TicketSettings } from '../domain/types'
+import type { Floor, Catalog, Sale, Employee, CurrentUser, Offer, OrderItem, TicketSettings, CatalogProduct } from '../domain/types'
 import type { ModifierData } from '../domain/catalog/modifier-groups'
 import type { ModifierSelectionState, ItemModifierEdit } from './useOrderItems'
 import type { FloorData } from '../infrastructure/database/floor-repository'
@@ -76,7 +76,7 @@ export function useOrders({
     setFloor(next)
     if (trainingMode) return
     try {
-      await saveFloor(next as unknown as FloorData)
+      await saveFloor(next)
       broadcastFloorUpdate(next, tenantId)
     } catch {
       enqueueMutation('/api/floor', JSON.stringify(next))
@@ -147,7 +147,7 @@ export function useOrders({
       ticketLabel: order.label ? `Comanda ${order.label}` : '',
       ticketNumber: selectedTable?.orderId ? String(selectedTable.orderId).slice(-6).toUpperCase() : '',
       date: new Date().toLocaleString('es-ES'),
-      catalog, allergensList: [],
+      catalog: catalog as unknown as { products?: CatalogProduct[] }, allergensList: [],
     })
     printTicketHtml(html)
   }, [selectedOrder, orderDiscount, tipAmount, tipMethod, ticketSettings, selectedTable, currentUser, catalog])

@@ -17,7 +17,7 @@ import {
   removeItemCourtesy as removeItemCourtesyOp,
   setItemOverridePrice as setItemOverridePriceOp,
 } from '../application/OrderItemOperations/order-item-operations'
-import type { Floor, Catalog, CurrentUser, OrderItem, Product } from '../domain/types'
+import type { Floor, Catalog, CurrentUser, OrderItem, Product, CatalogProduct } from '../domain/types'
 import type { ModifierData, ModifierGroup } from '../domain/catalog/modifier-groups'
 import type { ModifierSelection as SelectedModifier } from '@tpv/core'
 import { eventBus } from '../lib/event-bus'
@@ -191,7 +191,7 @@ export function useOrderItems(
     if (next) persistFloor(next)
   }, [floor, getContext, persistFloor])
 
-  const editItemModifiers = useCallback((item: OrderItem, product: Product) => {
+  const editItemModifiers = useCallback((item: OrderItem, product: CatalogProduct) => {
     const groups = getModifierGroupsForProduct(String(product.id))
     if (groups.length === 0) return
     setEditingItemModifiers({ item, product, groups })

@@ -34,8 +34,8 @@ export default function ProductSection({
       {/* ── Carrusel Destacados ── */}
       {!isDebtOnly && (() => {
         const featured = (catalog?.products || [])
-          .filter(p => p.carousel_sort !== null && p.carousel_sort !== undefined && p.active !== false)
-          .sort((a, b) => (a.carousel_sort || 0) - (b.carousel_sort || 0));
+          .filter(p => p.carouselSort !== null && p.carouselSort !== undefined && p.active !== false)
+          .sort((a, b) => (a.carouselSort || 0) - (b.carouselSort || 0));
         if (featured.length === 0) return null;
         return (
           <div className="px-4 py-2 overflow-x-auto" style={{ borderBottom: `1px solid ${C.line}` }}>
@@ -204,8 +204,8 @@ export default function ProductSection({
                 <button
                   key={p.id}
                   onClick={() => onAddItem(p)}
-                  disabled={p.stock <= 0}
-                  style={{ background: C.surfaceLight, border: `1px solid ${C.line}`, opacity: p.stock <= 0 ? 0.4 : 1 }}
+                  disabled={(p.stock ?? Infinity) <= 0}
+                  style={{ background: C.surfaceLight, border: `1px solid ${C.line}`, opacity: (p.stock ?? Infinity) <= 0 ? 0.4 : 1 }}
                   className="text-left rounded-lg p-2 hover:opacity-90 disabled:cursor-not-allowed relative flex gap-2.5 items-start"
                 >
                   {p.image ? (
@@ -217,7 +217,7 @@ export default function ProductSection({
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium leading-tight truncate">{p.name}</p>
-                    {p.allergens?.length > 0 && (
+                    {p.allergens && p.allergens.length > 0 && (
                       <div className="flex gap-0.5 mt-1 flex-wrap">
                         {p.allergens.map(aid => {
                           const a = ALLERGENS.find(x => x.id === aid);

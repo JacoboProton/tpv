@@ -1,4 +1,4 @@
-import type { OrderItem, Product } from '../types';
+import type { OrderItem, Product } from '../types.js';
 export declare function calculateLineTotal(item: OrderItem, product?: Product): number;
 export declare function calculateOrderSubtotal(items: OrderItem[], catalog?: {
     products?: Product[];

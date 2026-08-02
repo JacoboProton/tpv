@@ -1,24 +1,17 @@
-export interface CatalogProduct {
-  id: string
-  name: string
+import type { Product } from '../../domain/types.js'
+
+export interface CatalogProduct extends Product {
   category: string
-  price: number
   ubicacion: string
   image?: string | null
-  allergens?: string[]
   description?: string | null
-  featured?: boolean
-  active?: boolean
   showTpv?: boolean
   showQr?: boolean
   agotado?: boolean
   carouselSort?: number | null
   type?: string
   inventariable?: boolean
-  discount?: number
   stockByLocation?: Record<string, { stock: number; lowStock?: number }>
-  stock?: number
-  lowStock?: number
   course?: string
 }
 

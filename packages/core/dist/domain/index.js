@@ -1,24 +1,24 @@
-export * from './types';
-export * from './catalog/modifier-groups';
-export * from './catalog/product-operations';
-export * from './employees/employee-operations';
-export * from './employees/employees';
-export * from './inventory/stock';
+export * from './types.js';
+export * from './catalog/modifier-groups.js';
+export * from './catalog/product-operations.js';
+export * from './employees/employee-operations.js';
+export * from './employees/employees.js';
+export * from './inventory/stock.js';
 // invoice-html has web dependencies - exclude for now
-// export * from './invoice/invoice-html'
-export * from './invoice/invoice';
-export * from './kitchen/kitchen';
-export * from './order/line-totals';
-export * from './order/menu-expansion';
-export * from './order/order';
-export * from './orders/multi-ticket';
-export * from './payments/bizum';
-export * from './payments/debt';
-export * from './payments/payments';
-export * from './payments/refund';
-export * from './pricing/offers';
-export * from './pricing/personal-discount';
-export * from './tables/floor-layout';
-export * from './tables/table-operations';
-export * from './tables/table';
+// export * from './invoice/invoice-html.js'
+export * from './invoice/invoice.js';
+export * from './kitchen/kitchen.js';
+export * from './order/line-totals.js';
+export * from './order/menu-expansion.js';
+export * from './order/order.js';
+export * from './orders/multi-ticket.js';
+export * from './payments/bizum.js';
+export * from './payments/debt.js';
+export * from './payments/payments.js';
+export * from './payments/refund.js';
+export * from './pricing/offers.js';
+export * from './pricing/personal-discount.js';
+export * from './tables/floor-layout.js';
+export * from './tables/table-operations.js';
+export * from './tables/table.js';
 //# sourceMappingURL=index.js.map

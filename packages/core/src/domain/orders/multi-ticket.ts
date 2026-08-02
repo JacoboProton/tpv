@@ -1,4 +1,4 @@
-import type { Floor, Table, Order } from '../types'
+import type { Floor, Table, Order } from '../types.js'
 
 export function createTicket(
   floor: Floor,

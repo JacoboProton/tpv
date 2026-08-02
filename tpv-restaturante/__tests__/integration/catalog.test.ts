@@ -155,7 +155,7 @@ describe('PATCH /api/catalog', () => {
     const { PATCH } = await import('../../app/api/catalog/route');
     const res = await PATCH(req('http://localhost', {
       method: 'PATCH',
-      body: { action: 'reorder-categories', data: [{ id: 'cat1', sort_order: 1 }] },
+      body: { action: 'reorder-categories', data: [{ id: 'cat1', sortOrder: 1 }] },
     }));
     expect(res.status).toBe(200);
   });
@@ -182,7 +182,7 @@ describe('PATCH /api/catalog', () => {
     const { PATCH } = await import('../../app/api/catalog/route');
     const res = await PATCH(req('http://localhost', {
       method: 'PATCH',
-      body: { action: 'toggle-category', data: { id: 'cat1', field: 'show_qr', value: false } },
+      body: { action: 'toggle-category', data: { id: 'cat1', field: 'showQr', value: false } },
     }));
     expect(res.status).toBe(200);
   });
@@ -200,7 +200,7 @@ describe('PATCH /api/catalog', () => {
     const { PATCH } = await import('../../app/api/catalog/route');
     const res = await PATCH(req('http://localhost', {
       method: 'PATCH',
-      body: { action: 'reorder-carousel', data: [{ id: 'p1', carousel_sort: 1 }] },
+      body: { action: 'reorder-carousel', data: [{ id: 'p1', carouselSort: 1 }] },
     }));
     expect(res.status).toBe(200);
   });

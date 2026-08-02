@@ -134,15 +134,15 @@ export async function PUT(req: NextRequest) {
     if (!parsed.success) return apiBadRequest(parsed.error.message);
     const body = parsed.data as Record<string, unknown>;
     const catData = body.categories as Array<{
-      id?: string; name?: string; sort_order?: number; active?: boolean;
-      printer_zone?: string; show_qr?: boolean;
+      id?: string; name?: string; sortOrder?: number; active?: boolean;
+      printerZone?: string; showQr?: boolean;
     }> | undefined;
     const prodData = body.products as Array<{
       id: string; name: string; category: string; price: string | number;
       ubicacion?: string; course?: string; image?: string | null;
       allergens?: string[]; description?: string | null; featured?: boolean;
-      active?: boolean; show_tpv?: boolean; show_qr?: boolean; agotado?: boolean;
-      carousel_sort?: number | null; type?: string; inventariable?: boolean;
+      active?: boolean;       showTpv?: boolean; showQr?: boolean; agotado?: boolean;
+      carouselSort?: number | null; type?: string; inventariable?: boolean;
       stockByLocation?: Record<string, { stock?: number; lowStock?: number }>;
     }> | undefined;
     const comboData = body.combos as Array<{
@@ -166,10 +166,10 @@ export async function PUT(req: NextRequest) {
         for (let i = 0; i < catData.length; i++) {
           const cat = catData[i];
           const name = typeof cat === 'string' ? cat : (cat.name ?? '');
-          const sortOrder = cat.sort_order ?? i;
+          const sortOrder = cat.sortOrder ?? i;
           const active = cat.active ?? true;
-          const printerZone = cat.printer_zone ?? '';
-          const showQr = cat.show_qr ?? true;
+          const printerZone = cat.printerZone ?? '';
+          const showQr = cat.showQr ?? true;
           const catId = cat.id || 'cat_' + Date.now() + '_' + i;
           await tx.insert(categories).values({
             tenantId, id: catId, name, sortOrder,
@@ -186,8 +186,8 @@ export async function PUT(req: NextRequest) {
             course: p.course ?? '', image: p.image ?? null,
             allergens: p.allergens ?? [], description: p.description ?? null,
             featured: p.featured ?? false, active: p.active ?? true,
-            showTpv: p.show_tpv ?? true, showQr: p.show_qr ?? true,
-            agotado: p.agotado ?? false, carouselSort: p.carousel_sort ?? null,
+            showTpv: p.showTpv ?? true, showQr: p.showQr ?? true,
+            agotado: p.agotado ?? false, carouselSort: p.carouselSort ?? null,
             type: p.type ?? '', inventariable: p.inventariable ?? false,
           }).onConflictDoUpdate({
             target: [products.id, products.tenantId],
@@ -267,10 +267,10 @@ export async function PATCH(req: NextRequest) {
     const tenantId = getTenantId(req);
 
     if (action === 'reorder-categories') {
-      const list = data as Array<{ id: string; sort_order?: number }>;
+      const list = data as Array<{ id: string; sortOrder?: number }>;
       for (const cat of list) {
         await db.update(categories)
-          .set({ sortOrder: cat.sort_order ?? 0 })
+          .set({ sortOrder: cat.sortOrder ?? 0 })
           .where(and(eq(categories.id, cat.id), eq(categories.tenantId, tenantId)));
       }
       return apiOk();
@@ -282,13 +282,13 @@ export async function PATCH(req: NextRequest) {
         name: { name: String(value ?? '') },
         price: { price: String(value ?? '0') },
         description: { description: String(value ?? '') },
-        show_tpv: { showTpv: Boolean(value) },
-        show_qr: { showQr: Boolean(value) },
+        showTpv: { showTpv: Boolean(value) },
+        showQr: { showQr: Boolean(value) },
         agotado: { agotado: Boolean(value) },
         course: { course: String(value ?? '') },
         ubicacion: { ubicacion: String(value ?? 'Bar') },
-        carousel_sort: { carouselSort: Number(value ?? 0) },
-        sort_order: { carouselSort: Number(value ?? 0) },
+        carouselSort: { carouselSort: Number(value ?? 0) },
+        sortOrder: { carouselSort: Number(value ?? 0) },
       };
       const setValues = fieldMap[field as keyof typeof fieldMap];
       if (!setValues || !id) return apiBadRequest('Campo no permitido');
@@ -302,8 +302,8 @@ export async function PATCH(req: NextRequest) {
       const { id, field, value } = data as { id?: string; field?: string; value?: unknown };
       const fieldMap = {
         name: { name: String(value ?? '') },
-        show_qr: { showQr: Boolean(value) },
-        sort_order: { sortOrder: Number(value ?? 0) },
+        showQr: { showQr: Boolean(value) },
+        sortOrder: { sortOrder: Number(value ?? 0) },
       };
       const setValues = fieldMap[field as keyof typeof fieldMap];
       if (!setValues || !id) return apiBadRequest('Campo no permitido');
@@ -321,10 +321,10 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (action === 'reorder-carousel') {
-      const list = data as Array<{ id: string; carousel_sort?: number | null }>;
+      const list = data as Array<{ id: string; carouselSort?: number | null }>;
       for (const item of list) {
         await db.update(products)
-          .set({ carouselSort: item.carousel_sort ?? null })
+          .set({ carouselSort: item.carouselSort ?? null })
           .where(and(eq(products.id, item.id), eq(products.tenantId, tenantId)));
       }
       return apiOk();

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, FileText, Check, X, ChevronDown, ChevronUp, Loader2, Search, Ban, AlertTriangle, Package, BookOpen } from 'lucide-react';
 import type { Theme } from '@/components/constants';
+import type { CatalogProduct } from '@tpv/core';
 
 interface ProductionIngredient {
   id: string;
@@ -52,14 +53,6 @@ interface Recipe {
   yieldQty: number;
   updatedAt: number;
   ingredients: RecipeIngredient[];
-}
-
-interface CatalogProduct {
-  id: string;
-  name: string;
-  type: string;
-  inventariable: boolean;
-  price?: number;
 }
 
 interface Catalog {

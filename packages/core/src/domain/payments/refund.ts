@@ -1,4 +1,4 @@
-import type { RefundInput, Sale, SaleRefund } from '../types'
+import type { RefundInput, Sale, SaleRefund } from '../types.js'
 
 export type { RefundInput }
 

@@ -1,4 +1,4 @@
-import type { Floor } from '../types';
+import type { Floor } from '../types.js';
 export declare function createTicket(floor: Floor, tableId: string, employeeName?: string): {
     floor: Floor;
     orderId: string;

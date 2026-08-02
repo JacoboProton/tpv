@@ -1,14 +1,11 @@
+import type { CatalogProduct } from '@tpv/core';
+
 interface TicketItem {
   name: string;
   qty: number;
   price: number;
   productId?: string | null;
   modifiers?: Array<{ optionName?: string; name?: string }>;
-}
-
-interface CatalogProduct {
-  id: string;
-  allergens?: string[];
 }
 
 interface Allergen {

@@ -10,7 +10,7 @@ interface Category {
   id: string;
   name: string;
   active?: boolean;
-  show_qr?: boolean;
+  showQr?: boolean;
 }
 
 interface Product {
@@ -21,7 +21,7 @@ interface Product {
   image?: string;
   description?: string;
   active?: boolean;
-  show_qr?: boolean;
+  showQr?: boolean;
   agotado?: boolean;
   course?: string;
 }
@@ -125,9 +125,9 @@ export default function OnlineOrderingPage() {
     const catMap: Record<string, Category> = {};
     for (const c of (catalog.categories as Category[] || [])) catMap[c.name] = c;
     return (catalog.products as Product[] || []).filter(p => {
-      if (p.active === false || p.show_qr === false || p.agotado === true) return false;
+      if (p.active === false || p.showQr === false || p.agotado === true) return false;
       const cat = catMap[p.category];
-      if (!cat || cat.active === false || cat.show_qr === false) return false;
+      if (!cat || cat.active === false || cat.showQr === false) return false;
       return true;
     });
   }, [catalog]);
@@ -135,7 +135,7 @@ export default function OnlineOrderingPage() {
   const categories: Category[] = useMemo(() => {
     if (!catalog) return [];
     return (catalog.categories as Category[] || []).filter(c => {
-      if (c.active === false || c.show_qr === false) return false;
+      if (c.active === false || c.showQr === false) return false;
       return visibleProducts.some(p => p.category === c.name);
     });
   }, [catalog, visibleProducts]);

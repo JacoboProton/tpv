@@ -1,4 +1,4 @@
-import type { ItemState, KitchenItem, Floor } from '../types';
+import type { ItemState, KitchenItem, Floor } from '../types.js';
 export type { ItemState, KitchenItem };
 export declare function getItemState(item: KitchenItem): ItemState;
 export declare function canTransitionTo(item: KitchenItem, target: ItemState): boolean;

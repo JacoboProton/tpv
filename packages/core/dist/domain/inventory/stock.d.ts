@@ -1,4 +1,4 @@
-import type { StockEntry } from '../types';
+import type { StockEntry } from '../types.js';
 export type { StockEntry };
 export declare function deductStock(stockByLocation: Record<string, StockEntry> | undefined, ubicacion: string, qty: number): {
     stockByLocation: Record<string, StockEntry>;

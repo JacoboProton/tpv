@@ -1,4 +1,4 @@
-import type { Floor, Catalog, Product } from '../../domain/types';
+import type { Floor, Catalog, Product } from '../../domain/types.js';
 export interface AddNormalItemInput {
     product: Product;
     modifiers?: any[];

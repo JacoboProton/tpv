@@ -1,20 +1,11 @@
-import type { Table, Order, Floor, OrderItem, CustomerInfo, HistoryEntry, TicketSettings, Employee, Product } from '@tpv/core';
+import type { Table, Order, Floor, OrderItem, CustomerInfo, HistoryEntry, TicketSettings, Employee, CatalogProduct } from '@tpv/core';
 import type { Theme } from '@/components/constants';
 
-export type { Table, Order, Floor, OrderItem, CustomerInfo, HistoryEntry, TicketSettings, Employee } from '@tpv/core';
+export type { Table, Order, Floor, OrderItem, CustomerInfo, HistoryEntry, TicketSettings, Employee, CatalogProduct } from '@tpv/core';
 
 export interface CategoryInfo {
   id: string;
   name: string;
-}
-
-export interface CatalogProduct extends Product {
-  category: string;
-  course: string;
-  ubicacion: string;
-  allergens: string[];
-  stock: number;
-  discount: number;
 }
 
 export interface ComboSlotGroupItem {

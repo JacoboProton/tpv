@@ -1,4 +1,4 @@
-import type { Employee, Floor } from '../types';
+import type { Employee, Floor } from '../types.js';
 export declare function createEmployee(data: Partial<Employee>): Employee;
 export declare function canDeleteEmployee(employees: Employee[], employeeId: string): {
     allowed: boolean;

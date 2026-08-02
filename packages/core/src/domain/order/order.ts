@@ -1,5 +1,5 @@
-import type { OrderItem } from '../types'
-import type { OrderTotals } from '../types'
+import type { OrderItem } from '../types.js'
+import type { OrderTotals } from '../types.js'
 
 export type { OrderTotals }
 

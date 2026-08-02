@@ -5,6 +5,7 @@ import { Ticket, Download, Search, Printer } from 'lucide-react';
 import { buildTicketHtml, printTicketHtml } from '../../lib/ticket-template';
 import { euros } from '@/components/constants';
 import type { Theme } from '@/components/constants';
+import type { TicketSettings } from '@tpv/core';
 
 interface TicketItem {
   name: string;
@@ -26,16 +27,6 @@ interface TicketSale {
   tip?: number;
   tipMethod?: string;
   totalWithTip?: number;
-}
-
-interface TicketSettings {
-  restaurantName?: string;
-  companyCif?: string;
-  companyAddress?: string;
-  companyPhone?: string;
-  logoUrl?: string;
-  footerText?: string;
-  ticketWidth?: number | string;
 }
 
 export interface TicketsViewProps {

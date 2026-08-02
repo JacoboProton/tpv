@@ -16,16 +16,10 @@ const ICON_MAP: Record<string, LucideIcon> = {
 };
 
 import type { NavItem } from '@/modules/core/nav-config'
+import type { Floor, Table } from '@tpv/core';
 
-interface FloorTable {
-  id: string;
-  name?: string;
-  status: string;
-}
-
-interface FloorData {
-  tables: FloorTable[];
-}
+type FloorTable = Table;
+type FloorData = Floor;
 
 interface Command {
   id: string;

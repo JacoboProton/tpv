@@ -1,3 +1,7 @@
+import type { CatalogProduct } from '@tpv/core';
+
+export type { CatalogProduct };
+
 export interface PurchaseOrderLine {
   id: string;
   productId: string;
@@ -33,12 +37,6 @@ export interface Supplier {
   notes: string;
   active: boolean;
   createdAt: number;
-}
-
-export interface CatalogProduct {
-  id: string;
-  name: string;
-  type: string;
 }
 
 export interface SupplierCatalogOffer {

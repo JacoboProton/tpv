@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { Plus, Trash2, Save, X, Tag, Euro, Percent, Clock, CalendarDays, Eye } from 'lucide-react';
 import { euros, round2 } from '@/components/constants';
 import type { Theme } from '@/components/constants';
+import type { CatalogProduct } from '@tpv/core';
 
 function id() { return 'pr_' + Date.now() + Math.random().toString(16).slice(2, 6); }
 
@@ -46,13 +47,6 @@ interface PriceRule {
   end_time: string;
   type: string;
   value: number;
-}
-
-interface CatalogProduct {
-  id: string;
-  name: string;
-  price: number;
-  category?: string;
 }
 
 export interface PreciosPanelProps {

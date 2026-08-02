@@ -1,4 +1,4 @@
-import type { IgicBreakdown } from '../types';
+import type { IgicBreakdown } from '../types.js';
 export type { IgicBreakdown };
 export declare const IGIC_RATE = 0.07;
 export declare function calculateBaseImponible(totalConIgic: number): number;

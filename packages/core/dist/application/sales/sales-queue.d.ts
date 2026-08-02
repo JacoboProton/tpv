@@ -1,4 +1,4 @@
-import type { Sale } from '../../domain/types';
+import type { Sale } from '../../domain/types.js';
 export interface SalesQueueDeps {
     addSale: (sale: Sale) => Promise<{
         ok: boolean;

@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Plus, X, Calendar, Clock, Users, Phone, Mail, MapPin, Check, Trash2, Search } from 'lucide-react';
 import type { Theme } from '@/components/constants';
+import type { Floor, Zone } from '@tpv/core';
 import ReservaSettingsView from '@/components/views/ReservaSettingsView';
 
 interface Reservation {
@@ -25,23 +26,8 @@ interface Reservation {
   updatedAt: number;
 }
 
-interface FloorTable {
-  id: string;
-  name: string;
-  type: string;
-  seats: number;
-  reserved_for?: string;
-}
-
-interface FloorZone {
-  id: string;
-  name: string;
-}
-
-interface Floor {
-  tables: FloorTable[];
-  zones: FloorZone[];
-}
+type FloorTable = Floor['tables'][number];
+type FloorZone = Zone;
 
 interface SlotInfo {
   time: string;

@@ -12,23 +12,23 @@ export interface Product {
     price: number;
     cost?: number;
     barcode?: string;
-    categoryId: string;
+    categoryId?: string;
     category?: string;
-    description?: string;
+    description?: string | null;
     agotado?: boolean;
     active?: boolean;
-    show_tpv?: boolean;
-    show_qr?: boolean;
+    showTpv?: boolean;
+    showQr?: boolean;
     course?: string;
     ubicacion?: string;
     allergens?: string[];
-    image?: string;
+    image?: string | null;
     stock?: number;
     lowStock?: number;
     stockByLocation?: Record<string, StockEntry>;
     discount?: number;
     featured?: boolean;
-    carousel_sort?: number | null;
+    carouselSort?: number | null;
     isMenu?: boolean;
     menuData?: any;
     isCombo?: boolean;
@@ -38,8 +38,8 @@ export interface Category {
     id: string;
     name: string;
     active?: boolean;
-    show_qr?: boolean;
-    sort_order?: number;
+    showQr?: boolean;
+    sortOrder?: number;
 }
 export interface NewProductInput {
     name: string;
@@ -166,7 +166,7 @@ export interface Table {
     orderIds?: string[];
     type?: TableType;
     isFiado?: boolean;
-    reserved?: boolean;
+    reserved?: boolean | null;
     reserved_for?: string;
     reservation?: {
         for?: string;
@@ -196,7 +196,10 @@ export interface Floor {
     id?: string;
     name?: string;
     zones?: Zone[];
-    background?: string | null;
+    background?: string | {
+        url: string;
+        opacity: number;
+    } | null;
 }
 export interface Payment {
     method: string;

@@ -1,7 +1,7 @@
-import { euros } from '../../lib/utils'
-import { calculateIgic } from './invoice'
+import { euros } from '../../lib/utils.js'
+import { calculateIgic } from './invoice.js'
 
-import type { Sale } from '../types'
+import type { Sale } from '../types.js'
 
 export function buildInvoiceHtml(ticketSettings: Record<string, any>, sale: Sale): string {
   const { restaurantName, companyCif, companyAddress, companyPhone, footerText } = ticketSettings

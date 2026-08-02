@@ -31,7 +31,7 @@ interface Product {
   category: string;
   price: number;
   active?: boolean;
-  show_qr?: boolean;
+  showQr?: boolean;
   agotado?: boolean;
   image?: string;
   description?: string;
@@ -44,7 +44,7 @@ interface Category {
   id: string;
   name: string;
   active?: boolean;
-  show_qr?: boolean;
+  showQr?: boolean;
 }
 
 interface Offer {
@@ -92,9 +92,9 @@ interface Combo {
 }
 
 function isQrVisible(p: Product, categories: Category[]): boolean {
-  if (p.active === false || p.show_qr === false || p.agotado === true) return false;
+  if (p.active === false || p.showQr === false || p.agotado === true) return false;
   const cat = categories.find(c => c.name === p.category);
-  if (!cat || cat.active === false || cat.show_qr === false) return false;
+  if (!cat || cat.active === false || cat.showQr === false) return false;
   return true;
 }
 
@@ -176,7 +176,7 @@ export default function MenuPage() {
 
   const qrCategories = useMemo(() => {
     if (!catalog) return [];
-    return catalog.categories.filter(c => c.active !== false && c.show_qr !== false);
+    return catalog.categories.filter(c => c.active !== false && c.showQr !== false);
   }, [catalog]);
 
   const combos = useMemo(() => {

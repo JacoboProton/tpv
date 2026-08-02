@@ -1,4 +1,4 @@
-import type { Employee, EmployeeRole } from '../types';
+import type { Employee, EmployeeRole } from '../types.js';
 export type { EmployeeRole };
 export declare function hasRole(employee: Employee | null, requiredRole: EmployeeRole): boolean;
 export declare function isAdmin(employee: Employee | null): boolean;

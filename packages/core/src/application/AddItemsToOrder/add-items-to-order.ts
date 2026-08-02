@@ -1,7 +1,7 @@
-import { expandMenu, expandCombo } from '../../domain/order/menu-expansion'
-import type { MenuExpansionItem } from '../../domain/order/menu-expansion'
-import type { Floor, Catalog, Product, OrderItem } from '../../domain/types'
-import { clone, generateId, round2 } from '../../lib/utils'
+import { expandMenu, expandCombo } from '../../domain/order/menu-expansion.js'
+import type { MenuExpansionItem } from '../../domain/order/menu-expansion.js'
+import type { Floor, Catalog, Product, OrderItem } from '../../domain/types.js'
+import { clone, generateId, round2 } from '../../lib/utils.js'
 
 function findOrCreateOrder(floor: Floor, tableId: string, employeeName: string, activeTicketId?: string | null) {
   const table = floor.tables.find((t) => t.id === tableId)

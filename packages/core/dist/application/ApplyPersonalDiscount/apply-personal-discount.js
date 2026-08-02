@@ -1,5 +1,5 @@
-import { clone } from '../../lib/utils';
-import { calculatePersonalDiscountAmount, applyDiscountRates, removeDiscountRates, buildEmployeeMonthlyUsage, buildEmployeeMonthlyUsageDecrement } from '../../domain/pricing/personal-discount';
+import { clone } from '../../lib/utils.js';
+import { calculatePersonalDiscountAmount, applyDiscountRates, removeDiscountRates, buildEmployeeMonthlyUsage, buildEmployeeMonthlyUsageDecrement } from '../../domain/pricing/personal-discount.js';
 export async function applyPersonalDiscount(floor, employees, catalog, orderId, employeePin, deps) {
     const emp = await deps.verifyEmployeePin(employeePin);
     if (!emp)

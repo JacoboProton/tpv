@@ -1,3 +1,3 @@
-import type { Floor } from '../../domain/types';
+import type { Floor } from '../../domain/types.js';
 export declare function toggleCuentaStatus(floor: Floor, tableId: string): Floor | null;
 //# sourceMappingURL=toggle-table-status.d.ts.map

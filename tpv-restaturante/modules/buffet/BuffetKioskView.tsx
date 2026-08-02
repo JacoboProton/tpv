@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Clock, Users, Pause, Play, X, Check, ChevronDown, ChevronUp, AlertTriangle, Trash2, Settings, Plus, Minus, Ban, ClipboardList, Bell } from 'lucide-react';
 import { euros } from '@/components/constants';
 import { fetchBuffetSessions, fetchBuffetConfig, buffetAction, fetchBuffetRounds } from '../../lib/api';
+import type { Floor, Table } from '@tpv/core';
 
 const COLOURS = {
   surface: '#1a1e24',
@@ -37,15 +38,7 @@ function formatTimeFull(ms: number) {
   return `${h > 0 ? h + 'h ' : ''}${m}' ${s}"`;
 }
 
-interface FloorTable {
-  id: string;
-  name: string;
-  status: string;
-}
-
-interface Floor {
-  tables: FloorTable[];
-}
+type FloorTable = Table;
 
 interface BuffetConfig {
   enabled?: boolean;

@@ -1,5 +1,5 @@
-import type { OrderItem } from '../types';
-import type { OrderTotals } from '../types';
+import type { OrderItem } from '../types.js';
+import type { OrderTotals } from '../types.js';
 export type { OrderTotals };
 export declare function calculateSubtotal(items: OrderItem[]): number;
 export declare function calculateDiscountAmount(subtotal: number, discountPct: number): number;

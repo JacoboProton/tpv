@@ -1,3 +1,3 @@
-import type { Floor, Sale } from '../types';
+import type { Floor, Sale } from '../types.js';
 export declare function createDebtOrder(floor: Floor, tableId: string, lastFiadoSale: Sale): Floor;
 //# sourceMappingURL=debt.d.ts.map

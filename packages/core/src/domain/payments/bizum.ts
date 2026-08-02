@@ -1,4 +1,4 @@
-import type { Sale } from '../types'
+import type { Sale } from '../types.js'
 
 export function confirmBizumPayments(sale: Sale): Sale {
   const payments = (sale.payments || []).map((p) =>

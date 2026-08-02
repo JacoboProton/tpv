@@ -1,5 +1,5 @@
-import { euros } from '../../lib/utils';
-import { calculateIgic } from './invoice';
+import { euros } from '../../lib/utils.js';
+import { calculateIgic } from './invoice.js';
 export function buildInvoiceHtml(ticketSettings, sale) {
     const { restaurantName, companyCif, companyAddress, companyPhone, footerText } = ticketSettings;
     const totalConIva = sale.total || 0;

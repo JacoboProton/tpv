@@ -105,7 +105,7 @@ interface KDSFloor {
 
 interface KDSCategory {
   name: string;
-  printer_zone?: string;
+  printerZone?: string;
 }
 
 interface KDSProduct {
@@ -255,7 +255,7 @@ export default function KDSView({ floor, catalog, onReady, onAgotar, onUpdateIte
 
   const zones: string[] = useMemo(() => {
     const z = new Set<string>();
-    if (catalog?.categories) catalog.categories.forEach(c => { const cat = typeof c === 'string' ? null : c; if (cat?.printer_zone) z.add(cat.printer_zone); });
+    if (catalog?.categories) catalog.categories.forEach(c => { const cat = typeof c === 'string' ? null : c; if (cat?.printerZone) z.add(cat.printerZone); });
     return ['all', ...z];
   }, [catalog]);
 
@@ -271,7 +271,7 @@ export default function KDSView({ floor, catalog, onReady, onAgotar, onUpdateIte
         const p = catalog.products.find(p => p.id === i.productId);
         if (!p) return false;
         const cat = catalog.categories?.find(c => (typeof c === 'string' ? c : c.name) === (typeof p.category === 'string' ? p.category : ''));
-        return typeof cat !== 'string' && cat?.printer_zone === zoneFilter;
+        return typeof cat !== 'string' && cat?.printerZone === zoneFilter;
       });
       if (zoneItems.length === 0) return null;
       return { ...o, orderId: id, tableName: table?.name || o.tableId || id, items: zoneItems };

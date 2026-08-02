@@ -1,4 +1,4 @@
-import type { OrderItem, Product, Catalog, Employee } from '../types'
+import type { OrderItem, Product, Catalog, Employee } from '../types.js'
 
 export type { }
 

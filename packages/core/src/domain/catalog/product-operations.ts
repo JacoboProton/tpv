@@ -1,4 +1,4 @@
-import type { NewProductInput, StockDelta, Product, Catalog, StockEntry } from '../types'
+import type { NewProductInput, StockDelta, Product, Catalog, StockEntry } from '../types.js'
 
 export type { NewProductInput, StockDelta }
 
@@ -36,7 +36,7 @@ export function toggleProductAgotado(catalog: Catalog, productId: string, agotad
   }
 }
 
-export function getProductImage(catalog: Catalog, productId: string): string | undefined {
+export function getProductImage(catalog: Catalog, productId: string): string | null | undefined {
   return catalog?.products?.find(p => p.id === productId)?.image
 }
 

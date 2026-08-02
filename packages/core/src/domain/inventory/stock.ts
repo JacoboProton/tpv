@@ -1,4 +1,4 @@
-import type { StockEntry } from '../types'
+import type { StockEntry } from '../types.js'
 
 export type { StockEntry }
 

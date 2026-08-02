@@ -1,4 +1,4 @@
-import type { PaymentSplit, Payment } from '../types';
+import type { PaymentSplit, Payment } from '../types.js';
 export type { PaymentSplit, Payment };
 export declare function buildPayments(splits: PaymentSplit[]): Payment[];
 export declare function isFiado(payments: Payment[]): boolean;

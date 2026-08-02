@@ -5,20 +5,20 @@ import {
 } from 'lucide-react';
 import { clone } from '@/components/constants';
 import type { Theme } from '@/components/constants';
+import type { Floor, Table, TableType, Zone } from '@tpv/core';
 
 const DEFAULT_CANVAS_W = 1200;
 const DEFAULT_CANVAS_H = 800;
 const MIN_TABLE_SIZE = 40;
 const SNAP_DIST = 8;
 
-interface FloorTable {
-  id: string;
+interface FloorTable extends Table {
   name: string;
   status: string;
   orderId: string | null;
-  reserved: unknown | null;
+  reserved: boolean | null;
   isFiado: boolean;
-  type: string;
+  type: TableType;
   x: number;
   y: number;
   width: number;
@@ -32,17 +32,9 @@ interface FloorTable {
   color: string;
 }
 
-interface FloorZone {
-  id: string;
-  name: string;
-  color: string;
-}
+type FloorZone = Zone;
 
-interface FloorData {
-  tables: FloorTable[];
-  zones?: FloorZone[];
-  background?: { url: string; opacity: number } | null;
-}
+type FloorData = Floor;
 
 function getShapeStyle(table: FloorTable, zones: FloorZone[], C: Theme) {
   const w = table.width || 80;
@@ -103,8 +95,14 @@ export default function FloorEditor({ floor, persistFloor, colors: C }: FloorEdi
     setRedoStack([]);
   }, [floor]);
 
-  const tablesWithDefaults = (floor.tables ?? []).map(t => ({
+  const tablesWithDefaults: FloorTable[] = (floor.tables ?? []).map(t => ({
     ...t,
+    name: t.name ?? '',
+    status: t.status ?? 'libre',
+    orderId: t.orderId ?? null,
+    reserved: t.reserved ?? null,
+    isFiado: t.isFiado ?? false,
+    type: t.type ?? 'mesa',
     x: t.x ?? 100 + Math.random() * 200,
     y: t.y ?? 100 + Math.random() * 200,
     width: t.width ?? 80,
@@ -604,7 +602,7 @@ export default function FloorEditor({ floor, persistFloor, colors: C }: FloorEdi
             width: canvasW, height: canvasH, transform: `scale(${zoom})`, transformOrigin: '0 0',
           }}>
             {/* Background image */}
-            {floor.background?.url && (
+            {typeof floor.background === 'object' && floor.background !== null && floor.background.url && (
               <img src={floor.background.url} alt="Plano"
                 style={{
                   position: 'absolute', inset: 0, width: '100%', height: '100%',
@@ -801,14 +799,17 @@ export default function FloorEditor({ floor, persistFloor, colors: C }: FloorEdi
       )}
 
       {/* Background opacity slider */}
-      {floor.background?.url && (
+      {typeof floor.background === 'object' && floor.background !== null && floor.background.url && (
         <div className="flex items-center gap-3 mt-3" style={{ color: C.muted }}>
           <label className="text-xs">Opacidad fondo</label>
           <input type="range" min="5" max="100" value={floor.background.opacity ?? 50}
             onChange={e => {
               const next = clone(floor);
-              next.background = { url: floor.background!.url, opacity: parseInt(e.target.value) };
-              persistFloor(next);
+              const bg = floor.background;
+              if (typeof bg === 'object' && bg !== null) {
+                next.background = { url: bg.url, opacity: parseInt(e.target.value) };
+                persistFloor(next);
+              }
             }}
             className="flex-1 max-w-[200px]"
           />

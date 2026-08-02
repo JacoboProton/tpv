@@ -1,22 +1,8 @@
 import { fetchFloor as apiFetchFloor, saveFloor as apiSaveFloor } from '@/lib/api'
 import { cacheGet, cacheSet } from '@/lib/offline'
+import type { Floor } from '@tpv/core'
 
-export interface Table {
-  id: string
-  name: string
-  mesa?: string
-  orderIds: string[]
-  clientName?: string
-  people?: number
-  peopleCount?: number
-  status: string
-  zone?: string
-  invoiceCount?: number
-}
-
-export interface FloorData {
-  tables: Table[]
-}
+export type FloorData = Floor
 
 export async function getFloor(): Promise<FloorData | null> {
   try {
@@ -39,6 +25,6 @@ export function getCachedFloor(): FloorData | null {
   return cacheGet('floor') as FloorData | null
 }
 
-export function findTable(floor: FloorData | null, tableId: string): Table | null {
+export function findTable(floor: FloorData | null, tableId: string): Floor['tables'][number] | null {
   return floor?.tables?.find(t => t.id === tableId) || null
 }

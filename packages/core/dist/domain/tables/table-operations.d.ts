@@ -1,4 +1,4 @@
-import type { Floor, Order } from '../types';
+import type { Floor, Order } from '../types.js';
 export type {};
 export declare function moveTableOrder(floor: Floor, srcTableId: string, dstTableId: string): Floor;
 export declare function mergeTables(floor: Floor, dstTableId: string, srcTableIds: string[], employeeName?: string): Floor;

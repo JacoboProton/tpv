@@ -7,6 +7,7 @@ import {
   fetchDeliveryOrders, createDeliveryOrder, updateDeliveryOrder, addDeliveryTracking,
 } from '../../lib/api';
 import { euros } from '@/components/constants';
+import type { CatalogProduct } from '@tpv/core';
 
 const C = {
   base: '#0f0d0a', surface: '#1a1714', surfaceLight: '#26221e',
@@ -59,12 +60,6 @@ interface DeliveryOrder {
   status: string;
   runner_id: string;
   delivered_at: string;
-}
-
-interface CatalogProduct {
-  id: string;
-  name: string;
-  price: number;
 }
 
 export interface DeliveryViewProps {

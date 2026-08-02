@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, FileText, Truck, Calendar, Euro, Check, X, ChevronDown, ChevronUp, Loader2, Search, Package, AlertTriangle, Ban, Trash2 } from 'lucide-react';
 import type { Theme } from '@/components/constants';
+import type { CatalogProduct } from '@tpv/core';
 
 interface AlbaranLine {
   id: string;
@@ -67,12 +68,6 @@ interface SupplierCatalogOffer {
   productName: string;
   price: number;
   sku: string;
-}
-
-interface CatalogProduct {
-  id: string;
-  name: string;
-  type: string;
 }
 
 interface AlbaranesViewProps {

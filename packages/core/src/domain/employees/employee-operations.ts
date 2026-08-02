@@ -1,4 +1,4 @@
-import type { Employee, Floor } from '../types'
+import type { Employee, Floor } from '../types.js'
 
 export function createEmployee(data: Partial<Employee>): Employee {
   return { id: 'e_' + Date.now(), ...data } as Employee

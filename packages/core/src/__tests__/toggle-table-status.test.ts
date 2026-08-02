@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { toggleCuentaStatus } from '../application/TableStatus/toggle-table-status'
+import { toggleCuentaStatus } from '../application/TableStatus/toggle-table-status.js'
 
 function makeFloor(status = 'ocupada') {
   return {

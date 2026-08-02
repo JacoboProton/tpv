@@ -1,4 +1,4 @@
-import type { RefundInput, Sale } from '../types';
+import type { RefundInput, Sale } from '../types.js';
 export type { RefundInput };
 export declare function addRefundToSale(sale: Sale, refund: RefundInput, employeeName: string): Sale;
 //# sourceMappingURL=refund.d.ts.map

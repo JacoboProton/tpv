@@ -1,7 +1,7 @@
-import { clone } from '../../lib/utils'
+import { clone } from '../../lib/utils.js'
 
-import type { Floor, Catalog, Employee } from '../../domain/types'
-import { calculatePersonalDiscountAmount, applyDiscountRates, removeDiscountRates, buildEmployeeMonthlyUsage, buildEmployeeMonthlyUsageDecrement } from '../../domain/pricing/personal-discount'
+import type { Floor, Catalog, Employee } from '../../domain/types.js'
+import { calculatePersonalDiscountAmount, applyDiscountRates, removeDiscountRates, buildEmployeeMonthlyUsage, buildEmployeeMonthlyUsageDecrement } from '../../domain/pricing/personal-discount.js'
 
 export interface VerifiedEmployee {
   id: string

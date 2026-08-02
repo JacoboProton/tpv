@@ -1,4 +1,4 @@
-import type { OrderItem, Offer } from '../types'
+import type { OrderItem, Offer } from '../types.js'
 
 export type { Offer }
 

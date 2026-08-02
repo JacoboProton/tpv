@@ -1,5 +1,5 @@
-import { clone } from '../../lib/utils'
-import type { Floor } from '../../domain/types'
+import { clone } from '../../lib/utils.js'
+import type { Floor } from '../../domain/types.js'
 
 export function changeItemQuantity(floor: Floor, orderId: string, itemId: string, delta: number): Floor | null {
   const next = clone(floor) as Floor

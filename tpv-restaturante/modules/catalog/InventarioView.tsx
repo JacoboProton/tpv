@@ -3,16 +3,10 @@
 import { useState, useRef, useEffect, type FormEvent, type ChangeEvent } from 'react';
 import { Plus, AlertTriangle, Trash2, Package, Filter, FolderTree, List, Camera, Star, Truck, ChevronDown, ChevronUp, Euro, Check, X } from 'lucide-react';
 import { euros, ALLERGENS, ALLERGEN_COLORS } from '@/components/constants';
+import type { CatalogProduct } from '@tpv/core';
 
-interface StockEntry { stock: number; lowStock: number; }
+interface StockEntry { stock: number; lowStock?: number; }
 interface StockByLocation { [loc: string]: StockEntry; }
-
-interface CatalogProduct {
-  id: string; name: string; category: string; price: number;
-  stockByLocation?: StockByLocation; ubicacion: string;
-  image?: string; featured?: boolean; allergens?: string[];
-  discount?: number;
-}
 
 interface Catalog {
   products: CatalogProduct[];

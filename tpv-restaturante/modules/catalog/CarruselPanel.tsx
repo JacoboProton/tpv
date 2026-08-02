@@ -4,13 +4,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { Plus, Trash2, Save, Star, ArrowUp, ArrowDown, GripVertical } from 'lucide-react';
 import { euros } from '@/components/constants';
 import type { Theme } from '@/components/constants';
-
-interface CatalogProduct {
-  id: string;
-  name: string;
-  price: number;
-  carousel_sort?: number | null;
-}
+import type { CatalogProduct } from '@tpv/core';
 
 interface Catalog {
   products: CatalogProduct[];
@@ -18,7 +12,7 @@ interface Catalog {
 
 export interface CarruselPanelProps {
   catalog: Catalog;
-  onSave: (data: { id: string; carousel_sort: number | null }[]) => void;
+  onSave: (data: { id: string; carouselSort: number | null }[]) => void;
   colors: Theme;
 }
 
@@ -28,8 +22,8 @@ export default function CarruselPanel({ catalog, onSave, colors: C }: CarruselPa
   const [featured, setFeatured] = useState<CatalogProduct[]>(() => {
     const all = catalog?.products || [];
     return all
-      .filter((p: CatalogProduct) => p.carousel_sort !== null && p.carousel_sort !== undefined)
-      .sort((a: CatalogProduct, b: CatalogProduct) => (a.carousel_sort || 0) - (b.carousel_sort || 0));
+      .filter((p: CatalogProduct) => p.carouselSort !== null && p.carouselSort !== undefined)
+      .sort((a: CatalogProduct, b: CatalogProduct) => (a.carouselSort || 0) - (b.carouselSort || 0));
   });
 
   const available = useMemo(() => {
@@ -66,11 +60,11 @@ export default function CarruselPanel({ catalog, onSave, colors: C }: CarruselPa
   }, [featured.length]);
 
   function save() {
-    const data = featured.map((p, i) => ({ id: p.id, carousel_sort: i + 1 }));
+    const data = featured.map((p, i) => ({ id: p.id, carouselSort: i + 1 }));
     const allIds = new Set(featured.map(p => p.id));
     const removed = (catalog?.products || [])
-      .filter((p: CatalogProduct) => p.carousel_sort !== null && p.carousel_sort !== undefined && !allIds.has(p.id))
-      .map((p: CatalogProduct) => ({ id: p.id, carousel_sort: null }));
+      .filter((p: CatalogProduct) => p.carouselSort !== null && p.carouselSort !== undefined && !allIds.has(p.id))
+      .map((p: CatalogProduct) => ({ id: p.id, carouselSort: null }));
     onSave([...data, ...removed]);
   }
 

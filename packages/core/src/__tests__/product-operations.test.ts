@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import type { Catalog, Category } from '../domain/types'
+import type { Catalog, Category } from '../domain/types.js'
 import {
   createProduct, ensureCategoryExists, removeProduct,
   toggleProductAgotado, getProductImage, detectStockChanges,
   addProductToCatalog, setProductField, getLowStockProducts,
-} from '../domain/catalog/product-operations'
+} from '../domain/catalog/product-operations.js'
 
 const cat = (name: string): Category => ({ id: 'c_' + name, name })
 

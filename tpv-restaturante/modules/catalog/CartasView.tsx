@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { euros, ALLERGENS, ALLERGEN_COLORS, COURSES } from '@/components/constants';
 import type { Theme } from '@/components/constants';
+import type { CatalogProduct } from '@tpv/core';
 
 const PRINTER_ZONES = ['', 'Cocina', 'Barra', 'Cockteleria'];
 
@@ -18,29 +19,10 @@ function normalize(s: string) { return s.toLowerCase().normalize('NFD').replace(
 interface CatalogCategory {
   id: string;
   name: string;
-  sort_order?: number;
+  sortOrder?: number;
   active?: boolean;
-  printer_zone?: string;
-  show_qr?: boolean;
-}
-
-interface CatalogProduct {
-  id: string;
-  name: string;
-  category: string;
-  price: number;
-  ubicacion: string;
-  course?: string;
-  image?: string | null;
-  allergens?: string[];
-  description?: string;
-  featured?: boolean;
-  active?: boolean;
-  show_tpv?: boolean;
-  show_qr?: boolean;
-  agotado?: boolean;
-  type?: string;
-  inventariable?: boolean;
+  printerZone?: string;
+  showQr?: boolean;
 }
 
 interface Catalog {
@@ -157,7 +139,7 @@ export default function CartasView({ catalog, onSave, colors: C }: CartasViewPro
       id: generateId(), name: quickName, category: cat,
       price: parseFloat(quickPrice), ubicacion: 'Cocina', course: '',
       image: null, allergens: [], description: '', featured: false,
-      active: true, show_tpv: true, show_qr: true, agotado: false,
+      active: true, showTpv: true, showQr: true, agotado: false,
       type: '', inventariable: false,
     });
     setLocal(next);
@@ -173,7 +155,7 @@ export default function CartasView({ catalog, onSave, colors: C }: CartasViewPro
   function addCategory() {
     const next = { ...local };
     const name = `Categoría ${next.categories.length + 1}`;
-    next.categories.push({ id: 'cat_' + Date.now(), name, sort_order: next.categories.length, active: true, printer_zone: '', show_qr: true });
+    next.categories.push({ id: 'cat_' + Date.now(), name, sortOrder: next.categories.length, active: true, printerZone: '', showQr: true });
     setLocal(next);
   }
 
@@ -190,8 +172,8 @@ export default function CartasView({ catalog, onSave, colors: C }: CartasViewPro
         (p.price || 0).toFixed(2),
         `"${(p.category || '').replace(/"/g, '""')}"`,
         p.active !== false ? '1' : '0',
-        p.show_tpv !== false ? '1' : '0',
-        p.show_qr !== false ? '1' : '0',
+        p.showTpv !== false ? '1' : '0',
+        p.showQr !== false ? '1' : '0',
         p.agotado ? '1' : '0',
         `"${(p.description || '').replace(/"/g, '""')}"`,
       ].join(',')
@@ -229,16 +211,16 @@ export default function CartasView({ catalog, onSave, colors: C }: CartasViewPro
       if (existing) {
         existing.name = name; existing.price = price; existing.category = category;
         existing.active = activeIdx >= 0 ? cols[activeIdx] === '1' : true;
-        existing.show_tpv = tpvIdx >= 0 ? cols[tpvIdx] === '1' : true;
-        existing.show_qr = qrIdx >= 0 ? cols[qrIdx] === '1' : true;
+        existing.showTpv = tpvIdx >= 0 ? cols[tpvIdx] === '1' : true;
+        existing.showQr = qrIdx >= 0 ? cols[qrIdx] === '1' : true;
         existing.agotado = agotadoIdx >= 0 ? cols[agotadoIdx] === '1' : false;
       } else {
         next.products.push({
           id, name, category, price, ubicacion: 'Cocina', course: '',
           image: null, allergens: [], description: '', featured: false,
           active: activeIdx >= 0 ? cols[activeIdx] === '1' : true,
-          show_tpv: tpvIdx >= 0 ? cols[tpvIdx] === '1' : true,
-          show_qr: qrIdx >= 0 ? cols[qrIdx] === '1' : true,
+          showTpv: tpvIdx >= 0 ? cols[tpvIdx] === '1' : true,
+          showQr: qrIdx >= 0 ? cols[qrIdx] === '1' : true,
           agotado: agotadoIdx >= 0 ? cols[agotadoIdx] === '1' : false,
         });
       }
@@ -425,19 +407,19 @@ export default function CartasView({ catalog, onSave, colors: C }: CartasViewPro
                   <button
                     onClick={() => {
                       const zones = PRINTER_ZONES;
-                      const currentIdx = zones.indexOf(cat.printer_zone || '');
-                      updateCategory(ci, 'printer_zone', zones[(currentIdx + 1) % zones.length]);
+                      const currentIdx = zones.indexOf(cat.printerZone || '');
+                      updateCategory(ci, 'printerZone', zones[(currentIdx + 1) % zones.length]);
                     }}
-                    style={{ color: cat.printer_zone ? C.sageLight : C.muted }}
+                    style={{ color: cat.printerZone ? C.sageLight : C.muted }}
                     className="p-1 rounded-lg hover:opacity-80 text-[10px] flex items-center gap-1"
-                    title={`Impresora: ${cat.printer_zone || 'Sin impresora'}`}
+                    title={`Impresora: ${cat.printerZone || 'Sin impresora'}`}
                   >
                     <Printer className="w-3.5 h-3.5" />
-                    {cat.printer_zone && <span className="hidden sm:inline">{cat.printer_zone}</span>}
+                    {cat.printerZone && <span className="hidden sm:inline">{cat.printerZone}</span>}
                   </button>
                   <Toggle
-                    value={cat.show_qr !== false}
-                    onChange={v => updateCategory(ci, 'show_qr', v)}
+                    value={cat.showQr !== false}
+                    onChange={v => updateCategory(ci, 'showQr', v)}
                     label="QR"
                     color={C.brassLight}
                     C={C}
@@ -525,15 +507,15 @@ export default function CartasView({ catalog, onSave, colors: C }: CartasViewPro
                         {/* Toggles */}
                         <div className="flex items-center gap-1">
                           <Toggle
-                            value={p.show_tpv !== false}
-                            onChange={v => updateProduct(p.id, 'show_tpv', v)}
+                            value={p.showTpv !== false}
+                            onChange={v => updateProduct(p.id, 'showTpv', v)}
                             label="TPV"
                             color={C.brassLight}
                             C={C}
                           />
                           <Toggle
-                            value={p.show_qr !== false}
-                            onChange={v => updateProduct(p.id, 'show_qr', v)}
+                            value={p.showQr !== false}
+                            onChange={v => updateProduct(p.id, 'showQr', v)}
                             label="QR"
                             color={C.brassLight}
                             C={C}

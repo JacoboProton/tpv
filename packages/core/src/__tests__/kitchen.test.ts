@@ -3,7 +3,7 @@ import {
   getItemState, canTransitionTo, isPending, isInKitchen,
   hasUnsentItems, hasPendingItems, countPendingLines,
   countPendingKitchenItems, formatItemPreview,
-} from '../domain/kitchen/kitchen'
+} from '../domain/kitchen/kitchen.js'
 
 describe('getItemState', () => {
   it('returns voided first', () => { expect(getItemState({ id: '1', voided: true, sent: true })).toBe('voided') })
