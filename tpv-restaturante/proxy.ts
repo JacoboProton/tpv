@@ -34,13 +34,20 @@ function corsHeaders(req: NextRequest): Record<string, string> {
 }
 
 function errorResponse(req: NextRequest, status: number, body: Record<string, unknown>) {
-  return NextResponse.json(body, { status, headers: corsHeaders(req) });
+  return propogateCorrelationId(req, NextResponse.json(body, { status, headers: corsHeaders(req) }));
 }
 
 function corsNext(req: NextRequest, requestHeaders?: Headers) {
   const res = NextResponse.next(requestHeaders ? { request: { headers: requestHeaders } } : undefined);
   const h = corsHeaders(req);
   for (const [k, v] of Object.entries(h)) res.headers.set(k, v);
+  return propogateCorrelationId(req, res, requestHeaders);
+}
+
+function propogateCorrelationId(req: NextRequest, res: NextResponse, requestHeaders?: Headers) {
+  const id = req.headers.get('x-correlation-id') ?? crypto.randomUUID();
+  if (requestHeaders) requestHeaders.set('x-correlation-id', id);
+  res.headers.set('x-correlation-id', id);
   return res;
 }
 
@@ -117,7 +124,7 @@ export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (req.method === 'OPTIONS') {
-    return new NextResponse(null, { status: 204, headers: corsHeaders(req) });
+    return propogateCorrelationId(req, new NextResponse(null, { status: 204, headers: corsHeaders(req) }));
   }
 
   if (isPublicPath(pathname)) return corsNext(req);
