@@ -5,6 +5,7 @@ import { getTenantId } from '../../../lib/tenant';
 import { products, categories, productStock, combos, comboSlots, comboSlotItems, productPriceRules, mealMenus, mealMenuCourses, mealMenuCourseItems, mealMenuSchedules } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
+import { withIdempotency } from '../../../lib/idempotency';
 import { IdBody } from '@/lib/schemas/api-schemas';
 import { z } from 'zod';
 
@@ -127,9 +128,9 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const auth = await requireRole(['admin'])(req);
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
-
-  try {
-    const db = getDb();
+  return withIdempotency(req, '/api/catalog', async () => {
+    try {
+      const db = getDb();
     const parsed = z.object({}).passthrough().safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
     const body = parsed.data as Record<string, unknown>;
@@ -249,16 +250,17 @@ export async function PUT(req: NextRequest) {
       }
     });
 
-    return apiOk();
-  } catch (err) { return apiError(err); }
+      return apiOk();
+    } catch (err) { return apiError(err); }
+  });
 }
 
 export async function PATCH(req: NextRequest) {
   const auth = await requireRole(['admin'])(req);
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
-
-  try {
-    const db = getDb();
+  return withIdempotency(req, '/api/catalog', async () => {
+    try {
+      const db = getDb();
     const parsed = z.object({ action: z.string().min(1) }).passthrough().safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
     const body = parsed.data as Record<string, unknown>;
@@ -331,5 +333,6 @@ export async function PATCH(req: NextRequest) {
     }
 
     return apiBadRequest('Acción desconocida');
-  } catch (err) { return apiError(err); }
+    } catch (err) { return apiError(err); }
+  });
 }

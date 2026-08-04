@@ -5,7 +5,9 @@ import { getTenantId } from '../../../lib/tenant';
 import { sales, verifactuRegistros, ticketCounters } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
+import { rateLimit } from '../../../lib/rate-limit';
 import { SalePostBody } from '@/lib/schemas/api-schemas';
+import { withIdempotency } from '@/lib/idempotency';
 
 export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin', 'camarero'])(req);
@@ -80,80 +82,94 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const auth = await requireRole(['admin', 'camarero'])(req);
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
+  const tenantId = getTenantId(req);
+  const employeeId = auth.employee?.id || 'unknown';
 
-  try {
-    const db = getDb();
-    const parsed = SalePostBody.safeParse(await req.json());
-    if (!parsed.success) return apiBadRequest(parsed.error.message);
-    const s = parsed.data;
-    const tenantId = getTenantId(req);
+  const rl = await rateLimit(`sales:${tenantId}:${employeeId}`, 30, 60_000);
+  if (!rl.allowed) return apiError(new Error('Demasiadas ventas, intenta de nuevo en unos segundos'), 429);
 
-    const year = new Date(Number(s.closedAt || Date.now())).getFullYear();
-    const [counterRow] = await db.insert(ticketCounters).values({
-      tenantId, year, counter: 1,
-    }).onConflictDoUpdate({
-      target: [ticketCounters.tenantId, ticketCounters.year],
-      set: { counter: sql`ticket_counters.counter + 1` },
-    }).returning({ counter: ticketCounters.counter });
-    const ticketNumber = counterRow.counter;
+  return withIdempotency(req, '/api/sales', async () => {
+    try {
+      const db = getDb();
+      const parsed = SalePostBody.safeParse(await req.json());
+      if (!parsed.success) return apiBadRequest(parsed.error.message);
+      const s = parsed.data;
+      const tenantId = getTenantId(req);
 
-    if (s.paymentIntentId) {
-      const [stub] = await db.select({ id: sales.id }).from(sales)
-        .where(and(eq(sales.paymentIntentId, s.paymentIntentId), like(sales.id, 'stub_%')))
-        .limit(1);
-      if (stub) {
-        await db.update(sales).set({
-          tenantId, id: s.id, tableId: s.tableId, tableName: s.tableName,
-          items: s.items,
-          subtotal: String(s.subtotal), discount: String(s.discount ?? 0), discountAmount: String(s.discountAmount ?? 0),
-          total: String(s.total), tip: String(s.tip ?? 0), totalWithTip: String(s.totalWithTip ?? 0),
-          payments: s.payments ?? [], paymentMethod: s.paymentMethod ?? null, tipMethod: s.tipMethod ?? '',
-          isFiado: s.isFiado ?? false, isDebtPayment: s.isDebtPayment ?? false,
-          employeeId: s.employeeId ?? null, employeeName: s.employeeName ?? null,
-          closedAt: s.closedAt,
-          invoiceNif: s.invoiceNif ?? '', invoiceName: s.invoiceName ?? '',
-          invoiceAddress: s.invoiceAddress ?? '', invoiceEmail: s.invoiceEmail ?? '',
-          invoiceNumber: s.invoiceNumber ?? '', invoiceCreated: s.invoiceCreated ?? false,
-          invoiceCreatedAt: s.invoiceCreatedAt ?? null,
-          stripeConfirmed: true,
-          ticketNumber,
-        }).where(eq(sales.id, stub.id));
-        return apiOk({ upgradedStub: true, ticketNumber });
+      const year = new Date(Number(s.closedAt || Date.now())).getFullYear();
+      const [counterRow] = await db.insert(ticketCounters).values({
+        tenantId, year, counter: 1,
+      }).onConflictDoUpdate({
+        target: [ticketCounters.tenantId, ticketCounters.year],
+        set: { counter: sql`ticket_counters.counter + 1` },
+      }).returning({ counter: ticketCounters.counter });
+      const ticketNumber = counterRow.counter;
+
+      if (s.paymentIntentId) {
+        const [stub] = await db.select({ id: sales.id }).from(sales)
+          .where(and(eq(sales.paymentIntentId, s.paymentIntentId), like(sales.id, 'stub_%')))
+          .limit(1);
+        if (stub) {
+          await db.update(sales).set({
+            tenantId, id: s.id, tableId: s.tableId, tableName: s.tableName,
+            items: s.items,
+            subtotal: String(s.subtotal), discount: String(s.discount ?? 0), discountAmount: String(s.discountAmount ?? 0),
+            total: String(s.total), tip: String(s.tip ?? 0), totalWithTip: String(s.totalWithTip ?? 0),
+            payments: s.payments ?? [], paymentMethod: s.paymentMethod ?? null, tipMethod: s.tipMethod ?? '',
+            isFiado: s.isFiado ?? false, isDebtPayment: s.isDebtPayment ?? false,
+            employeeId: s.employeeId ?? null, employeeName: s.employeeName ?? null,
+            closedAt: s.closedAt,
+            invoiceNif: s.invoiceNif ?? '', invoiceName: s.invoiceName ?? '',
+            invoiceAddress: s.invoiceAddress ?? '', invoiceEmail: s.invoiceEmail ?? '',
+            invoiceNumber: s.invoiceNumber ?? '', invoiceCreated: s.invoiceCreated ?? false,
+            invoiceCreatedAt: s.invoiceCreatedAt ?? null,
+            stripeConfirmed: true,
+            ticketNumber,
+          }).where(eq(sales.id, stub.id));
+          return apiOk({ upgradedStub: true, ticketNumber });
+        }
       }
-    }
 
-    await db.insert(sales).values({
-      tenantId, id: s.id, tableId: s.tableId, tableName: s.tableName,
-      items: s.items,
-      subtotal: String(s.subtotal), discount: String(s.discount ?? 0), discountAmount: String(s.discountAmount ?? 0),
-      total: String(s.total), tip: String(s.tip ?? 0), totalWithTip: String(s.totalWithTip ?? 0),
-      payments: s.payments ?? [], paymentMethod: s.paymentMethod ?? null, tipMethod: s.tipMethod ?? '',
-      isFiado: s.isFiado ?? false, isDebtPayment: s.isDebtPayment ?? false,
-      employeeId: s.employeeId ?? null, employeeName: s.employeeName ?? null,
-      closedAt: s.closedAt,
-      invoiceNif: s.invoiceNif ?? '', invoiceName: s.invoiceName ?? '',
-      invoiceAddress: s.invoiceAddress ?? '', invoiceEmail: s.invoiceEmail ?? '',
-      invoiceNumber: s.invoiceNumber ?? '', invoiceCreated: s.invoiceCreated ?? false,
-      invoiceCreatedAt: s.invoiceCreatedAt ?? null,
-      paymentIntentId: s.paymentIntentId ?? '',
-      ticketNumber,
-    }).onConflictDoNothing();
-    return apiOk({ ticketNumber });
-  } catch (err) { return apiError(err); }
+      await db.insert(sales).values({
+        tenantId, id: s.id, tableId: s.tableId, tableName: s.tableName,
+        items: s.items,
+        subtotal: String(s.subtotal), discount: String(s.discount ?? 0), discountAmount: String(s.discountAmount ?? 0),
+        total: String(s.total), tip: String(s.tip ?? 0), totalWithTip: String(s.totalWithTip ?? 0),
+        payments: s.payments ?? [], paymentMethod: s.paymentMethod ?? null, tipMethod: s.tipMethod ?? '',
+        isFiado: s.isFiado ?? false, isDebtPayment: s.isDebtPayment ?? false,
+        employeeId: s.employeeId ?? null, employeeName: s.employeeName ?? null,
+        closedAt: s.closedAt,
+        invoiceNif: s.invoiceNif ?? '', invoiceName: s.invoiceName ?? '',
+        invoiceAddress: s.invoiceAddress ?? '', invoiceEmail: s.invoiceEmail ?? '',
+        invoiceNumber: s.invoiceNumber ?? '', invoiceCreated: s.invoiceCreated ?? false,
+        invoiceCreatedAt: s.invoiceCreatedAt ?? null,
+        paymentIntentId: s.paymentIntentId ?? '',
+        ticketNumber,
+      }).onConflictDoNothing();
+      return apiOk({ ticketNumber });
+    } catch (err) { return apiError(err); }
+  });
 }
 
 export async function PATCH(req: NextRequest) {
   const auth = await requireRole(['admin', 'camarero'])(req);
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
+  const tenantId = getTenantId(req);
+  const employeeId = auth.employee?.id || 'unknown';
 
-  try {
-    const db = getDb();
-    const body = await req.json() as { saleId: string; payments: unknown };
-    const { saleId, payments } = body;
-    if (!saleId || !payments) {
-      return apiBadRequest('saleId and payments required');
-    }
-    await db.update(sales).set({ payments }).where(eq(sales.id, saleId));
-    return apiOk();
-  } catch (err) { return apiError(err); }
+  const rl = await rateLimit(`sales-patch:${tenantId}:${employeeId}`, 30, 60_000);
+  if (!rl.allowed) return apiError(new Error('Demasiadas actualizaciones, intenta de nuevo en unos segundos'), 429);
+
+  return withIdempotency(req, '/api/sales', async () => {
+    try {
+      const db = getDb();
+      const body = await req.json() as { saleId: string; payments: unknown };
+      const { saleId, payments } = body;
+      if (!saleId || !payments) {
+        return apiBadRequest('saleId and payments required');
+      }
+      await db.update(sales).set({ payments }).where(eq(sales.id, saleId));
+      return apiOk();
+    } catch (err) { return apiError(err); }
+  });
 }

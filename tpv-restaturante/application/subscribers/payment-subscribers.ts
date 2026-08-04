@@ -6,13 +6,13 @@ export function registerPaymentSubscribers(deps: {
   showToast: (msg: string) => void
 }) {
   eventBus.on('payment:refunded', async (data: PaymentRefundedEvent) => {
-    const refundBody = JSON.stringify({
+    const refundBody = {
       saleId: data.saleId,
       refund: { ...data, amount: data.amount, reason: data.reason, employeeName: data.employeeName },
-    })
+    }
     try {
       const res = await fetch('/api/sales/refund', {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: refundBody,
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(refundBody),
       })
       if (!res.ok) {
         const errData = await res.json()
@@ -26,19 +26,20 @@ export function registerPaymentSubscribers(deps: {
         }
       }
     } catch {
-      enqueueMutation('/api/sales/refund', refundBody)
+      enqueueMutation({ key: '/api/sales/refund', method: 'PUT', payload: refundBody, idempotencyKey: `refund:${data.saleId}:${data.amount}:${data.timestamp || Date.now()}` })
       deps.showToast('Sin conexión — la devolución se guardará cuando vuelva la red')
     }
   })
 
   eventBus.on('payment:completed', async (data: PaymentCompletedEvent) => {
+    const body = { saleId: data.saleId, payments: data.payments }
     try {
       await fetch('/api/sales', {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ saleId: data.saleId, payments: data.payments }),
+        body: JSON.stringify(body),
       })
     } catch {
-      enqueueMutation('/api/sales', JSON.stringify({ saleId: data.saleId, payments: data.payments }))
+      enqueueMutation({ key: '/api/sales', method: 'PATCH', payload: body, idempotencyKey: `payments:${data.saleId}` })
     }
     deps.showToast('Bizum confirmado')
   })

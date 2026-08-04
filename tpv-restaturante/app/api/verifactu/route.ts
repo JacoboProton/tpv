@@ -8,6 +8,7 @@ import { generateRegistroFactura, formatFecha } from '../../../lib/verifactu';
 import { verifactuRegistros } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
+import { rateLimit } from '../../../lib/rate-limit';
 
 export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin'])(req);
@@ -25,6 +26,11 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const auth = await requireRole(['admin'])(req);
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
+  const tenantId = getTenantId(req);
+  const employeeId = auth.employee?.id || 'unknown';
+
+  const rl = await rateLimit(`verifactu:${tenantId}:${employeeId}`, 20, 60_000);
+  if (!rl.allowed) return apiError(new Error('Demasiadas facturas, intenta de nuevo en unos segundos'), 429);
 
   try {
     const db = getDb();

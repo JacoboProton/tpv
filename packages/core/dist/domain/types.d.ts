@@ -193,6 +193,7 @@ export interface Floor {
     orders: Record<string, Order>;
     history?: Record<string, HistoryEntry[]>;
     customers?: CustomerInfo[];
+    sales?: Sale[];
     id?: string;
     name?: string;
     zones?: Zone[];

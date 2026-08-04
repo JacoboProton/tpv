@@ -1,4 +1,5 @@
 import { cacheGet, cacheSet } from './offline';
+import { advanceLocalClock, mergeLocalClock } from './floor-vc';
 
 declare global {
   interface Window {
@@ -7,6 +8,10 @@ declare global {
   }
 }
 
+const TPV_API_KEY: string = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_TPV_API_KEY
+  ? process.env.NEXT_PUBLIC_TPV_API_KEY
+  : '';
+
 export function getTenantId(): string {
   if (typeof window === 'undefined') return 'default';
   try { return localStorage.getItem('tpv:tenant') || 'default'; } catch { return 'default'; }
@@ -14,6 +19,7 @@ export function getTenantId(): string {
 
 function apiHeaders(headers: Record<string, string> = {}): Record<string, string> {
   headers['Content-Type'] = 'application/json';
+  if (TPV_API_KEY) headers['x-tpv-key'] = TPV_API_KEY;
   headers['x-tenant-id'] = getTenantId();
   if (typeof window !== 'undefined') {
     if (window.__employeeRole) headers['x-employee-role'] = window.__employeeRole;
@@ -26,9 +32,10 @@ function apiHeaders(headers: Record<string, string> = {}): Record<string, string
 
 async function apiFetch(url: string, options: RequestInit = {}): Promise<unknown> {
   try {
+    const { headers: customHeaders, ...rest } = options;
     const res = await fetch(url, {
-      headers: apiHeaders(options.headers as Record<string, string> | undefined),
-      ...options,
+      ...rest,
+      headers: apiHeaders({ ...(customHeaders as Record<string, string> | undefined) }),
     });
     if (!res.ok) {
       const body = await res.text();
@@ -180,17 +187,20 @@ export async function fetchFloor(): Promise<unknown> {
   const floor = await apiFetchWithCache('/api/floor', 'floor') as Record<string, unknown> | null;
   if (floor) {
     setLastFloor(floor);
+    mergeLocalClock((floor as { vectorClock?: Record<string, number> }).vectorClock);
   }
   return floor;
 }
 
 export async function saveFloor(floor: Record<string, unknown>): Promise<unknown> {
-  cacheSet('floor', floor);
-  const diff = computeFloorDiff(lastFloor, floor);
-  setLastFloor(floor);
+  const { vectorClock, updatedAt } = advanceLocalClock();
+  const body = { ...floor, vectorClock, updatedAt };
+  cacheSet('floor', body);
+  const diff = computeFloorDiff(lastFloor, body);
+  setLastFloor(body);
 
   if (diff.isFullSync) {
-    return apiFetch('/api/floor', { method: 'PUT', body: JSON.stringify(floor) });
+    return apiFetch('/api/floor', { method: 'PUT', body: JSON.stringify(body) });
   } else {
     if (diff.updatedTables!.length === 0 && 
         diff.deletedTableIds!.length === 0 && 
@@ -198,7 +208,7 @@ export async function saveFloor(floor: Record<string, unknown>): Promise<unknown
         diff.deletedOrderIds!.length === 0) {
       return { ok: true };
     }
-    return apiFetch('/api/floor', { method: 'PATCH', body: JSON.stringify(diff) });
+    return apiFetch('/api/floor', { method: 'PATCH', body: JSON.stringify({ ...diff, vectorClock, updatedAt }) });
   }
 }
 
@@ -207,7 +217,10 @@ export async function fetchSales(): Promise<unknown> {
 }
 
 export async function addSale(sale: unknown): Promise<unknown> {
-  return apiFetch('/api/sales', { method: 'POST', body: JSON.stringify(sale) });
+  const saleId = (sale as { id?: string } | null)?.id
+  const headers: Record<string, string> = {}
+  if (saleId) headers['x-idempotency-key'] = saleId
+  return apiFetch('/api/sales', { method: 'POST', body: JSON.stringify(sale), headers })
 }
 
 export async function fetchEmployees(): Promise<unknown> {

@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
@@ -7,6 +7,7 @@ import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/resp
 import { requireRole } from '../../../lib/rbac';
 import { rateLimit, getClientIp } from '../../../lib/rate-limit';
 import { SessionBody } from '@/lib/schemas/api-schemas';
+import { signSessionToken, cookieOptions, JWT_COOKIE } from '../../../lib/auth/jwt';
 
 export async function POST(req: NextRequest) {
   try {
@@ -60,7 +61,12 @@ export async function POST(req: NextRequest) {
         set: { active: true, lastSeen: now, role: employeeRole ?? '' },
       });
 
-      return apiOk();
+      const token = await signSessionToken({
+        sub: employeeId, role: employeeRole ?? '', tenantId: tid, deviceId,
+      });
+      const res = NextResponse.json({ ok: true, token });
+      res.cookies.set(JWT_COOKIE, token, cookieOptions());
+      return res;
     }
 
     if (action === 'logout') {
@@ -76,7 +82,9 @@ export async function POST(req: NextRequest) {
           eq(sessions.employeeId, employeeId),
           eq(sessions.deviceId, deviceId),
         ));
-      return apiOk();
+      const res = NextResponse.json({ ok: true });
+      res.cookies.set(JWT_COOKIE, '', { ...cookieOptions(), maxAge: 0 });
+      return res;
     }
 
     if (action === 'keepalive') {

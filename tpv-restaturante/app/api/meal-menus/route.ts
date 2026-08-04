@@ -5,6 +5,7 @@ import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { mealMenus, mealMenuCourses, mealMenuCourseItems, mealMenuSchedules, products } from '../../../db/schema';
 import { requireRole } from '../../../lib/rbac';
+import { withIdempotency } from '../../../lib/idempotency';
 import { MealMenuBody } from '@/lib/schemas/api-schemas';
 
 type Row = Record<string, unknown>;
@@ -73,55 +74,56 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const auth = await requireRole(['admin'])(req);
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
+  return withIdempotency(req, '/api/meal-menus', async () => {
+    try {
+      const db = getDb();
+      const tenantId = getTenantId(req);
+      const parsed = MealMenuBody.safeParse(await req.json());
+      if (!parsed.success) return apiBadRequest(parsed.error.message);
+      const menus = parsed.data;
+      await db.execute(sql`DELETE FROM meal_menu_course_items WHERE tenant_id = ${tenantId}`);
+      await db.execute(sql`DELETE FROM meal_menu_courses WHERE tenant_id = ${tenantId}`);
+      await db.execute(sql`DELETE FROM meal_menu_schedules WHERE tenant_id = ${tenantId}`);
+      await db.execute(sql`DELETE FROM meal_menus WHERE tenant_id = ${tenantId}`);
 
-  try {
-    const db = getDb();
-    const tenantId = getTenantId(req);
-    const parsed = MealMenuBody.safeParse(await req.json());
-    if (!parsed.success) return apiBadRequest(parsed.error.message);
-    const menus = parsed.data;
-    await db.execute(sql`DELETE FROM meal_menu_course_items WHERE tenant_id = ${tenantId}`);
-    await db.execute(sql`DELETE FROM meal_menu_courses WHERE tenant_id = ${tenantId}`);
-    await db.execute(sql`DELETE FROM meal_menu_schedules WHERE tenant_id = ${tenantId}`);
-    await db.execute(sql`DELETE FROM meal_menus WHERE tenant_id = ${tenantId}`);
-
-    for (const m of menus) {
-      await db.insert(mealMenus).values({
-        id: m.id, name: m.name, description: m.description || '',
-        price: String(m.price), image: m.image ?? null,
-        includesPan: m.includesPan ?? false, includesBebida: m.includesBebida ?? false,
-        includesCafe: m.includesCafe ?? false,
-        active: m.active ?? true, createdAt: Date.now(),
-        extras: JSON.stringify(m.extras || []), tenantId,
-      });
-      if (m.courses) {
-        for (let ci = 0; ci < m.courses.length; ci++) {
-          const course = m.courses[ci];
-          await db.insert(mealMenuCourses).values({
-            id: course.id, menuId: m.id, name: course.name,
-            sortOrder: ci, tenantId,
-          });
-          if (course.items) {
-            for (let ii = 0; ii < course.items.length; ii++) {
-              const item = course.items[ii];
-              await db.insert(mealMenuCourseItems).values({
-                id: item.id, courseId: course.id, productId: item.product_id,
-                surcharge: item.surcharge != null ? String(item.surcharge) : '0', sortOrder: ii, tenantId,
-              });
+      for (const m of menus) {
+        await db.insert(mealMenus).values({
+          id: m.id, name: m.name, description: m.description || '',
+          price: String(m.price), image: m.image ?? null,
+          includesPan: m.includesPan ?? false, includesBebida: m.includesBebida ?? false,
+          includesCafe: m.includesCafe ?? false,
+          active: m.active ?? true, createdAt: Date.now(),
+          extras: JSON.stringify(m.extras || []), tenantId,
+        });
+        if (m.courses) {
+          for (let ci = 0; ci < m.courses.length; ci++) {
+            const course = m.courses[ci];
+            await db.insert(mealMenuCourses).values({
+              id: course.id, menuId: m.id, name: course.name,
+              sortOrder: ci, tenantId,
+            });
+            if (course.items) {
+              for (let ii = 0; ii < course.items.length; ii++) {
+                const item = course.items[ii];
+                await db.insert(mealMenuCourseItems).values({
+                  id: item.id, courseId: course.id, productId: item.product_id,
+                  surcharge: item.surcharge != null ? String(item.surcharge) : '0', sortOrder: ii, tenantId,
+                });
+              }
             }
           }
         }
-      }
-      if (Array.isArray(m.schedules)) {
-        for (const s of m.schedules) {
-          await db.insert(mealMenuSchedules).values({
-            id: s.id, menuId: m.id, dayOfWeek: s.day_of_week,
-            startTime: s.start_time, endTime: s.end_time, tenantId,
-          });
+        if (Array.isArray(m.schedules)) {
+          for (const s of m.schedules) {
+            await db.insert(mealMenuSchedules).values({
+              id: s.id, menuId: m.id, dayOfWeek: s.day_of_week,
+              startTime: s.start_time, endTime: s.end_time, tenantId,
+            });
+          }
         }
       }
-    }
 
-    return apiOk();
-  } catch (err) { return apiError(err); }
+      return apiOk();
+    } catch (err) { return apiError(err); }
+  });
 }

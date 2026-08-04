@@ -1,22 +1,23 @@
 "use client"
 
-import { useState, useMemo, useCallback, useRef } from 'react'
-import type { Floor, Catalog, Sale, Employee, CurrentUser, Offer, OrderItem, TicketSettings, CatalogProduct } from '../domain/types'
+import { useCallback, useRef } from 'react'
+import type { Floor, Catalog, Sale, Employee, CurrentUser, Offer, TicketSettings, CatalogProduct } from '../domain/types'
 import type { ModifierData } from '../domain/catalog/modifier-groups'
-import type { ModifierSelectionState, ItemModifierEdit } from './useOrderItems'
-import type { FloorData } from '../infrastructure/database/floor-repository'
 import { round2, euros } from '../components/constants'
-import { addSale } from '../lib/api'
 import { enqueueMutation, cacheSet } from '../lib/offline'
 import { saveFloor } from '../infrastructure/database/floor-repository'
 import { broadcastFloorUpdate, broadcastReadyNotification } from '../lib/realtime'
 import { buildTicketHtml, printTicketHtml } from '../lib/ticket-template'
 import { calculateIgic } from '../domain/invoice/invoice'
-import { processSalesQueue as processSalesQueueOp } from '../application/sales/sales-queue'
+import { countPendingBar, countPendingCocina } from '@tpv/core'
+import { useSalesQueue } from './useSalesQueue'
+import { useTableSelection } from './useTableSelection'
+import { useModifierSelector } from './useModifierSelector'
 import { useOrderItems } from './useOrderItems'
 import { useOrderTickets } from './useOrderTickets'
 import { useOrderTables } from './useOrderTables'
 import { useOrderPayments } from './useOrderPayments'
+import { usePersonalDiscount } from './usePersonalDiscount'
 
 export type View = 'salon' | 'comandas' | 'cocina' | 'inventario' | 'almacen' | 'albaranes' | 'informes' | 'empleados' | 'ofertas' | 'combos' | 'menus' | 'carrusel' | 'precios' | 'reparto' | 'pedidos' | 'fiados' | 'gestoria' | 'pairing' | 'audit' | 'turnos' | 'registro-horario' | 'solicitudes' | 'pedidos-compra' | 'reservas' | 'waitlist' | 'onlineorders' | 'buffet' | 'tickets' | 'pagos' | 'kds' | 'barra' | 'carta' | 'produccion' | 'login'
 
@@ -45,31 +46,7 @@ export function useOrders({
   ticketSettings, offers, trainingMode, showToast,
 }: UseOrdersProps) {
 
-  const [selectedTableId, setSelectedTableId] = useState<string | null>(null)
-  const [activeTicketId, setActiveTicketId] = useState<string | null>(null)
-  const [activeCategory, setActiveCategory] = useState<string>('Todos')
-
-  const [showModifierSelector, setShowModifierSelector] = useState<ModifierSelectionState | null>(null)
-  const [editingItemModifiers, setEditingItemModifiers] = useState<ItemModifierEdit | null>(null)
-
-  const salesQueue = useRef<Sale[]>([])
-  const salesProcessing = useRef<boolean>(false)
-
-  // ---------- Computed ----------
-  const selectedTable = floor?.tables?.find((t) => t.id === selectedTableId) ?? null
-  const activeOrderId = activeTicketId || selectedTable?.orderIds?.[0] || selectedTable?.orderId
-  const selectedOrder = activeOrderId ? floor?.orders?.[activeOrderId] : null
-
-  const pendingBarCount = useMemo(() =>
-    floor?.orders ? Object.values(floor.orders).reduce((s: number, o) =>
-      s + (o.items?.filter((i) => i.sent && !i.ready && i.ubicacion === 'Bar').length ?? 0), 0) : 0,
-    [floor]
-  )
-  const pendingCocinaCount = useMemo(() =>
-    floor?.orders ? Object.values(floor.orders).reduce((s: number, o) =>
-      s + (o.items?.filter((i) => i.sent && !i.ready && i.ubicacion !== 'Bar').length ?? 0), 0) : 0,
-    [floor]
-  )
+  const { enqueue: enqueueSale, flush: flushSales, pendingCount: pendingSalesCount } = useSalesQueue({ setSales, showToast })
 
   // ---------- Persistence ----------
   const persistFloor = useCallback(async (next: Floor) => {
@@ -79,29 +56,31 @@ export function useOrders({
       await saveFloor(next)
       broadcastFloorUpdate(next, tenantId)
     } catch {
-      enqueueMutation('/api/floor', JSON.stringify(next))
+      enqueueMutation({ key: '/api/floor', method: 'PUT', payload: next, idempotencyKey: `floor:${Date.now()}:${Math.random().toString(36).slice(2, 8)}` })
       showToast('Sin conexión — la sala se guardará cuando vuelva la red')
     }
   }, [setFloor, trainingMode, tenantId, showToast])
-
-  const processSalesQueue = useCallback(async () => {
-    await processSalesQueueOp(salesQueue.current, salesProcessing, {
-      addSale: addSale as (sale: Sale) => Promise<{ ok: boolean; ticketNumber?: string }>,
-      setSales,
-      cacheSet,
-      showToast,
-    })
-  }, [setSales, showToast])
 
   const persistSales = useCallback((next: Sale[]) => {
     setSales(next)
     cacheSet('sales', next)
     const newSale = next[next.length - 1]
-    salesQueue.current.push(newSale)
-    processSalesQueue()
-  }, [setSales, processSalesQueue])
+    if (newSale) enqueueSale(newSale)
+    flushSales()
+  }, [setSales, enqueueSale, flushSales])
 
   // ---------- Sub-hooks ----------
+  const tableSelection = useTableSelection(floor)
+  const {
+    selectedTableId, setSelectedTableId,
+    activeTicketId, setActiveTicketId,
+    activeCategory, setActiveCategory,
+    selectedTable, activeOrderId, selectedOrder,
+  } = tableSelection
+
+  const modifierSelector = useModifierSelector()
+  const { showModifierSelector, setShowModifierSelector, editingItemModifiers, setEditingItemModifiers } = modifierSelector
+
   const orderItems = useOrderItems(
     floor, selectedTableId, activeTicketId, catalog, currentUser, modifierData,
     showModifierSelector, editingItemModifiers,
@@ -119,13 +98,19 @@ export function useOrders({
   )
 
   const orderPayments = useOrderPayments(
-    floor, catalog, offers, sales, modifierData, currentUser, employees,
+    floor, catalog, offers, sales, modifierData, currentUser,
     trainingMode, selectedTableId, selectedOrder,
-    persistFloor, persistSales, setSelectedTableId, setCatalog, setEmployees,
-    showToast, ticketSettings,
+    persistFloor, persistSales, setSelectedTableId, setCatalog,
+    showToast,
   )
 
-  const { orderDiscount, tipAmount, tipMethod } = orderPayments
+  const personalDiscount = usePersonalDiscount(
+    floor, employees, catalog, ticketSettings as Record<string, unknown> | undefined,
+    persistFloor, setEmployees, showToast,
+  )
+
+  const pendingBarCount = countPendingBar(floor)
+  const pendingCocinaCount = countPendingCocina(floor)
 
   // ---------- Printing ----------
   const handlePrint = useCallback(() => {
@@ -133,14 +118,14 @@ export function useOrders({
     if (!order) return
     const items = order.items.filter((i) => i.productId)
     const subtotal = items.reduce((s: number, i) => s + i.price * i.qty, 0)
-    const discountAmount = round2(subtotal * (orderDiscount / 100))
+    const discountAmount = round2(subtotal * (orderPayments.orderDiscount / 100))
     const totalConIgic = subtotal - discountAmount
     const { baseImponible, cuotaIgic } = calculateIgic(totalConIgic)
-    const totalWithTip = totalConIgic + tipAmount
+    const totalWithTip = totalConIgic + orderPayments.tipAmount
     const { restaurantName, companyCif, companyAddress, companyPhone, logoUrl, footerText, ticketWidth } = ticketSettings
     const html = buildTicketHtml({
       items, subtotal, discountAmount, totalConIgic, baseImponible, cuotaIgic,
-      tip: tipAmount, tipMethod, totalWithTip,
+      tip: orderPayments.tipAmount, tipMethod: orderPayments.tipMethod, totalWithTip,
       restaurantName, companyCif, companyAddress, companyPhone, logoUrl, footerText, ticketWidth,
       tableName: selectedTable?.name || '',
       employeeName: currentUser?.name || '',
@@ -150,7 +135,7 @@ export function useOrders({
       catalog: catalog as unknown as { products?: CatalogProduct[] }, allergensList: [],
     })
     printTicketHtml(html)
-  }, [selectedOrder, orderDiscount, tipAmount, tipMethod, ticketSettings, selectedTable, currentUser, catalog])
+  }, [selectedOrder, orderPayments.orderDiscount, orderPayments.tipAmount, orderPayments.tipMethod, ticketSettings, selectedTable, currentUser, catalog])
 
   const handlePrintInvoice = useCallback((sale: Sale) => {
     if (!sale) return
@@ -223,11 +208,13 @@ export function useOrders({
     debtFloorRef,
     selectedTable, activeOrderId, selectedOrder,
     pendingBarCount, pendingCocinaCount,
+    pendingSalesCount,
     persistFloor, persistSales,
     ...orderItems,
     ...orderTickets,
     ...orderTables,
     ...orderPayments,
+    ...personalDiscount,
     handlePrint, handlePrintInvoice,
   }
 }

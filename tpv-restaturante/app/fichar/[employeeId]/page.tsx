@@ -59,7 +59,7 @@ export default function FicharPage() {
       const s = await settingsRes.json() as { clockinPinRequired?: string; clockinEnabled?: string };
       setPinRequired(s.clockinPinRequired !== 'false');
       setClockinEnabled(s.clockinEnabled !== 'false');
-      const empRes = await fetch('/api/employees');
+      const empRes = await fetch('/api/fichar/employees');
       const emps = await empRes.json() as Employee[];
       const emp = (emps || []).find(e => e.id === employeeId);
       setEmployee(emp || null);

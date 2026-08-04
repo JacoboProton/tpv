@@ -1,8 +1,7 @@
 import dynamic from 'next/dynamic'
-import { type Theme } from '@/components/constants'
+import type { Theme } from '@/components/constants'
 import type { Floor, Catalog, Sale, Employee, Offer, Combo, TicketSettings, CurrentUser, PriceRule, MealMenu, NewProductInput, RefundInput } from '@tpv/core'
 import type { SalonViewProps } from '@/modules/salon/SalonView'
-import type { FloorEditorProps } from '@/modules/editor/FloorEditor'
 import type { CocinaViewProps } from '@/modules/kitchen/CocinaView'
 import type { BarraViewProps } from '@/modules/kitchen/BarraView'
 import type { KDSViewProps } from '@/modules/kitchen/KDSView'
@@ -22,12 +21,8 @@ import type { DeliveryViewProps } from '@/modules/orders/DeliveryView'
 import type { PedidosViewProps } from '@/modules/orders/PedidosView'
 import type { FiadosViewProps } from '@/modules/orders/FiadosView'
 import type { TicketsViewProps } from '@/modules/orders/TicketsView'
-import type { VentasDashboardViewProps } from '@/modules/reports/VentasDashboardView'
-import type { ReservasViewProps } from '@/modules/customers/ReservasView'
-import type { BuffetKioskViewProps } from '@/modules/buffet/BuffetKioskView'
 import type { EmpleadosViewProps } from '@/modules/employees/EmpleadosView'
-import type { TurnosViewProps } from '@/modules/employees/TurnosView'
-import type { RegistroHorarioViewProps } from '@/modules/employees/RegistroHorarioView'
+import { useFloor, useCatalog, useAuth, useSales, useUi } from './app-contexts'
 
 const FloorEditor          = dynamic(() => import('@/modules/editor/FloorEditor'), { ssr: false })
 const CocinaView           = dynamic(() => import('@/modules/kitchen/CocinaView'), { ssr: false })
@@ -67,81 +62,22 @@ const TicketsView          = dynamic(() => import('@/modules/orders/TicketsView'
 const PaymentsView         = dynamic(() => import('@/modules/payment/PaymentsView'), { ssr: false })
 import SalonView from '@/modules/salon/SalonView'
 
-export interface ViewHandlers {
-  setSelectedTableId: (id: string | null) => void
-  setActiveCategory: (cat: string) => void
-  setShowFloorEditor: (v: boolean) => void
-  setAlmacenUbicacion: (v: string | null) => void
-  setView: (v: string) => void
-  markReady: (orderId: string, ubicacion?: string) => void
-  updateItemState: (next: Floor, action: { orderId: string, itemId: string | null, previousState: string | null }) => void
-  advanceOrder: (next: Floor) => void
-  agotarProducto: (productId: string, agotado: boolean) => Promise<void>
-  reprintKitchenTicket: (orderId: string) => void
-  updateProductField: (id: string, field: string, value: string | number | boolean) => void
-  addProduct: (p: NewProductInput) => void
-  deleteProduct: (id: string) => void
-  saveCartas: (next: Catalog) => Promise<void>
-  saveOffersFn: (next: Offer[]) => Promise<void>
-  saveCombosFn: (next: Combo[]) => Promise<void>
-  saveMealMenusFn: (next: MealMenu[]) => Promise<void>
-  saveCarrusel: (data: unknown) => Promise<void>
-  savePriceRulesFn: (rules: PriceRule[]) => Promise<void>
-  handleRefund: (saleId: string, refund: RefundInput) => void
-  handleConfirmBizum: (saleId: string) => void
-  printInvoice: (sale: Sale) => Promise<void>
-  handleDownloadPdf: (sale: Sale) => Promise<void>
-  handleSendInvoiceEmail: (sale: Sale) => Promise<void>
-  addEmployee: (emp: Partial<Employee>) => void
-  updateEmployeeField: (id: string, f: string, value: string | number | boolean) => void
-  deleteEmployee: (id: string) => void
-}
-
-export interface ViewData {
-  floor: Floor | null
-  catalog: Catalog | null
-  sales: Sale[]
-  employees: Employee[]
-  offers: Offer[]
-  combos: Combo[]
-  colors: Theme
-  ticketSettings: TicketSettings
-  currentUser: CurrentUser | null
-  showToast: (msg: string) => void
-  almacenUbicacion: string | null
-  showFloorEditor: boolean
-  persistFloor: (next: Floor) => Promise<void>
-  newProductOpen: boolean
-  setNewProductOpen: (v: boolean) => void
-  confirmDeleteId: string | null
-  setConfirmDeleteId: (v: string | null) => void
-}
-
 interface ViewRouterProps {
   view: string
-  handlers: ViewHandlers
-  data: ViewData
 }
 
-export default function ViewRouter({ view, handlers, data }: ViewRouterProps) {
-  const {
-    floor, catalog, sales, employees, offers, combos, colors: C,
-    ticketSettings, newProductOpen, setNewProductOpen,
-    confirmDeleteId, setConfirmDeleteId, almacenUbicacion,
-    showFloorEditor, currentUser, showToast, persistFloor,
-  } = data
+export default function ViewRouter({ view }: ViewRouterProps) {
+  const floorCtx = useFloor()
+  const catalogCtx = useCatalog()
+  const authCtx = useAuth()
+  const salesCtx = useSales()
+  const ui = useUi()
 
-  const {
-    setSelectedTableId, setActiveCategory, setShowFloorEditor,
-    setAlmacenUbicacion, setView, markReady,
-    updateItemState, advanceOrder, agotarProducto, reprintKitchenTicket,
-    updateProductField, addProduct, deleteProduct,
-    saveCartas, saveOffersFn, saveCombosFn, saveMealMenusFn,
-    saveCarrusel, savePriceRulesFn,
-    handleRefund, handleConfirmBizum,
-    printInvoice, handleDownloadPdf, handleSendInvoiceEmail,
-    addEmployee, updateEmployeeField, deleteEmployee,
-  } = handlers
+  const { floor, showFloorEditor, setShowFloorEditor, persistFloor, markReady, updateItemState, advanceOrder, agotarProducto, reprintKitchenTicket, setSelectedTableId } = floorCtx
+  const { catalog, offers, combos, setActiveCategory, almacenUbicacion, setAlmacenUbicacion, updateProductField, addProduct, deleteProduct, saveCartas, saveOffersFn, saveCombosFn, saveMealMenusFn, saveCarrusel, savePriceRulesFn, newProductOpen, setNewProductOpen, confirmDeleteId, setConfirmDeleteId } = catalogCtx
+  const { currentUser, employees, addEmployee, updateEmployeeField, deleteEmployee } = authCtx
+  const { sales, ticketSettings, handleRefund, handleConfirmBizum, printInvoice, handleDownloadPdf, handleSendInvoiceEmail } = salesCtx
+  const { colors: C, setView, showToast } = ui
 
   return (
     <div className="fade-up" key={view}>
@@ -163,7 +99,7 @@ export default function ViewRouter({ view, handlers, data }: ViewRouterProps) {
           >
             ← Volver a vista sala
           </button>
-          <FloorEditor floor={floor as unknown as FloorEditorProps['floor']} persistFloor={persistFloor as unknown as FloorEditorProps['persistFloor']} colors={C} />
+          <FloorEditor floor={floor as Floor} persistFloor={persistFloor} colors={C} />
         </div>
       )}
       {view === 'cocina'     && <CocinaView floor={floor as unknown as CocinaViewProps['floor']} catalog={catalog ?? undefined} onReady={markReady} colors={C} />}
@@ -181,8 +117,7 @@ export default function ViewRouter({ view, handlers, data }: ViewRouterProps) {
       )}
       {view === 'albaranes'  && <AlbaranesView colors={C} />}
       {view === 'produccion' && <ProduccionView catalog={catalog as unknown as ProduccionViewProps['catalog']} colors={C} />}
-      {view === 'dashboard'  && <VentasDashboardView sales={sales as unknown as VentasDashboardViewProps['sales']} colors={C} />}
-      {view === 'informes'   && <InformesView sales={sales} colors={C} />}
+      {view === 'dashboard'  && <VentasDashboardView sales={sales} colors={C} />}      {view === 'informes'   && <InformesView sales={sales} colors={C} />}
       {view === 'ofertas'   && (
         <OfertasPanel offers={offers as unknown as OfertasPanelProps['offers']} catalog={catalog as unknown as OfertasPanelProps['catalog']} onSave={saveOffersFn} colors={C} />
       )}
@@ -205,15 +140,15 @@ export default function ViewRouter({ view, handlers, data }: ViewRouterProps) {
       {view === 'gestoria'   && <GestoriaView sales={sales} colors={C} />}
       {view === 'pairing'    && <PairingPanel colors={C} />}
       {view === 'audit'      && <AuditView colors={C} />}
-      {view === 'turnos'    && <TurnosView employees={employees as unknown as TurnosViewProps['employees']} colors={C} />}
-      {view === 'registro-horario' && <RegistroHorarioView employees={employees as unknown as RegistroHorarioViewProps['employees']} colors={C} />}
+      {view === 'turnos'    && <TurnosView employees={employees} colors={C} />}
+      {view === 'registro-horario' && <RegistroHorarioView employees={employees} colors={C} />}
       {view === 'solicitudes'   && <SolicitudesView colors={C} />}
       {view === 'pedidos-compra' && <PedidosCompraView colors={C} />}
-      {view === 'reservas'   && <ReservasView floor={floor as unknown as ReservasViewProps['floor']} catalog={catalog as unknown as ReservasViewProps['catalog']} colors={C} />}
+      {view === 'reservas'   && <ReservasView floor={floor as Floor} catalog={catalog} colors={C} />}
       {view === 'waitlist'   && <WaitlistView colors={C} />}
       {view === 'onlineorders' && <OnlineOrdersView colors={C} />}
       {view === 'buffet'    && (
-        <BuffetKioskView floor={floor as unknown as BuffetKioskViewProps['floor']} currentUser={currentUser as unknown as BuffetKioskViewProps['currentUser']} onToast={showToast} />
+        <BuffetKioskView floor={floor} currentUser={currentUser} onToast={showToast} />
       )}
       {view === 'tickets'   && <TicketsView sales={sales as unknown as TicketsViewProps['sales']} colors={C} ticketSettings={ticketSettings} />}
       {view === 'pagos'     && <PaymentsView colors={C} />}

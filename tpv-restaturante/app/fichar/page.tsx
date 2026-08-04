@@ -17,7 +17,7 @@ export default function FicharIndex() {
   const [search, setSearch] = useState<string>('');
 
   useEffect(() => {
-    fetch('/api/employees')
+    fetch('/api/fichar/employees')
       .then(r => r.json())
       .then(data => setEmployees(data || []))
       .catch(() => {})

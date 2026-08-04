@@ -42,11 +42,18 @@ export default function KDSPage() {
       .catch(() => setPaired(false));
   }, []);
 
+  function kdsHeaders(): Record<string, string> {
+    const key = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_TPV_API_KEY ? process.env.NEXT_PUBLIC_TPV_API_KEY : '';
+    const h: Record<string, string> = { 'Content-Type': 'application/json', 'x-tenant-id': tenantId };
+    if (key) h['x-tpv-key'] = key;
+    return h;
+  }
+
   async function loadData() {
     try {
       const [flr, cat] = await Promise.all([
-        fetch('/api/floor').then(r => r.json() as Promise<Record<string, unknown>>),
-        fetch('/api/catalog').then(r => r.json() as Promise<Record<string, unknown>>),
+        fetch('/api/floor', { headers: kdsHeaders() }).then(r => r.json() as Promise<Record<string, unknown>>),
+        fetch('/api/catalog', { headers: kdsHeaders() }).then(r => r.json() as Promise<Record<string, unknown>>),
       ]);
       setFloor(flr);
       setCatalog(cat);
@@ -106,14 +113,14 @@ export default function KDSPage() {
     onAgotar={async (productId: string, agotado: boolean) => {
       const next = { ...catalog, products: (catalog.products as Array<Record<string, unknown>>).map(p => p.id === productId ? { ...p, agotado } : p) };
       setCatalog(next as unknown as Record<string, unknown>);
-      try { await fetch('/api/catalog', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(next) }); } catch {}
+      try { await fetch('/api/catalog', { method: 'PUT', headers: kdsHeaders(), body: JSON.stringify(next) }); } catch {}
     }}
     onReprint={() => {}}
   />;
 
   async function persist(flr: Record<string, unknown>) {
     try {
-      const h: Record<string, string> = { 'Content-Type': 'application/json', 'x-tenant-id': tenantId };
+      const h: Record<string, string> = kdsHeaders();
       await fetch('/api/floor', { method: 'PUT', headers: h, body: JSON.stringify(flr) });
       broadcastFloorUpdate(flr, tenantId);
     } catch {}

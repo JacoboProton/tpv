@@ -29,7 +29,7 @@ export function useInventory({ catalog, setCatalog, offers, setOffers, combos, s
     setCatalog(next)
     try { await saveCatalog(next) }
     catch {
-      enqueueMutation('/api/catalog', JSON.stringify(next))
+      enqueueMutation({ key: '/api/catalog', method: 'PUT', payload: next, idempotencyKey: `catalog:${Date.now()}` })
       showToast('Sin conexión — el catálogo se guardará cuando vuelva la red')
     }
   }, [setCatalog, showToast])
@@ -55,25 +55,25 @@ export function useInventory({ catalog, setCatalog, offers, setOffers, combos, s
   const saveOffersFn = useCallback(async (next: Offer[]) => {
     setOffers(next)
     try { await saveOffers(next) }
-    catch { enqueueMutation('/api/offers', JSON.stringify(next)); showToast('Sin conexión — las ofertas se guardarán cuando vuelva la red') }
+    catch { enqueueMutation({ key: '/api/offers', method: 'PUT', payload: next, idempotencyKey: `offers:${Date.now()}` }); showToast('Sin conexión — las ofertas se guardarán cuando vuelva la red') }
   }, [showToast])
 
   const saveCombosFn = useCallback(async (next: Combo[]) => {
     setCombos(next)
     try { await saveCombos(next) }
-    catch { enqueueMutation('/api/combos', JSON.stringify(next)); showToast('Sin conexión — los combos se guardarán cuando vuelva la red') }
+    catch { enqueueMutation({ key: '/api/combos', method: 'PUT', payload: next, idempotencyKey: `combos:${Date.now()}` }); showToast('Sin conexión — los combos se guardarán cuando vuelva la red') }
   }, [showToast])
 
   const saveMealMenusFn = useCallback(async (next: MealMenu[]) => {
     try { await saveMealMenus(next) }
-    catch { enqueueMutation('/api/meal-menus', JSON.stringify(next)); showToast('Sin conexión — los menús se guardarán cuando vuelva la red') }
+    catch { enqueueMutation({ key: '/api/meal-menus', method: 'PUT', payload: next, idempotencyKey: `meal-menus:${Date.now()}` }); showToast('Sin conexión — los menús se guardarán cuando vuelva la red') }
     const updatedMenus = { ...catalog, mealMenus: next }
     setCatalog(updatedMenus)
   }, [setCatalog, showToast])
 
   const savePriceRulesFn = useCallback(async (rules: PriceRule[]) => {
     try { await savePriceRules(rules) }
-    catch { enqueueMutation('/api/price-rules', JSON.stringify(rules)); showToast('Sin conexión — las reglas se guardarán cuando vuelva la red') }
+    catch { enqueueMutation({ key: '/api/price-rules', method: 'PUT', payload: rules, idempotencyKey: `price-rules:${Date.now()}` }); showToast('Sin conexión — las reglas se guardarán cuando vuelva la red') }
     const updatedRules = { ...catalog, priceRules: rules }
     setCatalog(updatedRules)
   }, [setCatalog, showToast])
@@ -82,7 +82,7 @@ export function useInventory({ catalog, setCatalog, offers, setOffers, combos, s
     const payload = JSON.stringify({ action: 'reorder-carousel', data })
     try {
       await fetch('/api/catalog', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: payload })
-    } catch { enqueueMutation('/api/catalog', payload, 'PATCH'); showToast('Sin conexión — el carrusel se guardará cuando vuelva la red') }
+    } catch { enqueueMutation({ key: '/api/catalog', method: 'PATCH', payload: { action: 'reorder-carousel', data }, idempotencyKey: `carrusel:${Date.now()}` }); showToast('Sin conexión — el carrusel se guardará cuando vuelva la red') }
     const updated = await fetch('/api/catalog').then(r => r.json())
     setCatalog(updated as Catalog)
   }, [setCatalog, showToast])

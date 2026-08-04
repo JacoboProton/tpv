@@ -39,7 +39,7 @@ export function useEmployees({
     setEmployees(next)
     try { await saveEmployees(next) }
     catch {
-      enqueueMutation('/api/employees', JSON.stringify(next))
+      enqueueMutation({ key: '/api/employees', method: 'PUT', payload: next, idempotencyKey: `employees:${Date.now()}` })
       showToast('Sin conexión — el equipo se guardará cuando vuelva la red')
     }
   }, [setEmployees, showToast])

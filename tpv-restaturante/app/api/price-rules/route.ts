@@ -5,6 +5,7 @@ import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { productPriceRules } from '../../../db/schema';
 import { requireRole } from '../../../lib/rbac';
+import { withIdempotency } from '../../../lib/idempotency';
 
 export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin'])(req);
@@ -28,20 +29,21 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const auth = await requireRole(['admin'])(req);
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
-
-  try {
-    const tenantId = getTenantId(req);
-    const rules = await req.json();
-    const db = getDb();
-    await db.delete(productPriceRules).where(eq(productPriceRules.tenantId, tenantId));
-    for (const r of rules) {
-      await db.insert(productPriceRules).values({
-        id: r.id, productId: r.product_id, name: r.name,
-        active: r.active ?? true, days: r.days,
-        startTime: r.start_time, endTime: r.end_time,
-        type: r.type, value: r.value, createdAt: Date.now(), tenantId,
-      });
-    }
-    return apiOk();
-  } catch (err) { return apiError(err); }
+  return withIdempotency(req, '/api/price-rules', async () => {
+    try {
+      const tenantId = getTenantId(req);
+      const rules = await req.json();
+      const db = getDb();
+      await db.delete(productPriceRules).where(eq(productPriceRules.tenantId, tenantId));
+      for (const r of rules) {
+        await db.insert(productPriceRules).values({
+          id: r.id, productId: r.product_id, name: r.name,
+          active: r.active ?? true, days: r.days,
+          startTime: r.start_time, endTime: r.end_time,
+          type: r.type, value: r.value, createdAt: Date.now(), tenantId,
+        });
+      }
+      return apiOk();
+    } catch (err) { return apiError(err); }
+  });
 }

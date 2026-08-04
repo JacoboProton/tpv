@@ -8,6 +8,7 @@ import { employees } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiNotFound } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
 import { rateLimit, getClientIp } from '../../../lib/rate-limit';
+import { withIdempotency } from '../../../lib/idempotency';
 import { EmployeePostBody, EmployeePutBody } from '@/lib/schemas/api-schemas';
 
 function sha256(s: string): string {
@@ -15,6 +16,8 @@ function sha256(s: string): string {
 }
 
 export async function GET(req: NextRequest) {
+  const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
+  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
@@ -38,50 +41,51 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const auth = await requireRole(['admin'])(req);
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
-
-  try {
-    const db = getDb();
-    const parsed = EmployeePutBody.safeParse(await req.json());
-    if (!parsed.success) return apiBadRequest(parsed.error.message);
-    const emps = parsed.data;
-    const tenantId = getTenantId(req);
-    const ids = emps.map((e) => e.id);
-    await db.transaction(async (tx) => {
-      for (const e of emps) {
-        await tx.insert(employees).values({
-          tenantId, id: e.id, name: e.name, pin: '',
-          pinHash: e.pin ? bcrypt.hashSync(sha256(e.pin), 10) : (e.pinHash || ''),
-          role: e.role || 'camarero', position: e.position || '',
-          workType: e.workType || '', workPct: String(e.workPct ?? 100), dni: e.dni || '',
-          notes: e.notes || '',
-          personalDiscountEnabled: e.personalDiscountEnabled || false,
-          monthlyLimit: String(e.monthlyLimit ?? 0), monthlyUsed: String(e.monthlyUsed ?? 0),
-          monthlyUsedMonth: e.monthlyUsedMonth || '',
-          whatsappCode: e.whatsappCode || '', whatsappLinked: e.whatsappLinked || false,
-          createdAt: e.createdAt || Date.now(),
-        }).onConflictDoUpdate({
-          target: [employees.id, employees.tenantId],
-          set: {
-            name: sql`EXCLUDED.name`, pin: sql`''`, pinHash: sql`EXCLUDED.pin_hash`,
-            role: sql`EXCLUDED.role`, position: sql`EXCLUDED.position`,
-            workType: sql`EXCLUDED.work_type`, workPct: sql`EXCLUDED.work_pct`,
-            dni: sql`EXCLUDED.dni`, notes: sql`EXCLUDED.notes`,
-            personalDiscountEnabled: sql`EXCLUDED.personal_discount_enabled`,
-            monthlyLimit: sql`EXCLUDED.monthly_limit`,
-            monthlyUsed: sql`EXCLUDED.monthly_used`,
-            monthlyUsedMonth: sql`EXCLUDED.monthly_used_month`,
-            whatsappCode: sql`EXCLUDED.whatsapp_code`,
-            whatsappLinked: sql`EXCLUDED.whatsapp_linked`,
-          },
-        });
-      }
-      if (ids.length > 0) {
-        await tx.delete(employees)
-          .where(and(eq(employees.tenantId, tenantId), not(inArray(employees.id, ids))));
-      }
-    });
-    return apiOk();
-  } catch (err) { return apiError(err); }
+  return withIdempotency(req, '/api/employees', async () => {
+    try {
+      const db = getDb();
+      const parsed = EmployeePutBody.safeParse(await req.json());
+      if (!parsed.success) return apiBadRequest(parsed.error.message);
+      const emps = parsed.data;
+      const tenantId = getTenantId(req);
+      const ids = emps.map((e) => e.id);
+      await db.transaction(async (tx) => {
+        for (const e of emps) {
+          await tx.insert(employees).values({
+            tenantId, id: e.id, name: e.name, pin: '',
+            pinHash: e.pin ? bcrypt.hashSync(sha256(e.pin), 10) : (e.pinHash || ''),
+            role: e.role || 'camarero', position: e.position || '',
+            workType: e.workType || '', workPct: String(e.workPct ?? 100), dni: e.dni || '',
+            notes: e.notes || '',
+            personalDiscountEnabled: e.personalDiscountEnabled || false,
+            monthlyLimit: String(e.monthlyLimit ?? 0), monthlyUsed: String(e.monthlyUsed ?? 0),
+            monthlyUsedMonth: e.monthlyUsedMonth || '',
+            whatsappCode: e.whatsappCode || '', whatsappLinked: e.whatsappLinked || false,
+            createdAt: e.createdAt || Date.now(),
+          }).onConflictDoUpdate({
+            target: [employees.id, employees.tenantId],
+            set: {
+              name: sql`EXCLUDED.name`, pin: sql`''`, pinHash: sql`EXCLUDED.pin_hash`,
+              role: sql`EXCLUDED.role`, position: sql`EXCLUDED.position`,
+              workType: sql`EXCLUDED.work_type`, workPct: sql`EXCLUDED.work_pct`,
+              dni: sql`EXCLUDED.dni`, notes: sql`EXCLUDED.notes`,
+              personalDiscountEnabled: sql`EXCLUDED.personal_discount_enabled`,
+              monthlyLimit: sql`EXCLUDED.monthly_limit`,
+              monthlyUsed: sql`EXCLUDED.monthly_used`,
+              monthlyUsedMonth: sql`EXCLUDED.monthly_used_month`,
+              whatsappCode: sql`EXCLUDED.whatsapp_code`,
+              whatsappLinked: sql`EXCLUDED.whatsapp_linked`,
+            },
+          });
+        }
+        if (ids.length > 0) {
+          await tx.delete(employees)
+            .where(and(eq(employees.tenantId, tenantId), not(inArray(employees.id, ids))));
+        }
+      });
+      return apiOk();
+    } catch (err) { return apiError(err); }
+  });
 }
 
 export async function POST(req: NextRequest) {

@@ -1464,3 +1464,42 @@ export const employees = pgTable("employees", {
 	primaryKey({ columns: [table.id, table.tenantId], name: "employees_pkey"}),
 	unique("employees_tenant_id_id_uniq").on(table.id, table.tenantId),
 ]);
+
+export const apiKeys = pgTable("api_keys", {
+	id: text().notNull(),
+	tenantId: text("tenant_id").default('default').notNull(),
+	clientType: text("client_type").notNull(),
+	label: text().default('').notNull(),
+	keyHash: text("key_hash").notNull(),
+	keyPrefix: text("key_prefix").default('').notNull(),
+	active: boolean().default(true).notNull(),
+	createdAt: bigint("created_at", { mode: "number" }).notNull(),
+	rotatedAt: bigint("rotated_at", { mode: "number" }),
+	lastUsedAt: bigint("last_used_at", { mode: "number" }),
+}, (table) => [
+	primaryKey({ columns: [table.id, table.tenantId], name: "api_keys_pkey"}),
+	unique("api_keys_tenant_id_key_hash_uniq").on(table.tenantId, table.keyHash),
+	index("idx_api_keys_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
+]);
+
+export const idempotencyKeys = pgTable("idempotency_keys", {
+	tenantId: text("tenant_id").default('default').notNull(),
+	idempotencyKey: text("idempotency_key").notNull(),
+	endpoint: text().default('').notNull(),
+	method: text().default('').notNull(),
+	status: integer().default(200).notNull(),
+	responseBody: jsonb("response_body"),
+	createdAt: bigint("created_at", { mode: "number" }).notNull(),
+	expiresAt: bigint("expires_at", { mode: "number" }),
+}, (table) => [
+	primaryKey({ columns: [table.tenantId, table.idempotencyKey], name: "idempotency_keys_pkey"}),
+	index("idx_idempotency_keys_expires").using("btree", table.expiresAt.asc().nullsLast().op("int8_ops")),
+]);
+
+export const floorSync = pgTable("floor_sync", {
+	tenantId: text("tenant_id").primaryKey().notNull(),
+	vectorClock: jsonb("vector_clock").default({}).notNull(),
+	updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
+}, (table) => [
+	index("idx_floor_sync_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
+]);

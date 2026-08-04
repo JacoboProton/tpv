@@ -29,6 +29,8 @@ export { toggleCuentaStatus } from './application/TableStatus/toggle-table-statu
 export { logoutUser } from './application/auth/logout.js';
 export { loadClockinSummary, handleClockinAction } from './application/auth/clockin.js';
 export { processSalesQueue } from './application/sales/sales-queue.js';
+export { addSplit, updateSplitAmount, removeSplit, toggleSplitItem, computePaymentTotals } from './application/payments/payment-splits.js';
+export { countPendingBar, countPendingCocina } from './application/orders/pending-counts.js';
 export { applyPersonalDiscount, removePersonalDiscount } from './application/ApplyPersonalDiscount/apply-personal-discount.js';
 export { findProduct } from './infrastructure/database/catalog-repository.js';
 // Utils

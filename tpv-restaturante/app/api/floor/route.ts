@@ -5,8 +5,10 @@ import { broadcastFloorUpdateServer } from '../../../lib/realtime';
 import { FloorPutBodySchema } from '../../../lib/schemas/floorSchema';
 import { putFloorInTransaction, deleteTablesInTransaction, deleteOrdersInTransaction, fetchFullFloor } from '../../../lib/floor';
 import { apiOk, apiError } from '../../../lib/infrastructure/response';
-import { parseBody } from '../../../lib/infrastructure/validate';
 import { requireRole } from '../../../lib/rbac';
+import { rateLimit } from '../../../lib/rate-limit';
+import { resolveFloorConflict, saveFloorSync, getFloorSync } from '../../../lib/floor-sync';
+import type { VectorClock } from '../../../lib/vector-clock';
 import type { NodePgTransaction } from 'drizzle-orm/node-postgres/session';
 import type { TablesRelationalConfig } from 'drizzle-orm/relations';
 
@@ -16,23 +18,41 @@ export async function GET(req: NextRequest) {
   try {
     const tenantId = getTenantId(req);
     const fullFloor = await fetchFullFloor(tenantId);
-    return apiOk(fullFloor);
+    const sync = await getFloorSync(tenantId);
+    return apiOk({ ...fullFloor, vectorClock: sync?.vectorClock ?? {}, updatedAt: sync?.updatedAt ?? 0 });
   } catch (err) { return apiError(err); }
 }
 
 export async function PUT(req: NextRequest) {
   const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
+  const tenantId = getTenantId(req);
+  const employeeId = auth.employee?.id || 'unknown';
+
+  const rl = await rateLimit(`floor:${tenantId}:${employeeId}`, 60, 60_000);
+  if (!rl.allowed) return apiError(new Error('Demasiadas actualizaciones de piso, intenta de nuevo en unos segundos'), 429);
 
   try {
-    const body = await parseBody(req, FloorPutBodySchema);
+    const raw = await req.json();
+    const body = FloorPutBodySchema.parse(raw);
+    const incomingClock = (raw.vectorClock ?? {}) as VectorClock;
+    const incomingUpdatedAt = typeof raw.updatedAt === 'number' ? raw.updatedAt : Date.now();
+
+    const decision = await resolveFloorConflict(tenantId, incomingClock, incomingUpdatedAt);
+    if (!decision.accepted) {
+      const fullFloor = await fetchFullFloor(tenantId);
+      const sync = await getFloorSync(tenantId);
+      return apiError(new Error('Conflict — floor desactualizado'), 409);
+    }
+
     const db = getDb();
-    const tenantId = getTenantId(req);
     await db.transaction(async (tx: Tx) => {
       await putFloorInTransaction(tx, body.tables, body.orders, body.zones, body.background, tenantId);
     });
+    await saveFloorSync(tenantId, decision.mergedClock, Math.max(incomingUpdatedAt, decision.storedUpdatedAt ?? 0));
     const fullFloor = await fetchFullFloor(tenantId);
-    await broadcastFloorUpdateServer(fullFloor, tenantId).catch(() => {});
+    const sync = await getFloorSync(tenantId);
+    await broadcastFloorUpdateServer({ ...fullFloor, vectorClock: sync?.vectorClock ?? {} }, tenantId).catch(() => {});
     return apiOk();
   } catch (err) { return apiError(err); }
 }
@@ -40,21 +60,36 @@ export async function PUT(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
+  const tenantId = getTenantId(req);
+  const employeeId = auth.employee?.id || 'unknown';
+
+  const rl = await rateLimit(`floor-patch:${tenantId}:${employeeId}`, 60, 60_000);
+  if (!rl.allowed) return apiError(new Error('Demasiadas actualizaciones de piso, intenta de nuevo en unos segundos'), 429);
 
   try {
-    const body = await req.json() as {
+    const raw = await req.json() as {
       updatedTables: unknown[]; deletedTableIds: string[]; updatedOrders: Record<string, unknown>; deletedOrderIds: string[];
+      vectorClock?: VectorClock; updatedAt?: number;
     };
-    const { updatedTables, deletedTableIds, updatedOrders, deletedOrderIds } = body;
+    const { updatedTables, deletedTableIds, updatedOrders, deletedOrderIds } = raw;
+    const incomingClock = (raw.vectorClock ?? {}) as VectorClock;
+    const incomingUpdatedAt = typeof raw.updatedAt === 'number' ? raw.updatedAt : Date.now();
+
+    const decision = await resolveFloorConflict(tenantId, incomingClock, incomingUpdatedAt);
+    if (!decision.accepted) {
+      return apiError(new Error('Conflict — floor desactualizado'), 409);
+    }
+
     const db = getDb();
-    const tenantId = getTenantId(req);
     await db.transaction(async (tx: Tx) => {
       await deleteTablesInTransaction(tx, deletedTableIds, tenantId);
       await deleteOrdersInTransaction(tx, deletedOrderIds, tenantId);
       await putFloorInTransaction(tx, (updatedTables || []) as Array<Record<string, unknown>>, (updatedOrders || {}) as Record<string, Record<string, unknown>>, null, null, tenantId);
     });
+    await saveFloorSync(tenantId, decision.mergedClock, Math.max(incomingUpdatedAt, decision.storedUpdatedAt ?? 0));
     const fullFloor = await fetchFullFloor(tenantId);
-    await broadcastFloorUpdateServer(fullFloor, tenantId).catch(() => {});
+    const sync = await getFloorSync(tenantId);
+    await broadcastFloorUpdateServer({ ...fullFloor, vectorClock: sync?.vectorClock ?? {} }, tenantId).catch(() => {});
     return apiOk();
   } catch (err) { return apiError(err); }
 }

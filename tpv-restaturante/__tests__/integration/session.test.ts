@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { sessions } from '../../db/schema';
 import { req } from '../helpers/request';
@@ -70,6 +71,13 @@ describe('POST /api/sessions — login', () => {
       method: 'POST', body: { action: 'login', employeeId: 'e1', employeeRole: 'admin', deviceId: 'device1' },
     }));
     expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(typeof body.token).toBe('string');
+    expect(body.token.length).toBeGreaterThan(20);
+    const setCookie = res.headers.get('set-cookie') || '';
+    expect(setCookie).toContain('tpv_session=');
+    expect(setCookie.toLowerCase()).toContain('httponly');
+    expect(setCookie.toLowerCase()).toContain('samesite=lax');
   });
 });
 

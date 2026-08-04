@@ -1,24 +1,14 @@
 "use client"
 
 import { useState, useCallback } from 'react'
-import type { Floor, Catalog, CurrentUser, Sale, Employee, Order } from '../domain/types'
+import type { Floor, Catalog, CurrentUser, Sale, Order } from '../domain/types'
 import type { Offer } from '../domain/types'
 import type { ModifierData } from '../domain/catalog/modifier-groups'
-import { round2, euros } from '../components/constants'
+import { euros } from '../components/constants'
 import { saveStockLog } from '../infrastructure/database/stock-log-repository'
 import { eventBus } from '../lib/event-bus'
-import { calculateOrderSubtotal } from '../domain/order/line-totals'
-import { calculatePersonalDiscountAmount } from '../domain/pricing/personal-discount'
+import { addSplit as addSplitOp, updateSplitAmount as updateSplitAmountOp, removeSplit as removeSplitOp, toggleSplitItem as toggleSplitItemOp, computePaymentTotals, type PaymentSplitState } from '@tpv/core'
 import { executeCloseOrder } from '../application/CloseOrder/close-order'
-import { verifyEmployeePin as verifyPin } from '../application/auth/verify-pin'
-import { applyPersonalDiscount as applyPersonalDiscountOp, removePersonalDiscount as removePersonalDiscountOp } from '../application/ApplyPersonalDiscount/apply-personal-discount'
-
-interface PaymentSplit {
-  id: string;
-  method: string;
-  amount: number;
-  itemIds?: string[];
-}
 
 export function useOrderPayments(
   floor: Floor,
@@ -27,7 +17,6 @@ export function useOrderPayments(
   sales: Sale[],
   modifierData: ModifierData,
   currentUser: CurrentUser | null,
-  employees: Employee[],
   trainingMode: boolean,
   selectedTableId: string | null,
   selectedOrder: Order | null,
@@ -35,12 +24,10 @@ export function useOrderPayments(
   persistSales: (next: Sale[]) => void,
   setSelectedTableId: (v: string | null) => void,
   setCatalog: (c: Catalog) => void,
-  setEmployees: (e: Employee[]) => void,
   showToast: (msg: string) => void,
-  ticketSettings?: Record<string, unknown>,
 ) {
   const [paying, setPaying] = useState(false)
-  const [paymentSplits, setPaymentSplits] = useState<PaymentSplit[]>([])
+  const [paymentSplits, setPaymentSplits] = useState<PaymentSplitState[]>([])
   const [orderDiscount, setOrderDiscount] = useState(0)
   const [tipAmount, setTipAmount] = useState(0)
   const [tipMethod, setTipMethod] = useState('efectivo')
@@ -50,43 +37,23 @@ export function useOrderPayments(
   const [invoiceAddress, setInvoiceAddress] = useState('')
   const [invoiceEmail, setInvoiceEmail] = useState('')
 
-  const orderTotal = selectedOrder ? calculateOrderSubtotal(selectedOrder.items, catalog) : 0
-  const discountedTotal = round2(orderTotal * (1 - orderDiscount / 100))
-  const finalTotal = round2(discountedTotal + tipAmount)
-  const splitsUsed = round2(paymentSplits.reduce((s, p) => s + (Number(p.amount) || 0), 0))
-  const remaining = round2(finalTotal - splitsUsed)
-  const canConfirm = paymentSplits.length > 0 && Math.abs(remaining) < 0.005
+  const totals = computePaymentTotals(selectedOrder?.items ?? [], catalog, orderDiscount, tipAmount, paymentSplits)
+  const { orderTotal, discountedTotal, finalTotal, splitsUsed, remaining, canConfirm } = totals
 
   const addSplit = useCallback((method: string) => {
-    if (method === 'fiado') {
-      setPaymentSplits([{ id: 'sp_fiado', method: 'fiado', amount: finalTotal }])
-    } else {
-      const used = round2(paymentSplits.reduce((s, p) => s + (p.method === 'fiado' ? 0 : p.amount), 0))
-      const rem = round2(finalTotal - used)
-      if (rem <= 0) return
-      setPaymentSplits((prev) => [...prev.filter((p) => p.method !== 'fiado'), { id: 'sp_' + Date.now(), method, amount: rem, itemIds: [] }])
-    }
-  }, [finalTotal, paymentSplits])
+    setPaymentSplits((prev) => addSplitOp(prev, method, finalTotal))
+  }, [finalTotal])
 
   const updateSplitAmount = useCallback((id: string, value: string) => {
-    const amount = value === '' ? 0 : Math.max(0, parseFloat(value))
-    setPaymentSplits((prev) => prev.map((p) => p.id === id ? { ...p, amount: isNaN(amount) ? 0 : amount } : p))
+    setPaymentSplits((prev) => updateSplitAmountOp(prev, id, value))
   }, [])
 
   const removeSplit = useCallback((id: string) => {
-    setPaymentSplits((prev) => prev.filter((p) => p.id !== id))
+    setPaymentSplits((prev) => removeSplitOp(prev, id))
   }, [])
 
   const toggleSplitItem = useCallback((splitId: string, itemId: string) => {
-    setPaymentSplits((prev) => prev.map((p) => {
-      if (p.id !== splitId) return p
-      const ids = p.itemIds || []
-      const next = ids.includes(itemId) ? ids.filter((id) => id !== itemId) : [...ids, itemId]
-      const itemAmount = (selectedOrder?.items || [])
-        .filter((i) => next.includes(i.id))
-        .reduce((s, i) => s + i.price * i.qty, 0)
-      return { ...p, itemIds: next, amount: itemAmount > 0 ? itemAmount : p.amount }
-    }))
+    setPaymentSplits((prev) => toggleSplitItemOp(prev, splitId, itemId, selectedOrder?.items ?? []))
   }, [selectedOrder])
 
   const resetPaymentState = useCallback(() => {
@@ -107,7 +74,6 @@ export function useOrderPayments(
     const table = floor.tables?.find((t) => t.id === selectedTableId)
     if (!table || !table.orderId) return
     const order: Order = floor.orders?.[table.orderId] as Order
-    if (!order) return
     if (!order) return
 
     const { nextFloor, nextCatalog, sale, stockLogs, warnings, wasDebt } = executeCloseOrder({
@@ -170,43 +136,6 @@ export function useOrderPayments(
       modifierData, offers, trainingMode, currentUser, persistFloor,
       setCatalog, persistSales, showToast, resetPaymentState, setSelectedTableId])
 
-  const getDiscountRates = useCallback(() => {
-    const raw = ticketSettings?.personalDiscountRates
-    try { return typeof raw === 'string' ? JSON.parse(raw) : raw || {} } catch { return {} }
-  }, [ticketSettings])
-
-  const calcPersonalDiscountAmount = useCallback((order: { items: Order['items'] }, rates: Record<string, number>) => {
-    return calculatePersonalDiscountAmount(order.items, rates, catalog)
-  }, [catalog])
-
-  const applyPersonalDiscount = useCallback(async (orderId: string, employeePin: string): Promise<boolean> => {
-    const verifyWithToast = async (pin: string) => {
-      const emp = await verifyPin(pin)
-      if (!emp) showToast('PIN incorrecto')
-      return emp
-    }
-    const result = await applyPersonalDiscountOp(floor, employees, catalog, orderId, employeePin, {
-      verifyEmployeePin: verifyWithToast,
-      getRates: getDiscountRates,
-      showToast,
-      euros,
-    })
-    if (!result) return false
-    persistFloor(result.floor)
-    setEmployees(result.employees)
-    return true
-  }, [floor, employees, catalog, getDiscountRates, persistFloor, showToast, setEmployees])
-
-  const removePersonalDiscount = useCallback((orderId: string) => {
-    const result = removePersonalDiscountOp(floor, employees, catalog, orderId, {
-      getRates: getDiscountRates,
-      showToast,
-    })
-    if (!result) return
-    persistFloor(result.floor)
-    setEmployees(result.employees)
-  }, [floor, employees, catalog, getDiscountRates, persistFloor, showToast, setEmployees])
-
   return {
     paying, setPaying,
     paymentSplits, setPaymentSplits,
@@ -222,7 +151,5 @@ export function useOrderPayments(
     splitsUsed, remaining, canConfirm,
     addSplit, updateSplitAmount, removeSplit, toggleSplitItem,
     closeBill, resetPaymentState,
-    getDiscountRates, calcPersonalDiscountAmount,
-    applyPersonalDiscount, removePersonalDiscount,
   }
 }

@@ -33,6 +33,9 @@ export { loadClockinSummary, handleClockinAction } from './application/auth/cloc
 export type { ClockinDeps } from './application/auth/clockin.js';
 export { processSalesQueue } from './application/sales/sales-queue.js';
 export type { SalesQueueDeps } from './application/sales/sales-queue.js';
+export { addSplit, updateSplitAmount, removeSplit, toggleSplitItem, computePaymentTotals } from './application/payments/payment-splits.js';
+export type { PaymentSplitState, PaymentTotals } from './application/payments/payment-splits.js';
+export { countPendingBar, countPendingCocina } from './application/orders/pending-counts.js';
 export { applyPersonalDiscount, removePersonalDiscount } from './application/ApplyPersonalDiscount/apply-personal-discount.js';
 export type { ApplyPersonalDiscountDeps, RemovePersonalDiscountDeps, VerifiedEmployee } from './application/ApplyPersonalDiscount/apply-personal-discount.js';
 export type { CatalogProduct } from './infrastructure/database/catalog-repository.js';

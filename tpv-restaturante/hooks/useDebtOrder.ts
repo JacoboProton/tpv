@@ -36,7 +36,7 @@ export function useDebtOrder({
     setFloor(f)
     ;(async () => {
       try { await (await fetch('/api/floor', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(f) })).json() }
-      catch { enqueueMutation('/api/floor', JSON.stringify(f)); showToast('Sin conexión — la deuda se guardará cuando vuelva la red') }
+      catch { enqueueMutation({ key: '/api/floor', method: 'PUT', payload: f, idempotencyKey: `floor:${Date.now()}` }); showToast('Sin conexión — la deuda se guardará cuando vuelva la red') }
     })()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { connectRealtime, disconnectRealtime } from '../lib/realtime'
 import { setLastFloor } from '../lib/api'
+import { mergeLocalClock } from '../lib/floor-vc'
 
 import type { Floor, Sale } from '../domain/types'
 
@@ -22,6 +23,7 @@ export function useRealtimeSync({ tenantId, setFloor, setSales, onReadyNotificat
     if (ch) {
       ch.on('broadcast', { event: 'floor:updated' }, ({ payload }) => {
         const floorData = payload.floor as Floor
+        mergeLocalClock((floorData as { vectorClock?: Record<string, number> }).vectorClock)
         setFloor(floorData)
         setLastFloor(floorData as unknown as Record<string, unknown>)
       })
@@ -33,6 +35,7 @@ export function useRealtimeSync({ tenantId, setFloor, setSales, onReadyNotificat
       try {
         const data = await (await fetch('/api/floor')).json()
         if (!data) return
+        mergeLocalClock((data as { vectorClock?: Record<string, number> }).vectorClock)
         const h = JSON.stringify(data)
         if (h !== floorHashRef.current) { floorHashRef.current = h; setFloor(data as Floor) }
       } catch {}

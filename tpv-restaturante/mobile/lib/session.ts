@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL, TPV_API_KEY } from './config';
-import { setDeviceId, getTenantId, getEmployeeId, getDeviceId as getApiDeviceId } from './api';
+import { setDeviceId, setSessionToken, setEmployeeSession, clearEmployeeSession, getTenantId, getEmployeeId, getDeviceId as getApiDeviceId } from './api';
 import { logError, logWarn, logInfo, logDebug } from './logger';
 
 const DEVICE_KEY = 'tpv:device_id';
@@ -49,6 +49,12 @@ export async function sessionLogin(employeeId: string, employeeRole: string, for
     });
     const data = await res.json();
     
+    if (data.token) {
+      setSessionToken(data.token);
+      setEmployeeSession(employeeId, employeeRole);
+      logInfo('Session JWT stored', { employeeId });
+    }
+
     if (data.ok) {
       logInfo('Session login successful', { employeeId, employeeRole });
     } else if (data.conflict) {
@@ -80,6 +86,8 @@ export async function sessionLogout(employeeId: string): Promise<void> {
     logWarn('Session logout request failed (non-critical)', { error: e, employeeId });
     // No throw porque logout es "best-effort"
   }
+  setSessionToken('');
+  clearEmployeeSession();
 }
 
 export async function sessionKeepalive(employeeId: string): Promise<{ ok?: boolean; invalidated?: boolean; message?: string }> {

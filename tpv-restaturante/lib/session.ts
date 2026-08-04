@@ -1,5 +1,10 @@
 const DEVICE_KEY = 'tpv:device_id';
 
+function apiKeyHeader(): Record<string, string> {
+  const key = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_TPV_API_KEY ? process.env.NEXT_PUBLIC_TPV_API_KEY : '';
+  return key ? { 'x-tpv-key': key } : {};
+}
+
 export function getDeviceId(): string {
   let id = localStorage.getItem(DEVICE_KEY);
   if (!id) {
@@ -12,8 +17,8 @@ export function getDeviceId(): string {
 export async function sessionLogin(employeeId: string, employeeRole: string, _force?: boolean): Promise<{ conflict?: boolean }> {
   const res = await fetch('/api/session', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'login', employeeId, employeeRole, deviceId: getDeviceId() }),
+    headers: { 'Content-Type': 'application/json', ...apiKeyHeader() },
+    body: JSON.stringify({ action: 'login', employeeId, employeeRole, deviceId: getDeviceId(), force: _force }),
   });
   return res.json();
 }
@@ -21,7 +26,7 @@ export async function sessionLogin(employeeId: string, employeeRole: string, _fo
 export async function sessionLogout(employeeId: string): Promise<void> {
   await fetch('/api/session', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...apiKeyHeader() },
     body: JSON.stringify({ action: 'logout', employeeId, deviceId: getDeviceId() }),
   }).catch(() => {});
 }
@@ -29,7 +34,7 @@ export async function sessionLogout(employeeId: string): Promise<void> {
 export async function sessionKeepalive(employeeId: string): Promise<{ ok?: boolean; invalidated?: boolean }> {
   const res = await fetch('/api/session', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...apiKeyHeader() },
     body: JSON.stringify({ action: 'keepalive', employeeId, deviceId: getDeviceId() }),
   });
   return res.json();

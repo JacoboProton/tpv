@@ -7,6 +7,7 @@ let _tenantId = 'default';
 let _employeeId = '';
 let _employeeRole = '';
 let _deviceId = '';
+let _sessionToken = '';
 export function setTenantId(id: string) { _tenantId = id; }
 export function getTenantId() { return _tenantId; }
 export function setEmployeeSession(id: string, role: string) { _employeeId = id; _employeeRole = role; }
@@ -14,13 +15,15 @@ export function clearEmployeeSession() { _employeeId = ''; _employeeRole = ''; }
 export function setDeviceId(id: string) { _deviceId = id; }
 export function getDeviceId() { return _deviceId; }
 export function getEmployeeId() { return _employeeId; }
+export function setSessionToken(token: string) { _sessionToken = token; }
+export function getSessionToken() { return _sessionToken; }
+export function hasSessionToken() { return !!_sessionToken; }
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_URL}/api${path}`;
   const headers: Record<string, string> = { 'Content-Type': 'application/json', 'x-tenant-id': _tenantId };
   if (TPV_API_KEY) headers['x-tpv-key'] = TPV_API_KEY;
-  if (_employeeId) headers['x-employee-id'] = _employeeId;
-  if (_employeeRole) headers['x-employee-role'] = _employeeRole;
+  if (_sessionToken) headers['Authorization'] = `Bearer ${_sessionToken}`;
   if (_deviceId) headers['x-device-id'] = _deviceId;
   const res = await fetch(url, {
     headers: { ...headers, ...options.headers as Record<string, string> },

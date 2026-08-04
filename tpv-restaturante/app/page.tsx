@@ -48,6 +48,7 @@ import ClockinModal         from '../components/modals/ClockinModal';
 import { EventLog }          from '../modules/debug/EventLog';
 import SettingsModal        from '../components/modals/SettingsModal';
 import ViewRouter from '../modules/core/ViewRouter'
+import AppProviders from '../modules/core/app-contexts'
 import Sidebar from '../modules/core/Sidebar'
 import TopBar from '../modules/core/TopBar'
 import { navGroups } from '../modules/core/nav-config'
@@ -64,8 +65,24 @@ export default function App() {
 
   const [catalog, setCatalog]       = useState<Catalog | null>(null);
   const [floor, setFloor]           = useState<Floor | null>(null);
-  const [sales, setSales]           = useState<Sale[]>([]);
   const [employees, setEmployees]   = useState<Employee[]>([]);
+
+  const sales = floor?.sales ?? [];
+  const setSales = useCallback((updater: Sale[] | ((prev: Sale[]) => Sale[])) => {
+    setFloor(prev => {
+      if (!prev) return prev
+      const current = prev.sales ?? []
+      const next = typeof updater === 'function' ? (updater as (p: Sale[]) => Sale[])(current) : updater
+      return { ...prev, sales: next }
+    })
+  }, [setFloor]);
+
+  const setFloorPreservingSales = useCallback((f: Floor) => {
+    setFloor(prev => {
+      if (!prev) return f
+      return { ...f, sales: f.sales ?? prev.sales }
+    })
+  }, [setFloor]);
 
   const [menuMode, setMenuMode]           = useState<string>('menu');
   const [entryPoint, setEntryPoint]       = useState<string>('entrada');
@@ -102,7 +119,7 @@ export default function App() {
     printESCPOS(escposOpenDrawer()).then(() => {}).catch(() => {});
   }
 
-  const emp = useEmployees({ employees, setEmployees, showToast, floor: floor as Floor, setFloor });
+  const emp = useEmployees({ employees, setEmployees, showToast, floor: floor as Floor, setFloor: setFloorPreservingSales });
   const {
     currentUser, setCurrentUser, loginSelected, setLoginSelected, pinInput, setPinInput,
     trainingMode, setTrainingMode, savedFloor, setSavedFloor,
@@ -113,7 +130,7 @@ export default function App() {
   } = emp;
 
   const orders = useOrders({
-    floor: floor as Floor, setFloor, catalog: catalog as Catalog, setCatalog, sales, setSales,
+    floor: floor as Floor, setFloor: setFloorPreservingSales, catalog: catalog as Catalog, setCatalog, sales, setSales,
     employees, setEmployees, currentUser, tenantId, modifierData,
     ticketSettings, offers, trainingMode, showToast,
   });
@@ -136,6 +153,7 @@ export default function App() {
     selectedTable, activeOrderId, selectedOrder,
     orderTotal, discountedTotal, finalTotal, splitsUsed, remaining, canConfirm,
     pendingBarCount, pendingCocinaCount,
+    pendingSalesCount,
     persistFloor, persistSales,
     addItem, confirmModifiersAndAdd, changeQty, updateItemNotes, removeItem,
     sendToKitchenCourse, sendItemToKitchen, updateItemCourse, editItemModifiers,
@@ -149,11 +167,11 @@ export default function App() {
     closeBill, handlePrint, debtFloorRef,
   } = orders;
 
-  const kitchen = useKitchen({ floor: floor as Floor, setFloor, persistFloor, catalog: catalog as Catalog, setCatalog, showToast, handlePrint, tenantId });
+  const kitchen = useKitchen({ floor: floor as Floor, setFloor: setFloorPreservingSales, persistFloor, catalog: catalog as Catalog, setCatalog, showToast, handlePrint, tenantId });
   const { updateItemState, advanceOrder, agotarProducto, reprintKitchenTicket, handleReadyNotification } = kitchen;
 
   const { loading, fatalError } = useAppInit({
-    tenantId, setTenants, setCatalog, setFloor, setEmployees, setSales,
+    tenantId, setTenants, setCatalog, setFloor: setFloorPreservingSales, setEmployees, setSales,
     setTicketSettings, setOffers, setCombos, tryRestoreSession,
   });
 
@@ -174,9 +192,9 @@ export default function App() {
     onQuickCard: useCallback(() => { setPaymentSplits([{ id: 'qd', method: 'tarjeta', amount: 0 }]); setTipAmount(0); setTipMethod('efectivo'); setPaying(true); }, []),
   });
 
-  useRealtimeSync({ tenantId, setFloor, setSales, onReadyNotification: handleReadyNotification as (payload: unknown) => void });
+  useRealtimeSync({ tenantId, setFloor: setFloorPreservingSales, setSales, onReadyNotification: handleReadyNotification as (payload: unknown) => void });
   useQrPolling(setQrCalls);
-  useDebtOrder({ selectedTable, selectedTableId, currentUser, sales, floor: floor as Floor, setFloor, showToast, debtFloorRef });
+  useDebtOrder({ selectedTable, selectedTableId, currentUser, sales, floor: floor as Floor, setFloor: setFloorPreservingSales, showToast, debtFloorRef });
 
   const inv = useInventory({ catalog: catalog as Catalog, setCatalog, offers, setOffers, combos, setCombos, showToast });
   const {
@@ -219,14 +237,20 @@ export default function App() {
 
       <div className="flex flex-col flex-1 min-w-0" style={{ maxHeight: '100vh', overflowY: 'auto' }}>
 
-      {isOffline && <OfflineBanner colors={C} pendingMutations={pendingMutations} />}
+      {isOffline && <OfflineBanner colors={C} pendingMutations={pendingMutations + pendingSalesCount} />}
 
       <QrCallBanner qrCalls={qrCalls} colors={C} onDismiss={dismissQrCalls} />
 
       <TopBar colors={C} theme={theme} toggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} currentUser={currentUser} trainingMode={trainingMode} toggleTraining={toggleTraining} handlePrint={handlePrint} setShowSettings={setShowSettings} logout={logout} showToast={showToast} ticketSettings={ticketSettings} loadClockinSummary={loadClockinSummary} setShowClockinModal={setShowClockinModal} clockinSummary={clockinSummary as { totalHours?: number; entries?: unknown[] } | null} />
 
       <main className="px-4 sm:px-6 py-6 max-w-6xl mx-auto">
-        <ViewRouter view={view} handlers={{ setSelectedTableId, setActiveCategory, setShowFloorEditor, setAlmacenUbicacion, setView: setView as unknown as (v: string) => void, markReady, updateItemState, advanceOrder, agotarProducto, reprintKitchenTicket, updateProductField, addProduct, deleteProduct, saveCartas, saveOffersFn, saveCombosFn, saveMealMenusFn, saveCarrusel, savePriceRulesFn, handleRefund, handleConfirmBizum, printInvoice, handleDownloadPdf, handleSendInvoiceEmail, addEmployee, updateEmployeeField, deleteEmployee }} data={{ floor, catalog, sales, employees, offers, combos, colors: C, ticketSettings, currentUser, showToast, almacenUbicacion, showFloorEditor, persistFloor, newProductOpen, setNewProductOpen, confirmDeleteId, setConfirmDeleteId }} />
+        <AppProviders
+          view={view}
+          handlers={{ setSelectedTableId, setActiveCategory, setShowFloorEditor, setAlmacenUbicacion, setView: setView as unknown as (v: string) => void, markReady, updateItemState, advanceOrder, agotarProducto, reprintKitchenTicket, updateProductField, addProduct, deleteProduct, saveCartas, saveOffersFn, saveCombosFn, saveMealMenusFn, saveCarrusel, savePriceRulesFn, handleRefund, handleConfirmBizum, printInvoice, handleDownloadPdf, handleSendInvoiceEmail, addEmployee, updateEmployeeField, deleteEmployee }}
+          data={{ floor, catalog, sales, employees, offers, combos, colors: C, ticketSettings, currentUser, showToast, almacenUbicacion, showFloorEditor, persistFloor, newProductOpen, setNewProductOpen, confirmDeleteId, setConfirmDeleteId }}
+        >
+          <ViewRouter view={view} />
+        </AppProviders>
       </main>
 
       {selectedTable && (

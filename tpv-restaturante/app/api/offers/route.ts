@@ -5,6 +5,7 @@ import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { offers } from '../../../db/schema';
 import { requireRole } from '../../../lib/rbac';
+import { withIdempotency } from '../../../lib/idempotency';
 import { OffersBody } from '@/lib/schemas/api-schemas';
 
 export async function GET(req: NextRequest) {
@@ -28,23 +29,24 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const auth = await requireRole(['admin'])(req);
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
-
-  try {
-    const db = getDb();
-    const tenantId = getTenantId(req);
-    const parsed = OffersBody.safeParse(await req.json());
-    if (!parsed.success) return apiBadRequest(parsed.error.message);
-    const data = parsed.data;
-    await db.delete(offers).where(eq(offers.tenantId, tenantId));
-    for (const o of data) {
-      await db.insert(offers).values({
-        id: o.id, name: o.name, type: o.type, days: o.days ?? [1, 2, 3, 4, 5],
-        startHour: Number(o.startHour ?? 13), endHour: Number(o.endHour ?? 16),
-        discountPct: o.discountPct != null ? String(o.discountPct) : '15',
-        fixedPrice: o.fixedPrice != null ? String(o.fixedPrice) : null,
-        productIds: o.productIds ?? [''], active: o.active ?? true, tenantId,
-      });
-    }
-    return apiOk();
-  } catch (err) { return apiError(err); }
+  return withIdempotency(req, '/api/offers', async () => {
+    try {
+      const db = getDb();
+      const tenantId = getTenantId(req);
+      const parsed = OffersBody.safeParse(await req.json());
+      if (!parsed.success) return apiBadRequest(parsed.error.message);
+      const data = parsed.data;
+      await db.delete(offers).where(eq(offers.tenantId, tenantId));
+      for (const o of data) {
+        await db.insert(offers).values({
+          id: o.id, name: o.name, type: o.type, days: o.days ?? [1, 2, 3, 4, 5],
+          startHour: Number(o.startHour ?? 13), endHour: Number(o.endHour ?? 16),
+          discountPct: o.discountPct != null ? String(o.discountPct) : '15',
+          fixedPrice: o.fixedPrice != null ? String(o.fixedPrice) : null,
+          productIds: o.productIds ?? [''], active: o.active ?? true, tenantId,
+        });
+      }
+      return apiOk();
+    } catch (err) { return apiError(err); }
+  });
 }
