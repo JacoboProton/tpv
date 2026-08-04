@@ -76,6 +76,10 @@ export function setLastFloor(floor: Record<string, unknown> | null): void {
   lastFloor = floor ? JSON.parse(JSON.stringify(floor)) : null;
 }
 
+export function getLastFloor(): Record<string, unknown> | null {
+  return lastFloor;
+}
+
 function stableKeyOrder(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
@@ -110,7 +114,7 @@ function stableKeyOrder(a: unknown, b: unknown): boolean {
   return true;
 }
 
-interface FloorDiff {
+export interface FloorDiff {
   isFullSync: boolean;
   updatedTables?: unknown[];
   deletedTableIds?: string[];
@@ -118,7 +122,7 @@ interface FloorDiff {
   deletedOrderIds?: string[];
 }
 
-function computeFloorDiff(last: Record<string, unknown> | null, next: Record<string, unknown>): FloorDiff {
+export function computeFloorDiff(last: Record<string, unknown> | null, next: Record<string, unknown>): FloorDiff {
   if (!last || !last.tables || !next || !next.tables) {
     return { isFullSync: true };
   }

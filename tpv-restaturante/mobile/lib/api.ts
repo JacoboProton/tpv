@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL, TPV_API_KEY } from './config';
 import type { Employee, Floor, Product, Category, ModifierGroup, Sale, GestoriaDocument, GestoriaPayroll, GestoriaTaxModel, GestoriaAuthorization, GestoriaOperationsResponse, Table, Order } from './types';
-import { logError, logWarn, logInfo, logDebug } from './logger';
+import { logError, logWarn, logInfo, logDebug, setCorrelationId } from '../../lib/logger';
 
 let _tenantId = 'default';
 let _employeeId = '';
@@ -15,6 +15,7 @@ export function clearEmployeeSession() { _employeeId = ''; _employeeRole = ''; }
 export function setDeviceId(id: string) { _deviceId = id; }
 export function getDeviceId() { return _deviceId; }
 export function getEmployeeId() { return _employeeId; }
+export function getEmployeeRole() { return _employeeRole; }
 export function setSessionToken(token: string) { _sessionToken = token; }
 export function getSessionToken() { return _sessionToken; }
 export function hasSessionToken() { return !!_sessionToken; }
@@ -29,6 +30,7 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
     headers: { ...headers, ...options.headers as Record<string, string> },
     ...options,
   });
+  const corrId = res.headers.get('x-correlation-id'); if (corrId) setCorrelationId(corrId);
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`${options.method || 'GET'} ${url} → ${res.status}: ${body}`);
@@ -55,7 +57,11 @@ export function setLastFloor(floor: Floor | null) {
   lastFloor = floor ? JSON.parse(JSON.stringify(floor)) : null;
 }
 
-function computeFloorDiff(last: Floor | null, next: Floor) {
+export function getLastFloor() {
+  return lastFloor;
+}
+
+export function computeFloorDiff(last: Floor | null, next: Floor) {
   if (!last || !last.tables || !next || !next.tables) {
     return { isFullSync: true };
   }
@@ -365,4 +371,8 @@ export async function fetchGestoriaAuthorization(): Promise<GestoriaAuthorizatio
 
 export async function saveGestoriaAuthorization(data: Record<string, unknown>): Promise<{ ok: boolean }> {
   return apiFetch('/gestoria', { method: 'PUT', body: JSON.stringify({ action: 'authorization', ...data }) });
+}
+
+export async function fetchRealtimeToken(): Promise<{ token: string }> {
+  return apiFetch<{ token: string }>('/realtime/token');
 }

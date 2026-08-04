@@ -77,10 +77,12 @@ export default function App() {
     })
   }, [setFloor]);
 
-  const setFloorPreservingSales = useCallback((f: Floor) => {
+  const setFloorPreservingSales = useCallback((f: Floor | ((prev: Floor | null) => Floor | null)) => {
     setFloor(prev => {
-      if (!prev) return f
-      return { ...f, sales: f.sales ?? prev.sales }
+      const next = typeof f === 'function' ? f(prev) : f;
+      if (!next) return null;
+      if (!prev) return next;
+      return { ...next, sales: next.sales ?? prev.sales }
     })
   }, [setFloor]);
 

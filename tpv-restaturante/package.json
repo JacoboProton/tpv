@@ -15,7 +15,12 @@
     "db:pull": "drizzle-kit pull",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "attw": "attw",
+    "type-coverage": "type-coverage --strict --ignore-files '**/*.test.ts'",
+    "contract:test": "pact-test",
+    "mutation:test": "stryker run",
+    "bundle:check": "size-limit --fail-on-error"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.68.0",

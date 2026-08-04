@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Monitor, Clock } from 'lucide-react';
 import KDSView from '../../modules/kitchen/KDSView';
-import { connectRealtime, broadcastFloorUpdate, broadcastReadyNotification, disconnectRealtime } from '../../lib/realtime';
+import { connectRealtime, broadcastFloorUpdate, broadcastReadyNotification, disconnectRealtime, applyFloorDiff } from '../../lib/realtime';
 import type { Theme } from '@/components/constants';
 
 const KTC: Record<string, string> = { base: '#1a1d23', surface: '#252830', surfaceLight: '#30343e', accent: '#c4a04a', cream: '#e6e1d6', muted: '#9c958a' };
@@ -23,8 +23,8 @@ export default function KDSPage() {
   useEffect(() => {
     const ch = connectRealtime(tenantId);
     if (ch) {
-      ch.on('broadcast', { event: 'floor:updated' }, ({ payload }: { payload: { floor: Record<string, unknown> } }) => {
-        setFloor(payload.floor);
+      ch.on('broadcast', { event: 'floor:updated' }, ({ payload }: { payload: any }) => {
+        setFloor((prev: any) => applyFloorDiff(prev, payload));
       });
     }
     return () => { disconnectRealtime(); };

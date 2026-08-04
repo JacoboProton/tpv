@@ -7,7 +7,7 @@ interface AppState {
   floor: Floor | null;
   user: Employee | null;
   tenantId: string;
-  setFloor: (f: Floor | null) => void;
+  setFloor: (f: any) => void;
   setUser: (u: Employee | null) => void;
   setTenantId: (id: string) => void;
 }

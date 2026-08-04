@@ -19,7 +19,13 @@ function LayoutContent() {
 
   useEffect(() => {
     const ch = connectRealtime(
-      (f) => { setFloor(f); setLastFloor(f); },
+      (updater) => {
+        setFloor((prev: any) => {
+          const next = typeof updater === 'function' ? updater(prev) : updater;
+          if (next) setLastFloor(next);
+          return next;
+        });
+      },
       (data) => showReadyNotification(data),
       getTenantId(),
     );

@@ -1,0 +1,82 @@
+name: Deploy CI Pipeline
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - run: npm test
+
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ secrets.PRODUCTION_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+
+      # Pre‑deploy health check (optional – you can set HEALTH_URL env)
+      - name: Pre‑deploy health check
+        env:
+          HEALTH_URL: ${{ secrets.HEALTH_URL }}
+        run: bash ./scripts/health_check.sh
+        continue-on-error: false
+
+      # Manual approval before migration
+      - name: Wait for manual approval
+        uses: softprops/interrupt-action@v1
+        with:
+          timeout: 3600
+          message: "Approve migration to production"
+
+      # Run drizzle‑kit migration (no --force)
+      - name: Run database migration
+        run: npx drizzle-kit migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      # Post‑deploy health check
+      - name: Post‑deploy health check
+        env:
+          HEALTH_URL: ${{ secrets.HEALTH_URL }}
+        run: |
+          if ! bash ./scripts/health_check.sh; then
+            echo "Health check failed – starting rollback"
+            bash ./scripts/rollback.sh
+            exit 1
+          fi
+        continue-on-error: false
+
+  rollback:
+    if: failure()
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      - name: Run rollback script
+        run: bash ./scripts/rollback.sh
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}

@@ -52,7 +52,10 @@ export async function PUT(req: NextRequest) {
     await saveFloorSync(tenantId, decision.mergedClock, Math.max(incomingUpdatedAt, decision.storedUpdatedAt ?? 0));
     const fullFloor = await fetchFullFloor(tenantId);
     const sync = await getFloorSync(tenantId);
-    await broadcastFloorUpdateServer({ ...fullFloor, vectorClock: sync?.vectorClock ?? {} }, tenantId).catch(() => {});
+    await broadcastFloorUpdateServer({
+      isFullSync: true,
+      floor: { ...fullFloor, vectorClock: sync?.vectorClock ?? {}, updatedAt: sync?.updatedAt ?? 0 },
+    }, tenantId).catch(() => {});
     return apiOk();
   } catch (err) { return apiError(err); }
 }
@@ -89,7 +92,17 @@ export async function PATCH(req: NextRequest) {
     await saveFloorSync(tenantId, decision.mergedClock, Math.max(incomingUpdatedAt, decision.storedUpdatedAt ?? 0));
     const fullFloor = await fetchFullFloor(tenantId);
     const sync = await getFloorSync(tenantId);
-    await broadcastFloorUpdateServer({ ...fullFloor, vectorClock: sync?.vectorClock ?? {} }, tenantId).catch(() => {});
+    await broadcastFloorUpdateServer({
+      isFullSync: false,
+      diff: {
+        updatedTables: updatedTables || [],
+        deletedTableIds: deletedTableIds || [],
+        updatedOrders: updatedOrders || {},
+        deletedOrderIds: deletedOrderIds || [],
+      },
+      vectorClock: sync?.vectorClock ?? {},
+      updatedAt: sync?.updatedAt ?? 0,
+    }, tenantId).catch(() => {});
     return apiOk();
   } catch (err) { return apiError(err); }
 }
