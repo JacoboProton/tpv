@@ -3,6 +3,7 @@ import { sql, eq } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { requireAdminPin } from '../../../lib/rbac';
+import { rateLimit } from '../../../lib/rate-limit';
 import { orders } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
 import { ResetOrdersBody } from '@/lib/schemas/api-schemas';
@@ -16,13 +17,12 @@ export async function POST(req: NextRequest) {
     const parsed = ResetOrdersBody.safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
     const body = parsed.data;
-    const adminCheck = await requireAdminPin(req, body.adminPin);
-    if (!adminCheck.authorized) {
-      return apiError(new Error(adminCheck.error), adminCheck.status);
-    }
-
-    const db = getDb();
     const tenantId = getTenantId(req);
+    const rl = await rateLimit(`reset:${tenantId}`, 20, 60_000);
+    if (!rl.allowed) return apiError(new Error('Demasiadas operaciones, intenta de nuevo en unos segundos'), 429);
+    const adminCheck = await requireAdminPin(req, body.adminPin);
+    if (!adminCheck.authorized) return apiError(new Error('Admin PIN no autorizado'), 403);
+    const db = getDb();
 
     const backup = await db.select().from(orders).where(eq(orders.tenantId, tenantId));
     const backupId = 'backup_orders_' + Date.now();

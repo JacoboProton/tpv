@@ -1,0 +1,49 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main", "develop"]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install project dependencies
+        run: npm ci
+
+      # Install the **published** version of @tpv/core to validate exports
+      - name: Install published @tpv/core
+        run: npm install @tpv/core@latest
+
+      - name: Run Linter
+        run: npm run lint
+
+      - name: Run Type Coverage
+        run: npm run type-coverage
+
+      - name: Validate Type Exports with attw
+        run: npm run attw
+
+      - name: Run Unit Tests
+        run: npm test
+
+      - name: Check Bundle Size
+        run: npm run bundle:check
+
+      - name: Publish to npm
+        if: github.ref == 'refs/heads/main' && job.status == 'success'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm config set //registry.npmjs.org/:_authToken=$NODE_AUTH_TOKEN
+          npm publish --access public
