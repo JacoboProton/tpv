@@ -17,12 +17,16 @@ function sha256(s: string): string {
 
 export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
-  if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
     const rows = await db.select().from(employees)
       .where(eq(employees.tenantId, tenantId));
+    if (!auth.authorized) {
+      return apiOk(rows.map((r) => ({
+        id: r.id, name: r.name, role: r.role, hasPin: !!r.pinHash,
+      })));
+    }
     return apiOk(rows.map((r) => ({
       id: r.id, name: r.name, role: r.role,
       personalDiscountEnabled: r.personalDiscountEnabled,

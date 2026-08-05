@@ -140,11 +140,7 @@ export async function proxy(req: NextRequest) {
     return errorResponse(req, 429, { error: 'Demasiadas solicitudes' });
   }
 
-  const { auth, requestHeaders } = await resolveAuth(req);
-  if (!auth) {
-    return errorResponse(req, 401, { error: 'No autorizado' });
-  }
-
+  const { requestHeaders } = await resolveAuth(req);
   return corsNext(req, requestHeaders);
 }
 
