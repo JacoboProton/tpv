@@ -55,10 +55,6 @@ function getClientInstance(): RealtimeClient | null {
     }
   });
 
-  (client as any).onOpen(() => console.log('Supabase Realtime connection opened'));
-  (client as any).onClose(() => console.log('Supabase Realtime connection closed'));
-  (client as any).onError((err: any) => console.error('Supabase Realtime connection error:', err));
-
   client.connect();
   authenticateClient(client);
   
