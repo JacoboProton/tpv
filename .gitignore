@@ -5,3 +5,5 @@ __pycache__/
 .env.local
 tool-results/
 .claude/
+
+node_modules/

@@ -53,7 +53,7 @@ class Logger {
   setMinLevel(level: LogLevel) { this.minLevel = level; }
 }
 
-const logger = new Logger();
+export const logger = new Logger();
 
 let correlationId: string | undefined;
 export function setCorrelationId(id: string) { correlationId = id; }
