@@ -5,6 +5,12 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     exclude: [...configDefaults.exclude, 'e2e/**', '.next/**'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html'],
+      include: ['app/**/*.{ts,tsx}', 'lib/**/*.{ts,tsx}', 'modules/**/*.{ts,tsx}'],
+      exclude: ['**/*.test.ts', '**/*.test.tsx', 'app/api/**/route.ts'],
+    },
   },
   resolve: {
     alias: {

@@ -6,6 +6,7 @@
     "tpv-restaturante"
   ],
   "scripts": {
+    "prepare": "husky",
     "build:core": "npm run build --workspace @tpv/core",
     "build": "npm run build:core && npm run build --workspace tpv-restaturante",
     "test": "npm run test --workspaces --if-present"
