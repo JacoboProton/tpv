@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { ChefHat, Clock, User } from 'lucide-react';
 import { euros, type Theme } from '@/components/constants';
+import { useUi, useFloor } from '@/modules/core/app-contexts';
 
 interface AbiertasItem {
   id: string;
@@ -37,7 +38,10 @@ export interface ComandasAbiertasViewProps {
   colors: Theme;
 }
 
-export default function ComandasAbiertasView({ floor, colors: C }: ComandasAbiertasViewProps) {
+export default function ComandasAbiertasView() {
+  const { colors: C } = useUi();
+  const { floor: maybeFloor } = useFloor();
+  const floor = (maybeFloor ?? { tables: [], orders: {} }) as unknown as AbiertasFloor;
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {

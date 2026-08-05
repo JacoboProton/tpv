@@ -2,9 +2,8 @@ import dynamic from 'next/dynamic'
 import type { Theme } from '@/components/constants'
 import type { Floor, Catalog, Sale, Employee, Offer, Combo, TicketSettings, CurrentUser, PriceRule, MealMenu, NewProductInput, RefundInput } from '@tpv/core'
 import type { SalonViewProps } from '@/modules/salon/SalonView'
-import type { BarraViewProps } from '@/modules/kitchen/BarraView'
+
 import type { KDSViewProps } from '@/modules/kitchen/KDSView'
-import type { ComandasAbiertasViewProps } from '@/modules/kitchen/ComandasAbiertasView'
 import type { Props as InventarioViewProps } from '@/modules/catalog/InventarioView'
 import type { CartasViewProps } from '@/modules/catalog/CartasView'
 import type { AlmacenMenuViewProps } from '@/modules/catalog/AlmacenMenuView'
@@ -102,9 +101,9 @@ export default function ViewRouter({ view }: ViewRouterProps) {
         </div>
       )}
       {view === 'cocina'     && <CocinaView />}
-      {view === 'barra'      && <BarraView floor={floor as unknown as BarraViewProps['floor']} catalog={catalog ?? undefined} onReady={markReady} colors={C} />}
+      {view === 'barra'      && <BarraView />}
       {view === 'kds'        && <KDSView floor={floor as unknown as KDSViewProps['floor']} catalog={catalog as unknown as KDSViewProps['catalog']} onReady={markReady} onUpdateItemState={updateItemState as unknown as KDSViewProps['onUpdateItemState']} onAdvanceOrder={advanceOrder as unknown as KDSViewProps['onAdvanceOrder']} onAgotar={agotarProducto} onReprint={reprintKitchenTicket} colors={C} />}
-      {view === 'comandas'   && <ComandasAbiertasView floor={floor as unknown as ComandasAbiertasViewProps['floor']} colors={C} />}
+      {view === 'comandas'   && <ComandasAbiertasView />}
       {view === 'inventario' && <InventarioView catalog={catalog as unknown as InventarioViewProps['catalog']} colors={C as unknown as Record<string, string>} onUpdateField={updateProductField as unknown as InventarioViewProps['onUpdateField']} newProductOpen={newProductOpen} setNewProductOpen={setNewProductOpen} onAddProduct={addProduct as unknown as InventarioViewProps['onAddProduct']} confirmDeleteId={confirmDeleteId} setConfirmDeleteId={setConfirmDeleteId} onDelete={deleteProduct} />}
       {view === 'alertas-stock' && <StockAlertasView catalog={catalog as unknown as StockAlertasViewProps['catalog']} colors={C} />}
       {view === 'carta' && (

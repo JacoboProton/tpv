@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { Beer, Clock, Check } from 'lucide-react';
 import { TICKET_EDGE, type Theme } from '@/components/constants';
 import type { Catalog } from '@tpv/core';
+import { useUi, useCatalog, useFloor } from '@/modules/core/app-contexts';
 
 interface BarraItem {
   id: string;
@@ -40,7 +41,11 @@ export interface BarraViewProps {
   colors: Theme;
 }
 
-export default function BarraView({ floor, catalog, onReady, colors: C }: BarraViewProps) {
+export default function BarraView() {
+  const { colors: C } = useUi();
+  const { catalog } = useCatalog();
+  const { floor: maybeFloor, markReady } = useFloor();
+  const floor = (maybeFloor ?? { tables: [], orders: {} }) as unknown as BarraFloor;
   const [now, setNow] = useState(() => Date.now());
   const prevPendingRef = useRef(0);
 
@@ -130,7 +135,7 @@ export default function BarraView({ floor, catalog, onReady, colors: C }: BarraV
                 </ul>
 
                 <button
-                  onClick={() => onReady(order.id, 'Bar')}
+                  onClick={() => markReady(order.id, 'Bar')}
                   style={{ background: urgent ? '#fff' : C.sage, color: urgent ? C.wineLight : '#fff' }}
                   className="w-full rounded-md py-2.5 text-sm font-semibold flex items-center justify-center gap-1.5 hover:opacity-90 transition-opacity mt-3"
                 >
