@@ -34,6 +34,7 @@
     "bcryptjs": "^3.0.3",
     "drizzle-kit": "^0.31.10",
     "drizzle-orm": "^0.45.2",
+    "exceljs": "^4.4.0",
     "iconv-lite": "^0.7.3",
     "jose": "^6.2.7",
     "jspdf": "^4.2.1",
@@ -52,7 +53,6 @@
     "recharts": "^3.9.0",
     "stripe": "^17.7.0",
     "tailwindcss": "^4",
-    "xlsx": "^0.18.5",
     "zod": "^4.4.3"
   },
   "devDependencies": {

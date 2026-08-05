@@ -3,7 +3,7 @@ import { eq, and, sql, gte, lt } from 'drizzle-orm';
 import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
 import { sales } from '../../../../db/schema';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized } from '../../../../lib/infrastructure/response';
 import { requireRole } from '../../../../lib/rbac';
 
@@ -52,11 +52,23 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(rows);
-    XLSX.utils.book_append_sheet(wb, ws, 'Ventas');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Ventas');
+    ws.columns = [
+      { header: 'Fecha', key: 'Fecha', width: 14 },
+      { header: 'Mesa', key: 'Mesa', width: 10 },
+      { header: 'Tipo de pago', key: 'Tipo de pago', width: 14 },
+      { header: 'Empleado', key: 'Empleado', width: 18 },
+      { header: 'Nº artículos', key: 'Nº artículos', width: 12 },
+      { header: 'Total', key: 'Total', width: 12 },
+      { header: 'Descuento', key: 'Descuento', width: 12 },
+      { header: 'Propina', key: 'Propina', width: 12 },
+    ];
+    ws.addRows(rows);
+    ws.getRow(1).font = { bold: true };
+    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: ws.columns.length } };
 
-    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const buf = await wb.xlsx.writeBuffer();
 
     return new NextResponse(buf, {
       headers: {
