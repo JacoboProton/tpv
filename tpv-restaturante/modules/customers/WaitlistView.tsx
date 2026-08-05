@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Bell, Check, Phone, Users, Clock, Settings, RefreshCw, ExternalLink, Wifi, Copy } from 'lucide-react';
 import type { Theme } from '@/components/constants';
+import { useUi } from '@/modules/core/app-contexts';
 
 interface WaitlistEntry {
   id: string;
@@ -43,7 +44,8 @@ export interface WaitlistViewProps {
   colors: Theme;
 }
 
-export default function WaitlistView({ colors: C }: WaitlistViewProps) {
+export default function WaitlistView() {
+  const { colors: C } = useUi();
   const [entries, setEntries] = useState<WaitlistEntry[]>([]);
   const [settings, setSettings] = useState<WaitlistSettings | null>(null);
   const [loading, setLoading] = useState(true);

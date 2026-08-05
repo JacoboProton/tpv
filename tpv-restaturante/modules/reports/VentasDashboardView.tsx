@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, LineChart, Line } from 'recharts'
 import { Euro, TrendingUp, Ticket, Clock, Banknote, CreditCard, Smartphone } from 'lucide-react'
 import { euros, round2, type Theme } from '@/components/constants'
+import { useSales, useUi } from '@/modules/core/app-contexts'
 
 interface DashboardSale {
   id: string
@@ -21,7 +22,9 @@ export interface VentasDashboardViewProps {
   colors: Theme
 }
 
-export default function VentasDashboardView({ sales, colors: C }: VentasDashboardViewProps) {
+export default function VentasDashboardView() {
+  const { sales } = useSales()
+  const { colors: C } = useUi()
   const now = Date.now()
   const todayStart = new Date()
   todayStart.setHours(0, 0, 0, 0)

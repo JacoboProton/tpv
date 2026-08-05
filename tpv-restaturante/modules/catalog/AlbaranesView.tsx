@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, FileText, Truck, Calendar, Euro, Check, X, ChevronDown, ChevronUp, Loader2, Search, Package, AlertTriangle, Ban, Trash2 } from 'lucide-react';
 import type { Theme } from '@/components/constants';
+import { useUi } from '@/modules/core/app-contexts';
 import type { CatalogProduct } from '@tpv/core';
 
 interface AlbaranLine {
@@ -74,7 +75,8 @@ interface AlbaranesViewProps {
   colors: Theme;
 }
 
-export default function AlbaranesView({ colors: C }: AlbaranesViewProps) {
+export default function AlbaranesView() {
+  const { colors: C } = useUi();
   const [albaranes, setAlbaranes] = useState<Albaran[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);

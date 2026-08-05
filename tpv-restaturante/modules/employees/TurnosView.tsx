@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Plus, X, Trash2, Copy, Calendar, Target, Clock, Users, Save, Loader2 } from 'lucide-react';
 import type { Theme } from '@/components/constants';
+import { useAuth, useUi } from '@/modules/core/app-contexts';
 
 const DAYS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 const DAYS_SHORT = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
@@ -62,7 +63,9 @@ export interface TurnosViewProps {
   colors: Theme;
 }
 
-export default function TurnosView({ employees, colors: C }: TurnosViewProps) {
+export default function TurnosView() {
+  const { employees } = useAuth();
+  const { colors: C } = useUi();
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [objectives, setObjectives] = useState<Objective[]>([]);
   const [loading, setLoading] = useState(true);

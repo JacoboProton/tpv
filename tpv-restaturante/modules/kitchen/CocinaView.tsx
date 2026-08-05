@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { ChefHat, Clock, Check } from 'lucide-react';
 import { TICKET_EDGE, type Theme } from '@/components/constants';
 import type { Catalog } from '@tpv/core';
+import { useUi, useCatalog, useFloor } from '@/modules/core/app-contexts';
 
 const COURSE_COLORS: Record<string, string> = { Entrantes: '#7a9a7c', Principales: '#c4a04a', Postres: '#b05e5e' };
 
@@ -42,7 +43,11 @@ export interface CocinaViewProps {
   colors: Theme;
 }
 
-export default function CocinaView({ floor, catalog, onReady, colors: C }: CocinaViewProps) {
+export default function CocinaView() {
+  const { colors: C } = useUi();
+  const { catalog } = useCatalog();
+  const { floor: maybeFloor, markReady } = useFloor();
+  const floor = (maybeFloor ?? { tables: [], orders: {} }) as unknown as CocinaFloor;
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -141,7 +146,7 @@ export default function CocinaView({ floor, catalog, onReady, colors: C }: Cocin
                 )}
 
                 <button
-                  onClick={() => onReady(order.id, 'Cocina')}
+                  onClick={() => markReady(order.id, 'Cocina')}
                   style={{ background: urgent ? '#fff' : C.sage, color: urgent ? C.wineLight : '#fff' }}
                   className="w-full rounded-md py-2.5 text-sm font-semibold flex items-center justify-center gap-1.5 hover:opacity-90 transition-opacity"
                 >

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, type FormEvent } from 'react';
+import { useSales, useUi } from '@/modules/core/app-contexts';
 import {
   BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid,
 } from 'recharts';
@@ -46,7 +47,9 @@ const PAYMENT_METHODS_UI = PAYMENT_METHODS.map(m => ({
 }));
 
 // ---------- Vista contenedor ----------
-export default function InformesView({ sales, colors: C }: { sales: Sale[]; colors: Theme }) {
+export default function InformesView() {
+  const { sales } = useSales();
+  const { colors: C } = useUi();
   const [tab, setTab] = useState('resumen');
 
   const tabs: { id: string; label: string }[] = [

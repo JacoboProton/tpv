@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Search, Filter, Download, FileText, X, Save, ChevronLeft, ChevronRight, Clock, Users, Check, AlertTriangle, Loader2 } from 'lucide-react';
 import type { Theme } from '@/components/constants';
+import { useAuth, useUi } from '@/modules/core/app-contexts';
 
 interface Employee {
   id: string;
@@ -46,7 +47,9 @@ export interface RegistroHorarioViewProps {
   colors: Theme;
 }
 
-export default function RegistroHorarioView({ employees, colors: C }: RegistroHorarioViewProps) {
+export default function RegistroHorarioView() {
+  const { employees } = useAuth();
+  const { colors: C } = useUi();
   const [allLogs, setAllLogs] = useState<ClockinLog[]>([]);
   const [corrections, setCorrections] = useState<Correction[]>([]);
   const [loading, setLoading] = useState(true);

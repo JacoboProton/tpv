@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { playKitchenAlert } from '../../lib/sound';
 import { Clock, Check, ChefHat, Utensils, Truck, Store, User, Phone, MapPin, Loader2, RefreshCw, Search, X, Zap, Globe } from 'lucide-react';
 import type { Theme } from '@/components/constants';
+import { useUi } from '@/modules/core/app-contexts';
 import type { LucideIcon } from 'lucide-react';
 
 type OrderType = 'qr' | 'platform';
@@ -79,7 +80,8 @@ const SOURCE_LABELS: Record<string, { label: string; color: string }> = {
   ubereats:  { label: 'UberEats',    color: '#5b9bd5' },
 };
 
-export default function OnlineOrdersView({ colors: C }: OnlineOrdersViewProps) {
+export default function OnlineOrdersView() {
+  const { colors: C } = useUi();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterMode>('open');

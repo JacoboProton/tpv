@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { euros } from '@/components/constants';
 import type { Theme } from '@/components/constants';
+import { useUi } from '@/modules/core/app-contexts';
 import type { LucideIcon } from 'lucide-react';
 
 interface PaymentItem {
@@ -68,7 +69,8 @@ const STATUS_FILTERS = [
   { value: 'fiado', label: 'Fiados' },
 ];
 
-export default function PaymentsView({ colors: C }: PaymentsViewProps) {
+export default function PaymentsView() {
+  const { colors: C } = useUi();
   const [data, setData] = useState<PaymentsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<string | null>(null);

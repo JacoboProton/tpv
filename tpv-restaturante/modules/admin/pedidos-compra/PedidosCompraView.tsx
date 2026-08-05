@@ -2,15 +2,14 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Package, Settings, Truck, Loader2 } from 'lucide-react';
-import type { Theme } from '@/components/constants';
+import { useUi } from '@/modules/core/app-contexts';
 import type { CatalogProduct, PurchaseOrder, Supplier } from './types';
 import { OrdersTab } from './OrdersTab';
 import { AutoTab } from './AutoTab';
 import { SuppliersTab } from './SuppliersTab';
 
-interface Props { colors: Theme; }
-
-export default function PedidosCompraView({ colors: C }: Props) {
+export default function PedidosCompraView() {
+  const { colors: C } = useUi();
   const [tab, setTab] = useState('orders');
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);

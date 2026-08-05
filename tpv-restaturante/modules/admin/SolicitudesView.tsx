@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Check, X, Search, Loader2, Calendar, Clock } from 'lucide-react';
 import type { Theme } from '@/components/constants';
+import { useUi } from '@/modules/core/app-contexts';
 
 type RequestStatus = 'pending' | 'approved' | 'rejected';
 type StatusTabKey = 'todas' | RequestStatus;
@@ -36,7 +37,8 @@ const STATUS_LABELS: Record<string, string> = { todas: 'Todas', pending: 'Pendie
 const STATUS_COLORS: Record<RequestStatus, string> = { pending: '#c4a04a', approved: '#7a9a7c', rejected: '#b05e5e' };
 const REASONS = ['vacaciones', 'asunto personal', 'baja médica', 'permiso', 'otro'];
 
-export default function SolicitudesView({ colors: C }: SolicitudesViewProps) {
+export default function SolicitudesView() {
+  const { colors: C } = useUi();
   const [requests, setRequests] = useState<TimeOffRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusTab, setStatusTab] = useState<StatusTabKey>('todas');

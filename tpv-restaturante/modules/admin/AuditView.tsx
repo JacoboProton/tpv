@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Clock, Search, RefreshCw, Undo2, ArrowUpDown, AlertTriangle, ChefHat, type LucideIcon } from 'lucide-react';
 import type { Theme } from '@/components/constants';
+import { useUi } from '@/modules/core/app-contexts';
 
 type AuditAction = 'undo_ready' | 'order_bump' | 'order_undo' | 'item_86';
 
@@ -49,7 +50,8 @@ const ACTION_COLORS: Record<AuditAction, string> = {
 
 const ACTIONS: (AuditAction | '')[] = ['', 'undo_ready', 'order_bump', 'order_undo', 'item_86'];
 
-export default function AuditView({ colors: C }: AuditViewProps) {
+export default function AuditView() {
+  const { colors: C } = useUi();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterAction, setFilterAction] = useState<AuditAction | ''>('');
