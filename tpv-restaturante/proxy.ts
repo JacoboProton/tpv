@@ -4,7 +4,7 @@ import { rateLimit, getClientIp } from './lib/rate-limit';
 import { extractToken, verifySessionToken, type SessionClaimsVerified } from './lib/auth/jwt';
 import { verifyApiKey } from './lib/auth/api-keys';
 
-validateEnv();
+let envValidated = false;
 
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',').filter(Boolean);
 const DEV_FALLBACKS = ['http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:3000'];
@@ -128,6 +128,11 @@ export async function proxy(req: NextRequest) {
   }
 
   if (isPublicPath(pathname)) return corsNext(req);
+
+  if (!envValidated) {
+    validateEnv();
+    envValidated = true;
+  }
 
   const ip = getClientIp(req);
   const rl = await rateLimit(`mw:${ip}`, 120, 60_000);
