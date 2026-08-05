@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import type { Sale } from '../domain/types.js'
-import { addRefundToSale } from '../domain/payments/refund.js'
-import { confirmBizumPayments } from '../domain/payments/bizum.js'
+import type { Sale } from '../domain/types'
+import { addRefundToSale } from '../domain/payments/refund'
+import { confirmBizumPayments } from '../domain/payments/bizum'
 
 describe('addRefundToSale', () => {
   it('adds a refund to the sale', () => {

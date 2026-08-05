@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "cross-env NODE_OPTIONS=--max-old-space-size=2048 next dev",
-    "build": "npm run build:core && next build",
+    "build": "next build",
     "build:core": "npm run build --workspace @tpv/core",
     "start": "next start",
     "lint": "eslint",

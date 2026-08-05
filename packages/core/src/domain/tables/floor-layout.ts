@@ -1,4 +1,4 @@
-import type { Floor, Table, TableType } from '../types.js'
+import type { Floor, Table, TableType } from '../types'
 
 export type { }
 

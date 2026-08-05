@@ -1,5 +1,5 @@
-import { clone } from '../../lib/utils.js'
-import type { Floor, OrderItem } from '../../domain/types.js'
+import { clone } from '../../lib/utils'
+import type { Floor, OrderItem } from '../../domain/types'
 
 export interface CancelledItemInfo {
   tableId: string

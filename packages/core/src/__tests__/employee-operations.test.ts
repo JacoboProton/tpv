@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import type { Employee, Floor } from '../domain/types.js'
-import { createEmployee, canDeleteEmployee, buildTrainingFloor } from '../domain/employees/employee-operations.js'
+import type { Employee, Floor } from '../domain/types'
+import { createEmployee, canDeleteEmployee, buildTrainingFloor } from '../domain/employees/employee-operations'
 
 describe('createEmployee', () => {
   it('creates an employee with id', () => {

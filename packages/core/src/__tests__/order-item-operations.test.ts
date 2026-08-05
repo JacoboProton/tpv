@@ -13,7 +13,7 @@ import {
   setItemCourtesy,
   removeItemCourtesy,
   setItemOverridePrice,
-} from '../application/OrderItemOperations/order-item-operations.js'
+} from '../application/OrderItemOperations/order-item-operations'
 
 function makeFloor(overrides = {}): any {
   return {

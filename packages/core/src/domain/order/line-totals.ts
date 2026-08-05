@@ -1,4 +1,4 @@
-import type { OrderItem, Product } from '../types.js'
+import type { OrderItem, Product } from '../types'
 
 export function calculateLineTotal(
   item: OrderItem,

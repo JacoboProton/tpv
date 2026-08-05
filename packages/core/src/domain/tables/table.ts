@@ -1,4 +1,4 @@
-import type { TableStatus, Order, Table } from '../types.js'
+import type { TableStatus, Order, Table } from '../types'
 
 export type { TableStatus }
 

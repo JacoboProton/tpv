@@ -1,7 +1,7 @@
-import { calculateOrderSubtotal } from '../../domain/order/line-totals.js'
-import { round2 } from '../../lib/utils.js'
+import { calculateOrderSubtotal } from '../../domain/order/line-totals'
+import { round2 } from '../../lib/utils'
 
-import type { OrderItem, Catalog } from '../../domain/types.js'
+import type { OrderItem, Catalog } from '../../domain/types'
 
 export interface PaymentSplitState {
   id: string

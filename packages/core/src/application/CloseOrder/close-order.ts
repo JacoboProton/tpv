@@ -1,12 +1,12 @@
-import { calculateOfferDiscount } from '../../domain/pricing/offers.js'
-import { calculateOrderTotals } from '../../domain/order/order.js'
-import { buildPayments, isFiado, hasPendingBizum, formatPaymentMethod } from '../../domain/payments/payments.js'
-import { closeTableOrders, isDebtPayment } from '../../domain/tables/table.js'
-import { deductStock } from '../../domain/inventory/stock.js'
-import { clone } from '../../lib/utils.js'
-import type { CatalogProduct } from '../../infrastructure/database/catalog-repository.js'
-import { generateInvoiceNumber } from '../../domain/invoice/invoice.js'
-import type { Floor, Order, Catalog, Offer, PaymentSplit, Sale, HistoryEntry } from '../../domain/types.js'
+import { calculateOfferDiscount } from '../../domain/pricing/offers'
+import { calculateOrderTotals } from '../../domain/order/order'
+import { buildPayments, isFiado, hasPendingBizum, formatPaymentMethod } from '../../domain/payments/payments'
+import { closeTableOrders, isDebtPayment } from '../../domain/tables/table'
+import { deductStock } from '../../domain/inventory/stock'
+import { clone } from '../../lib/utils'
+import type { CatalogProduct } from '../../infrastructure/database/catalog-repository'
+import { generateInvoiceNumber } from '../../domain/invoice/invoice'
+import type { Floor, Order, Catalog, Offer, PaymentSplit, Sale, HistoryEntry } from '../../domain/types'
 
 export interface CloseOrderItem {
   id: string

@@ -1,4 +1,4 @@
-import type { Floor } from '../../domain/types.js'
+import type { Floor } from '../../domain/types'
 
 export function countPendingBar(floor: Floor): number {
   return floor?.orders ? Object.values(floor.orders).reduce((s, o) =>

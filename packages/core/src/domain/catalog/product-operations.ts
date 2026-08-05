@@ -1,4 +1,4 @@
-import type { NewProductInput, StockDelta, Product, Catalog, StockEntry } from '../types.js'
+import type { NewProductInput, StockDelta, Product, Catalog, StockEntry } from '../types'
 
 export type { NewProductInput, StockDelta }
 

@@ -1,4 +1,4 @@
-import type { IgicBreakdown } from '../types.js'
+import type { IgicBreakdown } from '../types'
 
 export type { IgicBreakdown }
 

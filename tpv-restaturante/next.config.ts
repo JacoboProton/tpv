@@ -4,6 +4,7 @@ import withBundleAnalyzer from "@next/bundle-analyzer";
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  transpilePackages: ['@tpv/core'],
 };
 
 const analyzedConfig = process.env.ANALYZE === 'true'

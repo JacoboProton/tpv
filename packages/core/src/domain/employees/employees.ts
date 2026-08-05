@@ -1,4 +1,4 @@
-import type { Employee, EmployeeRole } from '../types.js'
+import type { Employee, EmployeeRole } from '../types'
 
 export type { EmployeeRole }
 

@@ -1,4 +1,4 @@
-import type { PaymentSplit, Payment } from '../types.js'
+import type { PaymentSplit, Payment } from '../types'
 
 export type { PaymentSplit, Payment }
 

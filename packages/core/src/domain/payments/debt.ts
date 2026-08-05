@@ -1,4 +1,4 @@
-import type { Floor, Sale } from '../types.js'
+import type { Floor, Sale } from '../types'
 
 export function createDebtOrder(
   floor: Floor,

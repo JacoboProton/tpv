@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { euros, round2, generateId, clone } from '../lib/utils.js'
+import { euros, round2, generateId, clone } from '../lib/utils'
 
 describe('euros', () => {
   it('formats numbers as euros', () => {
