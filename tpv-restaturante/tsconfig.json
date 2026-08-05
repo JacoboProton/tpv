@@ -19,9 +19,7 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"],
-      "@tpv/core": ["../packages/core/src"],
-      "@tpv/core/*": ["../packages/core/src/*"]
+      "@/*": ["./*"]
     }
   },
   "include": [
@@ -32,9 +30,7 @@
     "**/*.jsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts",
-    "../packages/core/src/**/*.ts",
-    "../packages/core/src/**/*.tsx"
+    "**/*.mts"
   ],
-  "exclude": ["node_modules", "mobile", "db/migrations", "../packages/core/dist"]
+  "exclude": ["node_modules", "mobile", "db/migrations"]
 }
