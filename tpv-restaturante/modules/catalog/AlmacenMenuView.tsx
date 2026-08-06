@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ChevronDown, ChevronRight, FileText } from 'lucide-react';
 import { euros } from '@/components/constants';
 import type { Theme } from '@/components/constants';
+import { useUi, useCatalog } from '@/modules/core/app-contexts';
 
 interface InventoryProduct {
   id: string;
@@ -46,7 +47,12 @@ function CategoryRow({ name, productos, C }: CategoryRowProps) {
   );
 }
 
-export default function AlmacenMenuView({ catalog, onSelectUbicacion, onSelectAlbaranes, colors: C }: AlmacenMenuViewProps) {
+export default function AlmacenMenuView() {
+  const { colors: C, setView } = useUi();
+  const catalogCtx = useCatalog();
+  const catalog = catalogCtx.catalog as unknown as InventoryCatalog;
+  const onSelectUbicacion = (ubicacion: string) => { catalogCtx.setAlmacenUbicacion(ubicacion); };
+  const onSelectAlbaranes = () => { setView('albaranes'); };
   const [expanded, setExpanded] = useState<string | null>(null);
   const ubicaciones = ['Bar', 'Cocina', 'Almacén'];
 

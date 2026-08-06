@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { AlertTriangle, Search, Package, AlertCircle, Hash } from 'lucide-react'
 import { type Theme } from '@/components/constants'
+import { useUi, useCatalog } from '@/modules/core/app-contexts'
 
 interface StockLocation {
   stock: number
@@ -23,7 +24,11 @@ export interface StockAlertasViewProps {
   onNavigateToProduct?: (productId: string) => void
 }
 
-export default function StockAlertasView({ catalog, colors: C, onNavigateToProduct }: StockAlertasViewProps) {
+export default function StockAlertasView() {
+  const { colors: C } = useUi()
+  const catalogCtx = useCatalog()
+  const catalog = catalogCtx.catalog as unknown as { products?: StockProduct[] } | null
+  const onNavigateToProduct = undefined as ((productId: string) => void) | undefined
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'out' | 'low'>('all')
 

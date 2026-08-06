@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, Copy, X, Trash2, Clock, Tablet, CheckCircle } from 'lucide-react';
+import { useUi } from '@/modules/core/app-contexts';
 import type { Theme } from '@/components/constants';
 
 interface KDSPairing {
@@ -13,11 +14,8 @@ interface KDSPairing {
   createdAt: number;
 }
 
-export interface PairingPanelProps {
-  colors: Theme;
-}
-
-export default function PairingPanel({ colors: C }: PairingPanelProps) {
+export default function PairingPanel() {
+  const { colors: C } = useUi();
   const [pairings, setPairings] = useState<KDSPairing[]>([]);
   const [label, setLabel] = useState('');
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);

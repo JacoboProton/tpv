@@ -5,6 +5,7 @@ import { Plus, Trash2, Save, Star, ArrowUp, ArrowDown, GripVertical } from 'luci
 import { euros } from '@/components/constants';
 import type { Theme } from '@/components/constants';
 import type { CatalogProduct } from '@tpv/core';
+import { useCatalog, useUi } from '@/modules/core/app-contexts';
 
 interface Catalog {
   products: CatalogProduct[];
@@ -18,7 +19,12 @@ export interface CarruselPanelProps {
 
 const MAX_FEATURED = 8;
 
-export default function CarruselPanel({ catalog, onSave, colors: C }: CarruselPanelProps) {
+export default function CarruselPanel() {
+  const ct = useCatalog();
+  const ui = useUi();
+  const C = ui.colors;
+  const catalog = ct.catalog as unknown as Catalog;
+  const onSave = ct.saveCarrusel as unknown as (data: { id: string; carouselSort: number | null }[]) => void;
   const [featured, setFeatured] = useState<CatalogProduct[]>(() => {
     const all = catalog?.products || [];
     return all

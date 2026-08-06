@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Plus, Trash2, Save, GripVertical, Tag, Percent } from 'lucide-react';
 import { euros } from '@/components/constants';
 import type { Theme } from '@/components/constants';
+import { useCatalog, useUi } from '@/modules/core/app-contexts';
 
 interface ComboSlotItem {
   id: string;
@@ -58,7 +59,13 @@ function emptyCombo(): Combo {
   return { id: id(), name: '', description: '', price: 0, image: '', active: true, discountPct: 0, slots: [] };
 }
 
-export default function CombosPanel({ combos, catalog, onSave, colors: C }: CombosPanelProps) {
+export default function CombosPanel() {
+  const ct = useCatalog();
+  const ui = useUi();
+  const C = ui.colors;
+  const combos = ct.combos as unknown as Combo[];
+  const catalog = ct.catalog as unknown as ComboCatalog;
+  const onSave = ct.saveCombosFn as unknown as (combos: Combo[]) => void;
   const [local, setLocal] = useState<Combo[]>(() => combos.length > 0 ? combos : []);
 
   function updateCombo(ci: number, field: keyof Combo, value: unknown) {

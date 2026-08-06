@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Plus, FileText, Check, X, ChevronDown, ChevronUp, Loader2, Search, Ban, AlertTriangle, Package, BookOpen } from 'lucide-react';
 import type { Theme } from '@/components/constants';
 import type { CatalogProduct } from '@tpv/core';
+import { useUi, useCatalog } from '@/modules/core/app-contexts';
 
 interface ProductionIngredient {
   id: string;
@@ -64,7 +65,10 @@ export interface ProduccionViewProps {
   colors: Theme;
 }
 
-export default function ProduccionView({ catalog, colors: C }: ProduccionViewProps) {
+export default function ProduccionView() {
+  const { colors: C } = useUi();
+  const catalogCtx = useCatalog();
+  const catalog = catalogCtx.catalog as unknown as Catalog;
   const [productions, setProductions] = useState<Production[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);

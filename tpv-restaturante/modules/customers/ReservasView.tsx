@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Plus, X, Calendar, Clock, Users, Phone, Mail, MapPin, Check, Trash2, Search } from 'lucide-react';
 import type { Theme } from '@/components/constants';
 import type { Floor, Zone } from '@tpv/core';
+import { useFloor, useUi } from '@/modules/core/app-contexts';
 import ReservaSettingsView from '@/components/views/ReservaSettingsView';
 
 interface Reservation {
@@ -64,7 +65,10 @@ const STATUS_FLOW = ['pendiente', 'confirmada', 'sentada', 'noshow', 'cancelada'
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const DAYS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 
-export default function ReservasView({ floor, catalog, colors: C }: ReservasViewProps) {
+export default function ReservasView() {
+  const floorCtx = useFloor()
+  const floor = floorCtx.floor as unknown as Floor
+  const { colors: C } = useUi()
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('month');

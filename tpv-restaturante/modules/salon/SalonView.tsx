@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Search, Pin, PinOff, Download, MapIcon } from 'lucide-react'
 import { clone, type Theme } from '@/components/constants'
+import { useFloor, useCatalog, useUi } from '@/modules/core/app-contexts'
 import QRCodeModal from '@/components/modals/QRCodeModal'
 import MesaCard from './MesaCard'
 
@@ -22,7 +23,16 @@ export interface SalonViewProps {
   onEditFloor?: () => void
 }
 
-export default function SalonView({ floor, onSelect, persistFloor, colors: C, onEditFloor }: SalonViewProps) {
+export default function SalonView() {
+  const floorCtx = useFloor()
+  const floor = floorCtx.floor as unknown as SalonFloor
+  const persistFloor = floorCtx.persistFloor as unknown as (floor: SalonFloor) => Promise<void>
+  const setSelectedTableId = floorCtx.setSelectedTableId
+  const setShowFloorEditor = floorCtx.setShowFloorEditor
+  const { setActiveCategory } = useCatalog()
+  const { colors: C } = useUi()
+  const onSelect = (tableId: string) => { setSelectedTableId(tableId); setActiveCategory('Todos') }
+  const onEditFloor = () => { setShowFloorEditor(true) }
   const [showReservationModal, setShowReservationModal] = useState<string | null>(null)
   const [reservationForm, setReservationForm] = useState({ name: '', time: '', guests: 2 })
   const [qrTableId, setQrTableId] = useState<string | null>(null)

@@ -6,6 +6,7 @@ import {
 import { clone } from '@/components/constants';
 import type { Theme } from '@/components/constants';
 import type { Floor, Table, TableType, Zone } from '@tpv/core';
+import { useFloor, useUi } from '@/modules/core/app-contexts';
 
 const DEFAULT_CANVAS_W = 1200;
 const DEFAULT_CANVAS_H = 800;
@@ -63,7 +64,11 @@ export interface FloorEditorProps {
   colors: Theme;
 }
 
-export default function FloorEditor({ floor, persistFloor, colors: C }: FloorEditorProps) {
+export default function FloorEditor() {
+  const floorCtx = useFloor()
+  const floor = floorCtx.floor as unknown as FloorData
+  const persistFloor = floorCtx.persistFloor
+  const { colors: C } = useUi()
   const [locked, setLocked] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showProps, setShowProps] = useState(false);

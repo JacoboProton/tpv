@@ -5,6 +5,7 @@ import { Plus, Trash2, Save, X, Tag, Euro, Percent, Clock, CalendarDays, Eye } f
 import { euros, round2 } from '@/components/constants';
 import type { Theme } from '@/components/constants';
 import type { CatalogProduct } from '@tpv/core';
+import { useCatalog, useUi } from '@/modules/core/app-contexts';
 
 function id() { return 'pr_' + Date.now() + Math.random().toString(16).slice(2, 6); }
 
@@ -298,7 +299,13 @@ function RuleEditor({ product, rules, onSave, onClose, colors: C }: RuleEditorPr
   );
 }
 
-export default function PreciosPanel({ catalog, priceRules, onSaveRules, colors: C }: PreciosPanelProps) {
+export default function PreciosPanel() {
+  const ct = useCatalog();
+  const ui = useUi();
+  const C = ui.colors;
+  const catalog = ct.catalog as unknown as { products: CatalogProduct[] };
+  const priceRules = (ct.catalog?.priceRules || []) as unknown as PriceRule[];
+  const onSaveRules = ct.savePriceRulesFn as unknown as (rules: PriceRule[]) => Promise<void>;
   const [filter, setFilter] = useState('all');
   const [editingProduct, setEditingProduct] = useState<CatalogProduct | null>(null);
   const [rulesMap, setRulesMap] = useState<Record<string, PriceRule[]>>(() => {

@@ -9,6 +9,7 @@ import {
 import { euros, ALLERGENS, ALLERGEN_COLORS, COURSES } from '@/components/constants';
 import type { Theme } from '@/components/constants';
 import type { CatalogProduct } from '@tpv/core';
+import { useUi, useCatalog } from '@/modules/core/app-contexts';
 
 const PRINTER_ZONES = ['', 'Cocina', 'Barra', 'Cockteleria'];
 
@@ -81,7 +82,11 @@ export interface CartasViewProps {
   colors: Theme;
 }
 
-export default function CartasView({ catalog, onSave, colors: C }: CartasViewProps) {
+export default function CartasView() {
+  const { colors: C } = useUi();
+  const catalogCtx = useCatalog();
+  const catalog = catalogCtx.catalog as unknown as Catalog;
+  const onSave = catalogCtx.saveCartas as unknown as (c: Catalog) => void;
   const [local, setLocal] = useState<Catalog>(() => JSON.parse(JSON.stringify(catalog)));
   const [activeTab, setActiveTab] = useState('categorias');
   const [editingProduct, setEditingProduct] = useState<string | null>(null);

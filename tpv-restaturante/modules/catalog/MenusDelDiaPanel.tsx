@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Plus, Trash2, Save, Clock, Coffee, GlassWater, UtensilsCrossed, Calendar } from 'lucide-react';
 import { euros } from '@/components/constants';
 import type { Theme } from '@/components/constants';
+import { useCatalog, useUi } from '@/modules/core/app-contexts';
 
 function id() { return 'mm_' + Date.now() + Math.random().toString(16).slice(2, 6); }
 
@@ -75,7 +76,13 @@ function emptyCourse(): Course {
   return { id: id(), name: '', items: [] };
 }
 
-export default function MenusDelDiaPanel({ mealMenus, catalog, onSave, colors: C }: MenusDelDiaPanelProps) {
+export default function MenusDelDiaPanel() {
+  const ct = useCatalog();
+  const ui = useUi();
+  const C = ui.colors;
+  const mealMenus = (ct.catalog?.mealMenus || []) as unknown as MealMenu[];
+  const catalog = ct.catalog as unknown as { products: { id: string; name: string; price: number }[] };
+  const onSave = ct.saveMealMenusFn as unknown as (menus: MealMenu[]) => void;
   const [local, setLocal] = useState<MealMenu[]>(() => mealMenus.length > 0 ? mealMenus : []);
 
   function update(ci: number, field: string, value: unknown) {

@@ -2,6 +2,7 @@ import { AlertTriangle, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { euros } from '@/components/constants';
 import type { Theme } from '@/components/constants';
+import { useUi, useCatalog } from '@/modules/core/app-contexts';
 
 interface DetalleProduct {
   id: string;
@@ -29,11 +30,16 @@ export interface AlmacenDetalleViewProps {
   onDelete: (id: string) => void;
 }
 
-export default function AlmacenDetalleView({
-  catalog, ubicacion, onBack, colors: C,
-  onUpdateField,
-  confirmDeleteId, setConfirmDeleteId, onDelete,
-}: AlmacenDetalleViewProps) {
+export default function AlmacenDetalleView() {
+  const { colors: C } = useUi();
+  const catalogCtx = useCatalog();
+  const catalog = catalogCtx.catalog as unknown as DetalleCatalog;
+  const ubicacion = catalogCtx.almacenUbicacion as unknown as string;
+  const onBack = () => { catalogCtx.setAlmacenUbicacion(null); };
+  const onUpdateField = catalogCtx.updateProductField as unknown as (id: string, field: string, value: string) => void;
+  const confirmDeleteId = catalogCtx.confirmDeleteId;
+  const setConfirmDeleteId = catalogCtx.setConfirmDeleteId;
+  const onDelete = catalogCtx.deleteProduct;
   const [expandedCats, setExpandedCats] = useState<Record<string, boolean>>({});
   const productos = catalog.products.filter(p => p.ubicacion === ubicacion);
   const bajo = productos.filter(p => p.stock <= p.lowStock).length;

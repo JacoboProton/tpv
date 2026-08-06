@@ -1,20 +1,5 @@
 import dynamic from 'next/dynamic'
-import type { Theme } from '@/components/constants'
-import type { Floor, Catalog, Sale, Employee, Offer, Combo, TicketSettings, CurrentUser, PriceRule, MealMenu, NewProductInput, RefundInput } from '@tpv/core'
-import type { SalonViewProps } from '@/modules/salon/SalonView'
-import type { Props as InventarioViewProps } from '@/modules/catalog/InventarioView'
-import type { CartasViewProps } from '@/modules/catalog/CartasView'
-import type { AlmacenMenuViewProps } from '@/modules/catalog/AlmacenMenuView'
-import type { AlmacenDetalleViewProps } from '@/modules/catalog/AlmacenDetalleView'
-import type { StockAlertasViewProps } from '@/modules/catalog/StockAlertasView'
-import type { OfertasPanelProps } from '@/modules/catalog/OfertasPanel'
-import type { CombosPanelProps } from '@/modules/catalog/CombosPanel'
-import type { MenusDelDiaPanelProps } from '@/modules/catalog/MenusDelDiaPanel'
-import type { CarruselPanelProps } from '@/modules/catalog/CarruselPanel'
-import type { PreciosPanelProps } from '@/modules/catalog/PreciosPanel'
-import type { ProduccionViewProps } from '@/modules/catalog/ProduccionView'
-import type { DeliveryViewProps } from '@/modules/orders/DeliveryView'
-import { useFloor, useCatalog, useAuth, useSales, useUi } from './app-contexts'
+import { useFloor, useCatalog, useUi } from './app-contexts'
 
 const FloorEditor          = dynamic(() => import('@/modules/editor/FloorEditor'), { ssr: false })
 const CocinaView           = dynamic(() => import('@/modules/kitchen/CocinaView'), { ssr: false })
@@ -61,26 +46,16 @@ interface ViewRouterProps {
 export default function ViewRouter({ view }: ViewRouterProps) {
   const floorCtx = useFloor()
   const catalogCtx = useCatalog()
-  const authCtx = useAuth()
-  const salesCtx = useSales()
   const ui = useUi()
 
-  const { floor, showFloorEditor, setShowFloorEditor, persistFloor, markReady, updateItemState, advanceOrder, agotarProducto, reprintKitchenTicket, setSelectedTableId } = floorCtx
-  const { catalog, offers, combos, setActiveCategory, almacenUbicacion, setAlmacenUbicacion, updateProductField, addProduct, deleteProduct, saveCartas, saveOffersFn, saveCombosFn, saveMealMenusFn, saveCarrusel, savePriceRulesFn, newProductOpen, setNewProductOpen, confirmDeleteId, setConfirmDeleteId } = catalogCtx
-  const { currentUser, employees, addEmployee, updateEmployeeField, deleteEmployee } = authCtx
-  const { sales, ticketSettings, handleRefund, handleConfirmBizum, printInvoice, handleDownloadPdf, handleSendInvoiceEmail } = salesCtx
-  const { colors: C, setView, showToast } = ui
+  const { showFloorEditor, setShowFloorEditor } = floorCtx
+  const { almacenUbicacion } = catalogCtx
+  const { colors: C } = ui
 
   return (
     <div className="fade-up" key={view}>
       {view === 'salon' && !showFloorEditor && (
-        <SalonView
-          floor={floor as unknown as SalonViewProps['floor']}
-          onSelect={id => { setSelectedTableId(id); setActiveCategory('Todos') }}
-          persistFloor={persistFloor as unknown as SalonViewProps['persistFloor']}
-          colors={C}
-          onEditFloor={() => setShowFloorEditor(true)}
-        />
+        <SalonView />
       )}
       {view === 'salon' && showFloorEditor && (
         <div>
@@ -91,56 +66,57 @@ export default function ViewRouter({ view }: ViewRouterProps) {
           >
             ← Volver a vista sala
           </button>
-          <FloorEditor floor={floor as Floor} persistFloor={persistFloor} colors={C} />
+          <FloorEditor />
         </div>
       )}
       {view === 'cocina'     && <CocinaView />}
       {view === 'barra'      && <BarraView />}
       {view === 'kds'        && <KDSView />}
       {view === 'comandas'   && <ComandasAbiertasView />}
-      {view === 'inventario' && <InventarioView catalog={catalog as unknown as InventarioViewProps['catalog']} colors={C as unknown as Record<string, string>} onUpdateField={updateProductField as unknown as InventarioViewProps['onUpdateField']} newProductOpen={newProductOpen} setNewProductOpen={setNewProductOpen} onAddProduct={addProduct as unknown as InventarioViewProps['onAddProduct']} confirmDeleteId={confirmDeleteId} setConfirmDeleteId={setConfirmDeleteId} onDelete={deleteProduct} />}
-      {view === 'alertas-stock' && <StockAlertasView catalog={catalog as unknown as StockAlertasViewProps['catalog']} colors={C} />}
+      {view === 'inventario' && <InventarioView />}
+      {view === 'alertas-stock' && <StockAlertasView />}
       {view === 'carta' && (
-        <CartasView catalog={catalog as unknown as CartasViewProps['catalog']} onSave={saveCartas as unknown as CartasViewProps['onSave']} colors={C} />
+        <CartasView />
       )}
       {view === 'almacen'    && (almacenUbicacion
-        ? <AlmacenDetalleView catalog={catalog as unknown as AlmacenDetalleViewProps['catalog']} ubicacion={almacenUbicacion} onBack={() => setAlmacenUbicacion(null)} colors={C} onUpdateField={updateProductField} confirmDeleteId={confirmDeleteId} setConfirmDeleteId={setConfirmDeleteId} onDelete={deleteProduct} />
-        : <AlmacenMenuView catalog={catalog as unknown as AlmacenMenuViewProps['catalog']} onSelectUbicacion={setAlmacenUbicacion} onSelectAlbaranes={() => setView('albaranes')} colors={C} />
+        ? <AlmacenDetalleView />
+        : <AlmacenMenuView />
       )}
       {view === 'albaranes'  && <AlbaranesView />}
-      {view === 'produccion' && <ProduccionView catalog={catalog as unknown as ProduccionViewProps['catalog']} colors={C} />}
-      {view === 'dashboard'  && <VentasDashboardView />}      {view === 'informes'   && <InformesView />}
+      {view === 'produccion' && <ProduccionView />}
+      {view === 'dashboard'  && <VentasDashboardView />}
+      {view === 'informes'   && <InformesView />}
       {view === 'ofertas'   && (
-        <OfertasPanel offers={offers as unknown as OfertasPanelProps['offers']} catalog={catalog as unknown as OfertasPanelProps['catalog']} onSave={saveOffersFn} colors={C} />
+        <OfertasPanel />
       )}
       {view === 'combos' && (
-        <CombosPanel combos={combos as unknown as CombosPanelProps['combos']} catalog={catalog as unknown as CombosPanelProps['catalog']} onSave={saveCombosFn as unknown as CombosPanelProps['onSave']} colors={C} />
+        <CombosPanel />
       )}
       {view === 'menus' && (
-        <MenusDelDiaPanel mealMenus={(catalog?.mealMenus || []) as unknown as MenusDelDiaPanelProps['mealMenus']} catalog={catalog as unknown as MenusDelDiaPanelProps['catalog']} onSave={saveMealMenusFn as unknown as MenusDelDiaPanelProps['onSave']} colors={C} />
+        <MenusDelDiaPanel />
       )}
       {view === 'carrusel' && (
-        <CarruselPanel catalog={catalog as unknown as CarruselPanelProps['catalog']} onSave={saveCarrusel as unknown as CarruselPanelProps['onSave']} colors={C} />
+        <CarruselPanel />
       )}
       {view === 'precios' && (
-        <PreciosPanel catalog={catalog as unknown as PreciosPanelProps['catalog']} priceRules={(catalog?.priceRules || []) as unknown as PreciosPanelProps['priceRules']} onSaveRules={savePriceRulesFn as unknown as PreciosPanelProps['onSaveRules']} colors={C} />
+        <PreciosPanel />
       )}
-      {view === 'reparto'    && <DeliveryView catalog={catalog as unknown as DeliveryViewProps['catalog']} />}
+      {view === 'reparto'    && <DeliveryView />}
       {view === 'pedidos'    && <PedidosView />}
       {view === 'fiados'     && <FiadosView />}
       {view === 'empleados'  && <EmpleadosView />}
-      {view === 'gestoria'   && <GestoriaView sales={sales} colors={C} />}
-      {view === 'pairing'    && <PairingPanel colors={C} />}
+      {view === 'gestoria'   && <GestoriaView />}
+      {view === 'pairing'    && <PairingPanel />}
       {view === 'audit'      && <AuditView />}
       {view === 'turnos'    && <TurnosView />}
       {view === 'registro-horario' && <RegistroHorarioView />}
       {view === 'solicitudes'   && <SolicitudesView />}
       {view === 'pedidos-compra' && <PedidosCompraView />}
-      {view === 'reservas'   && <ReservasView floor={floor as Floor} catalog={catalog} colors={C} />}
+      {view === 'reservas'   && <ReservasView />}
       {view === 'waitlist'   && <WaitlistView />}
       {view === 'onlineorders' && <OnlineOrdersView />}
       {view === 'buffet'    && (
-        <BuffetKioskView floor={floor} currentUser={currentUser} onToast={showToast} />
+        <BuffetKioskView />
       )}
       {view === 'tickets'   && <TicketsView />}
       {view === 'pagos'     && <PaymentsView />}

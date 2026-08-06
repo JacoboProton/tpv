@@ -5,6 +5,7 @@ import { Clock, Users, Pause, Play, X, Check, ChevronDown, ChevronUp, AlertTrian
 import { euros } from '@/components/constants';
 import { fetchBuffetSessions, fetchBuffetConfig, buffetAction, fetchBuffetRounds } from '../../lib/api';
 import type { Floor, Table } from '@tpv/core';
+import { useFloor, useAuth, useUi } from '@/modules/core/app-contexts';
 
 const COLOURS = {
   surface: '#1a1e24',
@@ -88,7 +89,11 @@ export interface BuffetKioskViewProps {
   onToast?: (msg: string) => void;
 }
 
-export default function BuffetKioskView({ floor, currentUser, onToast }: BuffetKioskViewProps) {
+export default function BuffetKioskView() {
+  const floorCtx = useFloor()
+  const floor = floorCtx.floor
+  const currentUser = useAuth().currentUser as unknown as { name?: string } | null
+  const onToast = useUi().showToast
   const [sessions, setSessions] = useState<BuffetSession[]>([]);
   const [config, setConfig] = useState<BuffetConfig | null>(null);
   const [now, setNow] = useState(Date.now());

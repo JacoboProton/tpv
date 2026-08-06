@@ -8,6 +8,7 @@ import {
 } from '../../lib/api';
 import { euros } from '@/components/constants';
 import type { CatalogProduct } from '@tpv/core';
+import { useCatalog } from '@/modules/core/app-contexts';
 
 const C = {
   base: '#0f0d0a', surface: '#1a1714', surfaceLight: '#26221e',
@@ -66,7 +67,9 @@ export interface DeliveryViewProps {
   catalog: { products: CatalogProduct[] };
 }
 
-export default function DeliveryView({ catalog }: DeliveryViewProps) {
+export default function DeliveryView() {
+  const catalogCtx = useCatalog();
+  const catalog = catalogCtx.catalog as unknown as { products: CatalogProduct[] };
   const [runners, setRunners] = useState<Runner[]>([]);
   const [orders, setOrders] = useState<DeliveryOrder[]>([]);
   const [showRunnerForm, setShowRunnerForm] = useState(false);

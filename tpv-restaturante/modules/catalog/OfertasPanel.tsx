@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Plus, Trash2, Check, Percent, CalendarClock, Tag } from 'lucide-react';
 import type { Theme } from '@/components/constants';
 import type { LucideIcon } from 'lucide-react';
+import { useCatalog, useUi } from '@/modules/core/app-contexts';
 
 type OfferType = 'happy_hour' | 'menu_del_dia' | 'discount';
 
@@ -55,7 +56,13 @@ const DEFAULT_OFFER: OfferData = {
   discountPct: 15, fixedPrice: null, productIds: [], active: true,
 };
 
-export default function OfertasPanel({ offers, catalog, onSave, colors: C }: OfertasPanelProps) {
+export default function OfertasPanel() {
+  const ct = useCatalog();
+  const ui = useUi();
+  const C = ui.colors;
+  const offers = ct.offers as unknown as OfferData[];
+  const catalog = ct.catalog as unknown as OfferCatalog;
+  const onSave = ct.saveOffersFn as unknown as (offers: OfferData[]) => void;
   const [localOffers, setLocalOffers] = useState<OfferData[]>(() => offers.length > 0 ? offers : []);
 
   const DAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];

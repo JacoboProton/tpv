@@ -5,13 +5,15 @@ import { FileText, Download, FileSpreadsheet, Euro, Users, Building2, Settings, 
 import type { Theme } from '@/components/constants';
 import type { GestoriaSettings, TaxModel, GestoriaDocument, GestoriaPayroll, Authorization } from './types';
 import { generateModelPDF, generateModelCSV } from './utils';
+import { useUi } from '@/modules/core/app-contexts';
 import { PanelTab } from './PanelTab';
 import { DocumentsTab } from './DocumentsTab';
 import { PayrollsTab } from './PayrollsTab';
 import { RegimenTab } from './RegimenTab';
 import { AuthorizationTab } from './AuthorizationTab';
 
-export default function GestoriaView({ colors: C }: { sales?: unknown[]; colors: Theme }) {
+export default function GestoriaView() {
+  const { colors: C } = useUi()
   const [tab, setTab] = useState('panel');
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState<GestoriaSettings>({ taxRegime: 'autonomo', criterionOfCash: 'false', socialSecurityRed: '' });

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, type FormEvent, type ChangeEvent } from 'r
 import { Plus, AlertTriangle, Trash2, Package, Filter, FolderTree, List, Camera, Star, Truck, ChevronDown, ChevronUp, Euro, Check, X } from 'lucide-react';
 import { euros, ALLERGENS, ALLERGEN_COLORS } from '@/components/constants';
 import type { CatalogProduct } from '@tpv/core';
+import { useUi, useCatalog } from '@/modules/core/app-contexts';
 
 interface StockEntry { stock: number; lowStock?: number; }
 interface StockByLocation { [loc: string]: StockEntry; }
@@ -79,12 +80,20 @@ interface ProductForm {
   stock: string; lowStock: string; ubicacion: string;
 }
 
-export default function InventarioView({
-  catalog, colors: C, onUpdateField,
-  newProductOpen, setNewProductOpen, onAddProduct,
-  confirmDeleteId, setConfirmDeleteId, onDelete,
-  suppliers, onSupplierRefresh,
-}: Props) {
+export default function InventarioView() {
+  const ui = useUi();
+  const C = ui.colors as unknown as Record<string, string>;
+  const catalogCtx = useCatalog();
+  const catalog = catalogCtx.catalog as unknown as Catalog;
+  const onUpdateField = catalogCtx.updateProductField as unknown as (id: string, field: string, value: unknown) => void;
+  const newProductOpen = catalogCtx.newProductOpen;
+  const setNewProductOpen = catalogCtx.setNewProductOpen;
+  const onAddProduct = catalogCtx.addProduct as unknown as (data: Record<string, unknown>) => void;
+  const confirmDeleteId = catalogCtx.confirmDeleteId;
+  const setConfirmDeleteId = catalogCtx.setConfirmDeleteId;
+  const onDelete = catalogCtx.deleteProduct;
+  const suppliers = undefined;
+  const onSupplierRefresh = undefined;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingProduct, setUploadingProduct] = useState<string | null>(null);
   const [showProductSuppliers, setShowProductSuppliers] = useState<string | null>(null);
