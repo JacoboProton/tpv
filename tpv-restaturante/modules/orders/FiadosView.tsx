@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Clock, User, Euro, CreditCard } from 'lucide-react';
 import { euros, type Theme } from '@/components/constants';
+import { useSales, useUi, useFloor } from '@/modules/core/app-contexts';
 
 interface FiadoSale {
   isFiado: boolean;
@@ -42,7 +43,13 @@ export interface FiadosViewProps {
   colors: Theme;
 }
 
-export default function FiadosView({ sales, floor, onNavigateToTable, colors: C }: FiadosViewProps) {
+export default function FiadosView() {
+  const { colors: C, setView } = useUi();
+  const salesCtx = useSales();
+  const floorCtx = useFloor();
+  const sales = salesCtx.sales as unknown as FiadoSale[];
+  const floor = floorCtx.floor as unknown as FiadoFloor | null;
+  const onNavigateToTable = (tableId: string) => { floorCtx.setSelectedTableId(tableId); setView('salon'); };
   const [now] = useState(() => Date.now());
 
   const debts = useMemo(() => {

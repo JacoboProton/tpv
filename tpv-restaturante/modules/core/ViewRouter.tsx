@@ -2,8 +2,6 @@ import dynamic from 'next/dynamic'
 import type { Theme } from '@/components/constants'
 import type { Floor, Catalog, Sale, Employee, Offer, Combo, TicketSettings, CurrentUser, PriceRule, MealMenu, NewProductInput, RefundInput } from '@tpv/core'
 import type { SalonViewProps } from '@/modules/salon/SalonView'
-
-import type { KDSViewProps } from '@/modules/kitchen/KDSView'
 import type { Props as InventarioViewProps } from '@/modules/catalog/InventarioView'
 import type { CartasViewProps } from '@/modules/catalog/CartasView'
 import type { AlmacenMenuViewProps } from '@/modules/catalog/AlmacenMenuView'
@@ -16,10 +14,6 @@ import type { CarruselPanelProps } from '@/modules/catalog/CarruselPanel'
 import type { PreciosPanelProps } from '@/modules/catalog/PreciosPanel'
 import type { ProduccionViewProps } from '@/modules/catalog/ProduccionView'
 import type { DeliveryViewProps } from '@/modules/orders/DeliveryView'
-import type { PedidosViewProps } from '@/modules/orders/PedidosView'
-import type { FiadosViewProps } from '@/modules/orders/FiadosView'
-import type { TicketsViewProps } from '@/modules/orders/TicketsView'
-import type { EmpleadosViewProps } from '@/modules/employees/EmpleadosView'
 import { useFloor, useCatalog, useAuth, useSales, useUi } from './app-contexts'
 
 const FloorEditor          = dynamic(() => import('@/modules/editor/FloorEditor'), { ssr: false })
@@ -102,7 +96,7 @@ export default function ViewRouter({ view }: ViewRouterProps) {
       )}
       {view === 'cocina'     && <CocinaView />}
       {view === 'barra'      && <BarraView />}
-      {view === 'kds'        && <KDSView floor={floor as unknown as KDSViewProps['floor']} catalog={catalog as unknown as KDSViewProps['catalog']} onReady={markReady} onUpdateItemState={updateItemState as unknown as KDSViewProps['onUpdateItemState']} onAdvanceOrder={advanceOrder as unknown as KDSViewProps['onAdvanceOrder']} onAgotar={agotarProducto} onReprint={reprintKitchenTicket} colors={C} />}
+      {view === 'kds'        && <KDSView />}
       {view === 'comandas'   && <ComandasAbiertasView />}
       {view === 'inventario' && <InventarioView catalog={catalog as unknown as InventarioViewProps['catalog']} colors={C as unknown as Record<string, string>} onUpdateField={updateProductField as unknown as InventarioViewProps['onUpdateField']} newProductOpen={newProductOpen} setNewProductOpen={setNewProductOpen} onAddProduct={addProduct as unknown as InventarioViewProps['onAddProduct']} confirmDeleteId={confirmDeleteId} setConfirmDeleteId={setConfirmDeleteId} onDelete={deleteProduct} />}
       {view === 'alertas-stock' && <StockAlertasView catalog={catalog as unknown as StockAlertasViewProps['catalog']} colors={C} />}
@@ -132,9 +126,9 @@ export default function ViewRouter({ view }: ViewRouterProps) {
         <PreciosPanel catalog={catalog as unknown as PreciosPanelProps['catalog']} priceRules={(catalog?.priceRules || []) as unknown as PreciosPanelProps['priceRules']} onSaveRules={savePriceRulesFn as unknown as PreciosPanelProps['onSaveRules']} colors={C} />
       )}
       {view === 'reparto'    && <DeliveryView catalog={catalog as unknown as DeliveryViewProps['catalog']} />}
-      {view === 'pedidos'    && <PedidosView sales={sales as unknown as PedidosViewProps['sales']} onRefund={handleRefund as unknown as PedidosViewProps['onRefund']} onConfirmBizum={handleConfirmBizum} onPrintInvoice={printInvoice as unknown as PedidosViewProps['onPrintInvoice']} onDownloadPdf={handleDownloadPdf as unknown as PedidosViewProps['onDownloadPdf']} onSendInvoiceEmail={handleSendInvoiceEmail as unknown as PedidosViewProps['onSendInvoiceEmail']} colors={C} />}
-      {view === 'fiados'     && <FiadosView sales={sales as unknown as FiadosViewProps['sales']} floor={floor as unknown as FiadosViewProps['floor']} onNavigateToTable={(tableId) => { setSelectedTableId(tableId); setView('salon') }} colors={C} />}
-      {view === 'empleados'  && <EmpleadosView employees={employees as unknown as EmpleadosViewProps['employees']} colors={C} onAdd={addEmployee as unknown as EmpleadosViewProps['onAdd']} onUpdateField={updateEmployeeField as unknown as EmpleadosViewProps['onUpdateField']} onDelete={deleteEmployee} confirmDeleteId={confirmDeleteId} setConfirmDeleteId={setConfirmDeleteId} />}
+      {view === 'pedidos'    && <PedidosView />}
+      {view === 'fiados'     && <FiadosView />}
+      {view === 'empleados'  && <EmpleadosView />}
       {view === 'gestoria'   && <GestoriaView sales={sales} colors={C} />}
       {view === 'pairing'    && <PairingPanel colors={C} />}
       {view === 'audit'      && <AuditView />}
@@ -148,7 +142,7 @@ export default function ViewRouter({ view }: ViewRouterProps) {
       {view === 'buffet'    && (
         <BuffetKioskView floor={floor} currentUser={currentUser} onToast={showToast} />
       )}
-      {view === 'tickets'   && <TicketsView sales={sales as unknown as TicketsViewProps['sales']} colors={C} ticketSettings={ticketSettings} />}
+      {view === 'tickets'   && <TicketsView />}
       {view === 'pagos'     && <PaymentsView />}
     </div>
   )

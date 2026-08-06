@@ -7,6 +7,7 @@ import {
   Undo2, Sun, Moon, Languages,
 } from 'lucide-react';
 import type { Theme } from '@/components/constants';
+import { useFloor, useCatalog } from '@/modules/core/app-contexts';
 
 interface KDSThemeColors {
   base: string; surface: string; surfaceLight: string; line: string;
@@ -140,7 +141,16 @@ export interface KDSViewProps {
   colors: Theme;
 }
 
-export default function KDSView({ floor, catalog, onReady, onAgotar, onUpdateItemState, onAdvanceOrder, onReprint }: KDSViewProps) {
+export default function KDSView() {
+  const floorCtx = useFloor();
+  const catalogCtx = useCatalog();
+  const { updateItemState, advanceOrder, agotarProducto, reprintKitchenTicket } = floorCtx;
+  const onUpdateItemState = updateItemState as unknown as (next: KDSFloor, action: { orderId: string; itemId: string | null; previousState: string | null }) => void;
+  const onAdvanceOrder = advanceOrder as unknown as (next: KDSFloor, action: { orderId: string; itemId: string | null; previousState: string | null } | null) => void;
+  const onAgotar = agotarProducto;
+  const onReprint = reprintKitchenTicket;
+  const floor = floorCtx.floor as unknown as KDSFloor | null;
+  const catalog = catalogCtx.catalog as unknown as KDSCatalog | null;
   const [zoneFilter, setZoneFilter] = useState('all');
   const [stationFilter, setStationFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'orders' | 'expo'>('orders');

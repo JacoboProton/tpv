@@ -3,16 +3,12 @@
 import { useState, useEffect } from 'react';
 import { Monitor, Clock } from 'lucide-react';
 import KDSView from '../../modules/kitchen/KDSView';
+import AppProviders, { type ViewData, type ViewHandlers } from '../../modules/core/app-contexts';
 import { connectRealtime, broadcastFloorUpdate, broadcastReadyNotification, disconnectRealtime, applyFloorDiff } from '../../lib/realtime';
 import type { Theme } from '@/components/constants';
+import type { Floor, Catalog } from '@tpv/core';
 
 const KTC: Record<string, string> = { base: '#1a1d23', surface: '#252830', surfaceLight: '#30343e', accent: '#c4a04a', cream: '#e6e1d6', muted: '#9c958a' };
-
-interface UpdateAction {
-  previousState: string | null;
-  orderId: string;
-  itemId: string | null;
-}
 
 export default function KDSPage() {
   const [paired, setPaired] = useState<boolean | null>(null);
@@ -98,25 +94,79 @@ export default function KDSPage() {
     );
   }
 
-  return <KDSView floor={floor} catalog={catalog} colors={KTC as unknown as Theme}
-    onUpdateItemState={(next: Record<string, unknown>, action?: UpdateAction) => {
-      setFloor(next);
+  const data: ViewData = {
+    floor: floor as unknown as Floor,
+    catalog: catalog as unknown as Catalog,
+    sales: [],
+    employees: [],
+    offers: [],
+    combos: [],
+    colors: KTC as unknown as Theme,
+    ticketSettings: {},
+    currentUser: null,
+    showToast: () => {},
+    almacenUbicacion: null,
+    showFloorEditor: false,
+    persistFloor: async (next: Floor) => { void persist(next as unknown as Record<string, unknown>); },
+    newProductOpen: false,
+    setNewProductOpen: () => {},
+    confirmDeleteId: null,
+    setConfirmDeleteId: () => {},
+  };
+
+  const handlers: ViewHandlers = {
+    setSelectedTableId: () => {},
+    setActiveCategory: () => {},
+    setShowFloorEditor: () => {},
+    setAlmacenUbicacion: () => {},
+    setView: () => {},
+    markReady: () => {},
+    updateItemState: (next: Floor, action: { orderId: string; itemId: string | null; previousState: string | null }) => {
+      const n = next as unknown as Record<string, unknown>;
+      setFloor(n);
       if (action?.previousState === 'preparing') {
-        const order = (next.orders as Record<string, unknown>)[action.orderId] as Record<string, unknown> | undefined;
+        const order = (n.orders as Record<string, unknown>)[action.orderId] as Record<string, unknown> | undefined;
         const item = (order?.items as Array<Record<string, unknown>>)?.find(i => i.id === action.itemId);
-        const table = (next.tables as Array<Record<string, unknown>>)?.find(t => t.id === order?.tableId);
+        const table = (n.tables as Array<Record<string, unknown>>)?.find(t => t.id === order?.tableId);
         if (item) broadcastReadyNotification((table?.name as string) || (order?.tableId as string), [item.name as string], order?.employeeName as string, tenantId);
       }
-      persist(next);
-    }}
-    onAdvanceOrder={(next: Record<string, unknown>) => { setFloor(next); persist(next); }}
-    onAgotar={async (productId: string, agotado: boolean) => {
+      void persist(n);
+    },
+    advanceOrder: (next: Floor) => {
+      const n = next as unknown as Record<string, unknown>;
+      setFloor(n);
+      void persist(n);
+    },
+    agotarProducto: async (productId: string, agotado: boolean) => {
       const next = { ...catalog, products: (catalog.products as Array<Record<string, unknown>>).map(p => p.id === productId ? { ...p, agotado } : p) };
       setCatalog(next as unknown as Record<string, unknown>);
       try { await fetch('/api/catalog', { method: 'PUT', headers: kdsHeaders(), body: JSON.stringify(next) }); } catch {}
-    }}
-    onReprint={() => {}}
-  />;
+    },
+    reprintKitchenTicket: () => {},
+    updateProductField: () => {},
+    addProduct: () => {},
+    deleteProduct: () => {},
+    saveCartas: async () => {},
+    saveOffersFn: async () => {},
+    saveCombosFn: async () => {},
+    saveMealMenusFn: async () => {},
+    saveCarrusel: async () => {},
+    savePriceRulesFn: async () => {},
+    handleRefund: () => {},
+    handleConfirmBizum: () => {},
+    printInvoice: async () => {},
+    handleDownloadPdf: async () => {},
+    handleSendInvoiceEmail: async () => {},
+    addEmployee: () => {},
+    updateEmployeeField: () => {},
+    deleteEmployee: () => {},
+  };
+
+  return (
+    <AppProviders data={data} handlers={handlers} view="kds">
+      <KDSView />
+    </AppProviders>
+  );
 
   async function persist(flr: Record<string, unknown>) {
     try {

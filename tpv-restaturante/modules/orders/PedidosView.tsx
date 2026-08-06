@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Search, X, Undo2, Euro, Check, FileText } from 'lucide-react';
 import { euros, round2 } from '@/components/constants';
 import type { Theme } from '@/components/constants';
+import { useSales, useUi } from '@/modules/core/app-contexts';
 
 interface PedidoItem {
   id: string;
@@ -48,7 +49,15 @@ export interface PedidosViewProps {
   colors: Theme;
 }
 
-export default function PedidosView({ sales, onRefund, onConfirmBizum, onPrintInvoice, onDownloadPdf, onSendInvoiceEmail, colors: C }: PedidosViewProps) {
+export default function PedidosView() {
+  const { colors: C } = useUi();
+  const salesCtx = useSales();
+  const sales = salesCtx.sales as unknown as PedidoSale[];
+  const onRefund = salesCtx.handleRefund as unknown as (saleId: string, refund: Refund) => void;
+  const onConfirmBizum = salesCtx.handleConfirmBizum;
+  const onPrintInvoice = salesCtx.printInvoice as unknown as (sale: PedidoSale) => void;
+  const onDownloadPdf = salesCtx.handleDownloadPdf as unknown as (sale: PedidoSale) => void;
+  const onSendInvoiceEmail = salesCtx.handleSendInvoiceEmail as unknown as (sale: PedidoSale) => void;
   const [query, setQuery] = useState('');
   const [dateFilter, setDateFilter] = useState('week');
   const [selectedSale, setSelectedSale] = useState<PedidoSale | null>(null);

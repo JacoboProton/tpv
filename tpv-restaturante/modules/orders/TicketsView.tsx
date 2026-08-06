@@ -6,6 +6,7 @@ import { buildTicketHtml, printTicketHtml } from '../../lib/ticket-template';
 import { euros } from '@/components/constants';
 import type { Theme } from '@/components/constants';
 import type { TicketSettings } from '@tpv/core';
+import { useSales, useUi } from '@/modules/core/app-contexts';
 
 interface TicketItem {
   name: string;
@@ -35,7 +36,11 @@ export interface TicketsViewProps {
   ticketSettings?: TicketSettings;
 }
 
-export default function TicketsView({ sales = [], colors: C, ticketSettings = {} }: TicketsViewProps) {
+export default function TicketsView() {
+  const { colors: C } = useUi();
+  const salesCtx = useSales();
+  const sales = salesCtx.sales as unknown as TicketSale[];
+  const ticketSettings = salesCtx.ticketSettings ?? {};
   const [search, setSearch] = useState('');
   const [filterMethod, setFilterMethod] = useState('Todas');
   const [daysBack, setDaysBack] = useState(0);

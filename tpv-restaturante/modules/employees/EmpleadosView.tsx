@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Plus, Trash2, QrCode, Share2, MessageCircle, Clock, Loader2, User } from 'lucide-react';
 import type { Theme } from '@/components/constants';
+import { useAuth, useUi, useCatalog } from '@/modules/core/app-contexts';
 
 interface Employee {
   id: string;
@@ -50,10 +51,16 @@ const ROLES: { id: string; label: string }[] = [
   { id: 'cocina',   label: 'Cocina' },
 ];
 
-export default function EmpleadosView({
-  employees, colors: C, onAdd, onUpdateField, onDelete,
-  confirmDeleteId, setConfirmDeleteId,
-}: EmpleadosViewProps) {
+export default function EmpleadosView() {
+  const { colors: C } = useUi();
+  const authCtx = useAuth();
+  const catCtx = useCatalog();
+  const employees = authCtx.employees as unknown as Employee[];
+  const onAdd = authCtx.addEmployee as unknown as (emp: Employee) => void;
+  const onUpdateField = authCtx.updateEmployeeField as unknown as (id: string, field: string, value: unknown) => void;
+  const onDelete = authCtx.deleteEmployee;
+  const confirmDeleteId = catCtx.confirmDeleteId;
+  const setConfirmDeleteId = catCtx.setConfirmDeleteId;
   const [showForm, setShowForm] = useState(false);
   const [showCodes, setShowCodes] = useState(false);
   const [codes, setCodes] = useState<WACode[]>([]);
