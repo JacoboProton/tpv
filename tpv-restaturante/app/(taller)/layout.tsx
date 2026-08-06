@@ -2,18 +2,18 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-import { type Theme, THEMES, clone } from '../components/constants';
-import type { Floor, Catalog, Sale, Employee, Offer, Combo, Table, TicketSettings, ClockinSummary, Tenant, QrCall, Product } from '../domain/types'
-import type { ModifierData } from '../domain/catalog/modifier-groups'
-import { FatalError } from '../components/app/FatalError';
-import { LoginGuard } from '../components/app/LoginGuard';
-import { LoadingSkeleton } from '../components/app/LoadingSkeleton';
-import { OfflineBanner } from '../components/app/OfflineBanner';
-import { FloorLoading } from '../components/app/FloorLoading';
-import { QrCallBanner } from '../components/app/QrCallBanner';
-import { registerAllSubscribers } from '../application/subscribers';
-import { fetchModifiers } from '../lib/api';
-import { escposOpenDrawer, printESCPOS, isPrinterConnected } from '../lib/thermal-printer';
+import { type Theme, THEMES, clone } from '../../components/constants';
+import type { Floor, Catalog, Sale, Employee, Offer, Combo, Table, TicketSettings, ClockinSummary, Tenant, QrCall, Product } from '../../domain/types'
+import type { ModifierData } from '../../domain/catalog/modifier-groups'
+import { FatalError } from '../../components/app/FatalError';
+import { LoginGuard } from '../../components/app/LoginGuard';
+import { LoadingSkeleton } from '../../components/app/LoadingSkeleton';
+import { OfflineBanner } from '../../components/app/OfflineBanner';
+import { FloorLoading } from '../../components/app/FloorLoading';
+import { QrCallBanner } from '../../components/app/QrCallBanner';
+import { registerAllSubscribers } from '../../application/subscribers';
+import { fetchModifiers } from '../../lib/api';
+import { escposOpenDrawer, printESCPOS, isPrinterConnected } from '../../lib/thermal-printer';
 
 declare global {
   interface Window {
@@ -24,36 +24,39 @@ declare global {
 
 type View = 'salon' | 'comandas' | 'cocina' | 'inventario' | 'almacen' | 'albaranes' | 'informes' | 'empleados' | 'ofertas' | 'combos' | 'menus' | 'carrusel' | 'precios' | 'reparto' | 'pedidos' | 'fiados' | 'gestoria' | 'pairing' | 'audit' | 'turnos' | 'registro-horario' | 'solicitudes' | 'pedidos-compra' | 'reservas' | 'waitlist' | 'onlineorders' | 'buffet' | 'tickets' | 'pagos' | 'kds' | 'barra' | 'carta' | 'produccion' | 'login';
 
-import { useOrders }           from '../hooks/useOrders';
-import { useKitchen }          from '../hooks/useKitchen';
-import { useInventory }        from '../hooks/useInventory';
-import { useEmployees }        from '../hooks/useEmployees';
-import { useInvoice }          from '../hooks/useInvoice';
-import { useSalesActions }     from '../hooks/useSalesActions';
-import { useAppInit }          from '../hooks/useAppInit';
-import { useOfflineSync }      from '../hooks/useOfflineSync';
-import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
-import { useLoginRouting }     from '../hooks/useLoginRouting';
-import { useRealtimeSync }     from '../hooks/useRealtimeSync';
-import { useQrPolling }        from '../hooks/useQrPolling';
-import { useDebtOrder }        from '../hooks/useDebtOrder';
-import MenuPrincipal        from '../components/app/MenuPrincipal';
-import LoginScreen          from '../components/auth/LoginScreen';
-import CommandPalette       from '../components/app/CommandPalette';
-import PaymentModal         from '../modules/payment/PaymentModal';
-import ModifierSelector, { type ModifierSelectorProps }     from '../components/modals/ModifierSelector';
-import ComandaDrawer        from '../modules/salon/ComandaDrawer'
-import type { ComandaDrawerProps } from '../modules/salon/ComandaDrawer/types';
-import ClockinModal         from '../components/modals/ClockinModal';
-import { EventLog }          from '../modules/debug/EventLog';
-import SettingsModal        from '../components/modals/SettingsModal';
-import ViewRouter from '../modules/core/ViewRouter'
-import AppProviders from '../modules/core/app-contexts'
-import Sidebar from '../modules/core/Sidebar'
-import TopBar from '../modules/core/TopBar'
-import { navGroups } from '../modules/core/nav-config'
+import { useOrders }           from '../../hooks/useOrders';
+import { useKitchen }          from '../../hooks/useKitchen';
+import { useInventory }        from '../../hooks/useInventory';
+import { useEmployees }        from '../../hooks/useEmployees';
+import { useInvoice }          from '../../hooks/useInvoice';
+import { useSalesActions }     from '../../hooks/useSalesActions';
+import { useAppInit }          from '../../hooks/useAppInit';
+import { useOfflineSync }      from '../../hooks/useOfflineSync';
+import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
+import { useLoginRouting }     from '../../hooks/useLoginRouting';
+import { useRealtimeSync }     from '../../hooks/useRealtimeSync';
+import { useQrPolling }        from '../../hooks/useQrPolling';
+import { useDebtOrder }        from '../../hooks/useDebtOrder';
+import MenuPrincipal        from '../../components/app/MenuPrincipal';
+import LoginScreen          from '../../components/auth/LoginScreen';
+import CommandPalette       from '../../components/app/CommandPalette';
+import PaymentModal         from '../../modules/payment/PaymentModal';
+import ModifierSelector, { type ModifierSelectorProps }     from '../../components/modals/ModifierSelector';
+import ComandaDrawer        from '../../modules/salon/ComandaDrawer'
+import type { ComandaDrawerProps } from '../../modules/salon/ComandaDrawer/types';
+import ClockinModal         from '../../components/modals/ClockinModal';
+import { EventLog }          from '../../modules/debug/EventLog';
+import SettingsModal        from '../../components/modals/SettingsModal';
+import AppProviders from '../../modules/core/app-contexts'
+import Sidebar from '../../modules/core/Sidebar'
+import TopBar from '../../modules/core/TopBar'
+import { navGroups } from '../../modules/core/nav-config'
 
-export default function App() {
+export default function TallerLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   const [theme, setTheme] = useState<string>('dark');
   const C: Theme = THEMES[theme as keyof typeof THEMES];
 
@@ -251,7 +254,7 @@ export default function App() {
           handlers={{ setSelectedTableId, setActiveCategory, setShowFloorEditor, setAlmacenUbicacion, setView: setView as unknown as (v: string) => void, markReady, updateItemState, advanceOrder, agotarProducto, reprintKitchenTicket, updateProductField, addProduct, deleteProduct, saveCartas, saveOffersFn, saveCombosFn, saveMealMenusFn, saveCarrusel, savePriceRulesFn, handleRefund, handleConfirmBizum, printInvoice, handleDownloadPdf, handleSendInvoiceEmail, addEmployee, updateEmployeeField, deleteEmployee }}
           data={{ floor, catalog, sales, employees, offers, combos, colors: C, ticketSettings, currentUser, showToast, almacenUbicacion, showFloorEditor, persistFloor, newProductOpen, setNewProductOpen, confirmDeleteId, setConfirmDeleteId }}
         >
-          <ViewRouter view={view} />
+          {children}
         </AppProviders>
       </main>
 
