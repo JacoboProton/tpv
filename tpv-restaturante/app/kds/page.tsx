@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Monitor, Clock } from 'lucide-react';
 import KDSView from '../../modules/kitchen/KDSView';
 import AppProviders, { type ViewData, type ViewHandlers } from '../../modules/core/app-contexts';
@@ -75,11 +76,11 @@ export default function KDSPage() {
         <p className="text-sm mb-4" style={{ color: KTC.muted }}>
           Abre esta URL en un navegador para emparejarla
         </p>
-        <a href="/kds/pair"
+        <Link href="/kds/pair"
           className="px-6 py-2.5 rounded-xl text-sm font-bold"
           style={{ background: KTC.accent, color: '#000' }}>
           Ir a emparejar
-        </a>
+        </Link>
       </div>
     );
   }

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 
 import { type Theme, THEMES, clone } from '../../components/constants';
 import type { Floor, Catalog, Sale, Employee, Offer, Combo, Table, TicketSettings, ClockinSummary, Tenant, QrCall, Product } from '../../domain/types'
@@ -21,8 +22,6 @@ declare global {
     __TPV_API_KEY?: string;
   }
 }
-
-type View = 'salon' | 'comandas' | 'cocina' | 'inventario' | 'almacen' | 'albaranes' | 'informes' | 'empleados' | 'ofertas' | 'combos' | 'menus' | 'carrusel' | 'precios' | 'reparto' | 'pedidos' | 'fiados' | 'gestoria' | 'pairing' | 'audit' | 'turnos' | 'registro-horario' | 'solicitudes' | 'pedidos-compra' | 'reservas' | 'waitlist' | 'onlineorders' | 'buffet' | 'tickets' | 'pagos' | 'kds' | 'barra' | 'carta' | 'produccion' | 'login';
 
 import { useOrders }           from '../../hooks/useOrders';
 import { useKitchen }          from '../../hooks/useKitchen';
@@ -51,6 +50,7 @@ import AppProviders from '../../modules/core/app-contexts'
 import Sidebar from '../../modules/core/Sidebar'
 import TopBar from '../../modules/core/TopBar'
 import { navGroups } from '../../modules/core/nav-config'
+import { routeFor, viewFromPath } from '../../modules/core/view-routes'
 
 export default function TallerLayout({
   children,
@@ -91,7 +91,10 @@ export default function TallerLayout({
 
   const [menuMode, setMenuMode]           = useState<string>('menu');
   const [entryPoint, setEntryPoint]       = useState<string>('entrada');
-  const [view, setView]                   = useState<View>('salon');
+  const pathname = usePathname();
+  const router = useRouter();
+  const navigateTo = useCallback((v: string) => { router.push(routeFor(v)) }, [router]);
+  const view = viewFromPath(pathname ?? '');
   const [almacenUbicacion, setAlmacenUbicacion] = useState<string | null>(null);
 
   const [toast, setToast]                  = useState<string | null>(null);
@@ -182,7 +185,7 @@ export default function TallerLayout({
 
   useLoginRouting({
     currentUser, setCurrentUser, entryPoint,
-    setView, setMenuMode, setSelectedTableId,
+    setView: navigateTo, setMenuMode, setSelectedTableId,
     setAlmacenUbicacion, showToast,
   });
 
@@ -238,7 +241,7 @@ export default function TallerLayout({
 
   return (
     <div style={{ background: C.base, color: C.cream, minHeight: '100vh' }} className="flex">
-      <Sidebar menuMode={menuMode} currentUser={currentUser} tenants={tenants as { id: string; name: string }[]} tenantId={tenantId} setTenantId={setTenantId} view={view} setView={setView as (v: string) => void} colors={C} lowStockProducts={lowStockProducts} pendingBarCount={pendingBarCount} pendingCocinaCount={pendingCocinaCount} />
+      <Sidebar menuMode={menuMode} currentUser={currentUser} tenants={tenants as { id: string; name: string }[]} tenantId={tenantId} setTenantId={setTenantId} view={view} setView={navigateTo} colors={C} lowStockProducts={lowStockProducts} pendingBarCount={pendingBarCount} pendingCocinaCount={pendingCocinaCount} />
 
       <div className="flex flex-col flex-1 min-w-0" style={{ maxHeight: '100vh', overflowY: 'auto' }}>
 
@@ -251,7 +254,7 @@ export default function TallerLayout({
       <main className="px-4 sm:px-6 py-6 max-w-6xl mx-auto">
         <AppProviders
           view={view}
-          handlers={{ setSelectedTableId, setActiveCategory, setShowFloorEditor, setAlmacenUbicacion, setView: setView as unknown as (v: string) => void, markReady, updateItemState, advanceOrder, agotarProducto, reprintKitchenTicket, updateProductField, addProduct, deleteProduct, saveCartas, saveOffersFn, saveCombosFn, saveMealMenusFn, saveCarrusel, savePriceRulesFn, handleRefund, handleConfirmBizum, printInvoice, handleDownloadPdf, handleSendInvoiceEmail, addEmployee, updateEmployeeField, deleteEmployee }}
+          handlers={{ setSelectedTableId, setActiveCategory, setShowFloorEditor, setAlmacenUbicacion, setView: navigateTo, markReady, updateItemState, advanceOrder, agotarProducto, reprintKitchenTicket, updateProductField, addProduct, deleteProduct, saveCartas, saveOffersFn, saveCombosFn, saveMealMenusFn, saveCarrusel, savePriceRulesFn, handleRefund, handleConfirmBizum, printInvoice, handleDownloadPdf, handleSendInvoiceEmail, addEmployee, updateEmployeeField, deleteEmployee }}
           data={{ floor, catalog, sales, employees, offers, combos, colors: C, ticketSettings, currentUser, showToast, almacenUbicacion, showFloorEditor, persistFloor, newProductOpen, setNewProductOpen, confirmDeleteId, setConfirmDeleteId }}
         >
           {children}
@@ -320,7 +323,7 @@ export default function TallerLayout({
       )}
 
       <EventLog />
-      <CommandPalette isOpen={showCommands} onClose={() => setShowCommands(false)} navItems={navGroups.flatMap((g) => g.items)} floor={floor} onSelectTable={(id) => { setSelectedTableId(id); setActiveCategory('Todos'); }} onNavigate={(id) => { setView(id as View); }} onAction={(action) => { if (action === 'openDrawer') openDrawer(); else if (action === 'toggleTraining') toggleTraining(); else if (action === 'print') handlePrint(); }} C={C} />
+      <CommandPalette isOpen={showCommands} onClose={() => setShowCommands(false)} navItems={navGroups.flatMap((g) => g.items)} floor={floor} onSelectTable={(id) => { setSelectedTableId(id); setActiveCategory('Todos'); }} onNavigate={(id) => { navigateTo(id); }} onAction={(action) => { if (action === 'openDrawer') openDrawer(); else if (action === 'toggleTraining') toggleTraining(); else if (action === 'print') handlePrint(); }} C={C} />
       </div>
     </div>
   );

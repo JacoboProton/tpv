@@ -1,9 +1,6 @@
-"use client"
+import { redirect } from 'next/navigation'
+import { routeFor } from '../../modules/core/view-routes'
 
-import { useUi } from '../../modules/core/app-contexts'
-import ViewRouter from '../../modules/core/ViewRouter'
-
-export default function TallerPage() {
-  const { view } = useUi()
-  return <ViewRouter view={view} />
+export default function TallerIndex() {
+  redirect(routeFor('salon'))
 }
