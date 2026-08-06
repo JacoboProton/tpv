@@ -1,3 +1,4 @@
+'use client';
 import { useState, useMemo } from 'react';
 import { Search, X, Undo2, Euro, Check, FileText } from 'lucide-react';
 import { euros, round2 } from '@/components/constants';

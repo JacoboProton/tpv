@@ -1,3 +1,4 @@
+'use client';
 import { useState } from 'react';
 import { ChevronDown, ChevronRight, FileText } from 'lucide-react';
 import { euros } from '@/components/constants';

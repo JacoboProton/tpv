@@ -1,3 +1,4 @@
+'use client';
 import { useMemo, useState } from 'react';
 import { Clock, User, Euro, CreditCard } from 'lucide-react';
 import { euros, type Theme } from '@/components/constants';

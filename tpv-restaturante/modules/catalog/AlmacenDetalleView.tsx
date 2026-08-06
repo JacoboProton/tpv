@@ -1,3 +1,4 @@
+'use client';
 import { AlertTriangle, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { euros } from '@/components/constants';
