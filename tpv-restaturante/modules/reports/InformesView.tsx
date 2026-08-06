@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, type FormEvent } from 'react';
 import { useSales, useUi } from '@/modules/core/app-contexts';
 import {
   BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid,
-} from 'recharts';
+} from '@/modules/reports/charts-lazy';
 import {
   BarChart3, Banknote, CreditCard, Smartphone, Clock, Download, Printer, LogIn, ShieldCheck, User, Save,
 } from 'lucide-react';

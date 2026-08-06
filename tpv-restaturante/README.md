@@ -10,17 +10,22 @@ Sistema de TPV profesional para restaurantes con POS web, app móvil para camare
 - **Supabase Realtime** — sincronización en vivo POS/KDS/móvil
 - **Expo / React Native** — app móvil para camareros (`mobile/`)
 - **@tpv/core** — paquete compartido (`packages/core/`) con tipos, utilidades y tests
-- **Vitest 4** con jsdom — **356 tests, 29 archivos**
+- **Vitest 4** con jsdom — **382 tests, 33 archivos**
 - **ESC/POS** — impresión térmica con WebUSB
 - **Stripe Terminal** — pago NFC Tap-to-Pay en móvil
 
 ## Arquitectura
 
-### Frontend (SPA)
+### Frontend (App Router — rutas reales y code-split)
 
-- `app/page.jsx` — SPA central (~2500 líneas), orquesta todas las vistas vía estado `view`
-- Vistas agrupadas en sidebar por bloques con códigos de color
-- `"use client"` solo en `page.jsx`; server components para páginas públicas
+- `app/(taller)/layout.tsx` — layout cliente que posee el estado global (shell: Sidebar, TopBar, banners, comanda drawer, pago, atajos de teclado) y lo expone por contexto (`useFloor`, `useCatalog`, `useSales`, `useAuth`, `useUi`)
+- **URL = fuente de verdad** de la vista activa: `viewFromPath(pathname)` en `modules/core/view-routes.ts`; `setView` es `router.push(routeFor(v))`, con alias para rutas standalone (`kds → /cocina-kds`, `waitlist → /lista-espera`)
+- **36 páginas dedicadas por dominio** con code-split real (`/salon`, `/cocina`, `/barra`, `/comandas`, `/informes`, `/gestoria`, `/inventario`, `/pedidos`, …); cada ruta carga solo su vista
+- **Mezcla server/client**: las páginas de solo presentación son Server Components; `salon`/`almacen` siguen `"use client"` (gating por contexto); el catch-all `[...view]/page.tsx` es Server Component con `await params` y sirve `ViewRouter` como fallback SPA
+- Las vistas que usan hooks declaran `"use client"` explícitamente (frontera cliente explícita)
+- `app/(taller)/page.tsx` redirige a `/salon`
+- Vistas agrupadas en sidebar por bloques con códigos de color (`modules/core/nav-config.ts`)
+- Plan del refactor: `docs/REFACTOR_PAGE_JSX.md` (fases 0–4)
 
 ### API
 
@@ -78,6 +83,8 @@ hooks/            React hooks (cada vez más delgados)
 └── useSalesActions.ts   64→36 líneas (sin dependencias API/offline/toast)
 
 modules/          Componentes agrupados por dominio
+├── core/         app-contexts (AppProviders + hooks), ViewRouter, Sidebar,
+│                 TopBar, nav-config, view-routes (mapeo vista↔ruta)
 └── salon/        Drawers, paneles de sala
 ```
 
@@ -198,7 +205,7 @@ npm run build          # build:core → copy:core → next build
 npm run build:core     # Compilar @tpv/core (packages/core)
 npm run copy:core      # Copiar @tpv/core compilado (workaround Turbopack symlinks)
 npm run lint           # ESLint 9 flat config — 0 errors, ~1371 warnings
-npm run test           # Vitest (jsdom) — 356 tests, 29 archivos
+npm run test           # Vitest (jsdom) — 382 tests, 33 archivos
 npm run db:push        # Sincronizar schema Drizzle → BD (fresh DB)
 npm run db:generate    # Generar migración SQL tras cambios en schema
 npm run db:migrate     # Aplicar migraciones pendientes
@@ -239,8 +246,8 @@ PostgreSQL 16 + app en puerto 3000.
 ## Testing
 
 ```bash
-npx vitest run                    # 356 tests, 29 archivos
-npx vitest run __tests__/integration/   # Tests de integración API (55 tests, 8 archivos)
+npx vitest run                    # 382 tests, 33 archivos
+npx vitest run __tests__/integration/   # Tests de integración API (61 tests, 10 archivos)
 npx vitest run __tests__/constants.test.ts   # Test específico
 npx tsc --noEmit                  # Typecheck completo (0 errores)
 ```

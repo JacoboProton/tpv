@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, LineChart, Line } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, LineChart, Line } from '@/modules/reports/charts-lazy'
 import { Euro, TrendingUp, Ticket, Clock, Banknote, CreditCard, Smartphone } from 'lucide-react'
 import { euros, round2, type Theme } from '@/components/constants'
 import { useSales, useUi } from '@/modules/core/app-contexts'

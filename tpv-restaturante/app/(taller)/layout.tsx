@@ -39,18 +39,21 @@ import { useDebtOrder }        from '../../hooks/useDebtOrder';
 import MenuPrincipal        from '../../components/app/MenuPrincipal';
 import LoginScreen          from '../../components/auth/LoginScreen';
 import CommandPalette       from '../../components/app/CommandPalette';
-import PaymentModal         from '../../modules/payment/PaymentModal';
-import ModifierSelector, { type ModifierSelectorProps }     from '../../components/modals/ModifierSelector';
-import ComandaDrawer        from '../../modules/salon/ComandaDrawer'
-import type { ComandaDrawerProps } from '../../modules/salon/ComandaDrawer/types';
-import ClockinModal         from '../../components/modals/ClockinModal';
+import dynamic from 'next/dynamic';
+import type { ModifierSelectorProps }             from '../../components/modals/ModifierSelector';
+import type { ComandaDrawerProps }                  from '../../modules/salon/ComandaDrawer/types';
 import { EventLog }          from '../../modules/debug/EventLog';
-import SettingsModal        from '../../components/modals/SettingsModal';
 import AppProviders from '../../modules/core/app-contexts'
 import Sidebar from '../../modules/core/Sidebar'
 import TopBar from '../../modules/core/TopBar'
 import { navGroups } from '../../modules/core/nav-config'
 import { routeFor, viewFromPath } from '../../modules/core/view-routes'
+
+const PaymentModal     = dynamic(() => import('../../modules/payment/PaymentModal'), { ssr: false })
+const ComandaDrawer    = dynamic(() => import('../../modules/salon/ComandaDrawer'), { ssr: false })
+const ModifierSelector = dynamic(() => import('../../components/modals/ModifierSelector'), { ssr: false })
+const ClockinModal     = dynamic(() => import('../../components/modals/ClockinModal'), { ssr: false })
+const SettingsModal    = dynamic(() => import('../../components/modals/SettingsModal'), { ssr: false })
 
 export default function TallerLayout({
   children,

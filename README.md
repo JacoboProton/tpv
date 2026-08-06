@@ -7,18 +7,30 @@
 - **Supabase Realtime** — sincronización en vivo POS/KDS/móvil (Broadcast)
 - **Expo / React Native** — app móvil (`mobile/`)
 - **@tpv/core** — paquete compartido (`packages/core/`) con tipos, utilidades, tests
-- **Vitest 4** con jsdom, **356 tests, 29 archivos**
+- **Vitest 4** con jsdom, **382 tests, 33 archivos**
 - **ESC/POS** — impresión térmica WebUSB
 - **Stripe Terminal** — pago NFC Tap-to-Pay
 
 ## Arquitectura
 
-- `app/page.jsx` — SPA central (~2500 líneas), orquesta vistas vía estado `view`
+- `app/(taller)/layout.tsx` — layout cliente, dueño del estado global; monta `AppProviders` + shell (`Sidebar`, `TopBar`, banners, modales)
+- Rutas reales de App Router por dominio con code-split (36 páginas dedicadas) + catch-all `[...view]` como fallback SPA; la URL es la fuente de verdad de la vista activa (`modules/core/view-routes.ts`)
 - API routes en `app/api/*/route.ts` con Drizzle ORM
 - RBAC server-side: `requireRole()` protege ~40 rutas operacionales (admin/camarero/cocina)
 - Migraciones con Drizzle Kit
 - Seed data en `components/constants.js`
 - `tenant_id` en **115/115 tablas**, 67 índices compuestos
+
+## Frontend — Rutas reales (App Router) y code-split
+
+La SPA monolítica (`app/page.jsx` + `ViewRouter`) se migró a rutas reales de App Router (plan en `docs/REFACTOR_PAGE_JSX.md`, fases 0–4):
+
+- **`app/(taller)/`** agrupa el shell autenticado. `layout.tsx` posee el estado global y lo expone por contexto (`useFloor`, `useCatalog`, `useSales`, `useAuth`, `useUi`); además monta la comanda drawer, el modal de pago, banners y atajos de teclado.
+- **URL = fuente de verdad**: `viewFromPath(pathname)` deriva la vista activa en el layout y `setView` se implementa como `router.push(routeFor(v))`. Alias evitan colisiones con rutas standalone (`kds → /cocina-kds`, `waitlist → /lista-espera`).
+- **Code-split por dominio**: 36 páginas dedicadas (`/salon`, `/cocina`, `/barra`, `/comandas`, `/informes`, `/gestoria`, `/inventario`, `/pedidos`, `/reservas`, …) cargan solo su vista en un bundle propio.
+- **Mezcla server/client**: las páginas de solo presentación son **Server Components**; `salon` y `almacen` siguen `"use client"` (gating por contexto). El catch-all `[...view]/page.tsx` es un Server Component que usa `await params` y delega en `ViewRouter`.
+- **Frontera cliente explícita**: las ~30 vistas que usan hooks declaran `"use client"` (p. ej. `ViewRouter`, `AlmacenMenuView`, `PedidosView`).
+- `app/(taller)/page.tsx` redirige (`redirect`) a `/salon`.
 
 ## Clean Architecture (progresiva)
 
@@ -84,7 +96,7 @@ npm run build          # build:core → copy:core → next build
 npm run build:core     # Compilar @tpv/core (packages/core)
 npm run copy:core      # Copiar @tpv/core compilado (workaround Turbopack symlinks)
 npm run lint           # ESLint 9 flat config — 0 errors, ~1371 warnings
-npm run test           # Vitest (jsdom) — 356 tests, 29 archivos
+npm run test           # Vitest (jsdom) — 382 tests, 33 archivos
 npm run db:push        # Sincronizar schema Drizzle → BD
 npm run db:generate    # Generar migración SQL
 npm run db:migrate     # Aplicar migraciones pendientes
@@ -119,8 +131,8 @@ PostgreSQL 16 + app en puerto 3000.
 ## Testing
 
 ```bash
-npx vitest run                    # 356 tests, 29 archivos
-npx vitest run __tests__/integration/   # Tests de integración API (55 tests, 8 archivos)
+npx vitest run                    # 382 tests, 33 archivos
+npx vitest run __tests__/integration/   # Tests de integración API (61 tests, 10 archivos)
 npx vitest run __tests__/constants.test.ts   # Test específico
 ```
 
