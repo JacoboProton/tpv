@@ -1,0 +1,7 @@
+[
+  {
+    "name": "Client JS — total (gzip)",
+    "path": ".next/static/chunks/**/*.js",
+    "limit": "1.5 MB"
+  }
+]

@@ -21,7 +21,7 @@
     "type-coverage": "type-coverage --strict --ignore-files '**/*.test.ts'",
     "contract:test": "pact-test",
     "mutation:test": "stryker run",
-    "bundle:check": "size-limit --fail-on-error"
+    "bundle:check": "next build && size-limit"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.68.0",
@@ -56,6 +56,7 @@
   "devDependencies": {
     "@next/bundle-analyzer": "^16.3.0",
     "@playwright/test": "^1.62.0",
+    "@size-limit/file": "^13.0.3",
     "@types/node": "^20",
     "@types/pg": "^8.20.0",
     "@types/qrcode": "^1.5.6",
@@ -69,6 +70,7 @@
     "husky": "^9.1.7",
     "jsdom": "^29.1.1",
     "lint-staged": "^17.3.0",
+    "size-limit": "^13.0.3",
     "typescript": "^5",
     "vitest": "^4.1.9"
   },
