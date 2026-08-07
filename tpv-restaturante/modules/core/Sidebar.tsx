@@ -1,6 +1,7 @@
 import { type Theme } from '@/components/constants'
 import { navGroups } from './nav-config'
 import type { CurrentUser } from '@tpv/core'
+import type { CSSProperties } from 'react'
 
 interface SidebarProps {
   menuMode: string
@@ -35,24 +36,31 @@ export default function Sidebar({
           </select>
         )}
       </div>
-      <nav className="flex-1 overflow-y-auto py-2 px-1 space-y-0.5">
+      <nav className="flex-1 overflow-y-auto py-2 px-1 space-y-2.5">
         {navGroups.map(group => (
           (currentUser?.role === 'admin' || !group.adminOnly) && (
-            <div key={group.label}>
+            <div key={group.label} style={{ '--gcol': group.color } as CSSProperties}>
+              <div className="px-2 pt-1 pb-0.5 flex items-center gap-1.5" style={{ color: group.color }}>
+                <span className="inline-block w-1.5 h-1.5 rounded-sm" style={{ background: group.color }} />
+                <span className="text-[10px] font-bold uppercase tracking-wider">{group.label}</span>
+              </div>
               {group.items.map(item => {
                 const Icon = item.icon
+                const active = view === item.id
                 const badge = item.id === 'alertas-stock' ? lowStockProducts.length :
                   item.id === 'barra' ? pendingBarCount :
                     item.id === 'cocina' || item.id === 'comandas' ? pendingCocinaCount : 0
                 return (
                   <button key={item.id} onClick={() => setView(item.id)}
+                    className="hover:bg-[color-mix(in_srgb,var(--gcol)_14%,transparent)] transition-colors"
                     style={{
                       width: '100%', display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px',
                       borderRadius: 6, fontSize: 12, cursor: 'pointer', border: 'none', textAlign: 'left',
-                      background: view === item.id ? C.surfaceLight : 'transparent',
-                      color: view === item.id ? C.brassLight : C.muted,
+                      background: active ? C.surfaceLight : 'transparent',
+                      color: active ? group.color : C.muted,
+                      boxShadow: active ? `inset 3px 0 0 ${group.color}` : 'none',
                     }}>
-                    <Icon size={16} />
+                    <Icon size={16} className={`shrink-0 ${active ? '' : 'opacity-80'}`} />
                     <span className="flex-1 truncate">{item.label}</span>
                     {badge > 0 && (
                       <span className="text-[10px] font-bold rounded-full px-1.5 py-0.5"

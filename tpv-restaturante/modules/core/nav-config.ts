@@ -21,7 +21,7 @@ export interface NavGroup {
 
 export const navGroups: NavGroup[] = [
   {
-    label: 'Sala y Cocina', color: '#4a90d9',
+    label: 'Sala y Cocina', color: '#38bdf8',
     items: [
       { id: 'salon',      label: 'Salon',      icon: LayoutGrid },
       { id: 'pairing',    label: 'Emparejar',  icon: Monitor },
@@ -33,7 +33,7 @@ export const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: 'Operaciones', color: '#4a90d9',
+    label: 'Operaciones', color: '#a78bfa',
     adminOnly: true,
     items: [
       { id: 'pedidos',    label: 'Pedidos',    icon: Undo2 },
@@ -43,7 +43,7 @@ export const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: 'Canales', color: '#4caf50',
+    label: 'Canales', color: '#34d399',
     adminOnly: true,
     items: [
       { id: 'buffet',      label: 'Buffet Kiosk', icon: ClipboardList },
@@ -52,7 +52,7 @@ export const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: 'Gestión', color: '#e8a838',
+    label: 'Gestión', color: '#fbbf24',
     adminOnly: true,
     items: [
       { id: 'inventario',  label: 'Inventario',     icon: Package },
