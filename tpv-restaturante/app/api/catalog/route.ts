@@ -3,13 +3,16 @@ import { eq, sql, and } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { products, categories, productStock, combos, comboSlots, comboSlotItems, productPriceRules, mealMenus, mealMenuCourses, mealMenuCourseItems, mealMenuSchedules } from '../../../db/schema';
-import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
+import { apiOk, apiError, apiBadRequest, apiTooManyRequests } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
 import { withIdempotency } from '../../../lib/idempotency';
+import { rateLimit, getClientIp } from '../../../lib/rate-limit';
 import { IdBody } from '@/lib/schemas/api-schemas';
 import { z } from 'zod';
 
 export async function GET(req: NextRequest) {
+  const rl = await rateLimit(`catalog:${getClientIp(req)}`, 120, 60_000);
+  if (!rl.allowed) return apiTooManyRequests();
   try {
     const db = getDb();
     const tenantId = getTenantId(req);

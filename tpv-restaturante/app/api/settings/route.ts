@@ -4,11 +4,14 @@ import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { invalidateSettingsCache } from '../../../lib/settings-cache';
 import { settings } from '../../../db/schema';
-import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
+import { apiOk, apiError, apiBadRequest, apiTooManyRequests } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
+import { rateLimit, getClientIp } from '../../../lib/rate-limit';
 import { SettingsBody } from '@/lib/schemas/api-schemas';
 
 export async function GET(req: NextRequest) {
+  const rl = await rateLimit(`settings:${getClientIp(req)}`, 60, 60_000);
+  if (!rl.allowed) return apiTooManyRequests();
   try {
     const db = getDb();
     const tenantId = getTenantId(req);

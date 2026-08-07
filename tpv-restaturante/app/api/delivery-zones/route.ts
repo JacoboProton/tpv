@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized, apiForbidden, apiTooManyRequests, apiCreated, apiServerError } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
+import { rateLimit, getClientIp } from '../../../lib/rate-limit';
 import { DeliveryZoneBody, IdBody } from '@/lib/schemas/api-schemas';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
@@ -8,6 +9,8 @@ import { getTenantId } from '../../../lib/tenant';
 import { deliveryZones } from '../../../db/schema';
 
 export async function GET(req: NextRequest) {
+  const rl = await rateLimit(`delivery-zones:${getClientIp(req)}`, 60, 60_000);
+  if (!rl.allowed) return apiTooManyRequests();
   try {
     const db = getDb();
     const tenantId = getTenantId(req);

@@ -1,0 +1,73 @@
+name: e2e
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  playwright:
+    name: E2E (Postgres efímero + Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: tpv
+          POSTGRES_PASSWORD: tpv
+          POSTGRES_DB: tpv
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tpv -d tpv"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      DATABASE_URL: postgresql://tpv:tpv@localhost:5432/tpv
+      TPV_API_KEY: e2e-tpv-api-key
+      NEXT_PUBLIC_TPV_API_KEY: e2e-tpv-api-key
+      JWT_SECRET: e2e-jwt-secret-for-testing
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install deps (npm workspaces)
+        run: npm ci
+
+      - name: Install Playwright browsers (chromium)
+        working-directory: tpv-restaturante
+        run: npx playwright install --with-deps chromium
+
+      - name: Create schema (db:push)
+        working-directory: tpv-restaturante
+        run: npm run db:push
+
+      - name: Run e2e tests
+        working-directory: tpv-restaturante
+        run: npm run test:e2e
+        env:
+          # El webServer (npm run dev) lanza el server; el seed de catálogo/piso/
+          # empleados lo hace el cliente (hooks/useAppInit) sobre la BD vacía.
+          DATABASE_URL: postgresql://tpv:tpv@localhost:5432/tpv
+          TPV_API_KEY: e2e-tpv-api-key
+          NEXT_PUBLIC_TPV_API_KEY: e2e-tpv-api-key
+          JWT_SECRET: e2e-jwt-secret-for-testing
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: tpv-restaturante/playwright-report
+          retention-days: 7

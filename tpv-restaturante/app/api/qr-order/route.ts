@@ -3,7 +3,8 @@ import { and, desc, eq, sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { qrOrders, orders, tables, deliveryOrders } from '../../../db/schema';
-import { apiOk, apiError, apiBadRequest, apiNotFound } from '../../../lib/infrastructure/response';
+import { apiOk, apiError, apiBadRequest, apiNotFound, apiTooManyRequests } from '../../../lib/infrastructure/response';
+import { rateLimit, getClientIp } from '../../../lib/rate-limit';
 import { QrOrderPostBody } from '@/lib/schemas/api-schemas';
 
 function makeId(prefix = 'qo') { return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
@@ -12,6 +13,8 @@ function makeId(prefix = 'qo') { return prefix + '_' + Date.now().toString(36) +
 // desde el menú QR. No requiere sesión TPV. Se autentica por tenantId
 // (header x-tenant-id) y se filtra por mesa activa.
 export async function POST(req: NextRequest) {
+  const rl = await rateLimit(`qrorder:w:${getClientIp(req)}`, 40, 60_000);
+  if (!rl.allowed) return apiTooManyRequests();
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
@@ -111,6 +114,8 @@ export async function POST(req: NextRequest) {
 // SIN requireRole — endpoint público para que clientes consulten
 // el estado de su pedido QR. Identificado por orderId + tenantId.
 export async function GET(req: NextRequest) {
+  const rl = await rateLimit(`qrorder:r:${getClientIp(req)}`, 120, 60_000);
+  if (!rl.allowed) return apiTooManyRequests();
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
@@ -168,6 +173,8 @@ export async function GET(req: NextRequest) {
 // SIN requireRole — endpoint público para que clientes actualicen
 // su pedido QR (cancelar, cambiar estado). Autenticado por id + tenantId.
 export async function PUT(req: NextRequest) {
+  const rl = await rateLimit(`qrorder:w:${getClientIp(req)}`, 40, 60_000);
+  if (!rl.allowed) return apiTooManyRequests();
   try {
     const db = getDb();
     const tenantId = getTenantId(req);

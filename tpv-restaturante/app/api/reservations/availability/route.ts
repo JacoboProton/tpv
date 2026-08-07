@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { apiOk, apiError, apiBadRequest } from '../../../../lib/infrastructure/response';
+import { apiOk, apiError, apiBadRequest, apiTooManyRequests } from '../../../../lib/infrastructure/response';
+import { rateLimit, getClientIp } from '../../../../lib/rate-limit';
 import { eq, sql } from 'drizzle-orm';
 import { getDb } from '../../../../lib/drizzle';
 import { getTenantId } from '../../../../lib/tenant';
@@ -20,6 +21,8 @@ function addMinutes(timeStr: string, mins: number) {
 // (app/reservar/page.jsx). Consulta disponibilidad de slots sin
 // autenticación. Solo expone horarios libres, ningún dato del negocio.
 export async function GET(req: NextRequest) {
+  const rl = await rateLimit(`avail:${getClientIp(req)}`, 60, 60_000);
+  if (!rl.allowed) return apiTooManyRequests();
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
