@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { verifyPin, fetchEmployees } from '../lib/api';
 import { sessionLogin } from '../lib/session';
@@ -7,10 +8,12 @@ import type { Employee } from '../lib/types';
 import { C } from '../lib/theme';
 import { classifyError } from '../lib/errors';
 import { useAppContext } from '../lib/store';
-import { logError, logWarn, logInfo, logDebug } from '../lib/logger';
+import { useBiometricAuth } from '../hooks/useBiometricAuth';
+import { logWarn } from '../lib/logger';
 
 export default function LoginScreen() {
   const { setUser } = useAppContext();
+  const { supported, enrolled, authenticate } = useBiometricAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selected, setSelected] = useState<Employee | null>(null);
   const [pin, setPin] = useState('');
@@ -40,37 +43,57 @@ export default function LoginScreen() {
     setPin(p => p.slice(0, -1));
   }
 
+  async function establishSession(user: Employee): Promise<boolean> {
+    try {
+      const sessionRes = await sessionLogin(user.id, user.role);
+      if (sessionRes && sessionRes.conflict) {
+        const force = await new Promise<boolean>(resolve => {
+          Alert.alert(
+            'Sesión duplicada',
+            `${user.name} ya está conectado en otro terminal. ¿Cerrar esa sesión y continuar aquí?`,
+            [
+              { text: 'Cancelar', style: 'cancel', onPress: () => resolve(false) },
+              { text: 'Cerrar y continuar', style: 'destructive', onPress: () => resolve(true) },
+            ],
+          );
+        });
+        if (!force) return false;
+        await sessionLogin(user.id, user.role, true);
+      }
+    } catch (e) {
+      logWarn('Session check failed during login (non-critical)', { error: e, userId: user.id });
+    }
+
+    setUser(user);
+    router.replace('/(tabs)/saloon');
+    return true;
+  }
+
   async function doVerify(emp: Employee, p: string) {
     setVerifying(true);
     try {
       const user = await verifyPin(p);
-
-      // Check session (best-effort, no bloquea el login si falla)
-      try {
-        const sessionRes = await sessionLogin(user.id, user.role);
-        if (sessionRes && sessionRes.conflict) {
-          const force = await new Promise<boolean>(resolve => {
-            Alert.alert(
-              'Sesión duplicada',
-              `${user.name} ya está conectado en otro terminal. ¿Cerrar esa sesión y continuar aquí?`,
-              [
-                { text: 'Cancelar', style: 'cancel', onPress: () => resolve(false) },
-                { text: 'Cerrar y continuar', style: 'destructive', onPress: () => resolve(true) },
-              ],
-            );
-          });
-          if (!force) { setVerifying(false); setPin(''); return; }
-          await sessionLogin(user.id, user.role, true);
-        }
-      } catch (e) {
-        logWarn('Session check failed during login (non-critical)', { error: e, userId: user.id });
-      }
-
-      setUser(user);
-      router.replace('/(tabs)/saloon');
+      const ok = await establishSession(user);
+      if (!ok) { setVerifying(false); setPin(''); }
     } catch {
       setPin('');
       Alert.alert('PIN incorrecto', 'Inténtalo de nuevo');
+    } finally {
+      setVerifying(false);
+    }
+  }
+
+  async function doBiometricLogin(emp: Employee) {
+    setVerifying(true);
+    try {
+      const ok = await authenticate();
+      if (ok) {
+        const logged = await establishSession(emp);
+        if (!logged) { setPin(''); }
+      }
+    } catch {
+      setPin('');
+      Alert.alert('Autenticación fallida', 'Prueba de nuevo o usa tu PIN');
     } finally {
       setVerifying(false);
     }
@@ -118,6 +141,20 @@ export default function LoginScreen() {
               <View key={i} style={[styles.pinDot, pin.length > i && styles.pinDotFilled]} />
             ))}
           </View>
+          {supported && enrolled && (
+            <TouchableOpacity
+              style={styles.biometricBtn}
+              onPress={() => doBiometricLogin(selected)}
+              disabled={verifying}
+            >
+              <Ionicons
+                name={Platform.OS === 'ios' ? 'finger-print-outline' : 'finger-print'}
+                size={20}
+                color={C.brass}
+              />
+              <Text style={styles.biometricText}>Usar biometría</Text>
+            </TouchableOpacity>
+          )}
           <View style={styles.keypad}>
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, '', 0, '⌫'].map((k, i) => (
               <TouchableOpacity
@@ -160,7 +197,9 @@ const styles = StyleSheet.create({
   employeeRole: { fontSize: 11, color: C.muted, marginTop: 2 },
   pinSection: { alignItems: 'center', width: '100%', maxWidth: 280 },
   pinLabel: { fontSize: 13, color: C.muted, marginBottom: 16 },
-  pinDots: { flexDirection: 'row', gap: 12, marginBottom: 24 },
+  biometricBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 20, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, backgroundColor: C.surface, borderWidth: 1, borderColor: C.line },
+  biometricText: { fontSize: 13, color: C.brass, fontWeight: '600' },
+  pinDots: { flexDirection: 'row', gap: 12, marginBottom: 20 },
   pinDot: { width: 16, height: 16, borderRadius: 8, backgroundColor: C.surfaceLight, borderWidth: 2, borderColor: C.muted },
   pinDotFilled: { backgroundColor: C.brass, borderColor: C.brass },
   keypad: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' },
