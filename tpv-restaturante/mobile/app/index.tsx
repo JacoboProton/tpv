@@ -9,11 +9,13 @@ import { C } from '../lib/theme';
 import { classifyError } from '../lib/errors';
 import { useAppContext } from '../lib/store';
 import { useBiometricAuth } from '../hooks/useBiometricAuth';
+import { usePinLockout } from '../hooks/usePinLockout';
 import { logWarn } from '../lib/logger';
 
 export default function LoginScreen() {
   const { setUser } = useAppContext();
   const { supported, enrolled, authenticate } = useBiometricAuth();
+  const { locked, remainingLabel, registerFailure, reset } = usePinLockout();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selected, setSelected] = useState<Employee | null>(null);
   const [pin, setPin] = useState('');
@@ -31,6 +33,7 @@ export default function LoginScreen() {
   }, []);
 
   function handleDigit(d: string) {
+    if (locked) return;
     const next = pin + d;
     if (next.length > 4) return;
     setPin(next);
@@ -65,6 +68,7 @@ export default function LoginScreen() {
     }
 
     setUser(user);
+    reset();
     router.replace('/(tabs)/saloon');
     return true;
   }
@@ -76,6 +80,7 @@ export default function LoginScreen() {
       const ok = await establishSession(user);
       if (!ok) { setVerifying(false); setPin(''); }
     } catch {
+      registerFailure();
       setPin('');
       Alert.alert('PIN incorrecto', 'Inténtalo de nuevo');
     } finally {
@@ -103,6 +108,20 @@ export default function LoginScreen() {
     return (
       <View style={styles.container}>
         <ActivityIndicator size="large" color={C.brass} />
+      </View>
+    );
+  }
+
+  if (locked) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>LA COMANDA</Text>
+        <Text style={styles.lockTitle}>Demasiados intentos</Text>
+        <Text style={styles.lockText}>
+          PIN incorrecto repetido. La app queda bloqueada{'\n'}
+          temporalmente. Inténtalo de nuevo en:{'\n\n'}
+          <Text style={styles.lockTimer}>{remainingLabel}</Text>
+        </Text>
       </View>
     );
   }
@@ -186,6 +205,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.base, alignItems: 'center', justifyContent: 'center', padding: 20 },
   title: { fontSize: 36, fontWeight: '700', color: C.brass, letterSpacing: 4, marginBottom: 4, fontFamily: 'monospace' },
   subtitle: { fontSize: 14, color: C.muted, marginBottom: 32 },
+  lockTitle: { fontSize: 22, fontWeight: '700', color: C.wine, marginBottom: 12 },
+  lockText: { fontSize: 14, color: C.muted, textAlign: 'center', lineHeight: 22 },
+  lockTimer: { fontSize: 28, fontWeight: '700', color: C.brass },
   employeeList: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center', marginBottom: 32 },
   employeeBtn: {
     backgroundColor: C.surface, paddingHorizontal: 24, paddingVertical: 16,

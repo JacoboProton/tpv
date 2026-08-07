@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL, TPV_API_KEY } from './config';
 import type { Employee, Floor, Product, Category, ModifierGroup, Sale, GestoriaDocument, GestoriaPayroll, GestoriaTaxModel, GestoriaAuthorization, GestoriaOperationsResponse, Table, Order } from './types';
-import { logError, logWarn, logInfo, logDebug, setCorrelationId } from '../../lib/logger';
+import { logError, logWarn, logInfo, logDebug, setCorrelationId } from './logger';
 
 let _tenantId = 'default';
 let _employeeId = '';

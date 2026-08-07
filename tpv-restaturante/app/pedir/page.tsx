@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Minus, ShoppingCart, X, ChevronLeft, Check, Loader2, MapPin, Clock, Truck, Store } from 'lucide-react';
+import { buildTicketHtml, printTicketHtml } from '../../lib/ticket-template';
 
 const DAYS: string[] = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 
@@ -46,6 +47,7 @@ interface Settings {
   qrThemePrimary?: string;
   qrThemeSecondary?: string;
   restaurantName?: string;
+  printPublicConfirmation?: string;
 }
 
 interface Schedule {
@@ -200,6 +202,21 @@ export default function OnlineOrderingPage() {
       if (data.ok) {
         setOrderResult(data as unknown as Record<string, unknown>);
         setStep('result');
+        if (settings?.printPublicConfirmation === 'true') {
+          try {
+            const items = cart.map(i => ({ name: i.name, qty: i.qty, price: i.price, productId: i.productId }));
+            const ticketHtml = buildTicketHtml({
+              items, subtotal: cartTotal, discountAmount: 0, totalConIgic: cartTotal,
+              baseImponible: cartTotal, cuotaIgic: 0, totalWithTip: cartTotal,
+              restaurantName: settings.restaurantName,
+              tableName: modality === 'delivery' ? 'Domicilio' : 'Recogida',
+              ticketLabel: modality === 'delivery' ? 'REPARTO' : 'TAKEAWAY',
+              ticketNumber: data.orderId ? data.orderId.slice(-6).toUpperCase() : '',
+              date: new Date().toLocaleString('es-ES'),
+            });
+            printTicketHtml(ticketHtml);
+          } catch { /* la impresión nunca debe bloquear el pedido */ }
+        }
       } else {
         setError(data.error || 'Error al enviar');
       }

@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Plus, Minus, ShoppingCart, X, Clock, Bell, ChevronLeft, Check, Loader2, AlertTriangle } from 'lucide-react';
+import { buildTicketHtml, printTicketHtml } from '../../../lib/ticket-template';
 
 interface CartItem {
   productId: string;
@@ -52,6 +53,8 @@ interface Settings {
   qrThemePrimary?: string;
   qrThemeSecondary?: string;
   qrThemeLogo?: string;
+  restaurantName?: string;
+  printPublicConfirmation?: string;
 }
 
 export default function QrMenuPage() {
@@ -212,6 +215,20 @@ export default function QrMenuPage() {
           setCart([]);
           setShowCheckout(false);
           setShowCart(false);
+          if (settings?.printPublicConfirmation === 'true') {
+            try {
+              const orderedItems = cart.map(i => ({ name: i.name, qty: i.qty, price: i.price, productId: i.productId }));
+              const ticketHtml = buildTicketHtml({
+                items: orderedItems, subtotal: cartTotal, discountAmount: 0, totalConIgic: cartTotal,
+                baseImponible: cartTotal, cuotaIgic: 0, totalWithTip: cartTotal,
+                restaurantName: settings.restaurantName,
+                tableName: tableId, ticketLabel: 'MESA',
+                ticketNumber: data.orderId ? data.orderId.slice(-6).toUpperCase() : '',
+                date: new Date().toLocaleString('es-ES'),
+              });
+              printTicketHtml(ticketHtml);
+            } catch { /* la impresión nunca debe bloquear el pedido */ }
+          }
         } else {
           setError(data.error || 'Error al enviar el pedido');
         }

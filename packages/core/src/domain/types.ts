@@ -153,6 +153,7 @@ export interface TicketSettings {
   logoUrl?: string
   footerText?: string
   ticketWidth?: string
+  printPublicConfirmation?: boolean
   [key: string]: unknown
 }
 

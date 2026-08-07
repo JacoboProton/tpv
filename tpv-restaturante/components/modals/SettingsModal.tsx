@@ -75,6 +75,9 @@ export default function SettingsModal({ C, ticketSettings, setTicketSettings, sh
             ))
           })()}
           <div style={{ borderTop: `1px solid ${C.line}` }} className="my-2" />
+          <p className="font-display text-sm" style={{ color: C.cream }}>Impresión de pedidos</p>
+          <ToggleRow C={C} label="Imprimir ticket al confirmar pedido público (QR/online)" value={ticketSettings.printPublicConfirmation} defaultValue="false" onChange={v => setTicketSettings((s: any) => ({ ...s, printPublicConfirmation: v }))} />
+          <div style={{ borderTop: `1px solid ${C.line}` }} className="my-2" />
           <p className="font-display text-sm" style={{ color: C.cream }}>Pedido por QR</p>
           <ToggleRow C={C} label="Activar pedido QR en mesa" value={ticketSettings.qrOrderingEnabled} defaultValue="true" onChange={v => setTicketSettings((s: any) => ({ ...s, qrOrderingEnabled: v }))} />
           <ToggleRow C={C} label="Requerir pago al pedir" value={ticketSettings.qrRequirePayment} defaultValue="false" onChange={v => setTicketSettings((s: any) => ({ ...s, qrRequirePayment: v }))} />
