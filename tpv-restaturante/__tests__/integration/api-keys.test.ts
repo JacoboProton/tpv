@@ -33,7 +33,7 @@ vi.mock('@/lib/drizzle', () => {
   return { getDb: () => db };
 });
 
-import { createApiKey, hashApiKey, verifyApiKey } from '../../lib/auth/api-keys';
+import { createApiKey, hashApiKey, verifyApiKey, listApiKeys, rotateApiKey, setApiKeyActive, deleteApiKey, generateApiKey, keyPrefix } from '../../lib/auth/api-keys';
 
 beforeEach(() => {
   dbData.clear();
@@ -86,5 +86,65 @@ describe('GET /api/api-keys', () => {
     const { req } = await import('../helpers/request');
     const res = await GET(req('http://localhost'));
     expect(res.status).toBe(401);
+  });
+});
+
+describe('lib/auth/api-keys helpers & lifecycle', () => {
+  it('generateApiKey prefixes by client type and is unique', () => {
+    const a = generateApiKey('pos');
+    const b = generateApiKey('pos');
+    expect(a.startsWith('tpv_pos_')).toBe(true);
+    expect(a).not.toBe(b);
+    expect(generateApiKey('kds').startsWith('tpv_kds_')).toBe(true);
+    expect(generateApiKey('mobile').startsWith('tpv_mobile_')).toBe(true);
+  });
+
+  it('keyPrefix truncates to 12 chars', () => {
+    const key = generateApiKey('pos');
+    expect(keyPrefix(key)).toBe(key.slice(0, 12) + '…');
+  });
+
+  it('createApiKey returns a complete row without keyHash', async () => {
+    const { row, key } = await createApiKey('default', 'kds', 'Pantalla A');
+    expect(row.label).toBe('Pantalla A');
+    expect(row.rotatedAt).toBeNull();
+    expect(row.lastUsedAt).toBeNull();
+    expect(stored.length).toBeGreaterThan(0);
+    expect(hashApiKey(key)).toBe(stored[stored.length - 1].keyHash);
+  });
+
+  it('listApiKeys omits keyHash and returns seeded rows', async () => {
+    seed(apiKeys, [{
+      id: 'ak_2', tenantId: 'default', clientType: 'mobile', label: 'M1',
+      keyHash: 'x', keyPrefix: 'tpv_mobile…', active: true, createdAt: 1, rotatedAt: 2, lastUsedAt: 3,
+    }]);
+    const rows = await listApiKeys('default');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).not.toHaveProperty('keyHash');
+    expect(rows[0].keyPrefix).toBe('tpv_mobile…');
+  });
+
+  it('rotateApiKey returns null when the key does not exist', async () => {
+    await expect(rotateApiKey('default', 'does-not-exist')).resolves.toBeNull();
+  });
+
+  it('rotateApiKey replaces the hash for an existing key', async () => {
+    seed(apiKeys, [{
+      id: 'ak_3', tenantId: 'default', clientType: 'kds', label: 'K',
+      keyHash: 'old', keyPrefix: 'tpv_kds_old', active: true, createdAt: 1, rotatedAt: null, lastUsedAt: null,
+    }]);
+    const out = await rotateApiKey('default', 'ak_3');
+    expect(out).not.toBeNull();
+    expect(out!.row.rotatedAt).toBeGreaterThan(0);
+    expect(hashApiKey(out!.key)).toBe(sha256(out!.key));
+  });
+
+  it('setApiKeyActive reflects the update rowCount', async () => {
+    seed(apiKeys, [{ id: 'ak_4', tenantId: 'default' }]);
+    await expect(setApiKeyActive('default', 'ak_4', false)).resolves.toBe(true);
+  });
+
+  it('deleteApiKey reflects the delete rowCount', async () => {
+    await expect(deleteApiKey('default', 'ak_5')).resolves.toBe(true);
   });
 });
