@@ -38,6 +38,7 @@ const OnlineOrdersView     = dynamic(() => import('@/modules/orders/OnlineOrders
 const BuffetKioskView      = dynamic(() => import('@/modules/buffet/BuffetKioskView'), { ssr: false })
 const TicketsView          = dynamic(() => import('@/modules/orders/TicketsView'), { ssr: false })
 const PaymentsView         = dynamic(() => import('@/modules/payment/PaymentsView'), { ssr: false })
+const AccesosView          = dynamic(() => import('@/modules/admin/AccesosView'), { ssr: false })
 import SalonView from '@/modules/salon/SalonView'
 
 interface ViewRouterProps {
@@ -121,6 +122,7 @@ export default function ViewRouter({ view }: ViewRouterProps) {
       )}
       {view === 'tickets'   && <TicketsView />}
       {view === 'pagos'     && <PaymentsView />}
+      {view === 'accesos'   && <AccesosView />}
     </div>
   )
 }

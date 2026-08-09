@@ -3,7 +3,7 @@ import {
   LayoutGrid, ChefHat, Package, BarChart3,
   ClipboardList, Users, Percent, Euro, Star, Undo2, FileText,
   Monitor, Calendar, Clock, Ticket, CreditCard, Beer, Truck,
-  AlertTriangle, TrendingUp,
+  AlertTriangle, TrendingUp, LogIn,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -73,6 +73,7 @@ export const navGroups: NavGroup[] = [
     adminOnly: true,
     items: [
       { id: 'gestoria',   label: 'Gestoria',   icon: FileText },
+      { id: 'accesos',    label: 'Accesos',    icon: LogIn },
       { id: 'pagos',      label: 'Pagos',      icon: CreditCard },
       { id: 'audit',      label: 'Auditoria',  icon: ClipboardList },
       { id: 'turnos',     label: 'Turnos',     icon: Calendar },

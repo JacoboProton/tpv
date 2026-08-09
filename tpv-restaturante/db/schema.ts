@@ -220,8 +220,10 @@ export const accessLogs = pgTable("access_logs", {
 	employeeName: text("employee_name").notNull(),
 	role: text().notNull(),
 	entryPoint: text("entry_point").notNull(),
+	deviceId: text("device_id"),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	loggedAt: bigint("logged_at", { mode: "number" }).notNull(),
+	exitAt: bigint("exit_at", { mode: "number" }),
 	tenantId: text("tenant_id").default('default').notNull(),
 }, (table) => [
 	index("idx_access_logs_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),

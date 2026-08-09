@@ -44,7 +44,9 @@ export async function GET(req: NextRequest) {
         employeeName: accessLogs.employeeName,
         role: accessLogs.role,
         entryPoint: accessLogs.entryPoint,
+        deviceId: accessLogs.deviceId,
         loggedAt: accessLogs.loggedAt,
+        exitAt: accessLogs.exitAt,
       }).from(accessLogs)
         .where(eq(accessLogs.tenantId, tenantId))
         .orderBy(desc(accessLogs.loggedAt))

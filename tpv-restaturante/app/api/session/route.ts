@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, sql, isNull } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
-import { sessions } from '../../../db/schema';
+import { sessions, employees, accessLogs } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
 import { rateLimit, getClientIp } from '../../../lib/rate-limit';
@@ -53,6 +53,9 @@ export async function POST(req: NextRequest) {
         ));
 
       const now = Date.now();
+
+      await markOpenAccessExits(db, tid, employeeId, deviceId);
+
       await db.insert(sessions).values({
         tenantId: tid, employeeId, deviceId, role: employeeRole ?? '',
         active: true, createdAt: now, lastSeen: now,
@@ -60,6 +63,8 @@ export async function POST(req: NextRequest) {
         target: [sessions.tenantId, sessions.employeeId, sessions.deviceId],
         set: { active: true, lastSeen: now, role: employeeRole ?? '' },
       });
+
+      await recordAccessLogin(db, tid, employeeId, employeeRole, deviceId, now);
 
       const token = await signSessionToken({
         sub: employeeId, role: employeeRole ?? '', tenantId: tid, deviceId,
@@ -82,6 +87,7 @@ export async function POST(req: NextRequest) {
           eq(sessions.employeeId, employeeId),
           eq(sessions.deviceId, deviceId),
         ));
+      await markOpenAccessExits(db, tid, employeeId, deviceId);
       const res = NextResponse.json({ ok: true });
       res.cookies.set(JWT_COOKIE, '', { ...cookieOptions(), maxAge: 0 });
       return res;
@@ -111,4 +117,32 @@ export async function POST(req: NextRequest) {
 
     return apiBadRequest('Acción no válida');
   } catch (err) { return apiError(err); }
+}
+
+async function recordAccessLogin(db: ReturnType<typeof getDb>, tenantId: string, employeeId: string, employeeRole: string | undefined, deviceId: string, now: number) {
+  try {
+    const rows = await db.select({ name: employees.name }).from(employees)
+      .where(eq(employees.id, employeeId)).limit(1);
+    await db.insert(accessLogs).values({
+      employeeId,
+      employeeName: rows[0]?.name || employeeId,
+      role: employeeRole ?? '',
+      entryPoint: deviceId,
+      deviceId,
+      loggedAt: now,
+      tenantId,
+    });
+  } catch (err) { console.error('Error registrando acceso:', err); }
+}
+
+async function markOpenAccessExits(db: ReturnType<typeof getDb>, tenantId: string, employeeId: string, deviceId: string) {
+  try {
+    await db.update(accessLogs).set({ exitAt: Date.now() })
+      .where(and(
+        eq(accessLogs.tenantId, tenantId),
+        eq(accessLogs.employeeId, employeeId),
+        eq(accessLogs.deviceId, deviceId),
+        isNull(accessLogs.exitAt),
+      ));
+  } catch (err) { console.error('Error cerrando registro de acceso:', err); }
 }
