@@ -239,9 +239,37 @@ docker compose up --build
 PostgreSQL 16 + app en puerto 3000.
 - `output: 'standalone'` en `next.config.ts` — necesario para multi-stage build
 - Las tablas se crean automáticamente via `drizzle-kit push --force` en el entrypoint
+- El arranque siembra datos de ejemplo si la BD está vacía (POST `/api/demo-seed`)
 - `server.js` escucha en `0.0.0.0:3000`
 - Realtime requiere configurar variables Supabase en `docker-compose.yml`
 - Fiskaly/Stripe no están configurados por defecto — añadir como `environment:`
+
+## Despliegue demo (Render)
+
+El repositorio es un monorepo npm: `render.yaml` (en la raíz del repo) define el
+servicio web con `runtime: docker` (misma imagen que `docker compose up --build`);
+el Dockerfile usa un único `scripts/docker-entrypoint.sh` que crea el esquema,
+arranca `node server.js` y siembra la BD vacía.
+
+Pasos:
+
+1. Conecta el repo a Render y crea el Blueprint (`render.yaml`).
+2. Fija estas variables en el panel del servicio **antes** de abrir al cliente:
+
+| Variable | Recomendado | Notas |
+|----------|-------------|-------|
+| `JWT_SECRET` | cadena aleatoria larga | Sin ella el entrypoint genera una por arranque (las sesiones no sobreviven a redespliegues) |
+| `CRON_SECRET` | cadena aleatoria larga | Autentica el POST interno `/api/demo-seed` |
+| `TPV_API_KEY` | cadena aleatoria larga | Crea la API key `pos` (cliente web) si está definida |
+| `NEXT_PUBLIC_TPV_API_KEY` | igual que `TPV_API_KEY` | Debe coincidir |
+| `ALLOWED_ORIGINS` | `https://tu-dominio.onrender.com` | CORS; sin ella los navegadores en otro origen no reciben headers CORS |
+
+3. Opcionales según qué se quiera en la demo: Stripe (`STRIPE_SECRET_KEY`,
+   `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, webhook), Fiskaly, Supabase Realtime.
+4. Comprueba en los logs `[demo] seed -> 200 {"ok":true,...}` y abre la URL.
+5. Login de la demo: **Administrador 1234** (Ana `1111`, Luis `2222`).
+
+Ver también `docs/GUIA_DEMO_HOSTELERO.md` para el guion de presentación.
 
 ## Testing
 

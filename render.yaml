@@ -1,30 +1,43 @@
 services:
+  # Monorepo npm: runtime docker reutiliza el Dockerfile que se valida con
+  # `docker compose up --build` (context = raiz del repo, workspaces correctos).
+  # Render busca render.yaml en la raiz del repo.
   - type: web
     name: tpv-restaurante
-    runtime: node
+    runtime: docker
+    dockerfilePath: tpv-restaturante/Dockerfile
+    dockerContext: .
     plan: free
-    buildCommand: npm install --include=dev && npm run build
-    startCommand: node server.js
-    healthCheckPath: /api/keep-alive
+    # El Dockerfile tiene ENTRYPOINT ./docker-entrypoint.sh + CMD node server.js:
+    # crea esquema (drizzle-kit push), arranca y siembra via POST /api/demo-seed.
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
-      - key: HOST
-        value: 0.0.0.0
       - key: ALLOWED_ORIGINS
         value: https://tpv-restaurante.onrender.com
+      # JWT_SECRET/CRON_SECRET se auto-generan en el arranque si no se fijan
+      # en el panel (tal como indican la guia de demo y el README).
+      - key: JWT_SECRET
+        sync: false
+      - key: CRON_SECRET
+        sync: false
       - key: DATABASE_URL
-        sync: false
-      - key: DATABASE_URL_POOLER
-        sync: false
-      - key: DB_POOLER_PORT
-        value: "6543"
+        fromDatabase:
+          name: tpv-restaurante-db
+          property: connectionString
       - key: DB_POOL_MAX
         value: "20"
       - key: DB_POOL_IDLE_MS
         value: "10000"
       - key: DB_CONN_TIMEOUT_MS
         value: "5000"
+      # Clave API de la web: definela junto a NEXT_PUBLIC_TPV_API_KEY para que
+      # el seed cree la API key 'pos'.
+      - key: TPV_API_KEY
+        sync: false
+      - key: NEXT_PUBLIC_TPV_API_KEY
+        sync: false
       - key: NEXT_PUBLIC_SUPABASE_URL
         sync: false
       - key: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
@@ -63,9 +76,9 @@ services:
         value: ES
       - key: STRIPE_LOCATION_POSTAL_CODE
         sync: false
-      - key: TPV_API_KEY
-        sync: false
-      - key: NEXT_PUBLIC_TPV_API_KEY
-        sync: false
-      - key: CRON_SECRET
-        sync: false
+
+databases:
+  - name: tpv-restaurante-db
+    databaseName: tpv_restaurant_demo
+    user: tpv
+    plan: free

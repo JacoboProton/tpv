@@ -1,0 +1,27 @@
+node_modules
+**/node_modules
+.git
+.next
+**/.next
+.env
+.env.local
+.env.production
+**/.env
+**/.env.local
+**/.env.production
+*.md
+**/*.md
+.vscode
+.idea
+.coverage
+coverage
+**/coverage
+nimbalyst-local
+-kilo
+.kilo
+.combai
+.exe
+acuerdo.pdf
+*.docx
+# App móvil (Expo): no entra en la imagen del servidor; pesa ~10 GB
+tpv-restaturante/mobile

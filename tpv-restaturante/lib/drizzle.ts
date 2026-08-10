@@ -5,9 +5,9 @@ import * as schema from '../db/schema';
 type Db = NodePgDatabase<typeof schema>;
 
 declare global {
-  // eslint-disable-next-line no-var
+   
   var __drizzleDb: Db | undefined;
-  // eslint-disable-next-line no-var
+   
   var __pgPool: Pool | undefined;
 }
 
@@ -21,10 +21,11 @@ function buildConnectionString(): string {
   if (!base) return '';
   try {
     const u = new URL(base);
-    // If a POOLER_PORT is provided or common Supabase pooler port exists, prefer it
-    const poolerPort = process.env.DB_POOLER_PORT || '6543';
-    // Replace only if original port is 5432 or not set
-    if (!u.port || u.port === '5432') u.port = poolerPort;
+    // Port pooler solo se usa si DB_POOLER_PORT se define explicitamente
+    // (p.ej. Supabase). Sin ella, respetamos DATABASE_URL tal cual
+    // (clave para Docker local y Postgres gestionado de Render, puerto 5432).
+    const poolerPort = process.env.DB_POOLER_PORT;
+    if (poolerPort && (!u.port || u.port === '5432')) u.port = poolerPort;
     return u.toString();
   } catch (err) {
     return base; // fallback to original

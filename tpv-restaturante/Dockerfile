@@ -1,7 +1,12 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
-COPY tpv-restaturante/package.json tpv-restaturante/package-lock.json ./
-RUN npm ci --include=dev
+# Monorepo: el lock vive en la raíz (npm workspaces). Copiamos el root y los
+# manifiestos de los workspaces para que npm ci instale todo el árbol.
+COPY package.json package-lock.json ./
+COPY tpv-restaturante/package.json tpv-restaturante/package.json
+COPY packages/core/package.json packages/core/package.json
+RUN npm ci --include=dev --ignore-scripts
+RUN rm -rf tpv-restaturante && mkdir tpv-restaturante && cp package.json tpv-restaturante/package.json
 
 FROM node:20-alpine AS builder
 WORKDIR /app
@@ -22,6 +27,7 @@ RUN addgroup --system --gid 1001 nodejs && \
 
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/packages/core ./packages/core
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/server.js ./server.js
