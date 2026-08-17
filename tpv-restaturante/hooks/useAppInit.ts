@@ -37,6 +37,15 @@ export function useAppInit({
   const [fatalError, setFatalError] = useState<string | null>(null)
 
   const loadAll = useCallback(async () => {
+    // Guard: no lanzar peticiones a la API si no hay sesión activa.
+    // Evita errores 401 en la pantalla de login y en tests E2E sin autenticar.
+    const hasSession = typeof window !== 'undefined' &&
+      !!localStorage.getItem('tpv:current_user')
+    if (!hasSession) {
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     setFatalError(null)
     try {

@@ -14,11 +14,11 @@ export function getDeviceId(): string {
   return id;
 }
 
-export async function sessionLogin(employeeId: string, employeeRole: string, _force?: boolean): Promise<{ conflict?: boolean }> {
+export async function sessionLogin(employeeId: string, employeeRole: string, _force?: boolean, loginTicket?: string): Promise<{ conflict?: boolean }> {
   const res = await fetch('/api/session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...apiKeyHeader() },
-    body: JSON.stringify({ action: 'login', employeeId, employeeRole, deviceId: getDeviceId(), force: _force }),
+    body: JSON.stringify({ action: 'login', employeeId, employeeRole, deviceId: getDeviceId(), force: _force, loginTicket }),
   });
   return res.json();
 }

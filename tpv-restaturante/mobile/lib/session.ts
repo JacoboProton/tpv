@@ -36,16 +36,16 @@ async function getDeviceId(): Promise<string> {
   }
 }
 
-export async function sessionLogin(employeeId: string, employeeRole: string, force = false): Promise<{ ok?: boolean; conflict?: boolean; message?: string }> {
+export async function sessionLogin(employeeId: string, employeeRole: string, force = false, loginTicket?: string): Promise<{ ok?: boolean; conflict?: boolean; message?: string }> {
   const deviceId = await getDeviceId();
   setDeviceId(deviceId);
-  logInfo('Session login attempt', { employeeId, employeeRole, force, deviceId });
+  logInfo('Session login attempt', { employeeId, employeeRole, force, deviceId, hasTicket: !!loginTicket });
   
   try {
     const res = await fetch(`${API_URL}/api/session`, {
       method: 'POST',
       headers: await apiHeaders(),
-      body: JSON.stringify({ action: 'login', employeeId, employeeRole, deviceId, force }),
+      body: JSON.stringify({ action: 'login', employeeId, employeeRole, deviceId, force, loginTicket }),
     });
     const data = await res.json();
     

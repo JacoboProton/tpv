@@ -12,7 +12,10 @@ export async function GET(req: NextRequest) {
     const employeeId = emp?.id || 'anonymous';
     const role = emp?.role || 'authenticated';
     
-    const secretStr = process.env.SUPABASE_JWT_SECRET || process.env.JWT_SECRET || 'fallback_secret_key';
+    const secretStr = process.env.SUPABASE_JWT_SECRET || process.env.JWT_SECRET;
+    if (!secretStr) {
+      throw new Error('Falta variable de entorno: SUPABASE_JWT_SECRET o JWT_SECRET');
+    }
     const secret = new TextEncoder().encode(secretStr);
     
     const jwt = await new SignJWT({

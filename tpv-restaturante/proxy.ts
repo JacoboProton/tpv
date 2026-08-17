@@ -76,9 +76,17 @@ interface AuthResult {
  * Proporciona la identidad de forma NO spoofeable:
  *  - JWT válido -> claims verificados que SOBRESCRIBEN cualquier header de identidad fabricado.
  *  - API key    -> identidad de cliente (pos/kds/mobile) únicamente; sin empleado => no escala roles.
+ * `unauthorized` indica que el cliente presentó credenciales (Bearer) inválidas o en conflicto
+ * (deviceId distinto): el proxy debe responder 401 en lugar de reenviar sin identidad.
  */
-async function resolveAuth(req: NextRequest): Promise<{ auth: AuthResult | null; requestHeaders: Headers }> {
+async function resolveAuth(req: NextRequest): Promise<{ auth: AuthResult | null; requestHeaders: Headers; unauthorized: boolean }> {
   const requestHeaders = new Headers(req.headers);
+
+  const stripIdentity = (h: Headers) => {
+    h.delete('x-employee-id');
+    h.delete('x-employee-role');
+    h.delete('x-device-id');
+  };
 
   // 1) JWT (cookie HttpOnly o Bearer)
   const token = extractToken(req);
@@ -87,24 +95,28 @@ async function resolveAuth(req: NextRequest): Promise<{ auth: AuthResult | null;
     if (claims) {
       const reqDevice = requestHeaders.get('x-device-id');
       if (reqDevice && claims.deviceId && reqDevice !== claims.deviceId) {
-        return { auth: null, requestHeaders };
+        const clean = new Headers(requestHeaders);
+        stripIdentity(clean);
+        return { auth: null, requestHeaders: clean, unauthorized: true };
       }
       const forwarded = new Headers(requestHeaders);
       forwarded.set('x-employee-id', claims.sub);
       forwarded.set('x-employee-role', claims.role);
       forwarded.set('x-tenant-id', claims.tenantId);
       if (claims.deviceId) forwarded.set('x-device-id', claims.deviceId);
-      return { auth: { type: 'jwt', tenantId: claims.tenantId, claims }, requestHeaders: forwarded };
+      return { auth: { type: 'jwt', tenantId: claims.tenantId, claims }, requestHeaders: forwarded, unauthorized: false };
     }
-    // JWT presente pero inválido/expirado: rechazar (no caer a API key con identidad falsa)
-    return { auth: null, requestHeaders };
+    // JWT presente pero inválido/expirado: rechazar identidad fabricada.
+    // Si el token llegó por cabecera Authorization (cliente explícito), responder 401;
+    // una cookie obsoleta se deja pasar para que la ruta la invalide con gracia.
+    const clean = new Headers(requestHeaders);
+    stripIdentity(clean);
+    return { auth: null, requestHeaders: clean, unauthorized: Boolean(req.headers.get('authorization')) };
   }
 
   // 2) API key de cliente (rotable por cliente)
   const forwarded = new Headers(requestHeaders);
-  // Sin JWT no hay identidad de empleado verificada: neutralizar cualquier header fabricado
-  forwarded.delete('x-employee-id');
-  forwarded.delete('x-employee-role');
+  stripIdentity(forwarded);
 
   const key = req.headers.get('x-tpv-key');
   if (key) {
@@ -112,12 +124,12 @@ async function resolveAuth(req: NextRequest): Promise<{ auth: AuthResult | null;
     const row = await verifyApiKey(key, tenant);
     if (row) {
       forwarded.set('x-client-type', row.clientType);
-      return { auth: { type: 'apikey', tenantId: tenant }, requestHeaders: forwarded };
+      return { auth: { type: 'apikey', tenantId: tenant }, requestHeaders: forwarded, unauthorized: false };
     }
-    return { auth: null, requestHeaders: forwarded };
+    return { auth: null, requestHeaders: forwarded, unauthorized: false };
   }
 
-  return { auth: null, requestHeaders: forwarded };
+  return { auth: null, requestHeaders: forwarded, unauthorized: false };
 }
 
 export async function proxy(req: NextRequest) {
@@ -140,7 +152,10 @@ export async function proxy(req: NextRequest) {
     return errorResponse(req, 429, { error: 'Demasiadas solicitudes' });
   }
 
-  const { requestHeaders } = await resolveAuth(req);
+  const { requestHeaders, unauthorized } = await resolveAuth(req);
+  if (unauthorized) {
+    return errorResponse(req, 401, { error: 'Sesión no válida' });
+  }
   return corsNext(req, requestHeaders);
 }
 

@@ -7,7 +7,7 @@ import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/resp
 import { requireRole } from '../../../lib/rbac';
 import { rateLimit, getClientIp } from '../../../lib/rate-limit';
 import { SessionBody } from '@/lib/schemas/api-schemas';
-import { signSessionToken, cookieOptions, JWT_COOKIE } from '../../../lib/auth/jwt';
+import { signSessionToken, verifyLoginTicket, cookieOptions, JWT_COOKIE } from '../../../lib/auth/jwt';
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,17 +15,34 @@ export async function POST(req: NextRequest) {
     const parsed = SessionBody.safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
     const body = parsed.data;
-    const { action, employeeId, employeeRole, deviceId } = body;
+    const { action, employeeId, deviceId } = body;
     const db = getDb();
 
     if (action === 'login') {
       const rl = await rateLimit(`login:${getClientIp(req)}`, 10, 60_000);
       if (!rl.allowed) return apiError(new Error('Demasiados intentos'), 429);
-      // Login doesn't require session validation (it creates the session)
-      // But we validate the employee exists via PIN verification before reaching here
-      if (!employeeId || !deviceId) {
-        return apiBadRequest('employeeId y deviceId requeridos');
+
+      // El ticket lo emite el servidor ÚNICAMENTE tras verificar el PIN en
+      // `/api/employees` (action: verify). Sin ticket válido no hay login.
+      const ticket = await verifyLoginTicket(body.loginTicket ?? '');
+      if (!ticket) {
+        return apiError(new Error('Login no verificado'), 401);
       }
+
+      // El tenant se deriva del ticket firmado, nunca de la cabecera del cliente.
+      const tid = ticket.tenantId;
+      const employeeId = ticket.sub;
+      const deviceId = body.deviceId || ticket.deviceId || '';
+      if (!deviceId) return apiBadRequest('deviceId requerido');
+
+      // El rol SIEMPRE se deriva de la BD; employeeRole del body se ignora.
+      const empRows = await db.select({ role: employees.role }).from(employees)
+        .where(and(eq(employees.tenantId, tid), eq(employees.id, employeeId)))
+        .limit(1);
+      if (empRows.length === 0) {
+        return apiError(new Error('Empleado no encontrado'), 401);
+      }
+      const role = empRows[0].role;
 
       const existing = await db.select().from(sessions)
         .where(and(
@@ -36,7 +53,7 @@ export async function POST(req: NextRequest) {
         ))
         .orderBy(desc(sessions.lastSeen));
 
-      if (existing.length > 0 && employeeRole !== 'admin' && !body.force) {
+      if (existing.length > 0 && role !== 'admin' && !body.force) {
         return apiOk({
           conflict: true,
           existingDevice: existing[0].deviceId,
@@ -57,17 +74,17 @@ export async function POST(req: NextRequest) {
       await markOpenAccessExits(db, tid, employeeId, deviceId);
 
       await db.insert(sessions).values({
-        tenantId: tid, employeeId, deviceId, role: employeeRole ?? '',
+        tenantId: tid, employeeId, deviceId, role,
         active: true, createdAt: now, lastSeen: now,
       }).onConflictDoUpdate({
         target: [sessions.tenantId, sessions.employeeId, sessions.deviceId],
-        set: { active: true, lastSeen: now, role: employeeRole ?? '' },
+        set: { active: true, lastSeen: now, role },
       });
 
-      await recordAccessLogin(db, tid, employeeId, employeeRole, deviceId, now);
+      await recordAccessLogin(db, tid, employeeId, role, deviceId, now);
 
       const token = await signSessionToken({
-        sub: employeeId, role: employeeRole ?? '', tenantId: tid, deviceId,
+        sub: employeeId, role, tenantId: tid, deviceId,
       });
       const res = NextResponse.json({ ok: true, token });
       res.cookies.set(JWT_COOKIE, token, cookieOptions());

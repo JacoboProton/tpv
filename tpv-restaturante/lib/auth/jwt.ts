@@ -19,6 +19,7 @@ export interface SessionClaimsVerified extends SessionClaims {
 }
 
 const DEFAULT_TTL_MS = 12 * 60 * 60 * 1000;
+const LOGIN_TICKET_TTL_MS = 3 * 60 * 1000;
 
 function getTtlMs(): number {
   const ttl = Number(process.env.JWT_TTL_MS);
@@ -31,7 +32,13 @@ export function isRs256Configured(): boolean {
 }
 
 function secretBytes(): Uint8Array {
-  const secret = process.env.JWT_SECRET || 'dev-insecure-secret-change-me';
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('Falta variable de entorno: JWT_SECRET');
+    }
+    return new TextEncoder().encode('dev-insecure-secret-change-me');
+  }
   return new TextEncoder().encode(secret);
 }
 
@@ -82,6 +89,48 @@ export async function verifySessionToken(token: string): Promise<SessionClaimsVe
       tenantId: String(payload.tenantId ?? 'default'),
       deviceId: String(payload.deviceId ?? ''),
       iat: payload.iat ?? 0,
+      exp: payload.exp ?? 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// ─── Login ticket ───────────────────────────────────────────────────────────
+// Prueba única y breve que el servidor emite SOLO tras verificar el PIN en
+// `/api/employees` (action: verify). El login de sesión la consume y deriva el
+// rol de la BD, nunca del ticket ni del cuerpo de la petición.
+
+export async function signLoginTicket(claims: {
+  sub: string;
+  tenantId: string;
+  deviceId?: string;
+}): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  return new SignJWT({
+    tenantId: claims.tenantId,
+    deviceId: claims.deviceId ?? '',
+  })
+    .setProtectedHeader({ alg: isRs256Configured() ? 'RS256' : 'HS256', typ: 'JWT' })
+    .setSubject(claims.sub)
+    .setIssuedAt(now)
+    .setIssuer(JWT_ISSUER)
+    .setAudience(JWT_AUDIENCE)
+    .setExpirationTime(now + Math.floor(LOGIN_TICKET_TTL_MS / 1000))
+    .sign(await getSigningKey());
+}
+
+export async function verifyLoginTicket(token: string): Promise<{ sub: string; tenantId: string; deviceId: string; exp: number } | null> {
+  try {
+    const { payload } = await jwtVerify<JWTPayload>(token, await getVerifyingKey(), {
+      issuer: JWT_ISSUER,
+      audience: JWT_AUDIENCE,
+    });
+    if (typeof payload.sub !== 'string' || !payload.sub) return null;
+    return {
+      sub: payload.sub,
+      tenantId: String(payload.tenantId ?? 'default'),
+      deviceId: String(payload.deviceId ?? ''),
       exp: payload.exp ?? 0,
     };
   } catch {

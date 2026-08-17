@@ -8,17 +8,46 @@ let _employeeId = '';
 let _employeeRole = '';
 let _deviceId = '';
 let _sessionToken = '';
+const TOKEN_KEY = 'tpv:session_token';
+const EMP_ID_KEY = 'tpv:employee_id';
+const EMP_ROLE_KEY = 'tpv:employee_role';
 export function setTenantId(id: string) { _tenantId = id; }
 export function getTenantId() { return _tenantId; }
-export function setEmployeeSession(id: string, role: string) { _employeeId = id; _employeeRole = role; }
-export function clearEmployeeSession() { _employeeId = ''; _employeeRole = ''; }
+export function setEmployeeSession(id: string, role: string) {
+  _employeeId = id; _employeeRole = role;
+  if (id) {
+    void AsyncStorage.multiSet([[EMP_ID_KEY, id], [EMP_ROLE_KEY, role]]).catch(() => {});
+  } else {
+    void AsyncStorage.multiRemove([EMP_ID_KEY, EMP_ROLE_KEY]).catch(() => {});
+  }
+}
+export function clearEmployeeSession() { setEmployeeSession('', ''); }
 export function setDeviceId(id: string) { _deviceId = id; }
 export function getDeviceId() { return _deviceId; }
 export function getEmployeeId() { return _employeeId; }
 export function getEmployeeRole() { return _employeeRole; }
-export function setSessionToken(token: string) { _sessionToken = token; }
+export function setSessionToken(token: string) {
+  _sessionToken = token;
+  if (token) {
+    void AsyncStorage.setItem(TOKEN_KEY, token).catch(() => {});
+  } else {
+    void AsyncStorage.removeItem(TOKEN_KEY).catch(() => {});
+  }
+}
 export function getSessionToken() { return _sessionToken; }
 export function hasSessionToken() { return !!_sessionToken; }
+
+export async function loadStoredSession(): Promise<{ token: string; employeeId: string; employeeRole: string }> {
+  try {
+    const [[, token], [, employeeId], [, employeeRole]] = await AsyncStorage.multiGet([TOKEN_KEY, EMP_ID_KEY, EMP_ROLE_KEY]);
+    if (token) { _sessionToken = token; }
+    if (employeeId) { _employeeId = employeeId; }
+    if (employeeRole) { _employeeRole = employeeRole; }
+    return { token: token || '', employeeId: employeeId || '', employeeRole: employeeRole || '' };
+  } catch {
+    return { token: '', employeeId: '', employeeRole: '' };
+  }
+}
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_URL}/api${path}`;
@@ -38,9 +67,9 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   return res.json();
 }
 
-export async function verifyPin(pin: string): Promise<Employee> {
+export async function verifyPin(pin: string): Promise<Employee & { loginTicket?: string }> {
   const pinHash = await sha256(pin);
-  return apiFetch('/employees', {
+  return apiFetch<Employee & { loginTicket?: string }>('/employees', {
     method: 'POST',
     body: JSON.stringify({ action: 'verify', pin, pinHash }),
   });

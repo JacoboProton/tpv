@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { verifyPin, fetchEmployees } from '../lib/api';
-import { sessionLogin } from '../lib/session';
+import { verifyPin, fetchEmployees, loadStoredSession, setSessionToken } from '../lib/api';
+import { sessionLogin, sessionKeepalive } from '../lib/session';
 import type { Employee } from '../lib/types';
 import { C } from '../lib/theme';
 import { classifyError } from '../lib/errors';
@@ -46,9 +46,9 @@ export default function LoginScreen() {
     setPin(p => p.slice(0, -1));
   }
 
-  async function establishSession(user: Employee): Promise<boolean> {
+  async function establishSession(user: Employee, ticket?: string): Promise<boolean> {
     try {
-      const sessionRes = await sessionLogin(user.id, user.role);
+      const sessionRes = await sessionLogin(user.id, user.role, false, ticket);
       if (sessionRes && sessionRes.conflict) {
         const force = await new Promise<boolean>(resolve => {
           Alert.alert(
@@ -61,7 +61,7 @@ export default function LoginScreen() {
           );
         });
         if (!force) return false;
-        await sessionLogin(user.id, user.role, true);
+        await sessionLogin(user.id, user.role, true, ticket);
       }
     } catch (e) {
       logWarn('Session check failed during login (non-critical)', { error: e, userId: user.id });
@@ -77,7 +77,7 @@ export default function LoginScreen() {
     setVerifying(true);
     try {
       const user = await verifyPin(p);
-      const ok = await establishSession(user);
+      const ok = await establishSession(user, user.loginTicket);
       if (!ok) { setVerifying(false); setPin(''); }
     } catch {
       registerFailure();
@@ -93,8 +93,20 @@ export default function LoginScreen() {
     try {
       const ok = await authenticate();
       if (ok) {
-        const logged = await establishSession(emp);
-        if (!logged) { setPin(''); }
+        const stored = await loadStoredSession();
+        if (stored.token && stored.employeeId === emp.id) {
+          setSessionToken(stored.token);
+          const sessionRes = await sessionKeepalive(emp.id);
+          if (sessionRes && !sessionRes.invalidated) {
+            setUser(emp);
+            reset();
+            router.replace('/(tabs)/saloon');
+            setVerifying(false);
+            return;
+          }
+        }
+        setPin('');
+        Alert.alert('Usa tu PIN', 'Autentícate primero con tu PIN para habilitar el acceso biométrico');
       }
     } catch {
       setPin('');

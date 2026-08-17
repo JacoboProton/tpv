@@ -9,6 +9,7 @@ import { apiOk, apiError, apiBadRequest, apiNotFound } from '../../../lib/infras
 import { requireRole } from '../../../lib/rbac';
 import { rateLimit, getClientIp } from '../../../lib/rate-limit';
 import { withIdempotency } from '../../../lib/idempotency';
+import { signLoginTicket } from '../../../lib/auth/jwt';
 import { EmployeePostBody, EmployeePutBody } from '@/lib/schemas/api-schemas';
 
 function sha256(s: string): string {
@@ -16,6 +17,8 @@ function sha256(s: string): string {
 }
 
 export async function GET(req: NextRequest) {
+  const rl = await rateLimit(`employees:list:${getClientIp(req)}`, 30, 60_000);
+  if (!rl.allowed) return apiError(new Error('Demasiadas solicitudes'), 429);
   const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
   try {
     const db = getDb();
@@ -138,12 +141,15 @@ export async function POST(req: NextRequest) {
         return false;
       });
       if (!emp) return apiError(new Error('PIN invalido'), 401);
+      const deviceId = (body as Record<string, unknown>).deviceId as string | undefined;
+      const loginTicket = await signLoginTicket({ sub: emp.id, tenantId, deviceId });
       return apiOk({
         id: emp.id, name: emp.name, role: emp.role,
         personalDiscountEnabled: emp.personalDiscountEnabled,
         monthlyLimit: Number(emp.monthlyLimit || 0),
         monthlyUsed: Number(emp.monthlyUsed || 0),
         monthlyUsedMonth: emp.monthlyUsedMonth,
+        loginTicket,
       });
     }
 

@@ -3,7 +3,7 @@ import type { Employee } from '@tpv/core'
 
 export interface LoginDeps {
   fetchVerify: (pin: string, pinHash: string) => Promise<Response>
-  sessionLogin: (id: string, role: string, force?: boolean) => Promise<{ conflict?: boolean }>
+  sessionLogin: (id: string, role: string, force?: boolean, loginTicket?: string) => Promise<{ conflict?: boolean }>
   startKeepalive: (id: string, onConflict: () => void) => (() => void) | undefined
   logout: () => void
   showToast: (msg: string) => void
@@ -17,16 +17,17 @@ export async function executeLogin(pin: string, deps: LoginDeps): Promise<Employ
     if (!res.ok) { showToast('PIN incorrecto'); setPinInput(''); return null }
     const emp = await res.json()
     if (!emp || !emp.id) { showToast('PIN incorrecto'); setPinInput(''); return null }
+    const loginTicket = emp.loginTicket as string | undefined
 
     if (emp.role !== 'admin') {
-      const sessionRes = await deps.sessionLogin(emp.id, emp.role)
+      const sessionRes = await deps.sessionLogin(emp.id, emp.role, undefined, loginTicket)
       if (sessionRes.conflict) {
         const forceLogin = window.confirm(`${emp.name} ya está conectado en otro terminal. ¿Cerrar esa sesión y continuar aquí?`)
         if (!forceLogin) { setPinInput(''); return null }
-        await deps.sessionLogin(emp.id, emp.role, true)
+        await deps.sessionLogin(emp.id, emp.role, true, loginTicket)
       }
     } else {
-      deps.sessionLogin(emp.id, emp.role).catch(() => {})
+      deps.sessionLogin(emp.id, emp.role, undefined, loginTicket).catch(() => {})
     }
 
     if ((window as any).__keepaliveCleanup) (window as any).__keepaliveCleanup()

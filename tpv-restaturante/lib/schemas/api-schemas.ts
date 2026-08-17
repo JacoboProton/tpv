@@ -495,6 +495,7 @@ export const SessionBody = z.object({
   employeeRole: z.string().optional(),
   deviceId: z.string().optional(),
   force: z.boolean().optional(),
+  loginTicket: z.string().optional(),
 }).passthrough()
 
 // ─── settings ───

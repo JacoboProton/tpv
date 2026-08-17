@@ -1,17 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { and, desc, eq, sql } from 'drizzle-orm';
+import { randomBytes } from 'crypto';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { kdsPairings } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
+import { rateLimit, getClientIp } from '../../../lib/rate-limit';
 import { KdsBody, IdBody } from '@/lib/schemas/api-schemas';
 
-function makeId() { return 'k_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function makeId() { return 'k_' + Date.now().toString(36) + randomBytes(4).toString('hex'); }
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 function generateCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const bytes = randomBytes(6);
   let code = '';
-  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < 6; i++) code += CODE_ALPHABET[bytes[i] % CODE_ALPHABET.length];
   return code;
 }
 
@@ -59,6 +62,8 @@ export async function POST(req: NextRequest) {
     const { action } = body;
 
     if (action === 'verify') {
+      const rl = await rateLimit(`kds-verify:${getClientIp(req)}`, 20, 60_000);
+      if (!rl.allowed) return apiError(new Error('Demasiados intentos'), 429);
       const { code, label, deviceId } = body;
       if (!code) return apiBadRequest('code required');
       const db = getDb();
@@ -66,8 +71,7 @@ export async function POST(req: NextRequest) {
         .where(and(eq(kdsPairings.code, code), eq(kdsPairings.revoked, false)))
         .limit(1);
       if (rows.length === 0) {
-        const allCodes = await db.select({ c: kdsPairings.code }).from(kdsPairings);
-        return NextResponse.json({ ok: false, error: 'Código inválido', _debug: { searchedCode: code, allCodes: allCodes.map((r: { c: string }) => r.c) } }, { status: 400 });
+        return NextResponse.json({ ok: false, error: 'Código inválido' }, { status: 400 });
       }
       const pairing = rows[0];
       const devId = deviceId || makeId() + '_dev';

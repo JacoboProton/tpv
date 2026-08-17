@@ -9,17 +9,24 @@ import { requireRole } from '../../../lib/rbac';
 import { rateLimit, getClientIp } from '../../../lib/rate-limit';
 import { SettingsBody } from '@/lib/schemas/api-schemas';
 
+const SECRET_KEY_RE = /(sid|token|secret|password|credential|api[-_]?key|auth)/i;
+
 export async function GET(req: NextRequest) {
   const rl = await rateLimit(`settings:${getClientIp(req)}`, 60, 60_000);
   if (!rl.allowed) return apiTooManyRequests();
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
+    const auth = await requireRole(['admin'])(req);
+    const isAdmin = auth.authorized;
     const rows = await db.select({ key: settings.key, value: settings.value })
       .from(settings)
       .where(eq(settings.tenantId, tenantId));
     const result: Record<string, unknown> = {};
-    for (const r of rows) result[r.key] = r.value;
+    for (const r of rows) {
+      if (!isAdmin && SECRET_KEY_RE.test(r.key)) continue;
+      result[r.key] = r.value;
+    }
     return apiOk(result);
   } catch (err) { return apiError(err); }
 }
