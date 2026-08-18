@@ -48,3 +48,47 @@
 - Test end-to-end on Render production environment
 - Enable Drizzle Studio permanently
 - Future schema changes via Drizzle Kit workflow
+
+---
+
+# Estado actual (2026-08-19)
+
+> Snapshot diario de la migración Drizzle (2026-07-16). **Eventual**, no un documento
+> vivo — la fuente de verdad del estado actual es `AGENTS.md` y `docs/GAP_LIST.md`.
+
+## Qué sigue siendo válido
+
+- Migración Drizzle: ✅ completa e intacta. `pg` (TCP) + `drizzle-orm/node-postgres`,
+  libs convertidas, `lib/migrate.ts` y `lib/db.ts` eliminados, entrypoint Docker con
+  `drizzle-kit push --force`.
+- Cambios posteriores siguen esta base; nada se ha revertido.
+
+## Números actualizados
+
+| Concepto | Reporte (16-jul) | Hoy |
+|---|---|---|
+| Tests web | 13 archivos, 187 tests (184 pasan) | **490 passed + 1 skipped en 45 archivos** (27 unit + 10 integration + 8 mobile) + 3 e2e Playwright |
+| Tests `@tpv/core` | — (no existía en el reporte) | **113 passed en 8 archivos** |
+| Rutas API | 76 | **81** `route.ts` |
+| Tablas | 115 (SQL) / 116 (schema pull) | 115 |
+
+## Qué ha cambiado desde el reporte
+
+- **P0 — XSS corregido**: helper `esc()` en `@tpv/core` (`buildInvoiceHtml`) y
+  `lib/ticket-template.ts`; dead code `handlePrintInvoice` eliminado.
+- **Bootstrap en terminal nuevo**: sin sesión se siembran empleados (admin PIN `1234`);
+  sin doble carga en mount (`loadedRef` + guard).
+- **Auth/seguridad**: `middleware.ts` → `proxy.ts` (Next 16), JWT verificada con `jose`
+  reescribe headers de identidad fabricados, RBAC server-side (`lib/rbac.ts`), API key
+  de cliente que solo escala rol cliente.
+- **Monorepo**: workspace `@tpv/core` compartido (factura A4, XSS fix) + `dist/` built.
+- **Render**: `render.yaml` verificado y alineado con el código; pooler Supabase/Render
+  soportado (`DATABASE_URL_POOLER`/`DB_POOLER_PORT`) pero no requerido.
+- **Nubes pendientes de escalar/re-verificar** (ver worklog): verificación HMAC en
+  webhooks Glovo/UberEats, cobertura `tenant_id`, race en `ticket_number` MAX+1.
+
+## Pendiente (no reportado aún)
+
+- Bump de versión de `@tpv/core` + rebuild Web/Mobile al desplegar (el fix XSS vive en core).
+- Validar deploy end-to-end en Render con la versión actual.
+- Drizzle Studio "permanente": seguir sin habilitarse.

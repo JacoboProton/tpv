@@ -1,146 +1,138 @@
 # Fase 1 - Shared Package @tpv/core - Estado de Implementación
 
-**Fecha:** 22 de julio de 2026  
-**Estado:** ✅ COMPLETADO (parcialmente)
+**Fecha:** 22 de julio de 2026 (creación) · **Revisado:** 19 de agosto de 2026  
+**Estado:** ✅ COMPLETADO
 
 ## Resumen
 
-Se ha creado el paquete compartido `@tpv/core` con la lógica de dominio pura. La web app consume el paquete correctamente y compila sin errores. La mobile app está configurada pero mantiene sus tipos separados debido a incompatibilidades.
+Se ha creado el paquete compartido `@tpv/core` con la lógica de dominio pura y los use cases de
+aplicación agnósticos a la plataforma. La web app y la mobile app consumen el paquete correctamente.
+Incluye además el helper `esc()` de escape HTML (fix P0 de XSS aplicable tanto a la web como al móvil)
+y `euros()`/`round2()`/`clone()` extraídos de la web.
 
-## Estructura Creada
+## Estructura Actual
 
 ```
 tpv/
 ├── packages/
-│   └── core/                    # Nuevo paquete compartido
-│       ├── package.json         # Configuración del paquete
-│       ├── tsconfig.json        # TypeScript config (domain puro)
+│   └── core/                    # Paquete compartido (v0.1.1)
+│       ├── package.json         # exports "." → src/index.ts (TypeScript source)
+│       ├── tsconfig.json / tsconfig.build.json
 │       ├── src/
-│       │   ├── domain/          # Lógica de negocio pura
+│       │   ├── domain/          # Lógica de negocio pura (sin infra web)
 │       │   │   ├── types.ts     # Tipos centralizados
-│       │   │   ├── catalog/     # Operaciones de catálogo
-│       │   │   ├── employees/   # Operaciones de empleados
-│       │   │   ├── inventory/   # Gestión de stock
-│       │   │   ├── invoice/     # Facturación (sin invoice-html)
+│       │   │   ├── catalog/     # product-operations, modifier-groups
+│       │   │   ├── employees/   # employees, employee-operations
+│       │   │   ├── inventory/   # stock
+│       │   │   ├── invoice/     # invoice + invoice-html (buildInvoiceHtml con esc())
 │       │   │   ├── kitchen/     # Estados de cocina
-│       │   │   ├── order/       # Lógica de órdenes
-│       │   │   ├── orders/      # Multi-ticket
-│       │   │   ├── payments/    # Pagos, refunds, bizum
-│       │   │   ├── pricing/     # Ofertas, descuentos
-│       │   │   └── tables/      # Operaciones de mesas
-│       │   ├── application/     # Use cases (comentados temporalmente)
-│       │   │   ├── AddItemsToOrder/
-│       │   │   ├── ApplyPersonalDiscount/
-│       │   │   ├── CancelTable/
-│       │   │   ├── CloseOrder/
-│       │   │   ├── OrderItemOperations/
-│       │   │   ├── TableStatus/
-│       │   │   ├── auth/
-│       │   │   ├── sales/
-│       │   │   └── subscribers/
-│       │   └── index.ts         # Export principal
-│       └── dist/               # TypeScript compilado
-│           ├── domain/
-│           ├── application/
-│           ├── index.js
-│           └── index.d.ts
+│       │   │   ├── order/       # order, menu-expansion, line-totals
+│       │   │   ├── orders/      # multi-ticket
+│       │   │   ├── payments/    # payments, refund, bizum, debt
+│       │   │   ├── pricing/     # offers, personal-discount
+│       │   │   └── tables/      # table, table-operations, floor-layout
+│       │   ├── application/     # Use cases (activados, agnósticos a plataforma)
+│       │   │   ├── AddItemsToOrder/        # addNormalItem, addMenuItems, addComboItems, editItemModifiers
+│       │   │   ├── ApplyPersonalDiscount/  # applyPersonalDiscount, removePersonalDiscount
+│       │   │   ├── CancelTable/            # cancelTable, voidTable
+│       │   │   ├── CloseOrder/             # executeCloseOrder
+│       │   │   ├── OrderItemOperations/    # changeItemQuantity, updateItemNotes, removeItemFromOrder, sendToKitchenCourse, markItemsReady, voidOrderItem, discounts, override price…
+│       │   │   ├── TableStatus/            # toggleCuentaStatus
+│       │   │   ├── auth/                   # login? logout, clockin
+│       │   │   ├── sales/                  # sales-queue (SalesQueueDeps)
+│       │   │   ├── payments/               # payment-splits
+│       │   │   ├── orders/                 # pending-counts
+│       │   │   └── deps.ts                 # interfaces de efectos secundarios (Deps)
+│       │   ├── infrastructure/  # catalog-repository (CatalogProduct, findProduct)
+│       │   ├── lib/utils.ts     # euros(), round2(), clone()
+│       │   ├── __tests__/       # 8 archivos, 113 tests
+│       │   └── index.ts         # Export principal (domain + application + utils + infra types)
+│       └── dist/               # TypeScript compilado (build:core)
 ├── tpv-restaturante/            # Web app
-│   ├── package.json             # ✅ "@tpv/core": "file:../packages/core"
-│   └── tsconfig.json            # ✅ Configurado para ignorar dist/
-└── mobile/                     # Mobile app
+│   ├── package.json             # ✅ "@tpv/core": "*" (workspace)
+│   └── tsconfig.json            # ✅ transpilePackages para source TS
+└── tpv-restaturante/mobile/     # Mobile app
     ├── package.json             # ✅ "@tpv/core": "file:../../packages/core"
-    ├── tsconfig.json            # ✅ Configurado para ignorar dist/
-    └── lib/types.ts             # ✅ Tipos separados (incompatibilidad)
+    └── tsconfig.json            # ✅ Configurado para ignorar dist/ (uses src/ vía exports)
 ```
 
 ## Lo que se ha logrado
 
 ### ✅ Completado
 
-1. **Paquete @tpv/core creado**
-   - package.json con exports configurados
-   - tsconfig.json compilando solo domain/ (sin dependencias web)
-   - Estructura de directorios domain/ completa
-   - Archivos index.ts para exports organizados
+1. **Paquete @tpv/core creado (v0.1.1)**
+   - package.json con `exports "."` apuntando al source TS (`src/index.ts`) — no requiere build para consumir en dev.
+   - `npm run build:core` produce `dist/` para empaquetado; `tsc --noEmit` sin errores.
+   - Scripts: `build`, `typecheck`, `test`, `test:watch`, `test:coverage`, `clean`, `prepublishOnly`, `attw`.
 
 2. **Domain compartido**
-   - `types.ts` con todos los tipos de dominio
-   - Lógica de catálogo, empleados, inventario, cocina, órdenes, pagos, pricing, tablas
-   - 22 archivos de lógica de negocio pura migrados
-   - Compilación exitosa (tsc sin errores)
+   - `types.ts` con los tipos de dominio.
+   - Lógica de catálogo, empleados, inventario, cocina, órdenes, pagos, pricing, tablas e factura.
+   - 22+ archivos de lógica de negocio pura migrados (sin dependencias web).
+   - **`invoice-html.ts` incluido**: `buildInvoiceHtml()` con `esc()` (escape de `& < > " '`) — corregido el XSS P0; 5 tests dedicados.
 
-3. **Web app configurada**
-   - Dependencia `@tpv/core` añadida
-   - TypeScript configurado para ignorar dist/
-   - `tsc --noEmit` clean ✅
+3. **Application layer activado**
+   - Use cases ya NO están comentados ni excluidos: CloseOrder, AddItemsToOrder, CancelTable, OrderItemOperations, TableStatus, auth (logout, clockin), sales-queue, payment-splits, pending-counts, applyPersonalDiscount.
+   - Dependencias de plataforma (event-bus, fetch, thermal-printer, constants) extraídas a interfaces `*Deps` (`ClockinDeps`, `SalesQueueDeps`, `ApplyPersonalDiscountDeps`) — los use cases son agnósticos.
 
-4. **Mobile app configurada**
-   - Dependencia `@tpv/core` añadida
-   - TypeScript configurado para ignorar dist/
-   - Tipos mobile mantenidos separados (por incompatibilidades)
+4. **Shared utilities extraídas**
+   - `euros()`, `round2()`, `clone()` movidos a `src/lib/utils.ts` y exportados desde el índice.
+
+5. **Web app configurada**
+   - Dependencia `@tpv/core` en el workspace; `transpilePackages` para consumir el source TS.
+   - `tsc --noEmit` clean ✅; la factura A4 y el ticket usan `esc()` de core o local.
+
+6. **Mobile app configurada**
+   - Dependencia `@tpv/core` (`file:../../packages/core`); tsconfig ignora `dist/` (consume source).
+   - Mantiene `lib/types.ts` separados para extensiones mobile-specific.
+
+7. **Testing en el paquete**
+   - 8 archivos de test en `src/__tests__/`: payments, product-operations, toggle-table-status, order-item-operations, employee-operations, kitchen, invoice-html (esc), utils.
+   - **113 tests passed** (`npm --workspace @tpv/core run test`).
 
 ### ⚠️ Limitaciones
 
-1. **Application layer excluido temporalmente**
-   - Los archivos en `application/` tienen dependencias web específicas:
-     - `@/lib/event-bus` (sistema de eventos web)
-     - `@/lib/api` (fetch API)
-     - `@/lib/thermal-printer` (WebUSB)
-     - `@/components/constants` (euros, clone)
-   - Subscribers excluidos (efectos secundarios web)
-   - Necesita refactorización para ser agnóstico a la plataforma
+1. **Tipos mobile separados**
+   - Mobile tiene extensiones/varianzas no alineadas con el dominio compartido
+     (p. ej. campos mobile-specific en `Table`/`OrderItem`/`Employee`).
+   - Decisión vigente: mantener tipos mobile separados «por ahora»; usar funciones puras de
+     `@tpv/core` donde sean compatibles.
+   - Camino: `Omit`/`extends` sobre los tipos compartidos en lugar de duplicar.
 
-2. **Tipos mobile separados**
-   - Mobile tiene tipos incompatibles con el dominio compartido:
-     - `Table.reserved`: boolean vs objeto complejo
-     - `OrderItem.delivered`, `servedBy`, `servedAt` (mobile-specific)
-     - `Employee.personalDiscountEnabled`, `monthlyLimit` (mobile-specific)
-   - Decisión: mantener tipos mobile separados por ahora
-   - Se puede usar `@tpv/core` para funciones puras donde sea compatible
-
-3. **invoice-html excluido**
-   - Depende de `@/components/constants` (euros)
-   - Necesita refactorización para ser agnóstico
+2. **Empaquetado/publicación pendiente**
+   - `publishConfig` apunta a registry GitHub Packages y `prepublishOnly` corre el build — nunca se ha
+     publicado; el consumo es local (file:/workspace). No publicar hasta decidir flujo (npm o fuente).
 
 ## Estado de Compilación
 
 | Proyecto | Estado | Errores |
 |----------|--------|---------|
-| @tpv/core | ✅ Clean | 0 |
-| tpv-restaturante (web) | ✅ Clean | 0 |
-| mobile | ⚠️ Preexistente | 19 (no relacionados con @tpv/core) |
+| @tpv/core (build:core) | ✅ Clean | 0 |
+| @tpv/core (typecheck) | ✅ Clean | 0 |
+| @tpv/core (vitest) | ✅ 8 archivos | 113 passed |
+| tpv-restaturante (web) | ✅ Clean | 0 (490+1 tests) |
+| mobile | ⚠️ Preexistente | errores previos no relacionados con @tpv/core |
 
-## Próximos Pasos (Fase 2)
+## Próximos Pasos
 
-Para completar la compartición del núcleo de negocio:
-
-1. **Refactorizar application layer**
-   - Extraer dependencias web (event-bus, api, constants)
-   - Crear interfaces para efectos secundarios
-   - Hacer use cases agnósticos a la plataforma
-
-2. **Unificar tipos**
-   - Alinear tipos mobile con domain compartido
-   - Usar Omit/extends para extensiones específicas
-   - Migrar mobile a usar tipos compartidos donde sea posible
-
-3. **Shared utilities**
-   - Extraer `clone()`, `euros()` a paquete compartido
-   - Crear abstracción para platform-specific (fetch vs AsyncStorage)
-
-4. **Testing**
-   - Mover tests de domain al paquete compartido
-   - Crear tests específicos para @tpv/core
+1. **Unificar tipos mobile** con `domain/`
+   - Alinear extensiones mobile-specific (`Omit`/`extends` sobre tipos compartidos).
+2. **Bump de versión de @tpv/core** y rebuild de Web/Mobile en despliegue
+   - El fix XSS (`esc()` en `invoice-html`) vive en este paquete; hay que propagarlo con un rebuild.
+3. **Ampliar cobertura** de tests de use cases de application layer.
+4. *(Opcional)* Decidir publicación del paquete (GitHub Packages vs consumo por fuente).
 
 ## Beneficios Inmediatos
 
-A pesar de las limitaciones, ya tenemos beneficios:
-
-1. **Lógica de dominio centralizada**: Cambios en reglas de negocio afectan a ambas plataformas
-2. **TypeScript tipado**: Domain completamente tipado y compilado
-3. **Base para extensión**: Estructura lista para añadir más código compartido
-4. **Separación de concerns**: Domain puro sin dependencias de infraestructura
+1. **Lógica de dominio centralizada**: cambios en reglas de negocio afectan a ambas plataformas.
+2. **Fix XSS compartido**: `esc()` cubre factura A4 tanto en web como en móvil.
+3. **TypeScript tipado**: dominio y use cases completamente tipados y compilados.
+4. **Base para extensión**: estructura lista para añadir más código compartido.
+5. **Separación de concerns**: dominio y aplicación puros sin dependencias de infraestructura web.
 
 ## Conclusión
 
-La Fase 1 ha establecido la base técnica para compartir código entre web y mobile. Aunque el application layer aún necesita trabajo, el dominio compartido ya proporciona valor inmediato y una ruta clara para evolucionar hacia un núcleo de negocio unificado.
+La Fase 1 está completa: el dominio, los use cases (con interfaces de dependencias), las utilidades
+compartidas y los tests viven en `@tpv/core`, consumido por web y móvil. La única deuda conocida es la
+no-unificación de los tipos mobile, documentada como siguiente paso, y la publicación del paquete, que
+sigue siendo local por decisión.

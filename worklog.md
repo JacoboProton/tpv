@@ -3,7 +3,21 @@
 Bitácora compartida por los agentes que trabajan en `/home/z/my-project/tpv/tpv-restaturante/`.
 Cada agente añade su sección al final, indicando ID, rol, alcance y hallazgos.
 
+> **⚠️ Cómo leer este log:** es **histórico y acumulativo**. Cada entrada describe el
+> estado del código **en el momento en que se escribió**. Varias reflejan una versión
+> **antigua** (postgres.js/raw SQL, `lib/migrate.js`, `app/middleware.js`, sin RBAC,
+> sin Drizzle) que **ya no existe**. La fuente de verdad del estado actual es
+> `AGENTS.md` y `docs/GAP_LIST.md` — **no** uses los hallazgos de este log como
+> checklist sin re-verificarlos.
+
 ---
+
+> **STATUS: HISTÓRICO (pre-Drizzle).** Describe integraciones sobre el stack antiguo
+> (postgres.js, `app/middleware.js`, roles informativos). Resuelto desde entonces:
+> RBAC server-side (`lib/rbac.ts` `requireRole()`), proxy JWT no spoofeable
+> (`proxy.ts`), rutas API en Drizzle ORM. **Re-verificar antes de asumir resuelto:**
+> verificación HMAC en webhooks Glovo/UberEats, cobertura `tenant_id` en rutas que no
+> filtran, pixel `TextEncoder('windows-1252')` en impresión térmica.
 
 ## Task 1-d — Explore · Integraciones de terceros del TPV
 
@@ -55,6 +69,14 @@ Cada agente añade su sección al final, indicando ID, rol, alcance y hallazgos.
 **Siguiente acción recomendada:** el reporte completo se entrega en la respuesta al usuario. Otros agentes deberían considerar: (a) añadir verificación HMAC a webhooks Glovo/UberEats, (b) extender `tenant_id` a todas las rutas que aún no lo filtran, (c) arreglar `TextEncoder` en thermal-printer, (d) cubrir con tests la cadena Verifactu en modo Fiskaly real (sólo se testea simulación local).
 
 ---
+
+> **STATUS: HISTÓRICO (pre-Drizzle).** Describe `lib/db.js` (postgres.js), `lib/migrate.js`
+> (1557 líneas), ratas API sin ORM, PINs en claro, sin RBAC y 86 tests. Desde entonces:
+> Drizzle ORM (`lib/drizzle.ts`), migraciones versionadas (`db/migrations/`), bcrypt en
+> auth (ver tests de integración), `lib/rbac.ts` con roles verificados contra BD, 490+1
+> tests en 45 archivos, y webhooks/middleware reemplazados. Hallazgos que siguen
+> **sin re-verificar** y pueden persistir: `ticket_number` MAX+1 con race condition,
+> cobertura de índices en tablas grandes, y si alguna ruta aún interpola SQL dinámico.
 
 ## Task 1-b — Explore · API + Base de Datos del TPV
 
@@ -228,6 +250,12 @@ Task ID: 3-4-5
 Agent: Main agent (Super Z)
 Task: Consolidar hallazgos, generar informe tecnico .docx y entregar al usuario
 
+> **STATUS: HISTÓRICO (deliverable).** Generó el snapshot `Informe_Tecnico_TPV_La_Comanda.docx`
+> (12 secciones, 96 headings) sobre los hallazgos de 1-a/1-b/1-c/1-d. **Documento de
+> referencia histórica** — describe el estado pre-Drizzle; no refleja la arquitectura
+> actual (Drizzle, proxy.ts, RBAC server-side). Si se reutiliza, volver a contrastar con
+> `AGENTS.md`/`GAP_LIST.md`.
+
 Work Log:
 - Cargados los 4 reportes de exploracion de subagentes (1-a, 1-b, 1-c, 1-d)
 - Cargado el skill docx y leidos los archivos referenciados (routes/create.md, references/design-system.md, references/common-rules.md, references/docx-js-core.md, scenes/report.md)
@@ -241,7 +269,12 @@ Work Log:
 
 ---
 
-## Drizzle ORM Migration — Completo
+## Drizzle ORM Migration — Completo ✅
+
+> **STATUS: VIGENTE.** Esta entrada describe el estado actual del stack (Drizzle ORM,
+> `pg` + `drizzle-orm/node-postgres`, migraciones versionadas, proxy) y su resultado
+> sigue siendo la arquitectura en producción. Solo los números de tests están
+> desactualizados (hoy 490+1 en 45 archivos, 113 en `@tpv/core`).
 
 **Agente:** opencode (deepseek-v4-flash-free)
 **Ámbito:** `F:/tpv/tpv-restaturante/` — migración completa de postgres.js raw SQL a Drizzle ORM
