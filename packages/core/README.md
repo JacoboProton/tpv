@@ -47,7 +47,7 @@ import { addNormalItem, round2 } from '@tpv/core'
 import type { Floor, OrderItem } from '@tpv/core'
 ```
 
-> **Nota:** `domain/invoice/invoice-html.ts` se mantiene fuera del barril intermedio `domain/index.ts` por dependencias web, pero sí está exportado en `src/index.ts` (solo depende de `lib/utils` e `invoice`).
+> **Nota:** `domain/invoice/invoice-html.ts` se mantiene fuera del barril intermedio `domain/index.ts` por dependencias web, pero sí está exportado en `src/index.ts` (solo depende de `lib/utils` e `invoice`). Exporta `buildInvoiceHtml` (factura A4) y `esc()`, el escapador HTML usado por web y móvil — el fix XSS de tickets/facturas vive aquí.
 
 ## Capas
 
@@ -91,7 +91,7 @@ Adaptadores concretos (base de datos, APIs externas). Actualmente solo `catalog-
 ```bash
 npm run build       # Compila a dist/ (tsconfig.build.json)
 npm run typecheck   # tsc --noEmit
-npm run test        # Vitest (105 tests, 7 archivos)
+npm run test        # Vitest (113 tests, 8 archivos; entre ellos invoice-html.test.ts)
 npm run test:watch  # Vitest watch
 npm run clean       # Elimina dist/
 ```

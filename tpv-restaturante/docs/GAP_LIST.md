@@ -6,9 +6,8 @@ consecuencia de dejarlo o de aplicarlo mal.
 
 Prioridades: **P0** seguridad · **P1** estabilidad/rendimiento · **P2** calidad/deuda · **P3** limpieza.
 
-**Estado (2026-08-18):** P0 #1, P1 #2-4, P2 #5/#7/#8 → **CERRADOS** ✅. Véase
-`git diff` del mismo día. El resto sigue abierto. Además se descubrió un bug de
-bootstrap real (ver abajo).
+**Estado (2026-08-18):** P0 #1, P1 #2-4, P2 #5/#7/#8 y el bug de bootstrap →
+**CERRADOS** ✅. Véase `git diff` del mismo día. El resto sigue abierto.
 
 ---
 
@@ -98,20 +97,25 @@ Aditivo, sin consecuencias negativas.
 
 ---
 
-## ⚠️ BUG REAL descubierto (NO era de los informes): bootstrap en dispositivo nuevo
+## ⚠️ Bug de bootstrap en dispositivo nuevo ✅ (arreglado 2026-08-18)
 
-En un terminal con `localStorage` vacío (primera puesta), `loadAll` hace
-early-return por el guard `hasSession` (`useAppInit:43`) **antes de poblar
-`employees`**, y nada re-dispara `loadAll` tras el login (los efectos dependen
-de `[]`/`[tenantId]`, no de `currentUser`). Resultado: el menú de login se
-muestra con **`employees=[]` → no hay botones de usuario → imposible loguear**
-en un terminal nuevo.
+**Problema:** en un terminal con `localStorage` vacío, `loadAll` hacía
+early-return por el guard `hasSession` **antes de poblar `employees`**, y nada
+re-disparaba `loadAll` tras el login → el menú de login salía con
+`employees=[]` (sin botones de usuario) → **imposible loguear en un terminal
+nuevo**.
 
-El flujo real de trabajo asume que el terminal ya tiene sesión persistida y la
-DB viene presemillada. **Acción propuesta (fuera del scope cerrado):** tras un
-login exitoso, disparar `loadAll` (o reintentar el seed de `employees`) — p.ej.
-dependiendo el efecto de `currentUser`, o llamando `loadAll()` desde
-`executeLogin` cuando no hay datos.
+**Fix en `hooks/useAppInit.ts`:**
+1. El guard sin sesión ahora hace `setEmployees(seedEmployees())` (admin PIN
+   `1234` + 2 camareros) — la pantalla de login siempre tiene usuarios.
+2. Nuevo efecto `useEffect(..., [currentUser])`: si hay `currentUser` y no se ha
+   cargado (`loadedRef`), dispara `loadAll`. Así el login en un terminal nuevo
+   arranca la carga completa (catalog/floor/empleados reales).
+3. `loadedRef.current = true` se fija de forma **sincrónica** al pasar el guard
+   con sesión, para que `tryRestoreSession` (que setea `currentUser` durante el
+   propio `loadAll`) NO provoque una segunda carga en el flujo normal.
+
+Verificado: tsc limpio, eslint 0 errores, 490+1 tests OK.
 
 ---
 

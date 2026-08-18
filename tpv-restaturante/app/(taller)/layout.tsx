@@ -182,7 +182,7 @@ export default function TallerLayout({
 
   const { loading, fatalError } = useAppInit({
     tenantId, setTenantId, setTenants, setCatalog, setFloor: setFloorPreservingSales, setEmployees, setSales,
-    setTicketSettings, setOffers, setCombos, tryRestoreSession,
+    setTicketSettings, setOffers, setCombos, currentUser, tryRestoreSession,
   });
 
   useLoginRouting({

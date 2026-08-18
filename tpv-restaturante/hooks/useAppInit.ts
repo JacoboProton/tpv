@@ -12,7 +12,7 @@ import {
 import { cacheGet, cacheSet } from '../lib/offline'
 import { seedCatalog, seedFloor, seedEmployees } from '../components/constants'
 import { normalizeTableFields, migrateTo3ColumnLayout } from '../domain/tables/floor-layout'
-import type { Tenant, Catalog, Floor, Sale, Employee, Offer, Combo, TicketSettings } from '../domain/types'
+import type { Tenant, Catalog, Floor, Sale, Employee, Offer, Combo, TicketSettings, CurrentUser } from '../domain/types'
 
 interface UseAppInitProps {
   tenantId: string
@@ -25,6 +25,7 @@ interface UseAppInitProps {
   setTicketSettings: (s: TicketSettings) => void
   setOffers: (o: Offer[]) => void
   setCombos: (c: Combo[]) => void
+  currentUser: CurrentUser | null
   tryRestoreSession: (emps: Employee[]) => Promise<Employee | null>
 }
 
@@ -33,21 +34,26 @@ export function useAppInit({
   setTenants,
   setCatalog, setFloor, setEmployees, setSales,
   setTicketSettings, setOffers, setCombos,
-  tryRestoreSession,
+  currentUser, tryRestoreSession,
 }: UseAppInitProps) {
 
   const [loading, setLoading] = useState(true)
   const [fatalError, setFatalError] = useState<string | null>(null)
 
+  const loadedRef = useRef(false)
+
   const loadAll = useCallback(async () => {
-    // Guard: no lanzar peticiones a la API si no hay sesión activa.
-    // Evita errores 401 en la pantalla de login y en tests E2E sin autenticar.
+    // Guard: sin sesión activa no hay peticiones a la API (evita 401 en login
+    // y en tests E2E), pero SÍ seed de empleados: la pantalla de login necesita
+    // usuarios para poder entrar en un terminal nuevo.
     const hasSession = typeof window !== 'undefined' &&
       !!localStorage.getItem('tpv:current_user')
     if (!hasSession) {
+      setEmployees(seedEmployees() as unknown as Employee[])
       setLoading(false)
       return
     }
+    loadedRef.current = true
 
     setLoading(true)
     setFatalError(null)
@@ -144,6 +150,11 @@ export function useAppInit({
     prevTenantRef.current = tenantId
     void loadAllRef.current()
   }, [tenantId])
+
+  useEffect(() => {
+    if (!currentUser || loadedRef.current) return
+    void loadAllRef.current()
+  }, [currentUser])
 
   return { loading, fatalError, loadAll }
 }

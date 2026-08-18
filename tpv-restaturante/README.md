@@ -10,7 +10,7 @@ Sistema de TPV profesional para restaurantes con POS web, app móvil para camare
 - **Supabase Realtime** — sincronización en vivo POS/KDS/móvil
 - **Expo / React Native** — app móvil para camareros (`mobile/`)
 - **@tpv/core** — paquete compartido (`packages/core/`) con tipos, utilidades y tests
-- **Vitest 4** con jsdom — **382 tests, 33 archivos**
+- **Vitest 4** con jsdom — **490 tests + 1 skip, 45 archivos** (web) + 113 en `@tpv/core`
 - **ESC/POS** — impresión térmica con WebUSB
 - **Stripe Terminal** — pago NFC Tap-to-Pay en móvil
 
@@ -30,9 +30,10 @@ Sistema de TPV profesional para restaurantes con POS web, app móvil para camare
 ### API
 
 - API routes en `app/api/*/route.ts` con Drizzle ORM (`lib/drizzle.ts`)
-- Middleware (`app/middleware.js`) protege `/api/*` con `x-tpv-key`
+- **Proxy** (`proxy.ts`, Next 16 sustituye `middleware.ts`): rate-limit por IP, CORS y auth no spoofeable (JWT `jose` + API key); reescribe headers de identidad desde claims verificados
 - Migraciones con Drizzle Kit
-- Seed data en `components/constants.js` (catálogo, sala, empleados)
+- Seed data en `components/constants.tsx` (catálogo, sala, empleados)
+- **Bootstrap en terminal nuevo**: sin sesión activa, `useAppInit` siembra los empleados seed (la pantalla de login siempre tiene usuarios) y dispara la carga completa al primer login
 
 ### Clean Architecture (progresiva)
 
@@ -69,12 +70,13 @@ application/subscribers/   Efectos secundarios vía eventos
 
 lib/              Utilidades compartidas
 ├── event-bus.ts  TypedEventBus singleton (6 eventos tipados)
-├── api.js        Fetch con cache y fallback offline
-├── offline.js    Cache GET + cola de mutaciones
-├── verifactu.js  Integración Fiskaly (AEAT)
-├── thermal-printer.js  ESC/POS WebUSB
-├── realtime.js   Cliente Supabase Realtime
-├── payment-logger.js   Logging de pagos
+├── api.ts        Fetch con cache y fallback offline (apiFetch, apiFetchWithCache)
+├── offline.ts    Cache GET + cola de mutaciones
+├── ticket-template.ts  Ticket térmico ESC/POS — escapa HTML con `esc()` (también exportado por `@tpv/core` para la factura A4)
+├── verifactu.ts  Integración Fiskaly (AEAT)
+├── thermal-printer.ts  ESC/POS WebUSB
+├── realtime.ts   Cliente Supabase Realtime
+├── payment-logger.ts   Logging de pagos
 └── drizzle.ts    Conexión Drizzle ORM
 
 hooks/            React hooks (cada vez más delgados)
@@ -147,20 +149,21 @@ npx eas update --branch production --message "cambios"  # solo JS (OTA)
 
 ## Sincronización en Tiempo Real
 
-- `lib/realtime.js` — Cliente Supabase Realtime (broadcast, no DB replication)
+- `lib/realtime.ts` — Cliente Supabase Realtime (broadcast, no DB replication)
 - `connectRealtime()` — Conecta al canal `floor-sync`
 - `broadcastFloorUpdate()` / `broadcastFloorUpdateServer()` — Emiten evento `floor:updated`
-- `app/api/floor/route.js` — Al guardar la sala, el servidor también emite broadcast
-- KDS (`app/kds/page.jsx`) y POS escuchan el mismo evento
+- `app/api/floor/route.ts` — Al guardar la sala, el servidor también emite broadcast
+- KDS (`app/(taller)/cocina-kds` o `app/kds/page.tsx`) y POS escuchan el mismo evento
 - Cada `persistFloor()` llama a `broadcastFloorUpdate()`
+- Polling de respaldo con `AbortController` (10s floor, 15s sales) en `hooks/useRealtimeSync.ts`
 - Requiere `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 
 ## Offline
 
 - GET cache en localStorage (`tpv:cache:`) — read from cache on fetch failure
 - Cola de mutaciones (`tpv:mutations`) reintentada cada 10s + on reconnect
-- Helpers en `lib/offline.js` (`cacheGet`, `cacheSet`, `enqueueMutation`, `onNetworkChange`)
-- `lib/api.js` `apiFetchWithCache()` wraps el patrón: fetch → cache → fallback
+- Helpers en `lib/offline.ts` (`cacheGet`, `cacheSet`, `enqueueMutation`, `onNetworkChange`)
+- `lib/api.ts` `apiFetchWithCache()` wraps el patrón: fetch → cache → fallback
 
 ## Páginas Públicas
 
@@ -178,7 +181,7 @@ npx eas update --branch production --message "cambios"  # solo JS (OTA)
 - **Terminal**: `@stripe/stripe-terminal-react-native` con simulated reader para desarrollo
 - **Webhook** (`/api/stripe/webhook`): verifica firma, idempotencia vía `webhook_events(event_id PK)`, maneja `payment_intent.succeeded`, `payment_intent.payment_failed`, `charge.dispute.*`
 - **Reconciliation** (`/api/stripe/reconciliation?days=N`): compara PIs Stripe vs ventas BD, detecta huérfanos, descuadres, disputas
-- **Logging** (`lib/payment-logger.js`): tabla `payment_logs` con todas las operaciones, nunca rompe flujo
+- **Logging** (`lib/payment-logger.ts`): tabla `payment_logs` con todas las operaciones, nunca rompe flujo
 
 ## Reservas Online
 
@@ -192,9 +195,10 @@ npx eas update --branch production --message "cambios"  # solo JS (OTA)
 - Sin comentarios en código salvo necesarios
 - Inline styles en camelCase (`overflowY`, no `overflow-y`); Tailwind para layout
 - `<img>` en vez de `<Image>` (regla ESLint `@next/next/no-img-element` desactivada)
-- Colores desde objeto `C` mutable (`components/constants.js:40-44`), nunca hex hardcodeado
+- Colores desde objeto `C` mutable (`components/constants.tsx:40-44`), nunca hex hardcodeado
 - `clone()` para deep-copy antes de mutar estado
 - `tenant_id` en todas las queries de bases de datos
+- **HTML en tickets/facturas**: toda interpolación de input de usuario en `buildTicketHtml()` (ticket térmico) y `buildInvoiceHtml()` (factura A4 en `@tpv/core`) pasa por `esc()` — nunca interpole datos sin escapar
 - Tests: `npx vitest run` antes de commits, `npx tsc --noEmit` para typecheck
 
 ## Comandos
@@ -205,7 +209,8 @@ npm run build          # build:core → copy:core → next build
 npm run build:core     # Compilar @tpv/core (packages/core)
 npm run copy:core      # Copiar @tpv/core compilado (workaround Turbopack symlinks)
 npm run lint           # ESLint 9 flat config — 0 errors, ~1371 warnings
-npm run test           # Vitest (jsdom) — 382 tests, 33 archivos
+npm run test           # Vitest (jsdom) — 490 tests + 1 skip, 45 archivos
+npm run test:core      # Tests de @tpv/core (113 tests, 8 archivos; npm --workspace @tpv/core test)
 npm run db:push        # Sincronizar schema Drizzle → BD (fresh DB)
 npm run db:generate    # Generar migración SQL tras cambios en schema
 npm run db:migrate     # Aplicar migraciones pendientes
@@ -219,7 +224,7 @@ Ver `.env.example`. Claves mínimas:
 | Variable | Descripción |
 |----------|-------------|
 | `DATABASE_URL` | Conexión PostgreSQL (Supabase pooler session mode) |
-| `TPV_API_KEY` | Clave API para middleware |
+| `TPV_API_KEY` | Clave API para el proxy |
 | `NEXT_PUBLIC_TPV_API_KEY` | Clave API pública (debe coincidir) |
 | `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto Supabase |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Clave anónima Supabase |
@@ -274,9 +279,10 @@ Ver también `docs/GUIA_DEMO_HOSTELERO.md` para el guion de presentación.
 ## Testing
 
 ```bash
-npx vitest run                    # 382 tests, 33 archivos
+npx vitest run                    # 490 tests + 1 skip, 45 archivos
 npx vitest run __tests__/integration/   # Tests de integración API (61 tests, 10 archivos)
 npx vitest run __tests__/constants.test.ts   # Test específico
+npm --workspace @tpv/core test    # Tests de @tpv/core (113 tests, 8 archivos)
 npx tsc --noEmit                  # Typecheck completo (0 errores)
 ```
 

@@ -7,7 +7,7 @@
 - **Supabase Realtime** — sincronización en vivo POS/KDS/móvil (Broadcast)
 - **Expo / React Native** — app móvil (`mobile/`)
 - **@tpv/core** — paquete compartido (`packages/core/`) con tipos, utilidades, tests
-- **Vitest 4** con jsdom, **382 tests, 33 archivos**
+- **Vitest 4** con jsdom — **490 tests + 1 skip en 45 archivos** (web) + 113 en `@tpv/core`
 - **ESC/POS** — impresión térmica WebUSB
 - **Stripe Terminal** — pago NFC Tap-to-Pay
 
@@ -18,7 +18,7 @@
 - API routes en `app/api/*/route.ts` con Drizzle ORM
 - RBAC server-side: `requireRole()` protege ~40 rutas operacionales (admin/camarero/cocina)
 - Migraciones con Drizzle Kit
-- Seed data en `components/constants.js`
+- Seed data en `components/constants.tsx`
 - `tenant_id` en **115/115 tablas**, 67 índices compuestos
 
 ## Frontend — Rutas reales (App Router) y code-split
@@ -70,7 +70,7 @@ La SPA monolítica (`app/page.jsx` + `ViewRouter`) se migró a rutas reales de A
 
 - GET cache en localStorage (`tpv:cache:`)
 - Cola de mutaciones (`tpv:mutations`) reintentada cada 10s
-- Helpers en `lib/offline.js`
+- Helpers en `lib/offline.ts`
 
 ## Páginas Públicas
 
@@ -85,7 +85,7 @@ La SPA monolítica (`app/page.jsx` + `ViewRouter`) se migró a rutas reales de A
 - Sin comentarios en código salvo necesarios
 - Inline styles en camelCase; Tailwind para layout
 - `<img>` en vez de `<Image>` (regla ESLint desactivada)
-- Colores desde objeto `C` mutable (`components/constants.js:40-44`)
+- Colores desde objeto `C` mutable (`components/constants.tsx:40-44`)
 - `clone()` para deep-copy antes de mutar estado
 
 ## Comandos
@@ -96,7 +96,7 @@ npm run build          # build:core → copy:core → next build
 npm run build:core     # Compilar @tpv/core (packages/core)
 npm run copy:core      # Copiar @tpv/core compilado (workaround Turbopack symlinks)
 npm run lint           # ESLint 9 flat config — 0 errors, ~1371 warnings
-npm run test           # Vitest (jsdom) — 382 tests, 33 archivos
+npm run test           # Vitest (jsdom) — 490 tests + 1 skip, 45 archivos
 npm run db:push        # Sincronizar schema Drizzle → BD
 npm run db:generate    # Generar migración SQL
 npm run db:migrate     # Aplicar migraciones pendientes
@@ -110,7 +110,7 @@ Ver `.env.example`. Claves mínimas:
 | Variable | Descripción |
 |----------|-------------|
 | `DATABASE_URL` | Conexión PostgreSQL (Supabase) |
-| `TPV_API_KEY` | Clave API para middleware |
+| `TPV_API_KEY` | Clave API para el proxy |
 | `NEXT_PUBLIC_TPV_API_KEY` | Clave API pública (debe coincidir con TPV_API_KEY) |
 | `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto Supabase |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Clave anónima Supabase |
@@ -131,8 +131,9 @@ PostgreSQL 16 + app en puerto 3000.
 ## Testing
 
 ```bash
-npx vitest run                    # 382 tests, 33 archivos
+npx vitest run                    # 490 tests + 1 skip, 45 archivos
 npx vitest run __tests__/integration/   # Tests de integración API (61 tests, 10 archivos)
+npm --workspace @tpv/core test    # Tests del paquete compartido (113 tests, 8 archivos)
 npx vitest run __tests__/constants.test.ts   # Test específico
 ```
 
