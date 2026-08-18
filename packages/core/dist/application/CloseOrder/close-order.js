@@ -1,10 +1,10 @@
-import { calculateOfferDiscount } from '../../domain/pricing/offers.js';
-import { calculateOrderTotals } from '../../domain/order/order.js';
-import { buildPayments, isFiado, hasPendingBizum, formatPaymentMethod } from '../../domain/payments/payments.js';
-import { closeTableOrders, isDebtPayment } from '../../domain/tables/table.js';
-import { deductStock } from '../../domain/inventory/stock.js';
-import { clone } from '../../lib/utils.js';
-import { generateInvoiceNumber } from '../../domain/invoice/invoice.js';
+import { calculateOfferDiscount } from '../../domain/pricing/offers';
+import { calculateOrderTotals } from '../../domain/order/order';
+import { buildPayments, isFiado, hasPendingBizum, formatPaymentMethod } from '../../domain/payments/payments';
+import { closeTableOrders, isDebtPayment } from '../../domain/tables/table';
+import { deductStock } from '../../domain/inventory/stock';
+import { clone } from '../../lib/utils';
+import { generateInvoiceNumber } from '../../domain/invoice/invoice';
 function buildStockLogs(order, catalog, modOptMap, employeeName) {
     const nextCatalog = clone(catalog);
     const stockLogs = [];

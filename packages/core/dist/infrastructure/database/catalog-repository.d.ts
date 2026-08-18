@@ -1,4 +1,4 @@
-import type { Product } from '../../domain/types.js';
+import type { Product } from '../../domain/types';
 export interface CatalogProduct extends Product {
     category: string;
     ubicacion: string;

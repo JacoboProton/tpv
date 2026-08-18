@@ -1,10 +1,18 @@
-import { euros } from '../../lib/utils.js';
-import { calculateIgic } from './invoice.js';
+import { euros } from '../../lib/utils';
+import { calculateIgic } from './invoice';
+export function esc(value) {
+    return String(value !== null && value !== void 0 ? value : '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
 export function buildInvoiceHtml(ticketSettings, sale) {
     const { restaurantName, companyCif, companyAddress, companyPhone, footerText } = ticketSettings;
     const totalConIva = sale.total || 0;
     const { baseImponible, cuotaIgic } = calculateIgic(totalConIva);
-    const itemsHtml = (sale.items || []).filter((i) => !i.voided).map((i) => `<tr><td style="padding:3px 0">${i.name.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td><td style="text-align:center;width:40px">${i.qty}</td><td style="text-align:right;width:70px">${euros(i.price)}</td><td style="text-align:right;width:80px">${euros((i.price || 0) * (i.qty || 0))}</td></tr>`).join('');
+    const itemsHtml = (sale.items || []).filter((i) => !i.voided).map((i) => `<tr><td style="padding:3px 0">${esc(i.name)}</td><td style="text-align:center;width:40px">${i.qty}</td><td style="text-align:right;width:70px">${euros(i.price)}</td><td style="text-align:right;width:80px">${euros((i.price || 0) * (i.qty || 0))}</td></tr>`).join('');
     return `<html><head><meta charset="utf-8"><style>
     @page { margin:8mm 12mm; size: A4; }
     body { font-family:'Segoe UI',Arial,sans-serif; font-size:11px; color:#222; margin:0; padding:0; }
@@ -23,20 +31,20 @@ export function buildInvoiceHtml(ticketSettings, sale) {
     .client-box p { margin:2px 0; }
   </style></head><body>
     <div class="header">
-      <h1>${restaurantName || 'FACTURA'}</h1>
+      <h1>${esc(restaurantName) || 'FACTURA'}</h1>
       <div class="info">
-        ${companyCif ? `CIF/NIF: ${companyCif}<br>` : ''}
-        ${companyAddress ? `${companyAddress}<br>` : ''}
-        ${companyPhone ? `Tel: ${companyPhone}` : ''}
+        ${companyCif ? `CIF/NIF: ${esc(companyCif)}<br>` : ''}
+        ${companyAddress ? `${esc(companyAddress)}<br>` : ''}
+        ${companyPhone ? `Tel: ${esc(companyPhone)}` : ''}
       </div>
-      <div class="numero">${sale.invoiceNumber || sale.id} · Ticket #${sale.ticketNumber || '-'}</div>
+      <div class="numero">${esc(sale.invoiceNumber || sale.id)} · Ticket #${esc(sale.ticketNumber || '-')}</div>
       <div class="info">${new Date(sale.closedAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
     </div>
     <div class="client-box">
-      <p><strong>Cliente:</strong> ${sale.invoiceName || '—'}</p>
-      <p><strong>NIF:</strong> ${sale.invoiceNif || '—'}</p>
-      ${sale.invoiceAddress ? `<p><strong>Dirección:</strong> ${sale.invoiceAddress}</p>` : ''}
-      <p><strong>Mesa:</strong> ${sale.tableName} · <strong>Camarero:</strong> ${sale.employeeName || '—'}</p>
+      <p><strong>Cliente:</strong> ${esc(sale.invoiceName) || '—'}</p>
+      <p><strong>NIF:</strong> ${esc(sale.invoiceNif) || '—'}</p>
+      ${sale.invoiceAddress ? `<p><strong>Dirección:</strong> ${esc(sale.invoiceAddress)}</p>` : ''}
+      <p><strong>Mesa:</strong> ${esc(sale.tableName)} · <strong>Camarero:</strong> ${esc(sale.employeeName) || '—'}</p>
     </div>
     <table>
       <tr><th>Artículo</th><th style="text-align:center">Ud.</th><th style="text-align:right">Precio</th><th style="text-align:right">Importe</th></tr>
@@ -47,8 +55,8 @@ export function buildInvoiceHtml(ticketSettings, sale) {
     </table>
     ${sale.tip > 0 ? `<p style="font-size:10px;color:#888;text-align:right">Propina (NO fiscal): +${euros(sale.tip)}</p>` : ''}
     ${sale.discount > 0 ? `<p style="font-size:10px;color:#888;text-align:right">Descuento aplicado: ${sale.discount}%</p>` : ''}
-    ${sale.invoiceEmail ? `<p style="font-size:9px;color:#888;margin-top:8px">Enviada a: ${sale.invoiceEmail}</p>` : ''}
-    <div class="footer">${footerText || 'Gracias por su visita'}</div>
+    ${sale.invoiceEmail ? `<p style="font-size:9px;color:#888;margin-top:8px">Enviada a: ${esc(sale.invoiceEmail)}</p>` : ''}
+    <div class="footer">${esc(footerText) || 'Gracias por su visita'}</div>
   </body></html>`;
 }
 //# sourceMappingURL=invoice-html.js.map

@@ -1,5 +1,5 @@
-import { expandMenu, expandCombo } from '../../domain/order/menu-expansion.js';
-import { clone, generateId, round2 } from '../../lib/utils.js';
+import { expandMenu, expandCombo } from '../../domain/order/menu-expansion';
+import { clone, generateId, round2 } from '../../lib/utils';
 function findOrCreateOrder(floor, tableId, employeeName, activeTicketId) {
     var _a;
     const table = floor.tables.find((t) => t.id === tableId);

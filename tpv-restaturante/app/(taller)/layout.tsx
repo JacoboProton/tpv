@@ -19,7 +19,6 @@ import { escposOpenDrawer, printESCPOS, isPrinterConnected } from '../../lib/the
 declare global {
   interface Window {
     __tpvToastTimer: number;
-    __TPV_API_KEY?: string;
   }
 }
 
@@ -119,11 +118,11 @@ export default function TallerLayout({
 
   const [paying, setPaying] = useState(false);
 
-  function showToast(msg: string) {
+  const showToast = useCallback((msg: string) => {
     setToast(msg);
     window.clearTimeout(window.__tpvToastTimer);
     window.__tpvToastTimer = window.setTimeout(() => setToast(null), 2600);
-  }
+  }, []);
 
   function openDrawer(): void {
     if (!isPrinterConnected()) { showToast('No hay impresora conectada'); return; }
@@ -182,7 +181,7 @@ export default function TallerLayout({
   const { updateItemState, advanceOrder, agotarProducto, reprintKitchenTicket, handleReadyNotification } = kitchen;
 
   const { loading, fatalError } = useAppInit({
-    tenantId, setTenants, setCatalog, setFloor: setFloorPreservingSales, setEmployees, setSales,
+    tenantId, setTenantId, setTenants, setCatalog, setFloor: setFloorPreservingSales, setEmployees, setSales,
     setTicketSettings, setOffers, setCombos, tryRestoreSession,
   });
 

@@ -1,4 +1,4 @@
-import { clone } from '../../lib/utils.js';
+import { clone } from '../../lib/utils';
 export function changeItemQuantity(floor, orderId, itemId, delta) {
     const next = clone(floor);
     const order = next.orders[orderId];

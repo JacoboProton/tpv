@@ -7,3 +7,8 @@ tool-results/
 .claude/
 
 node_modules/
+
+# build noise (accidently committed before)
+err.txt
+scratch_err.txt
+tsc_out.txt

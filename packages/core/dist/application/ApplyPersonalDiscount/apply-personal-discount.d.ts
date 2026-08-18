@@ -1,4 +1,4 @@
-import type { Floor, Catalog, Employee } from '../../domain/types.js';
+import type { Floor, Catalog, Employee } from '../../domain/types';
 export interface VerifiedEmployee {
     id: string;
     name: string;

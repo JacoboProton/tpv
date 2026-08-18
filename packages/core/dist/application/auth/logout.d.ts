@@ -1,4 +1,4 @@
-import type { CurrentUser } from '../../domain/types.js';
+import type { CurrentUser } from '../../domain/types';
 export interface LogoutDeps {
     logoutApi: (id: string) => Promise<void>;
     turnsApi: (body: {

@@ -1,4 +1,4 @@
-import type { CurrentUser } from '../../domain/types.js';
+import type { CurrentUser } from '../../domain/types';
 export interface ClockinDeps {
     fetchSummary: (employeeId: string, date: string) => Promise<{
         summary?: unknown;

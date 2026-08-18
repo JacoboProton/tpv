@@ -39,6 +39,15 @@ interface TicketParams {
   allergensList?: Allergen[];
 }
 
+export function esc(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 export function buildTicketHtml({
   items, subtotal, discountAmount, totalConIgic, baseImponible, cuotaIgic,
   tip, tipMethod, totalWithTip,
@@ -48,17 +57,17 @@ export function buildTicketHtml({
 }: TicketParams): string {
   function row(item: TicketItem) {
     const mods = item.modifiers?.length
-      ? `<div style="font-size:9px;color:#555;padding-left:4px">${item.modifiers.map(m => `+ ${m.optionName || m.name || ''}`).join('<br>')}</div>`
+      ? `<div style="font-size:9px;color:#555;padding-left:4px">${item.modifiers.map(m => `+ ${esc(m.optionName || m.name || '')}`).join('<br>')}</div>`
       : '';
     const aIcons = item.productId && catalog?.products
       ? (catalog.products.find(p => p.id === item.productId)?.allergens || [])
         .map((aid: string) => {
           const a = (allergensList || []).find(x => x.id === aid);
-          return a ? `<span style="font-size:8px;color:#888;margin-right:2px">[${a.abbr}]</span>` : '';
+          return a ? `<span style="font-size:8px;color:#888;margin-right:2px">[${esc(a.abbr)}]</span>` : '';
         }).join('')
       : '';
     return `<div style="margin-bottom:5px">
-      <div style="font-weight:bold;font-size:10px">${item.name} ${aIcons}</div>
+      <div style="font-weight:bold;font-size:10px">${esc(item.name)} ${aIcons}</div>
       ${mods}
       <div class="r" style="font-size:9px">
         <span>${item.qty} x ${item.price.toFixed(2)}€</span>
@@ -79,14 +88,14 @@ export function buildTicketHtml({
   .ds { border-top:1px solid #999; margin:5px 0; }
   .r { display:flex; justify-content:space-between; }
 </style></head><body>
-  ${logoUrl ? `<div class="c"><img src="${logoUrl}" style="max-width:60%;max-height:40px;margin-bottom:4px" /></div>` : ''}
-  <div class="c b" style="font-size:14px;margin-bottom:2px">${restaurantName || ''}</div>
+  ${logoUrl ? `<div class="c"><img src="${esc(logoUrl)}" style="max-width:60%;max-height:40px;margin-bottom:4px" /></div>` : ''}
+  <div class="c b" style="font-size:14px;margin-bottom:2px">${esc(restaurantName) || ''}</div>
   <div class="c" style="font-size:9px;margin-bottom:4px;color:#555">
-    ${companyCif ? `CIF: ${companyCif}<br>` : ''}${companyAddress ? `${companyAddress}<br>` : ''}${companyPhone ? `Tel: ${companyPhone}<br>` : ''}
+    ${companyCif ? `CIF: ${esc(companyCif)}<br>` : ''}${companyAddress ? `${esc(companyAddress)}<br>` : ''}${companyPhone ? `Tel: ${esc(companyPhone)}<br>` : ''}
   </div>
-  <div class="c" style="font-size:9px;margin-bottom:2px">${date || ''}</div>
-  <div class="c" style="font-size:9px;margin-bottom:4px">Mesa: ${tableName || '—'}${employeeName ? ' · Camarero: ' + employeeName : ''}${ticketLabel ? ' · ' + ticketLabel : ''}</div>
-  ${ticketNumber ? `<div class="c b" style="font-size:11px;margin-bottom:4px;color:#c4a04a">Ticket #${ticketNumber}</div>` : ''}
+  <div class="c" style="font-size:9px;margin-bottom:2px">${esc(date) || ''}</div>
+  <div class="c" style="font-size:9px;margin-bottom:4px">Mesa: ${esc(tableName) || '—'}${employeeName ? ' · Camarero: ' + esc(employeeName) : ''}${ticketLabel ? ' · ' + esc(ticketLabel) : ''}</div>
+  ${ticketNumber ? `<div class="c b" style="font-size:11px;margin-bottom:4px;color:#c4a04a">Ticket #${esc(ticketNumber)}</div>` : ''}
   <div class="d"></div>
   ${items.map(row).join('')}
   <div class="d"></div>
@@ -95,11 +104,11 @@ export function buildTicketHtml({
   <div class="r" style="font-size:9px;color:#555"><span>Base Imponible</span><span>${euros(baseImponible)}</span></div>
   <div class="r" style="font-size:9px;color:#555"><span>IGIC 7%</span><span>${euros(cuotaIgic)}</span></div>
   <div class="r b" style="font-size:11px"><span>Total</span><span>${euros(totalConIgic)}</span></div>
-  ${tip && tip > 0 ? `<div class="r" style="font-size:9px;color:#777"><span>Propina · NO fiscal${tipMethod ? ' (' + tipMethod + ')' : ''}</span><span>+${euros(tip)}</span></div>` : ''}
+  ${tip && tip > 0 ? `<div class="r" style="font-size:9px;color:#777"><span>Propina · NO fiscal${tipMethod ? ' (' + esc(tipMethod) + ')' : ''}</span><span>+${euros(tip)}</span></div>` : ''}
   <div class="ds"></div>
   <div class="r b" style="font-size:13px;padding-top:2px"><span>TOTAL A PAGAR</span><span>${euros(totalWithTip)}</span></div>
   <div class="d"></div>
-  <div class="c" style="font-size:9px;margin-top:4px;color:#555">${footerText || 'Gracias por su visita'}</div>
+  <div class="c" style="font-size:9px;margin-top:4px;color:#555">${esc(footerText) || 'Gracias por su visita'}</div>
 </body></html>`;
 }
 

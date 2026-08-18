@@ -1,4 +1,4 @@
-import { clone } from '../../lib/utils.js';
+import { clone } from '../../lib/utils';
 export function cancelTable(floor, tableId, employeeName) {
     const next = clone(floor);
     const table = next.tables.find((t) => t.id === tableId);

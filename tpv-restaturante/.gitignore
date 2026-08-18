@@ -54,3 +54,8 @@ __pycache__/
 .env
 tool-results/
 .claude/
+
+# build noise (accidentally committed before)
+err.txt
+scratch_err.txt
+tsc_out.txt

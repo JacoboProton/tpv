@@ -1,4 +1,4 @@
-import type { Floor, OrderItem } from '../../domain/types.js';
+import type { Floor, OrderItem } from '../../domain/types';
 export interface CancelledItemInfo {
     tableId: string;
     tableName: string;

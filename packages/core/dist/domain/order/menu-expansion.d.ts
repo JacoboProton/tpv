@@ -1,4 +1,4 @@
-import type { MenuExpansionItem, Product } from '../types.js';
+import type { MenuExpansionItem, Product } from '../types';
 export type { MenuExpansionItem };
 export declare function expandMenu(product: any, catalog: {
     products: Product[];

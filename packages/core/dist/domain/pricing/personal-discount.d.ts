@@ -1,4 +1,4 @@
-import type { OrderItem, Catalog, Employee } from '../types.js';
+import type { OrderItem, Catalog, Employee } from '../types';
 export type {};
 export declare function calculatePersonalDiscountAmount(items: OrderItem[], rates: Record<string, number>, catalog?: Catalog): number;
 export declare function applyDiscountRates(items: OrderItem[], rates: Record<string, number>, catalog?: Catalog): OrderItem[];

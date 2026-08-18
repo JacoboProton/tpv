@@ -1,4 +1,4 @@
-import type { NewProductInput, StockDelta, Product, Catalog } from '../types.js';
+import type { NewProductInput, StockDelta, Product, Catalog } from '../types';
 export type { NewProductInput, StockDelta };
 export declare function createProduct(data: NewProductInput): Product;
 export declare function ensureCategoryExists(catalog: Catalog, category: string): Catalog;

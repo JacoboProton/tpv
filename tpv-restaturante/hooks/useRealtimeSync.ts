@@ -35,25 +35,33 @@ export function useRealtimeSync({ tenantId, setFloor, setSales, onReadyNotificat
         onReadyNotification(payload)
       })
     }
+    const floorController = new AbortController()
     const iv = setInterval(async () => {
       try {
-        const data = await (await fetch('/api/floor')).json()
+        const res = await fetch('/api/floor', { signal: floorController.signal })
+        if (!res.ok) return
+        const data = await res.json()
         if (!data) return
         mergeLocalClock((data as { vectorClock?: Record<string, number> }).vectorClock)
         const h = JSON.stringify(data)
         if (h !== floorHashRef.current) { floorHashRef.current = h; setFloor(data as Floor) }
-      } catch {}
+      } catch (err) {
+        if ((err as Error)?.name === 'AbortError') return
+      }
     }, 10000)
+    const salesController = new AbortController()
     const ivSales = setInterval(async () => {
       try {
-        const res = await fetch('/api/sales')
+        const res = await fetch('/api/sales', { signal: salesController.signal })
         if (!res.ok) return
         const data = await res.json()
         if (!Array.isArray(data)) return
         const h = JSON.stringify(data)
         if (h !== salesHashRef.current) { salesHashRef.current = h; setSales(data as Sale[]) }
-      } catch {}
+      } catch (err) {
+        if ((err as Error)?.name === 'AbortError') return
+      }
     }, 15000)
-    return () => { disconnectRealtime(); clearInterval(iv); clearInterval(ivSales) }
+    return () => { disconnectRealtime(); clearInterval(iv); clearInterval(ivSales); floorController.abort(); salesController.abort() }
   }, [tenantId, onReadyNotification, setFloor, setSales])
 }

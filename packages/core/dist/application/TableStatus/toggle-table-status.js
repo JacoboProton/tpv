@@ -1,4 +1,4 @@
-import { clone } from '../../lib/utils.js';
+import { clone } from '../../lib/utils';
 export function toggleCuentaStatus(floor, tableId) {
     const next = clone(floor);
     const table = next.tables.find((t) => t.id === tableId);

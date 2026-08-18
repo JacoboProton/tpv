@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { captureException } from '@sentry/nextjs'
 import {
   runMigrate, fetchCatalog, saveCatalog,
   fetchFloor, saveFloor,
@@ -15,6 +16,7 @@ import type { Tenant, Catalog, Floor, Sale, Employee, Offer, Combo, TicketSettin
 
 interface UseAppInitProps {
   tenantId: string
+  setTenantId: (id: string) => void
   setTenants: (t: Tenant[]) => void
   setCatalog: (c: Catalog) => void
   setFloor: (f: Floor) => void
@@ -27,7 +29,8 @@ interface UseAppInitProps {
 }
 
 export function useAppInit({
-  tenantId, setTenants,
+  tenantId, setTenantId,
+  setTenants,
   setCatalog, setFloor, setEmployees, setSales,
   setTicketSettings, setOffers, setCombos,
   tryRestoreSession,
@@ -53,7 +56,8 @@ export function useAppInit({
 
       const tnts: Tenant[] = await fetch('/api/tenants').then(r => r.json()).catch(() => [])
       if (tnts.length > 0 && !tnts.find((t) => t.id === tenantId)) {
-        window.location.reload()
+        try { localStorage.removeItem('tpv:tenant') } catch {}
+        setTenantId('default')
         return
       }
       setTenants(tnts)
@@ -121,18 +125,24 @@ export function useAppInit({
       setCombos(cmb)
     } catch (err) {
       console.error('Error cargando datos:', err)
+      captureException(err)
       setFatalError((err as Error)?.message || String(err))
     } finally {
       setLoading(false)
     }
-  }, [tenantId, setTenants, setCatalog, setFloor, setEmployees, setSales,
+  }, [tenantId, setTenantId, setTenants, setCatalog, setFloor, setEmployees, setSales,
       setTicketSettings, setOffers, setCombos, tryRestoreSession])
 
-  useEffect(() => { loadAll() }, [])
+  const loadAllRef = useRef(loadAll)
+  useEffect(() => { loadAllRef.current = loadAll })
 
+  useEffect(() => { void loadAllRef.current() }, [])
+
+  const prevTenantRef = useRef(tenantId)
   useEffect(() => {
-    if (loading) return
-    loadAll()
+    if (prevTenantRef.current === tenantId) return
+    prevTenantRef.current = tenantId
+    void loadAllRef.current()
   }, [tenantId])
 
   return { loading, fatalError, loadAll }
