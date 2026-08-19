@@ -17,4 +17,8 @@ export default withSentryConfig(analyzedConfig, {
   silent: !process.env.SENTRY_DSN,
   widenClientFileUpload: true,
   tunnelRoute: "/monitoring",
+  sourcemaps: {
+    disable: process.env.SENTRY_SOURCEMAPS === 'disable',
+    deleteSourcemapsAfterUpload: true,
+  },
 });

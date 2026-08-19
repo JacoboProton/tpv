@@ -44,6 +44,89 @@ services:
         sync: false
       - key: SENTRY_DSN
         sync: false
+      - key: NEXT_PUBLIC_SENTRY_DSN
+        sync: false
+      # Token de auth para subir sourcemaps en el build (crea releases legibles en Sentry)
+      - key: SENTRY_AUTH_TOKEN
+        sync: false
+      - key: FISKALY_ENVIRONMENT
+        value: TEST
+      - key: FISKALY_API_KEY
+        sync: false
+      - key: FISKALY_API_SECRET
+        sync: false
+      - key: FISKALY_TAXPAYER_NIF
+        sync: false
+      - key: FISKALY_TERRITORY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: UBER_WEBHOOK_SECRET
+        sync: false
+      - key: GLOVO_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_LOCATION_NAME
+        sync: false
+      - key: STRIPE_LOCATION_LINE1
+        sync: false
+      - key: STRIPE_LOCATION_CITY
+        sync: false
+      - key: STRIPE_LOCATION_STATE
+        sync: false
+      - key: STRIPE_LOCATION_COUNTRY
+        value: ES
+      - key: STRIPE_LOCATION_POSTAL_CODE
+        sync: false
+
+  # Staging — entorno de pruebas con BD propia y URL distinta. Mismas reglas
+  # de build/arranque que production, solo cambia ALLOWED_ORIGINS y los
+  # secretos (se configuran en el panel de Render).
+  # Desplegar main en staging también debe funcionar vía GitHub Actions
+  # (render-deploy) si se configura el webhook del servicio.
+  - type: web
+    name: tpv-restaurante-staging
+    runtime: docker
+    dockerfilePath: tpv-restaturante/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: ALLOWED_ORIGINS
+        value: https://tpv-restaurante-staging.onrender.com
+      - key: JWT_SECRET
+        sync: false
+      - key: CRON_SECRET
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tpv-restaurante-db-staging
+          property: connectionString
+      - key: DB_POOL_MAX
+        value: "20"
+      - key: DB_POOL_IDLE_MS
+        value: "10000"
+      - key: DB_CONN_TIMEOUT_MS
+        value: "5000"
+      - key: TPV_API_KEY
+        sync: false
+      - key: NEXT_PUBLIC_TPV_API_KEY
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+      - key: NEXT_PUBLIC_SENTRY_DSN
+        sync: false
+      - key: SENTRY_AUTH_TOKEN
+        sync: false
       - key: FISKALY_ENVIRONMENT
         value: TEST
       - key: FISKALY_API_KEY
@@ -80,5 +163,9 @@ services:
 databases:
   - name: tpv-restaurante-db
     databaseName: tpv_restaurant_demo
+    user: tpv
+    plan: free
+  - name: tpv-restaurante-db-staging
+    databaseName: tpv_restaurant_staging
     user: tpv
     plan: free

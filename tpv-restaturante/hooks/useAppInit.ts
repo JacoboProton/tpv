@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { captureException } from '@sentry/nextjs'
+import { setSentryUser } from '../lib/sentry-context'
 import {
   runMigrate, fetchCatalog, saveCatalog,
   fetchFloor, saveFloor,
@@ -58,6 +59,7 @@ export function useAppInit({
     setLoading(true)
     setFatalError(null)
     try {
+      setSentryUser({ tenantId, employeeName: currentUser?.name })
       await runMigrate().catch(() => {})
 
       const tnts: Tenant[] = await fetch('/api/tenants').then(r => r.json()).catch(() => [])
@@ -137,7 +139,7 @@ export function useAppInit({
       setLoading(false)
     }
   }, [tenantId, setTenantId, setTenants, setCatalog, setFloor, setEmployees, setSales,
-      setTicketSettings, setOffers, setCombos, tryRestoreSession])
+      setTicketSettings, setOffers, setCombos, currentUser, tryRestoreSession])
 
   const loadAllRef = useRef(loadAll)
   useEffect(() => { loadAllRef.current = loadAll })

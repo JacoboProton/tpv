@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
-import { getTenantId } from '../../../lib/tenant';
+import { getTenantId, getPublicTenantId } from '../../../lib/tenant';
 import { qrOrders, orders, tables, deliveryOrders } from '../../../db/schema';
-import { apiOk, apiError, apiBadRequest, apiNotFound, apiTooManyRequests } from '../../../lib/infrastructure/response';
+import { apiOk, apiError, apiBadRequest, apiNotFound, apiTooManyRequests, apiForbidden } from '../../../lib/infrastructure/response';
 import { rateLimit, getClientIp } from '../../../lib/rate-limit';
 import { QrOrderPostBody } from '@/lib/schemas/api-schemas';
 
@@ -17,7 +17,8 @@ export async function POST(req: NextRequest) {
   if (!rl.allowed) return apiTooManyRequests();
   try {
     const db = getDb();
-    const tenantId = getTenantId(req);
+    const tenantId = getPublicTenantId(req);
+    if (!tenantId) return apiForbidden('tenant_no_autorizado');
     const parsed = QrOrderPostBody.safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
     const body = parsed.data;
@@ -118,7 +119,8 @@ export async function GET(req: NextRequest) {
   if (!rl.allowed) return apiTooManyRequests();
   try {
     const db = getDb();
-    const tenantId = getTenantId(req);
+    const tenantId = getPublicTenantId(req);
+    if (!tenantId) return apiForbidden('tenant_no_autorizado');
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     if (id) {
@@ -177,7 +179,8 @@ export async function PUT(req: NextRequest) {
   if (!rl.allowed) return apiTooManyRequests();
   try {
     const db = getDb();
-    const tenantId = getTenantId(req);
+    const tenantId = getPublicTenantId(req);
+    if (!tenantId) return apiForbidden('tenant_no_autorizado');
     const parsed = QrOrderPostBody.safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
     const body = parsed.data;

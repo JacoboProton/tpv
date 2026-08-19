@@ -6,7 +6,7 @@ import { req } from '../helpers/request';
 const dbData = new Map<object, any[]>();
 function seed(table: object, data: any[]) { dbData.set(table, data); }
 
-vi.mock('@/lib/tenant', () => ({ getTenantId: () => 'default' }));
+vi.mock('@/lib/tenant', () => ({ getTenantId: () => 'default', getPublicTenantId: () => 'default' }));
 
 vi.mock('@/lib/drizzle', () => {
   function whereResult(data: any[]) {

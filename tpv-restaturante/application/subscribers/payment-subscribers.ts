@@ -26,7 +26,7 @@ export function registerPaymentSubscribers(deps: {
         }
       }
     } catch {
-      enqueueMutation({ key: '/api/sales/refund', method: 'PUT', payload: refundBody, idempotencyKey: `refund:${data.saleId}:${data.amount}:${data.timestamp || Date.now()}` })
+      enqueueMutation({ key: '/api/sales/refund', method: 'PUT', payload: refundBody, idempotencyKey: `refund:${data.saleId}:${data.amount}` })
       deps.showToast('Sin conexión — la devolución se guardará cuando vuelva la red')
     }
   })

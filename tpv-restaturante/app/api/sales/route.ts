@@ -42,14 +42,14 @@ export async function GET(req: NextRequest) {
       .orderBy(desc(sales.closedAt));
 
     const saleIds = rows.map((r: typeof sales.$inferSelect) => r.id);
-    const verifactuMap: Record<string, { estado: string; numSerie: string }> = {};
+    const verifactuMap: Record<string, { estado: string; numSerie: string; qrUrl: string }> = {};
     if (saleIds.length > 0) {
       const verifactuRows = await db
-        .select({ saleId: verifactuRegistros.saleId, estado: verifactuRegistros.estado, numSerie: verifactuRegistros.numSerie })
+        .select({ saleId: verifactuRegistros.saleId, estado: verifactuRegistros.estado, numSerie: verifactuRegistros.numSerie, qrUrl: verifactuRegistros.qrUrl })
         .from(verifactuRegistros)
         .where(inArray(verifactuRegistros.saleId, saleIds));
       for (const v of verifactuRows) {
-        verifactuMap[v.saleId] = { estado: v.estado, numSerie: v.numSerie };
+        verifactuMap[v.saleId] = { estado: v.estado, numSerie: v.numSerie, qrUrl: v.qrUrl };
       }
     }
 
@@ -73,6 +73,7 @@ export async function GET(req: NextRequest) {
       disputeData: r.disputeData || {},
       verifactuStatus: verifactuMap[r.id]?.estado || '',
       verifactuNumSerie: verifactuMap[r.id]?.numSerie || '',
+      verifactuQrUrl: verifactuMap[r.id]?.qrUrl || '',
       ticketNumber: r.ticketNumber,
     }));
     return apiOk(mapped);

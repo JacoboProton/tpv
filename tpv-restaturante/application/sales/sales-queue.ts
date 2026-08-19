@@ -5,6 +5,11 @@ export interface SalesQueueDeps {
   setSales: (updater: (prev: Sale[]) => Sale[]) => void
   cacheSet: (key: string, value: Sale[] | null) => void
   showToast: (msg: string) => void
+  /**
+   * Persiste la venta en la cola de mutaciones durable (localStorage) para
+   * que el sync la reenvíe cuando vuelva la red. Evita perder la venta.
+   */
+  persistSale: (sale: Sale) => void
 }
 
 export async function processSalesQueue(
@@ -42,11 +47,14 @@ export async function processSalesQueue(
         if (res && res.ok) {
           queue.shift()
         } else {
-          deps.showToast(`Error venta: ${lastErr}. No se pudo guardar`)
+          // No descartamos: lo guardamos en la cola durable para retry sinc.
+          deps.persistSale(sale)
+          deps.showToast(`Venta guardada sin conexión. Se sincronizará cuando vuelva la red.`)
           queue.shift()
         }
       } catch (e2) {
-        deps.showToast(`Error venta: ${e2 instanceof Error ? e2.message : String(e2)}. No se pudo guardar`)
+        deps.persistSale(sale)
+        deps.showToast(`Venta guardada sin conexión. Se sincronizará cuando vuelva la red.`)
         queue.shift()
       }
     }

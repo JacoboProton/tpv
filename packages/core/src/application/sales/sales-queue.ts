@@ -7,6 +7,11 @@ export interface SalesQueueDeps {
   showToast: (msg: string) => void
   log: (msg: string) => void
   wait: (ms: number) => Promise<void>
+  /**
+   * Persiste la venta en la cola de mutaciones durable (localStorage) para
+   * que el sync la reenvíe cuando vuelva la red. Evita perder la venta.
+   */
+  persistSale: (sale: Sale) => void
 }
 
 export async function processSalesQueue(
@@ -44,11 +49,13 @@ export async function processSalesQueue(
         if (res && res.ok) {
           queue.shift()
         } else {
-          deps.showToast(`Error venta: ${lastErr}. No se pudo guardar`)
+          deps.persistSale(sale)
+          deps.showToast(`Venta guardada sin conexión. Se sincronizará cuando vuelva la red.`)
           queue.shift()
         }
       } catch (e2) {
-        deps.showToast(`Error venta: ${e2 instanceof Error ? e2.message : String(e2)}. No se pudo guardar`)
+        deps.persistSale(sale)
+        deps.showToast(`Venta guardada sin conexión. Se sincronizará cuando vuelva la red.`)
         queue.shift()
       }
     }

@@ -15,7 +15,17 @@ export function useInvoice({ ticketSettings, showToast }: UseInvoiceProps) {
 
   const printInvoice = useCallback(async (sale: Sale) => {
     if (!sale) return
-    const html = buildInvoiceHtml(ticketSettings, sale)
+    let opts: { qrDataUrl?: string } = {}
+    if (sale.verifactuQrUrl) {
+      try {
+        const res = await fetch(`/api/verifactu/qr?text=${encodeURIComponent(sale.verifactuQrUrl)}`)
+        if (res.ok) {
+          const data = await res.json()
+          if (data.dataUrl) opts = { qrDataUrl: data.dataUrl }
+        }
+      } catch { /* QR opcional */ }
+    }
+    const html = buildInvoiceHtml(ticketSettings, sale, opts)
     const iframe = document.createElement('iframe')
     iframe.style.display = 'none'
     document.body.appendChild(iframe)

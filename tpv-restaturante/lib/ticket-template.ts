@@ -30,6 +30,8 @@ interface TicketParams {
   logoUrl?: string;
   footerText?: string;
   ticketWidth?: string;
+  qrDataUrl?: string;
+  qrLabel?: string;
   tableName?: string;
   employeeName?: string;
   ticketLabel?: string;
@@ -53,7 +55,7 @@ export function buildTicketHtml({
   tip, tipMethod, totalWithTip,
   restaurantName, companyCif, companyAddress, companyPhone, logoUrl, footerText, ticketWidth,
   tableName, employeeName, ticketLabel, ticketNumber, date,
-  catalog, allergensList,
+  catalog, allergensList, qrDataUrl, qrLabel,
 }: TicketParams): string {
   function row(item: TicketItem) {
     const mods = item.modifiers?.length
@@ -108,6 +110,8 @@ export function buildTicketHtml({
   <div class="ds"></div>
   <div class="r b" style="font-size:13px;padding-top:2px"><span>TOTAL A PAGAR</span><span>${euros(totalWithTip)}</span></div>
   <div class="d"></div>
+  ${qrDataUrl ? `<div class="c" style="margin-top:6px"><img src="${qrDataUrl}" alt="QR" style="width:60px;height:60px" /></div>
+  <div class="c" style="font-size:8px;color:#555">${esc(qrLabel) || 'Verifique su ticket con la app AEAT / Verifactu'}</div>` : ''}
   <div class="c" style="font-size:9px;margin-top:4px;color:#555">${esc(footerText) || 'Gracias por su visita'}</div>
 </body></html>`;
 }

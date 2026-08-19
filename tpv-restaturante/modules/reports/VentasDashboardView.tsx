@@ -1,10 +1,13 @@
 'use client'
 
-import { useMemo } from 'react'
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, LineChart, Line } from '@/modules/reports/charts-lazy'
-import { Euro, TrendingUp, Ticket, Clock, Banknote, CreditCard, Smartphone } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, LineChart, Line, Legend } from '@/modules/reports/charts-lazy'
+import { Euro, TrendingUp, Ticket, Clock, Banknote, CreditCard, Smartphone, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import { euros, round2, type Theme } from '@/components/constants'
 import { useSales, useUi } from '@/modules/core/app-contexts'
+import {
+  comparePeriod, previousWeekComparison, hourlySales, topProducts, paymentMethodTotals,
+} from '@tpv/core'
 
 interface DashboardSale {
   id: string
@@ -12,6 +15,7 @@ interface DashboardSale {
   closedAt: number
   items: { name: string; qty: number }[]
   paymentMethod: string
+  payments?: { method: string; amount: number }[]
   employeeName?: string
   tableName?: string
   tip?: number
@@ -22,10 +26,24 @@ export interface VentasDashboardViewProps {
   colors: Theme
 }
 
+function Delta({ pct, label }: { pct: number | null; label: string }) {
+  if (pct === null) {
+    return <span className="text-[10px] opacity-60">{label}</span>
+  }
+  const positive = pct >= 0
+  const Icon = positive ? ArrowUpRight : ArrowDownRight
+  return (
+    <span className={`text-[10px] font-medium flex items-center gap-0.5 ${positive ? 'text-green-500' : 'text-red-400'}`}>
+      <Icon className="w-3 h-3" />
+      {positive ? '+' : ''}{round2(pct)}% <span className="opacity-60">{label}</span>
+    </span>
+  )
+}
+
 export default function VentasDashboardView() {
   const { sales } = useSales()
   const { colors: C } = useUi()
-  const now = Date.now()
+  const [rangeDays, setRangeDays] = useState(7)
   const todayStart = new Date()
   todayStart.setHours(0, 0, 0, 0)
   const todayTs = todayStart.getTime()
@@ -42,52 +60,34 @@ export default function VentasDashboardView() {
   const todayCount = todaySales.length
   const avgTicket = todayCount > 0 ? round2(todayTotal / todayCount) : 0
 
-  const dailyData = useMemo(() => {
-    const days: { day: string; total: number }[] = []
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(todayStart.getTime() - i * 86400000)
-      const dayKey = d.toLocaleDateString('es-ES', { weekday: 'short' })
-      const dayTotal = sales
-        .filter(s => s.closedAt >= d.getTime() && s.closedAt < d.getTime() + 86400000)
-        .reduce((sum, s) => sum + s.total, 0)
-      days.push({ day: dayKey, total: round2(dayTotal) })
-    }
-    return days
-  }, [sales, todayStart])
+  const todayVsYesterday = useMemo(
+    () => comparePeriod(sales as any[], todayTs, todayTs + 86400000),
+    [sales, todayTs],
+  )
+  const weekVsPrev = useMemo(
+    () => comparePeriod(sales as any[], todayTs - 6 * 86400000, todayTs + 86400000),
+    [sales, todayTs],
+  )
 
-  const hourlyData = useMemo(() => {
-    const hours: { hour: string; total: number; tickets: number }[] = []
-    for (let h = 0; h < 24; h++) {
-      const hStart = todayTs + h * 3600000
-      const hEnd = hStart + 3600000
-      const hSales = todaySales.filter(s => s.closedAt >= hStart && s.closedAt < hEnd)
-      hours.push({
-        hour: `${h.toString().padStart(2, '0')}h`,
-        total: round2(hSales.reduce((sum, s) => sum + s.total, 0)),
-        tickets: hSales.length,
-      })
-    }
-    return hours.filter(h => h.tickets > 0 || h.total > 0)
-  }, [todaySales, todayTs])
+  const dailyData = useMemo(
+    () => previousWeekComparison(sales as any[], todayTs).points,
+    [sales, todayTs],
+  )
 
-  const topProducts = useMemo(() => {
-    const counts: Record<string, number> = {}
-    todaySales.forEach(s => (s.items || []).forEach(i => {
-      counts[i.name] = (counts[i.name] || 0) + i.qty
-    }))
-    return Object.entries(counts)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 5)
-  }, [todaySales])
+  const hourly = useMemo(
+    () => hourlySales(sales as any[], todayTs),
+    [sales, todayTs],
+  )
 
-  const paymentMethods = useMemo(() => {
-    const counts: Record<string, number> = {}
-    todaySales.forEach(s => {
-      const m = s.paymentMethod || 'otro'
-      counts[m] = (counts[m] || 0) + s.total
-    })
-    return Object.entries(counts).map(([method, total]) => ({ method, total: round2(total) }))
-  }, [todaySales])
+  const top = useMemo(
+    () => topProducts(sales as any[], todayTs - (rangeDays - 1) * 86400000, todayTs + 86400000, 5),
+    [sales, todayTs, rangeDays],
+  )
+
+  const methodTotals = useMemo(
+    () => paymentMethodTotals(sales as any[], todayTs - (rangeDays - 1) * 86400000, todayTs + 86400000),
+    [sales, todayTs, rangeDays],
+  )
 
   const methodLabels: Record<string, string> = {
     efectivo: 'Efectivo', tarjeta: 'Tarjeta', bizum: 'Bizum', fiado: 'Fiado',
@@ -100,7 +100,7 @@ export default function VentasDashboardView() {
     return [...todaySales].sort((a, b) => b.closedAt - a.closedAt).slice(0, 10)
   }, [todaySales])
 
-  function KpiCard({ icon: Icon, label, value, sub, color }: { icon: any; label: string; value: string; sub?: string; color: string }) {
+  function KpiCard({ icon: Icon, label, value, sub, color, extra }: { icon: any; label: string; value: string; sub?: string; color: string; extra?: React.ReactNode }) {
     return (
       <div style={{ background: C.surface, border: `1px solid ${C.line}` }}
         className="rounded-xl p-4 flex items-center gap-3">
@@ -111,6 +111,7 @@ export default function VentasDashboardView() {
           <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: C.muted }}>{label}</p>
           <p className="text-lg font-bold" style={{ color: C.cream }}>{value}</p>
           {sub && <p className="text-[10px]" style={{ color: C.muted }}>{sub}</p>}
+          {extra}
         </div>
       </div>
     )
@@ -122,17 +123,29 @@ export default function VentasDashboardView() {
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCard icon={Euro} label="Hoy" value={`${euros(todayTotal)}`} sub={`${todayCount} tickets`} color={C.sage} />
+        <KpiCard icon={Euro} label="Hoy" value={`${euros(todayTotal)}`} sub={`${todayCount} tickets`} color={C.sage} extra={<Delta pct={todayVsYesterday.deltaPct} label="vs ayer" />} />
         <KpiCard icon={Clock} label="Ayer" value={`${euros(yesterdayTotal)}`} sub={`${yesterdaySales.length} tickets`} color={C.brass} />
-        <KpiCard icon={TrendingUp} label="Últimos 7 días" value={`${euros(weekTotal)}`} sub={`${weekSales.length} tickets`} color={C.brassLight} />
+        <KpiCard icon={TrendingUp} label="Últimos 7 días" value={`${euros(weekTotal)}`} sub={`${weekSales.length} tickets`} color={C.brassLight} extra={<Delta pct={weekVsPrev.deltaPct} label="vs semana anterior" />} />
         <KpiCard icon={Ticket} label="Ticket medio" value={`${euros(avgTicket)}`} sub="hoy" color={C.sageLight} />
+      </div>
+
+      {/* Filtro de rango para top/metodos */}
+      <div className="flex items-center gap-2 no-print">
+        <span className="text-xs" style={{ color: C.muted }}>Rango top productos y métodos:</span>
+        {[7, 30].map(d => (
+          <button key={d} onClick={() => setRangeDays(d)}
+            style={{ background: rangeDays === d ? C.brass : C.surfaceLight, color: rangeDays === d ? C.base : C.muted }}
+            className="text-xs font-medium px-3 py-1.5 rounded-lg">
+            {d} días
+          </button>
+        ))}
       </div>
 
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* 7-day chart */}
+        {/* 7-day chart con comparativa semana anterior */}
         <div style={{ background: C.surface, border: `1px solid ${C.line}` }} className="rounded-xl p-4">
-          <h3 className="text-sm font-semibold mb-3" style={{ color: C.cream }}>Últimos 7 días</h3>
+          <h3 className="text-sm font-semibold mb-3" style={{ color: C.cream }}>Últimos 7 días (vs semana anterior)</h3>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={dailyData}>
               <CartesianGrid stroke={C.line} vertical={false} />
@@ -141,7 +154,9 @@ export default function VentasDashboardView() {
               <Tooltip
                 contentStyle={{ background: C.surfaceLight, border: `1px solid ${C.line}`, borderRadius: '8px', color: C.cream }}
                 formatter={(v: any) => euros(Number(v))} />
-              <Bar dataKey="total" fill={C.brass} radius={[4, 4, 0, 0]} />
+              <Legend wrapperStyle={{ fontSize: 11, color: C.muted }} />
+              <Bar dataKey="total" name="Esta semana" fill={C.brass} radius={[4, 4, 0, 0]} />
+              <Bar dataKey="previous" name="Semana anterior" fill={C.surfaceLight} radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -150,7 +165,7 @@ export default function VentasDashboardView() {
         <div style={{ background: C.surface, border: `1px solid ${C.line}` }} className="rounded-xl p-4">
           <h3 className="text-sm font-semibold mb-3" style={{ color: C.cream }}>Ventas por hora (hoy)</h3>
           <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={hourlyData}>
+            <LineChart data={hourly}>
               <CartesianGrid stroke={C.line} vertical={false} />
               <XAxis dataKey="hour" stroke={C.muted} fontSize={11} />
               <YAxis stroke={C.muted} fontSize={11} />
@@ -167,12 +182,12 @@ export default function VentasDashboardView() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Top products */}
         <div style={{ background: C.surface, border: `1px solid ${C.line}` }} className="rounded-xl p-4">
-          <h3 className="text-sm font-semibold mb-3" style={{ color: C.cream }}>Top 5 productos (hoy)</h3>
-          {topProducts.length === 0 ? (
-            <p className="text-xs" style={{ color: C.muted }}>Sin ventas hoy</p>
+          <h3 className="text-sm font-semibold mb-3" style={{ color: C.cream }}>Top 5 productos (últimos {rangeDays} días)</h3>
+          {top.length === 0 ? (
+            <p className="text-xs" style={{ color: C.muted }}>Sin ventas en el rango</p>
           ) : (
             <div className="space-y-2">
-              {topProducts.map(([name, qty], i) => (
+              {top.map(({ name, qty }, i) => (
                 <div key={name} className="flex items-center gap-2">
                   <span className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold shrink-0"
                     style={{ background: C.brass + '30', color: C.brassLight }}>{i + 1}</span>
@@ -186,12 +201,12 @@ export default function VentasDashboardView() {
 
         {/* Payment methods */}
         <div style={{ background: C.surface, border: `1px solid ${C.line}` }} className="rounded-xl p-4">
-          <h3 className="text-sm font-semibold mb-3" style={{ color: C.cream }}>Métodos de pago (hoy)</h3>
-          {paymentMethods.length === 0 ? (
-            <p className="text-xs" style={{ color: C.muted }}>Sin ventas hoy</p>
+          <h3 className="text-sm font-semibold mb-3" style={{ color: C.cream }}>Métodos de pago (últimos {rangeDays} días)</h3>
+          {methodTotals.length === 0 ? (
+            <p className="text-xs" style={{ color: C.muted }}>Sin ventas en el rango</p>
           ) : (
             <div className="space-y-2">
-              {paymentMethods.map(({ method, total }) => {
+              {methodTotals.map(({ method, total }) => {
                 const Icon = methodIcons[method]
                 const pct = todayTotal > 0 ? round2((total / todayTotal) * 100) : 0
                 return (

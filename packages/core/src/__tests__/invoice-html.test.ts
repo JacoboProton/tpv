@@ -57,4 +57,18 @@ describe('buildInvoiceHtml', () => {
     expect(html).toContain('</strong> Ana</p>')
     expect(html).toContain('Mesa 3')
   })
+
+  it('renders AEAT QR when qrDataUrl is provided', () => {
+    const sale = makeSale({ verifactuNumSerie: 'VERI-2026-0001' })
+    const html = buildInvoiceHtml(settings, sale, { qrDataUrl: 'data:image/png;base64,AAAA' })
+    expect(html).toContain('data:image/png;base64,AAAA')
+    expect(html).toContain('app AEAT / Verifactu')
+    expect(html).toContain('VERI-2026-0001')
+  })
+
+  it('omits QR when no qrDataUrl is provided', () => {
+    const sale = makeSale()
+    const html = buildInvoiceHtml(settings, sale)
+    expect(html).not.toContain('AEAT / Verifactu')
+  })
 })

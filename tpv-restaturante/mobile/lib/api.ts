@@ -81,6 +81,18 @@ async function sha256(s: string): Promise<string> {
 }
 
 let lastFloor: Floor | null = null;
+let lastServerClock: Record<string, number> = {};
+let localCounter = 0;
+
+// Reloj vectorial propio del dispositivo móvil: parte del último reloj
+// conocido del servidor e incrementa la ranura local. Sin esto el PATCH
+// llegaría con {} y el server respondería 409 permanente (LWW del POS
+// domina al reloj vacío).
+function buildMobileClock(): Record<string, number> {
+  localCounter += 1;
+  const device = _deviceId || 'mobile';
+  return { ...lastServerClock, [device]: (lastServerClock[device] || 0) + localCounter };
+}
 
 export function setLastFloor(floor: Floor | null) {
   lastFloor = floor ? JSON.parse(JSON.stringify(floor)) : null;
@@ -153,19 +165,24 @@ export function computeFloorDiff(last: Floor | null, next: Floor) {
 export async function fetchFloor(): Promise<Floor> {
   const floor = await apiFetch<Floor>('/floor');
   if (floor) {
-    setLastFloor(floor);
+    const { vectorClock, updatedAt } = floor;
+    const normalized: Floor = { ...floor, vectorClock, updatedAt };
+    setLastFloor(normalized);
+    lastServerClock = vectorClock ?? {};
   }
   return floor;
 }
 
 export async function saveFloor(floor: Floor): Promise<{ ok: boolean }> {
   const diff = computeFloorDiff(lastFloor, floor);
+  const now = Date.now();
+  const clock = buildMobileClock();
   setLastFloor(floor);
 
   if (diff.isFullSync) {
     return apiFetch('/floor', {
       method: 'PUT',
-      body: JSON.stringify(floor),
+      body: JSON.stringify({ ...floor, vectorClock: clock, updatedAt: now }),
     });
   } else {
     if ((diff.updatedTables || []).length === 0 && 
@@ -176,7 +193,7 @@ export async function saveFloor(floor: Floor): Promise<{ ok: boolean }> {
     }
     return apiFetch('/floor', {
       method: 'PATCH',
-      body: JSON.stringify(diff),
+      body: JSON.stringify({ ...diff, vectorClock: clock, updatedAt: now }),
     });
   }
 }

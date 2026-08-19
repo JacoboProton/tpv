@@ -294,6 +294,7 @@ export interface Sale {
   dispute_data?: any
   verifactuStatus?: string
   verifactuNumSerie?: string
+  verifactuQrUrl?: string
 }
 
 // ─── Auth ───

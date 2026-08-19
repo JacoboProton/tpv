@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from 'react'
 import type { Sale } from '../domain/types'
 import { addSale } from '../lib/api'
-import { cacheSet } from '../lib/offline'
+import { cacheSet, enqueueMutation } from '../lib/offline'
 import { processSalesQueue } from '../application/sales/sales-queue'
 
 interface UseSalesQueueProps {
@@ -27,6 +27,14 @@ export function useSalesQueue({ setSales, showToast }: UseSalesQueueProps) {
       setSales,
       cacheSet,
       showToast,
+      persistSale: (sale) => {
+        enqueueMutation({
+          key: '/api/sales',
+          method: 'POST',
+          payload: sale,
+          idempotencyKey: sale.id ? `sale:${sale.id}` : undefined,
+        })
+      },
     })
     setQueue([...queueRef.current])
   }, [setSales, showToast])

@@ -23,6 +23,7 @@ export * from './domain/order/menu-expansion'
 export * from './domain/order/line-totals'
 export * from './domain/catalog/product-operations'
 export * from './domain/catalog/modifier-groups'
+export * from './domain/reports/sales-insights'
 
 // Application use cases
 export { executeCloseOrder } from './application/CloseOrder/close-order'

@@ -249,6 +249,16 @@ export const InvoiceSendBody = z.object({
   to: z.string().email().optional().or(z.literal('')),
 }).passthrough()
 
+// ─── tickes/deliver ───
+
+export const TicketDeliverBody = z.object({
+  saleId: z.string().min(1),
+  to: z.object({
+    email: z.string().email().optional().or(z.literal('')),
+    phone: z.string().optional(),
+  }).optional(),
+}).passthrough()
+
 // ─── kds ───
 
 export const KdsBody = z.object({

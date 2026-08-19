@@ -12,8 +12,9 @@ export function esc(value: unknown): string {
     .replace(/'/g, '&#39;')
 }
 
-export function buildInvoiceHtml(ticketSettings: Record<string, any>, sale: Sale): string {
+export function buildInvoiceHtml(ticketSettings: Record<string, any>, sale: Sale, opts: { qrDataUrl?: string } = {}): string {
   const { restaurantName, companyCif, companyAddress, companyPhone, footerText } = ticketSettings
+  const { qrDataUrl } = opts
   const totalConIva = sale.total || 0
   const { baseImponible, cuotaIgic } = calculateIgic(totalConIva)
   const itemsHtml = (sale.items || []).filter((i: any) => !i.voided).map((i: any) =>
@@ -62,6 +63,12 @@ export function buildInvoiceHtml(ticketSettings: Record<string, any>, sale: Sale
     ${sale.tip > 0 ? `<p style="font-size:10px;color:#888;text-align:right">Propina (NO fiscal): +${euros(sale.tip)}</p>` : ''}
     ${sale.discount > 0 ? `<p style="font-size:10px;color:#888;text-align:right">Descuento aplicado: ${sale.discount}%</p>` : ''}
     ${sale.invoiceEmail ? `<p style="font-size:9px;color:#888;margin-top:8px">Enviada a: ${esc(sale.invoiceEmail)}</p>` : ''}
+    ${qrDataUrl ? `
+    <div style="margin-top:14px;border-top:1px solid #ddd;padding-top:10px;text-align:center">
+      <img src="${qrDataUrl}" alt="QR verificacion" style="width:90px;height:90px" />
+      <p style="font-size:8px;color:#888;margin:4px 0 0">Verifique esta factura con la app AEAT / Verifactu.<br>
+      ${sale.verifactuNumSerie ? `Serie: ${esc(sale.verifactuNumSerie)}` : ''}</p>
+    </div>` : ''}
     <div class="footer">${esc(footerText) || 'Gracias por su visita'}</div>
   </body></html>`
 }

@@ -129,6 +129,11 @@ async function resolveAuth(req: NextRequest): Promise<{ auth: AuthResult | null;
     return { auth: null, requestHeaders: forwarded, unauthorized: false };
   }
 
+  // Sin identidad válida: drop del tenant declarado por el cliente.
+  // Un anónimo no puede elegir el tenant operando; las rutas públicas
+  // de escritura validan contra ALLOWED_PUBLIC_TENANTS por separado.
+  forwarded.delete('x-tenant-id');
+
   return { auth: null, requestHeaders: forwarded, unauthorized: false };
 }
 

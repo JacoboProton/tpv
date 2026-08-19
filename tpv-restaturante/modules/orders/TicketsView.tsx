@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import { Ticket, Download, Search, Printer } from 'lucide-react';
+import { Ticket, Download, Search, Printer, Mail, MessageCircle, Send, X } from 'lucide-react';
 import { buildTicketHtml, printTicketHtml } from '../../lib/ticket-template';
 import { euros } from '@/components/constants';
 import type { Theme } from '@/components/constants';
@@ -28,6 +28,8 @@ interface TicketSale {
   tip?: number;
   tipMethod?: string;
   totalWithTip?: number;
+  invoiceEmail?: string;
+  invoicePhone?: string;
 }
 
 export interface TicketsViewProps {
@@ -44,6 +46,11 @@ export default function TicketsView() {
   const [search, setSearch] = useState('');
   const [filterMethod, setFilterMethod] = useState('Todas');
   const [daysBack, setDaysBack] = useState(0);
+  const [deliverSale, setDeliverSale] = useState<TicketSale | null>(null);
+  const [deliverEmail, setDeliverEmail] = useState('');
+  const [deliverPhone, setDeliverPhone] = useState('');
+  const [delivering, setDelivering] = useState(false);
+  const [deliverMsg, setDeliverMsg] = useState('');
 
   const today = new Date().toDateString();
 
@@ -112,6 +119,38 @@ export default function TicketsView() {
       date: new Date(sale.closedAt).toLocaleString('es-ES'),
     });
     printTicketHtml(html);
+  }
+
+  function openDeliver(sale: TicketSale) {
+    setDeliverSale(sale);
+    setDeliverEmail(sale.invoiceEmail || '');
+    setDeliverPhone(sale.invoicePhone || '');
+    setDeliverMsg('');
+  }
+
+  async function deliverTicket() {
+    if (!deliverSale || delivering) return;
+    if (!deliverEmail.trim() && !deliverPhone.trim()) { setDeliverMsg('Indica un email o teléfono (con prefijo +34)'); return; }
+    setDelivering(true);
+    setDeliverMsg('');
+    try {
+      const res = await fetch('/api/tickets/deliver', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ saleId: deliverSale.id, to: { email: deliverEmail.trim(), phone: deliverPhone.trim() } }),
+      });
+      const data = await res.json();
+      const results = data.results || {};
+      const parts: string[] = [];
+      if (deliverEmail.trim()) parts.push(results.email === 'sent' ? 'email enviado' : results.email === 'no_smtp' ? 'email pendiente (SMTP no configurado)' : `email: ${results.email || 'error'}`);
+      if (deliverPhone.trim()) parts.push(results.whatsapp === 'sent' ? 'WhatsApp enviado' : results.whatsapp === 'no_twilio' ? 'WhatsApp pendiente (Twilio no configurado)' : `WhatsApp: ${results.whatsapp || 'error'}`);
+      setDeliverMsg(parts.join(' · '));
+      if (results.email === 'sent' || results.whatsapp === 'sent') setDeliverSale(null);
+    } catch {
+      setDeliverMsg('Error al enviar el ticket');
+    } finally {
+      setDelivering(false);
+    }
   }
 
   function downloadCSV() {
@@ -236,8 +275,13 @@ export default function TicketsView() {
                 </span>
                 <button onClick={() => printTicket(s)}
                   style={{ color: C.muted, background: 'transparent', border: 'none', cursor: 'pointer' }}
-                  className="hover:opacity-80 text-right">
+                  className="hover:opacity-80 mr-2" title="Imprimir">
                   <Printer className="w-3.5 h-3.5 inline" />
+                </button>
+                <button onClick={() => openDeliver(s)}
+                  style={{ color: C.brassLight, background: 'transparent', border: 'none', cursor: 'pointer' }}
+                  className="hover:opacity-80 text-right" title="Enviar por email/WhatsApp">
+                  <Send className="w-3.5 h-3.5 inline" />
                 </button>
               </div>
             );
@@ -251,6 +295,44 @@ export default function TicketsView() {
             <span className="col-span-6" style={{ color: C.muted }}>
               {filteredSales.length} tickets
             </span>
+          </div>
+        </div>
+      )}
+
+      {deliverSale && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.65)' }}
+          onClick={() => !delivering && setDeliverSale(null)}>
+          <div style={{ background: C.surface, border: `1px solid ${C.line}` }}
+            className="rounded-xl p-5 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-display text-lg" style={{ color: C.cream }}>
+                Enviar ticket #{deliverSale.ticketNumber || '-'}
+              </h3>
+              {!delivering && <button onClick={() => setDeliverSale(null)} style={{ color: C.muted }} className="hover:opacity-70">
+                <X className="w-4 h-4" />
+              </button>}
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 rounded-lg px-3 py-2" style={{ background: C.surfaceLight, border: `1px solid ${C.line}` }}>
+                <Mail className="w-4 h-4" style={{ color: C.muted }} />
+                <input type="email" value={deliverEmail} placeholder="Email del cliente"
+                  onChange={e => setDeliverEmail(e.target.value)}
+                  style={{ background: 'transparent', color: C.cream, outline: 'none' }} className="text-sm w-full" />
+              </div>
+              <div className="flex items-center gap-2 rounded-lg px-3 py-2" style={{ background: C.surfaceLight, border: `1px solid ${C.line}` }}>
+                <MessageCircle className="w-4 h-4" style={{ color: C.muted }} />
+                <input type="tel" value={deliverPhone} placeholder="WhatsApp (con prefijo, ej. +34...)"
+                  onChange={e => setDeliverPhone(e.target.value)}
+                  style={{ background: 'transparent', color: C.cream, outline: 'none' }} className="text-sm w-full" />
+              </div>
+              <button onClick={deliverTicket} disabled={delivering}
+                style={{ background: C.brass, color: C.base }}
+                className="w-full rounded-lg py-2.5 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50">
+                <Send className="w-4 h-4" />
+                {delivering ? 'Enviando…' : 'Enviar ticket digital'}
+              </button>
+              {deliverMsg && <p className="text-xs text-center" style={{ color: deliverMsg.includes('enviado') ? C.sageLight : C.wineLight }}>{deliverMsg}</p>}
+            </div>
           </div>
         </div>
       )}

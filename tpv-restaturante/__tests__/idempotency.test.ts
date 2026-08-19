@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { idempotencyKeys } from '../db/schema';
 
-const stored: any[] = [];
 const dbData = new Map<object, any[]>();
 let deleteValue = 5;
 function seed(table: object, data: any[]) { dbData.set(table, data); }
@@ -23,13 +22,36 @@ vi.mock('@/lib/drizzle', () => {
   const db: any = {
     insert: () => ({
       values: (v: any) => {
-        stored.push(v);
-        return { onConflictDoNothing: () => Promise.resolve() };
+        const rows = dbData.get(idempotencyKeys) || [];
+        const exists = rows.some(r => r.tenantId === v.tenantId && r.idempotencyKey === v.idempotencyKey);
+        if (!exists) rows.push(v);
+        dbData.set(idempotencyKeys, rows);
+        return {
+          onConflictDoNothing: () => Promise.resolve({ rowCount: exists ? 0 : 1 }),
+        };
       },
+    }),
+    update: () => ({
+      set: (v: any) => ({
+        where: () => {
+          const rows = dbData.get(idempotencyKeys) || [];
+          const idx = rows.findIndex(r => r.tenantId === 'default' && r.idempotencyKey === (v.idempotencyKey ?? rows[0]?.idempotencyKey));
+          if (idx >= 0) rows[idx] = { ...rows[idx], ...v };
+          dbData.set(idempotencyKeys, rows);
+          return Promise.resolve({ rowCount: idx >= 0 ? 1 : 0 });
+        },
+      }),
     }),
     select: () => ({ from }),
     delete: () => ({
-      where: () => Promise.resolve({ rowCount: deleteValue }),
+      where: () => {
+        if (dbData.has(idempotencyKeys)) {
+          const rows = dbData.get(idempotencyKeys)!;
+          dbData.set(idempotencyKeys, []);
+          return Promise.resolve({ rowCount: rows.length });
+        }
+        return Promise.resolve({ rowCount: deleteValue });
+      },
     }),
   };
   return { getDb: () => db };
@@ -51,7 +73,6 @@ function reqWithKey(key: string, method = 'PUT'): NextRequest {
 
 beforeEach(() => {
   dbData.clear();
-  stored.length = 0;
   deleteValue = 5;
 });
 
@@ -87,20 +108,30 @@ describe('lib/idempotency', () => {
     await expect(getStoredIdempotencyResponse(req)).resolves.toBeNull();
   });
 
+  it('returns null for in-flight (processing) rows', async () => {
+    seed(idempotencyKeys, [{
+      tenantId: 'default', idempotencyKey: 'k1',
+      responseBody: null, status: 0, expiresAt: Date.now() + 1000,
+    }]);
+    const req = reqWithKey('k1');
+    await expect(getStoredIdempotencyResponse(req)).resolves.toBeNull();
+  });
+
   it('storeIdempotencyResponse persists a row with a TTL', async () => {
     await storeIdempotencyResponse(reqWithKey('k2'), 200, { ok: true }, 'PUT', '/api/x');
-    expect(stored).toHaveLength(1);
-    expect(stored[0].idempotencyKey).toBe('k2');
-    expect(stored[0].endpoint).toBe('/api/x');
-    expect(stored[0].method).toBe('PUT');
-    expect(stored[0].status).toBe(200);
-    expect(stored[0].expiresAt).toBeGreaterThan(stored[0].createdAt);
+    const rows = dbData.get(idempotencyKeys) || [];
+    expect(rows).toHaveLength(1);
+    expect(rows[0].idempotencyKey).toBe('k2');
+    expect(rows[0].endpoint).toBe('/api/x');
+    expect(rows[0].method).toBe('PUT');
+    expect(rows[0].status).toBe(200);
+    expect(rows[0].expiresAt).toBeGreaterThan(rows[0].createdAt);
   });
 
   it('storeIdempotencyResponse no-ops without a key', async () => {
     const req = new NextRequest('http://localhost/api/x', { method: 'PUT' });
     await storeIdempotencyResponse(req, 200, { ok: true });
-    expect(stored).toHaveLength(0);
+    expect(dbData.get(idempotencyKeys) || []).toHaveLength(0);
   });
 
   it('cleanupExpiredIdempotency deletes expired rows and returns count', async () => {
@@ -116,7 +147,7 @@ describe('lib/idempotency', () => {
     expect(res.status).toBe(200);
   });
 
-  it('withIdempotency returns the stored response on replay', async () => {
+  it('withIdempotency returns the stored response on replay (claim lost)', async () => {
     seed(idempotencyKeys, [{
       tenantId: 'default', idempotencyKey: 'k9',
       responseBody: { ok: true }, status: 200, expiresAt: Date.now() + 1000,
@@ -127,7 +158,7 @@ describe('lib/idempotency', () => {
     expect(res.status).toBe(200);
   });
 
-  it('withIdempotency caches successful responses', async () => {
+  it('withIdempotency claims the key and caches successful responses', async () => {
     const handler = vi.fn();
     (handler as any).mockResolvedValueOnce(
       new Response(JSON.stringify({ done: true }), { status: 200, headers: { 'content-type': 'application/json' } }),
@@ -135,7 +166,39 @@ describe('lib/idempotency', () => {
     const req = reqWithKey('k5');
     const res = await withIdempotency(req as any, '/api/x', handler);
     expect(res.status).toBe(200);
-    expect(stored).toHaveLength(1);
+    expect(handler).toHaveBeenCalledTimes(1);
+    const rows = dbData.get(idempotencyKeys) || [];
+    expect(rows).toHaveLength(1);
+    expect(rows[0].status).toBe(200);
+    expect(rows[0].responseBody).toEqual({ done: true });
+  });
+
+  it('withIdempotency does not run the handler twice for concurrent same-key requests', async () => {
+    let calls = 0;
+    const handler = vi.fn(async () => {
+      calls += 1;
+      return new Response(JSON.stringify({ ok: true, calls }), { status: 200, headers: { 'content-type': 'application/json' } });
+    });
+
+    const first = await withIdempotency(reqWithKey('conc') as any, '/api/x', handler);
+    expect(first.status).toBe(200);
+    expect(calls).toBe(1);
+
+    const replay = await withIdempotency(reqWithKey('conc') as any, '/api/x', handler);
+    expect(replay.status).toBe(200);
+    expect(calls).toBe(1);
+    expect(await replay.clone().json()).toEqual({ ok: true, calls: 1 });
+  });
+
+  it('withIdempotency returns 425 while a request is still in flight', async () => {
+    seed(idempotencyKeys, [{
+      tenantId: 'default', idempotencyKey: 'inflight',
+      responseBody: null, status: 0, expiresAt: Date.now() + 1000,
+    }]);
+    const handler = vi.fn();
+    const res = await withIdempotency(reqWithKey('inflight') as any, '/api/x', handler);
+    expect(res.status).toBe(425);
+    expect(handler).not.toHaveBeenCalled();
   });
 
   it('withIdempotency does not cache error responses', async () => {
@@ -143,6 +206,7 @@ describe('lib/idempotency', () => {
     (handler as any).mockResolvedValueOnce(new Response('err', { status: 500 }));
     const res = await withIdempotency(reqWithKey('k6') as any, '/api/x', handler);
     expect(res.status).toBe(500);
-    expect(stored).toHaveLength(0);
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(dbData.get(idempotencyKeys) || []).toHaveLength(0);
   });
 });

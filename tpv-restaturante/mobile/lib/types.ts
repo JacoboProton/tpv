@@ -128,6 +128,8 @@ export interface Floor {
   orders: Record<string, Order>
   zones: Zone[]
   background: string | null
+  vectorClock?: Record<string, number>
+  updatedAt?: number
 }
 
 export interface Sale {

@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { getDb } from '../../../../lib/drizzle';
-import { getTenantId } from '../../../../lib/tenant';
+import { getTenantId, getPublicTenantId } from '../../../../lib/tenant';
 import { employees } from '../../../../db/schema';
 import { apiOk, apiError } from '../../../../lib/infrastructure/response';
 
@@ -11,7 +11,8 @@ import { apiOk, apiError } from '../../../../lib/infrastructure/response';
 // sensibles. El rate limit global del proxy aplica igualmente.
 export async function GET(req: NextRequest) {
   try {
-    const tenantId = getTenantId(req);
+    const tenantId = getPublicTenantId(req);
+    if (!tenantId) return apiOk([]);
     const db = getDb();
     const rows = await db.select({
       id: employees.id, name: employees.name, position: employees.position,

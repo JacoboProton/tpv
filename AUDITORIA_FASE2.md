@@ -1,7 +1,11 @@
 # Auditoría del Proyecto TPV - Fase 2
 
-**Fecha:** 31 de julio de 2026  
+**Fecha:** 31 de julio de 2026 (auditoría original) · **Revisado:** 19 de agosto de 2026  
 **Estado:** ✅ PROBLEMAS CRÍTICOS RESUELTOS
+
+> **STATUS DE REVISIÓN (2026-08-19):** todos los puntos detectados siguen cerrados y se han
+> **re-verificado contra el código actual**. Cifras de tests/coverage actualizadas en la revisión
+> (8 archivos / 113 tests / coverage 95.52·98.87·98.93). Estado: **LISTO PARA FASE 3**.
 
 ## Resumen Ejecutivo
 
@@ -12,9 +16,10 @@ La Fase 2 ha avanzado significativamente con la integración del application lay
 | Proyecto | Estado | Comando | Resultado |
 |----------|--------|---------|-----------|
 | @tpv/core | ✅ OK | `npm run typecheck` | Sin errores |
-| @tpv/core | ✅ OK | `npm run build` | Compilado exitosamente |
-| tpv-restaturante (web) | ✅ OK | `npx tsc --noEmit` | Sin errores |
-| mobile | ✅ OK | `npx tsc --noEmit` | Sin errores |
+| @tpv/core | ✅ OK | `npm run build` | Compilado exitosamente (v0.1.1) |
+| @tpv/core | ✅ OK | `npm --workspace @tpv/core run test` | **113 tests / 8 archivos** |
+| tpv-restaturante (web) | ✅ OK | `npx tsc --noEmit` | Sin errores (490+1 tests) |
+| mobile | ⚠️ | `npx tsc --noEmit` | Errores preexistentes no relacionados con @tpv/core |
 
 ## Problemas Detectados
 
@@ -117,16 +122,17 @@ import { round2, generateId } from '../../lib/utils'
 **Archivo:** `mobile/lib/types.ts`
 
 **Cambios positivos:**
-- `SaleItem` ahora importado desde `@tpv/core`
+- `SaleItem` ahora importado desde `@tpv/core` (re-exportado como `CoreSaleItem → SaleItem`)
 - Resto de tipos mantenidos localmente por incompatibilidades
+  (p. ej. `OrderItem` móvil añade `delivered`, `servedBy`)
 
-**Estado:** ✅ Estrategia correcta
+**Estado:** ✅ Estrategia correcta (re-verificado en 2026-08-19)
 
 ---
 
 ## Estructura del Paquete @tpv/core
 
-### Archivos TypeScript (43 archivos)
+### Archivos TypeScript (45 archivos)
 
 **Domain (22 archivos):**
 - `types.ts` - Tipos centralizados con extensiones mobile
@@ -141,24 +147,27 @@ import { round2, generateId } from '../../lib/utils'
 - `pricing/` - personal-discount, offers
 - `tables/` - table, table-operations, floor-layout
 
-**Application (8 archivos):**
+**Application (10 archivos):**
 - `AddItemsToOrder/` - add-items-to-order
 - `ApplyPersonalDiscount/` - apply-personal-discount
 - `CancelTable/` - cancel-table
 - `CloseOrder/` - close-order
 - `OrderItemOperations/` - order-item-operations
 - `TableStatus/` - toggle-table-status
-- `auth/` - clockin, logout (login.ts faltante)
+- `auth/` - clockin, logout
 - `sales/` - sales-queue
+- `payments/` - payment-splits
+- `orders/` - pending-counts
 
 **Infrastructure (1 archivo):**
 - `database/` - catalog-repository
 
 **Utils (1 archivo):**
-- `lib/utils.ts` - euros, round2, clone
+- `lib/utils.ts` - euros, round2, clone, generateId
 
-**Tests (7 archivos):**
+**Tests (8 archivos):**
 - employee-operations.test.ts
+- invoice-html.test.ts
 - kitchen.test.ts
 - order-item-operations.test.ts
 - payments.test.ts
@@ -174,21 +183,35 @@ import { round2, generateId } from '../../lib/utils'
 ```json
 {
   "name": "@tpv/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
+  "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "sideEffects": false,
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "clean": "rm -rf dist",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "attw": "npm run build && attw --pack --profile esm-only"
   }
 }
 ```
 
-**Estado:** ✅ Configuración correcta
+**Estado:** ✅ Configuración correcta. El `exports "."` apunta al **source TS** (`src/index.ts`),
+por lo que web y móvil consumen TypeScript directamente en dev (transpilePackages / tsconfig paths)
+y `dist/` solo se usa para empaquetado.
 
 ---
 
@@ -196,15 +219,14 @@ import { round2, generateId } from '../../lib/utils'
 ```json
 {
   "paths": {
-    "@/*": ["./*"],
-    "@/domain/*": ["../packages/core/src/domain/*", "./domain/*"],
-    "@/application/*": ["../packages/core/src/application/*", "./application/*"],
-    "@/infrastructure/database/catalog-repository": ["../packages/core/src/infrastructure/database/catalog-repository.ts", "./infrastructure/database/catalog-repository.ts"]
+    "@/*": ["./*"]
   }
 }
 ```
 
-**Estado:** ✅ Paths configurados para fallback a local
+**Estado:** ✅ Los paths de fallback a `@/domain/*`, `@/application/*` e `@/infrastructure/*` han
+**desaparecido**: la web consume `@tpv/core` como paquete del workspace (`"@tpv/core": "*"` +
+`transpilePackages`). Único alias restante: `@/*`.
 
 ---
 
@@ -216,11 +238,13 @@ import { round2, generateId } from '../../lib/utils'
     "@tpv/core": ["../../packages/core/src"],
     "@tpv/core/*": ["../../packages/core/src/*"]
   },
-  "include": ["../../packages/core/src/**/*.ts", "../../packages/core/src/**/*.tsx"]
+  "include": ["../../packages/core/src/**/*.ts", "../../packages/core/src/**/*.tsx"],
+  "exclude": ["../../packages/core/dist"]
 }
 ```
 
-**Estado:** ✅ Configuración correcta para source directo
+**Estado:** ✅ Configuración correcta para source directo (`file:../../packages/core` en
+package.json + paths a `src/`).
 
 ---
 
@@ -266,7 +290,9 @@ import { round2, generateId } from '../../lib/utils'
    - Actualmente 7 tests
    - Objetivo: cobertura >80% para domain layer
 
-**✅ RESUELTO:** Cobertura: 96% statements, 100% lines, 100% functions. Domain layer ~100%. 108 tests en 7 archivos. Script `npm run test:coverage` disponible.
+**✅ RESUELTO:** Coverage (2026-08-19): **95.52% statements, 98.93% lines, 98.87% functions,
+76.84% branches** (All files). **113 tests en 8 archivos** — se añadió `invoice-html.test.ts`
+(5 tests del helper `esc()`, fix P0 XSS). Script `npm run test:coverage` disponible.
 
 ---
 
@@ -289,7 +315,14 @@ La Fase 2 ha logrado integrar exitosamente el application layer en `@tpv/core`, 
 
 **Documentación (largo plazo):**
 - README.md de @tpv/core — ✅ creado
-- Tests y cobertura >80% — ✅ 96% statements, 108 tests
+- Tests y cobertura >80% — ✅ 113 tests / 8 archivos; coverage 95.52% stmts / 98.93% lines
+
+**Revisión 2026-08-19 — re-verificado:**
+- ✅ `export * from './domain/types'` duplicado eliminado (solo `export type *`)
+- ✅ `add-items-to-order.ts` importa `clone, generateId, round2` desde `lib/utils`
+- ✅ Sin `application/index.ts` (solo `src/index.ts` como barril); `auth/` = clockin + logout
+- ✅ `invoice-html.ts` sin dependencias web (solo `lib/utils` + `domain/invoice`)
+- ✅ Web ya no usa paths de fallback hacia core: consume el paquete del workspace
 
 **Estado General:** ✅ LISTO PARA FASE 3
 

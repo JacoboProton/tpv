@@ -1,7 +1,8 @@
 # Auditoría Competente — La Comanda TPV Restaurante
 
 **Fecha:** 11 de agosto de 2026
-**Versión del proyecto:** V.39 (commit `bc20d0f`), rama `main`
+**Última revisión de estado:** 19 de agosto de 2026
+**Versión del proyecto en la auditoría:** V.39 (commit `bc20d0f`), rama `main`. Estado re-verificado en V.41+ (commit `6345dda`).
 **Método:** Revisión estática línea a línea + ejecución de tests/lint/typecheck/npm audit. Sin modificación de código.
 
 ---
@@ -147,7 +148,7 @@ La prioridad absoluta es cerrar S-1 — S-4 (seguridad) antes de cualquier otra 
 
 ## Estado de remediación
 
-Actualizado tras la implementación de los P0 de seguridad. Suite hoy: **490 tests pasan / 1 skip**, `tsc --noEmit` limpio, ESLint 0 errores.
+Actualizado tras la implementación de los P0 de seguridad, y **re-verificado el 19-08-2026** contra el código actual (V.41+, commit `6345dda`). Suite hoy: **490 tests pasan / 1 skip** en web (45 archivos) + **113 tests** en `@tpv/core`, `tsc --noEmit` limpio, ESLint 0 errores.
 
 ### P0
 
@@ -156,22 +157,33 @@ Actualizado tras la implementación de los P0 de seguridad. Suite hoy: **490 tes
   2. `POST /api/session` (action `login`) **exige** el ticket, deriva `tenantId` del ticket (nunca del header) y el **rol de la BD** (`employees`), ignorando `employeeRole` del body — `app/api/session/route.ts`. Un `curl` sin ticket devuelve 401.
   - App web y móvil actualizadas (`application/auth/login.ts`, `lib/session.ts`, `mobile/lib/session.ts`, `mobile/app/index.tsx`).
   - Tests de regresión reescritos: `__tests__/integration/session.test.ts` (15 casos, incluye "rol derivado de BD ignorando el body").
-- **S-2 — ABIERTO (pendiente de decisión).** `x-tenant-id` sigue tomándose de la cabecera sin verificar. Requiere atar el tenant al JWT verificado / al host en rutas públicas y usar `validateTenantOwnership()`.
-- **S-3 — CERRADO (parcial).** `GET /api/settings` continúa sin `requireRole` pero redacta toda clave sensible (`SECRET_KEY_RE`: sid/token/secret/password/credential/api-key/auth) salvo para admin real — `app/api/settings/route.ts`. Pendiente: mover secretos de Twilio a env.
+- **S-2 — ABIERTO (pendiente de decisión).** `x-tenant-id` sigue tomándose de la cabecera sin verificar (`lib/tenant.ts:10-15`). Requiere atar el tenant al JWT verificado / al host en rutas públicas y usar `validateTenantOwnership()` (definida en `lib/rbac.ts`, **0 usos** fuera de ella).
+- **S-3 — CERRADO (reforzado).** `GET /api/settings` ahora **también exige rol admin** (`app/api/settings/route.ts:20` `requireRole(['admin'])`), redacta claves sensibles (`SECRET_KEY_RE`: sid/token/secret/password/credential/api-key/auth) salvo para admin real, y añade rate-limit 60/min por IP. Pendiente menor: mover secretos de Twilio/WhatsApp a env en lugar de a la tabla `settings`.
 - **S-4 — CERRADO.** Eliminado `_debug.allCodes` (ya no se filtran códigos de ningún tenant), rate-limit `kds-verify:<ip>` 20/min, y `generateCode()`/`makeId()` usan `randomBytes` (crypto) — `app/api/kds/route.ts`.
 
 ### Mitigaciones parciales
 
-- **A-1 — CERRADO.** Eliminado el secreto JWT hardcodeado: `secretBytes()` lanza error en producción si falta `JWT_SECRET` (`lib/auth/jwt.ts:35`); el fallback literal `'fallback_secret_key'` de `/api/realtime/token` también se eliminó (exige `SUPABASE_JWT_SECRET` o `JWT_SECRET`). Combinado con `validateEnv()` en el proxy, no hay forma de firmar con un secreto conocido.
-- **A-2 — CERRADO.** El proxy ahora responde **401** cuando el cliente presenta un Bearer inválido/expirado o un `deviceId` en conflicto con el JWT, en lugar de reenviar sin identidad (`proxy.ts`). Las cookies obsoletas se dejan pasar para que la ruta las invalide con gracia (keepalive → logout). Identidad de cabecera forjada sigue siendo eliminada (`stripIdentity`).
+- **A-1 — CERRADO.** Eliminado el secreto JWT hardcodeado: `secretBytes()` lanza error en producción si falta `JWT_SECRET` (`lib/auth/jwt.ts:34-41`); el fallback literal `'dev-insecure-secret-change-me'` solo queda para `NODE_ENV !== production`. El fallback `'fallback_secret_key'` de `/api/realtime/token` también se eliminó (exige `SUPABASE_JWT_SECRET` o `JWT_SECRET`). Combinado con `validateEnv()` en el proxy, no hay forma de firmar con un secreto conocido en producción.
+- **A-2 — CERRADO.** El proxy ahora responde **401** cuando el cliente presenta un Bearer inválido/expirado o un `deviceId` en conflicto con el JWT, en lugar de reenviar sin identidad (`proxy.ts:85-119`). Las cookies obsoletas se dejan pasar para que la ruta las invalide con gracia (keepalive → logout). Identidad de cabecera forjada sigue siendo eliminada (`stripIdentity`).
 
-### Pendientes clave (no iniciados)
+### Re-verificado el 19-08-2026 — sin cambios
 
-- **S-2** (aislamiento de tenant), **O-1/O-2/O-3**, **D-1**, **A-3/A-4/A-5/A-6/A-7**, **R-1** — sin cambios desde la auditoría.
-- `GET /api/employees` sigue devolviendo la lista mínima (`id`, `name`, `role`, `hasPin`) a portadores de API key (necesario para el selector de PIN); ahora con rate-limit 30/min por IP (`app/api/employees/route.ts`) para frenar la enumeración. Endurecimiento total requiere la decisión de S-2/A-3.
+- **O-1 — ABIERTO.** `application/sales/sales-queue.ts` (core) sigue descartando la venta con `queue.shift()` tras dos fallos; no persiste en `tpv:mutations` (useAppInit no encola).
+- **O-2 — ABIERTO.** El móvil sigue enviando PATCH **sin `vectorClock`** (0 match en `mobile/lib/api.ts`); `app/api/floor/route.ts:83` responde 409 → los cambios del móvil se pierden tras guardar desde POS. `infrastructure/database/floor-repository.ts:15-22` sigue tragando excepciones (dead code del catch).
+- **O-3 — ABIERTO (parcial).** La ruta usa `withIdempotency(req, '/api/sales/refund', ...)` (`app/api/sales/refund/route.ts:26`) pero la clave del cliente sigue siendo `refund:${saleId}:${amount}:${timestamp || Date.now()}` (`application/subscribers/payment-subscribers.ts:29`) — el `timestamp` hace cada petición no-idempotente; y `lib/idempotency.ts` sigue SELECT → INSERT sin lock (TOCTOU). Doble clic sigue pudiendo duplicar reembolso.
+- **R-1 — ABIERTO.** `/api/realtime/token` sigue sin validar claims contra el canal; `c.channel('floor-sync:${tid}')` con clave anónima (`lib/realtime.ts:82`) — un atacante con la clave pública puede emitir `floor:updated` y reemplazar el piso de cualquier tenant.
+- **D-1 — ABIERTO.** `lib/backup.ts:39-45` sigue con `SELECT *` sin filtro de tenant → dump global de todos los restaurantes.
+- **D-2 — ABIERTO.** `sales` con `id` PK simple (no compuesto con tenant) (`db/schema.ts:67-68`); `productStock` PK `(product_id, location)` sin tenant (`db/schema.ts:1348-1351`).
+- **D-3 — ABIERTO.** El móvil sigue sin `x-idempotency-key` en `POST /api/sales` (0 match); reintento quema `ticketCounters`.
+- **A-3 — ABIERTO.** `NEXT_PUBLIC_TPV_API_KEY` sigue compilándose en el bundle (usada en `lib/api.ts`); `.env` local contiene la real (`tpv_pos_...`, no versionado). Tradeoff del offline no mitigado (rotación/scoping).
+- **A-4 — ABIERTO.** `lib/rate-limit.ts:95-101` sigue confiando en `x-forwarded-for`/`x-real-ip` desde un servidor HTTP directo — spoofeable.
+- **A-5 — ABIERTO.** Lockout sigue guardado en `AsyncStorage` móvil (`mobile/hooks/usePinLockout.ts:34-54`) — burlable borrando la clave.
+- **A-6 — ABIERTO.** `app/api/clockin/route.ts:152-162` edita `clockin_logs` por `id` solo (sin `tenantId` en el `where`). IDORs cross-tenant sin cerrar.
+- **A-7 — ABIERTO.** `app/api/upload/route.ts:16-17` valida extensión (incluye `svg`) pero no magic-bytes → SVG con `<script>` same-origin.
 
 ### Notas de implementación
 
 - `employeeRole` del body se sigue enviando por compatibilidad de contrato pero el servidor lo ignora.
 - La biometría móvil ya no abre sesión sin PIN: restaura el token persistido solo si el empleado coincide y el keepalive no lo invalida.
-- Los cambios no requieren migración de BD.
+- Los cambios de los P0 no requirieron migración de BD.
+- **Fix P0 de XSS posterior a la auditoría**: helper `esc()` en `@tpv/core` (`invoice-html.ts`) y `lib/ticket-template.ts` (5 tests en core). La auditoría original no lo detectó (solo delegaba en el escape de React); la superficie reportada de tickets generados desde input de usuario estaba viva en core.
