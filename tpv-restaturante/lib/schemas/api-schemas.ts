@@ -36,19 +36,52 @@ export const AddStockBody = z.object({
 
 // ─── albaranes ───
 
+export const AlbaranLineBody = z.object({
+  productId: z.string().optional(),
+  productName: z.string().optional(),
+  quantity: z.union([z.number(), z.string()]).optional(),
+  packSize: z.union([z.number(), z.string()]).optional(),
+  pricePerPack: z.union([z.number(), z.string()]).optional(),
+  pricePerUnit: z.union([z.number(), z.string()]).optional(),
+  supplierSku: z.string().optional(),
+  ivaPct: z.union([z.number(), z.string()]).optional(),
+  lineDiscountPct: z.union([z.number(), z.string()]).optional(),
+  lineDiscountAmount: z.union([z.number(), z.string()]).optional(),
+  subtotal: z.union([z.number(), z.string()]).optional(),
+  ivaAmount: z.union([z.number(), z.string()]).optional(),
+  totalLine: z.union([z.number(), z.string()]).optional(),
+  batchNumber: z.string().optional(),
+  expiryDate: z.string().optional(),
+  location: z.string().optional(),
+}).passthrough()
+
+export const AlbaranBatchBody = z.object({
+  productId: z.string().optional(),
+  location: z.string().optional(),
+  expiryDate: z.string().optional(),
+  batchNumber: z.string().optional(),
+}).passthrough()
+
 export const AlbaranBody = z.object({
+  action: z.string().optional(),
   id: z.string().optional(),
-  supplierId: z.string().min(1),
-  supplierName: z.string().min(1),
+  supplierId: z.string().optional(),
+  supplierName: z.string().optional(),
   number: z.string().optional(),
+  albaranNumber: z.string().optional(),
   date: z.string().optional(),
+  deliveryDate: z.string().optional(),
+  invoiceNumber: z.string().optional(),
   notes: z.string().optional(),
-  lines: z.array(z.object({
-    productId: z.string().min(1),
-    productName: z.string().min(1),
-    quantity: z.number().positive(),
-    pricePerUnit: z.number().nonnegative(),
-}).passthrough()).optional(),
+  receivedBy: z.string().optional(),
+  headerDiscountPct: z.union([z.number(), z.string()]).optional(),
+  recargoEquivalenciaPct: z.union([z.number(), z.string()]).optional(),
+  portesAmount: z.union([z.number(), z.string()]).optional(),
+  linkedPurchaseOrderId: z.string().optional(),
+  anuladoBy: z.string().optional(),
+  reason: z.string().optional(),
+  lines: z.array(AlbaranLineBody).optional(),
+  batches: z.array(AlbaranBatchBody).optional(),
 }).passthrough()
 
 // ─── auto-order-settings ───
@@ -221,10 +254,49 @@ export const FloorPatchBody = z.object({
 
 // ─── gestoria ───
 
+export const GestoriaDocumentLineBody = z.object({
+  id: z.string().optional(),
+  description: z.string(),
+  category: z.string().optional(),
+  baseAmount: z.union([z.number(), z.string()]),
+  vatRate: z.union([z.number(), z.string()]),
+  vatAmount: z.union([z.number(), z.string()]),
+  withholding: z.union([z.number(), z.string()]).optional(),
+  zone: z.string().optional(),
+  type: z.string().optional(),
+}).passthrough()
+
+export const GestoriaDocumentBody = z.object({
+  id: z.string().optional(),
+  type: z.string().min(1),
+  fileName: z.string().optional(),
+  providerName: z.string().optional(),
+  providerNif: z.string().optional(),
+  documentDate: z.string().optional(),
+  confirmed: z.boolean().optional(),
+  isPeriodic: z.boolean().optional(),
+  notes: z.string().optional(),
+  lines: z.array(GestoriaDocumentLineBody).optional(),
+}).passthrough()
+
+export const GestoriaPayrollBody = z.object({
+  id: z.string().optional(),
+  employeeName: z.string(),
+  employeeNif: z.string(),
+  month: z.number().int(),
+  year: z.number().int(),
+  grossAmount: z.union([z.number(), z.string()]),
+  irpfWithholding: z.union([z.number(), z.string()]),
+  ssWorker: z.union([z.number(), z.string()]),
+  ssCompany: z.union([z.number(), z.string()]),
+  netAmount: z.union([z.number(), z.string()]),
+  notes: z.string().optional(),
+}).passthrough()
+
 export const GestoriaBody = z.object({
   action: z.string().min(1),
-  document: z.any().optional(),
-  payroll: z.any().optional(),
+  document: GestoriaDocumentBody.optional(),
+  payroll: GestoriaPayrollBody.optional(),
   settings: z.record(z.string(), z.string()).optional(),
   id: z.string().optional(),
   year: z.number().optional(),
@@ -235,9 +307,34 @@ export const GestoriaBody = z.object({
 
 // ─── invoice/pdf ───
 
+export const InvoicePdfItemBody = z.object({
+  voided: z.boolean().optional(),
+  name: z.string().optional(),
+  qty: z.union([z.number(), z.string()]).optional(),
+  price: z.union([z.number(), z.string()]).optional(),
+}).passthrough()
+
+export const InvoiceSaleBody = z.object({
+  id: z.string().optional(),
+  tableName: z.union([z.string(), z.null()]).optional(),
+  employeeName: z.union([z.string(), z.null()]).optional(),
+  items: z.array(InvoicePdfItemBody).optional(),
+  total: z.union([z.number(), z.string()]).optional(),
+  tip: z.union([z.number(), z.string()]).optional(),
+  discount: z.union([z.number(), z.string()]).optional(),
+  invoiceNumber: z.union([z.string(), z.null()]).optional(),
+  invoiceName: z.union([z.string(), z.null()]).optional(),
+  invoiceNif: z.union([z.string(), z.null()]).optional(),
+  invoiceAddress: z.union([z.string(), z.null()]).optional(),
+  invoiceEmail: z.union([z.string(), z.null()]).optional(),
+  closedAt: z.union([z.number(), z.string()]).optional(),
+  paymentMethod: z.union([z.string(), z.null()]).optional(),
+  totalWithTip: z.union([z.number(), z.string()]).optional(),
+}).passthrough()
+
 export const InvoicePdfBody = z.object({
   saleId: z.string().optional(),
-  sale: z.any().optional(),
+  sale: InvoiceSaleBody.optional(),
 }).passthrough()
 
 // ─── invoice/send ───
@@ -277,6 +374,27 @@ export const KdsAuditBody = z.object({
 
 // ─── meal-menus ───
 
+export const MealMenuCourseItemBody = z.object({
+  id: z.string(),
+  courseId: z.string().optional(),
+  product_id: z.string(),
+  sortOrder: z.number().optional(),
+  surcharge: z.number().nullable().optional(),
+}).passthrough()
+
+export const MealMenuCourseBody = z.object({
+  id: z.string(),
+  name: z.string(),
+  items: z.array(MealMenuCourseItemBody).optional(),
+}).passthrough()
+
+export const MealMenuScheduleBody = z.object({
+  id: z.string(),
+  day_of_week: z.number(),
+  start_time: z.string(),
+  end_time: z.string(),
+}).passthrough()
+
 export const MealMenuBody = z.array(z.object({
   id: z.string(),
   name: z.string(),
@@ -287,8 +405,9 @@ export const MealMenuBody = z.array(z.object({
   includesBebida: z.boolean().optional(),
   includesCafe: z.boolean().optional(),
   active: z.boolean().optional(),
-  extras: z.array(z.any()).optional(),
-  courses: z.array(z.any()).optional(),
+  extras: z.array(z.unknown()).optional(),
+  courses: z.array(MealMenuCourseBody).optional(),
+  schedules: z.array(MealMenuScheduleBody).optional(),
 }).passthrough())
 
 // ─── migrate ───
@@ -302,13 +421,23 @@ export const MigrateBody = z.object({
 
 // ─── modifiers ───
 
+export const ModifierOptionBody = z.object({
+  id: z.string().optional(),
+  name: z.string(),
+  priceDelta: z.union([z.number(), z.string()]).optional(),
+  isDefault: z.boolean().optional(),
+  stockDeduct: z.boolean().optional(),
+  stockArticleId: z.string().optional(),
+  stockQuantity: z.union([z.number(), z.string()]).optional(),
+}).passthrough()
+
 export const ModifiersBody = z.object({
   groups: z.array(z.object({
     id: z.string(),
     name: z.string(),
     type: z.string().optional(),
     required: z.boolean().optional(),
-    options: z.array(z.any()).optional(),
+    options: z.array(ModifierOptionBody).optional(),
   })),
   productModifiers: z.record(z.string(), z.array(z.string())).optional(),
 }).passthrough()
@@ -370,13 +499,24 @@ export const ProductionBody = z.object({
 
 // ─── purchase-orders ───
 
+export const PurchaseOrderLineBody = z.object({
+  id: z.string().optional(),
+  lineId: z.string().optional(),
+  productId: z.string().optional(),
+  productName: z.string().optional(),
+  quantity: z.union([z.number(), z.string()]).optional(),
+  pricePerUnit: z.union([z.number(), z.string()]).optional(),
+  supplierSku: z.string().optional(),
+  receivedQty: z.union([z.number(), z.string()]).optional(),
+}).passthrough()
+
 export const PurchaseOrderBody = z.object({
   action: z.enum(['create', 'update-status', 'update-lines']),
   supplierId: z.string().optional(),
   supplierName: z.string().optional(),
   expectedDate: z.string().optional(),
   notes: z.string().optional(),
-  lines: z.array(z.any()).optional(),
+  lines: z.array(PurchaseOrderLineBody).optional(),
   createdBy: z.string().optional(),
   id: z.string().optional(),
   status: z.string().optional(),
@@ -400,7 +540,7 @@ export const QrOrderPostBody = z.object({
   action: z.string().optional(),
   orderId: z.string().optional(),
   tableId: z.string().optional(),
-  items: z.array(z.any()).optional(),
+  items: z.array(z.unknown()).optional(),
   amount: z.number().optional(),
   customerName: z.string().optional(),
   customerPhone: z.string().optional(),
@@ -417,12 +557,20 @@ export const QrOrderPostBody = z.object({
 
 // ─── recipes ───
 
+export const RecipeIngredientBody = z.object({
+  ingredientId: z.string().optional(),
+  ingredientName: z.string().optional(),
+  quantity: z.union([z.number(), z.string()]).optional(),
+  costPerUnit: z.union([z.number(), z.string()]).optional(),
+  unit: z.string().optional(),
+}).passthrough()
+
 export const RecipeBody = z.object({
   action: z.string().min(1),
   productId: z.string().optional(),
   productName: z.string().optional(),
   yieldQty: z.number().optional(),
-  ingredients: z.array(z.any()).optional(),
+  ingredients: z.array(RecipeIngredientBody).optional(),
 }).passthrough()
 
 // ─── reservations ───
@@ -494,7 +642,8 @@ export const RefundBody = z.object({
     amount: z.number().positive(),
     reason: z.string(),
     employeeName: z.string().optional(),
-}).passthrough(),
+    tableId: z.string().optional(),
+  }).passthrough(),
 })
 
 // ─── session ───
@@ -771,5 +920,5 @@ export const UploadBody = z.object({
   bucket: z.string().min(1),
   fileName: z.string().min(1),
   fileType: z.string().min(1),
-  fileSize: z.number().positive(),
+fileSize: z.number().positive(),
 }).passthrough()

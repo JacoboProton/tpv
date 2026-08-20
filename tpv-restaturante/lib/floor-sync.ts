@@ -60,6 +60,18 @@ export function decideFloorConflict(
   return { accepted: false, stored, mergedClock: stored.vectorClock, storedUpdatedAt: stored.updatedAt };
 }
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+function isVectorClock(v: unknown): v is VectorClock {
+  if (!isRecord(v)) return false
+  for (const key of Object.keys(v)) {
+    if (typeof v[key] !== 'number') return false
+  }
+  return true
+}
+
 export async function getFloorSync(tenantId: string): Promise<FloorSyncState | null> {
   try {
     const db = getDb();
@@ -69,7 +81,7 @@ export async function getFloorSync(tenantId: string): Promise<FloorSyncState | n
     if (!row) return null;
     return {
       tenantId: row.tenantId,
-      vectorClock: (row.vectorClock ?? {}) as VectorClock,
+      vectorClock: isVectorClock(row.vectorClock) ? row.vectorClock : {},
       updatedAt: row.updatedAt ?? 0,
     };
   } catch {

@@ -8,19 +8,85 @@ import { apiOk, apiError, apiUnauthorized } from '../../../../lib/infrastructure
 // SIN requireRole — webhook de Uber Eats invocado por Uber directamente.
 // GET: verificación del webhook (devuelve challenge). POST: se autentica
 // vía firma HMAC (x-uber-signature) contra UBER_WEBHOOK_SECRET.
+
+interface UberItemPayload {
+  id?: string;
+  product_id?: string;
+  title?: string;
+  name?: string;
+  price_value?: string | number;
+  price?: string | number;
+  quantity?: number;
+  special_instructions?: string;
+  notes?: string;
+  modifiers?: unknown[];
+}
+
+interface UberPayload {
+  event?: string;
+  order_id?: string;
+  id?: string;
+  data?: UberData;
+  items?: unknown;
+  products?: unknown;
+  customer?: UberCustomer;
+  diner?: UberCustomer;
+  delivery?: UberDelivery;
+  delivery_address?: UberDelivery;
+  total?: { value?: string | number } | string | number;
+  delivery_fee?: { value?: string | number } | string | number;
+  notes?: string;
+  special_instructions?: string;
+  latitude?: string | number | null;
+  longitude?: string | number | null;
+}
+
+interface UberData extends UberPayload {
+  items?: unknown;
+  products?: unknown;
+}
+
+interface UberCustomer {
+  name?: string;
+  diner_name?: string;
+  phone?: string;
+  phone_number?: string;
+}
+
+interface UberDelivery {
+  address_line?: string;
+  address?: string | { address_line?: string; line1?: string };
+  location?: { latitude?: string | number; longitude?: string | number };
+}
+
+function money(value: { value?: string | number } | string | number | undefined): string | number {
+  if (value && typeof value === 'object') return value.value ?? 0;
+  return value ?? 0;
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
 function normalizeUberProducts(items: unknown) {
-  if (!items || !Array.isArray(items)) return [];
-  return items.map((p, i) => ({
-    id: 'ue_' + Date.now() + '_' + i + Math.random().toString(36).slice(2, 6),
-    productId: p.id || p.product_id || '',
-    name: p.title || p.name || 'Producto',
-    price: parseFloat(p.price_value || p.price || 0),
-    qty: p.quantity || 1,
-    notes: p.special_instructions || p.notes || '',
-    modifiers: p.modifiers || [],
-    sent: false, sentAt: 0, ready: false, served: false,
-    source: 'ubereats',
-  }));
+  const list: unknown[] = Array.isArray(items) ? items : [];
+  return list.flatMap((p, i) => {
+    if (!isRecord(p)) return [];
+    const id = typeof p.id === 'string' ? p.id : (typeof p.product_id === 'string' ? p.product_id : '');
+    const name = typeof p.title === 'string' ? p.title : (typeof p.name === 'string' ? p.name : 'Producto');
+    const priceRaw = p.price_value ?? p.price ?? 0;
+    const price = parseFloat(typeof priceRaw === 'string' || typeof priceRaw === 'number' ? String(priceRaw) : '0');
+    const qty = typeof p.quantity === 'number' ? p.quantity : 1;
+    const notesRaw = p.special_instructions ?? p.notes ?? '';
+    const notes = typeof notesRaw === 'string' ? notesRaw : '';
+    const modifiers: unknown = p.modifiers ?? [];
+    return [{
+      id: 'ue_' + Date.now() + '_' + i + Math.random().toString(36).slice(2, 6),
+      productId: id, name, price, qty, notes, modifiers,
+      sent: false, sentAt: 0, ready: false, served: false,
+      source: 'ubereats',
+    }];
+  });
 }
 
 export async function GET(req: NextRequest) {
@@ -41,7 +107,7 @@ export async function POST(req: NextRequest) {
       return apiUnauthorized('Firma inválida');
     }
 
-    const body = JSON.parse(rawBody);
+    const body = JSON.parse(rawBody) as UberPayload;
     console.log('[UberEats webhook] Event:', body.event);
 
     const event = body.event || '';
@@ -55,9 +121,9 @@ export async function POST(req: NextRequest) {
     const customer = data.customer || data.diner || {};
     const delivery = data.delivery || data.delivery_address || {};
     const items = normalizeUberProducts(data.items || data.products || []);
-    const total = parseFloat(data.total?.value || data.total || 0);
-    const deliveryFee = parseFloat(data.delivery_fee?.value || data.delivery_fee || 0);
-    const address = delivery.address?.address_line || delivery.address_line || delivery.address || '';
+    const total = parseFloat(String(money(data.total)));
+    const deliveryFee = parseFloat(String(money(data.delivery_fee)));
+    const address = (typeof delivery.address === 'string' ? delivery.address : delivery.address?.address_line) || delivery.address_line || '';
     const lat = delivery.location?.latitude || data.latitude || null;
     const lng = delivery.location?.longitude || data.longitude || null;
 
@@ -82,7 +148,7 @@ export async function POST(req: NextRequest) {
 
     return apiOk({ id: delId });
   } catch (err) {
-    console.error('[UberEats webhook] Error:', (err as Error).message);
+    console.error('[UberEats webhook] Error:', err instanceof Error ? err.message : String(err));
     return apiError(err);
   }
 }

@@ -1,6 +1,8 @@
+import { Redis } from '@upstash/redis';
+
 interface RedisClient {
   incr: (k: string) => Promise<number>;
-  expire: (k: string, s: number) => Promise<void>;
+  expire: (k: string, s: number) => Promise<number>;
   ttl: (k: string) => Promise<number>;
 }
 
@@ -11,24 +13,22 @@ const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
 const redisDirectUrl = process.env.REDIS_URL;
 if (redisUrl && redisToken) {
   try {
-    const { Redis } = require('@upstash/redis');
     const r = new Redis({ url: redisUrl, token: redisToken });
     redis = {
-      incr: (k) => r.incr(k) as Promise<number>,
-      expire: (k, s) => r.expire(k, s) as Promise<void>,
-      ttl: (k) => r.ttl(k) as Promise<number>,
+      incr: (k) => r.incr(k),
+      expire: (k, s) => r.expire(k, s),
+      ttl: (k) => r.ttl(k),
     };
   } catch {
     redis = null;
   }
 } else if (redisDirectUrl) {
   try {
-    const { Redis } = require('@upstash/redis');
-    const r = new Redis(redisDirectUrl);
+    const r = new Redis({ url: redisDirectUrl, token: redisToken || undefined });
     redis = {
-      incr: (k) => r.incr(k) as Promise<number>,
-      expire: (k, s) => r.expire(k, s) as Promise<void>,
-      ttl: (k) => r.ttl(k) as Promise<number>,
+      incr: (k) => r.incr(k),
+      expire: (k, s) => r.expire(k, s),
+      ttl: (k) => r.ttl(k),
     };
   } catch {
     redis = null;

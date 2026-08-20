@@ -9,6 +9,30 @@ import { QrOrderPostBody } from '@/lib/schemas/api-schemas';
 
 function makeId(prefix = 'qo') { return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function optStr(v: unknown): string | undefined {
+  return typeof v === 'string' ? v : undefined;
+}
+
+function optNum(v: unknown): number | undefined {
+  return typeof v === 'number' ? v : undefined;
+}
+
+function toOrderItems(v: Array<unknown>): Array<{
+  productId?: string; name?: string; price?: string | number;
+  qty?: number; notes?: string; modifiers?: unknown; course?: string;
+}> {
+  return v.flatMap((it) => isRecord(it) ? [{
+    productId: optStr(it.productId), name: optStr(it.name),
+    price: typeof it.price === 'number' || typeof it.price === 'string' ? it.price : undefined,
+    qty: optNum(it.qty), notes: optStr(it.notes), modifiers: it.modifiers,
+    course: optStr(it.course),
+  }] : []);
+}
+
 // SIN requireRole — endpoint público para que clientes creen pedidos
 // desde el menú QR. No requiere sesión TPV. Se autentica por tenantId
 // (header x-tenant-id) y se filtra por mesa activa.
@@ -48,10 +72,7 @@ export async function POST(req: NextRequest) {
     const orderId = makeId('qo');
     const now = Date.now();
 
-    const orderItems = (items as Array<{
-      productId?: string; name?: string; price?: string | number;
-      qty?: number; notes?: string; modifiers?: unknown; course?: string;
-    }>).map((it, i) => ({
+    const orderItems = toOrderItems(items).map((it, i) => ({
       id: 'i_' + now + '_' + i + Math.random().toString(36).slice(2, 6),
       productId: it.productId, name: it.name, price: it.price,
       qty: it.qty || 1, notes: it.notes || '', modifiers: it.modifiers || [],
@@ -69,8 +90,8 @@ export async function POST(req: NextRequest) {
       });
       const [table] = await db.select({ orderIds: tables.orderIds }).from(tables)
         .where(and(eq(tables.id, tableId), eq(tables.tenantId, tenantId))).limit(1);
-      const existingIds = Array.isArray(table?.orderIds) ? table.orderIds : [];
-      const newIds = [...existingIds.filter((x): x is string => !!x), tpvOrderId];
+      const existingIds: unknown[] = Array.isArray(table?.orderIds) ? table.orderIds : [];
+      const newIds = [...existingIds.filter((x): x is string => typeof x === 'string'), tpvOrderId];
       await db.update(tables).set({
         status: 'ocupada', orderId: tpvOrderId, orderIds: newIds,
       }).where(and(eq(tables.id, tableId), eq(tables.tenantId, tenantId)));

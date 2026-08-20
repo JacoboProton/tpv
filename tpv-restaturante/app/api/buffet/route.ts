@@ -18,6 +18,20 @@ function num(v: unknown, fallback = 0): number {
   return Number(v) || fallback;
 }
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function toItems(v: unknown): Array<Record<string, unknown>> {
+  const list: unknown[] = Array.isArray(v) ? v : [];
+  return list.flatMap((i) => isRecord(i) ? [i] : []);
+}
+
+function toStringArray(v: unknown): Array<string> {
+  const list: unknown[] = Array.isArray(v) ? v : [];
+  return list.flatMap((s) => typeof s === 'string' ? [s] : []);
+}
+
 export async function GET(req: NextRequest) {
   try {
     const tenantId = getTenantId(req);
@@ -49,7 +63,7 @@ export async function GET(req: NextRequest) {
     const [config] = await qr(sql`SELECT * FROM buffet_config WHERE id = 'default' AND tenant_id = ${tenantId}`);
     return Response.json({ sessions, config: config || null });
   } catch (e) {
-    return Response.json({ error: (e as Error).message }, { status: 500 });
+    return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 });
   }
 }
 
@@ -119,7 +133,7 @@ export async function POST(req: NextRequest) {
       if (session.order_id) {
         const [existingOrder] = await qr(sql`SELECT * FROM orders WHERE id = ${session.order_id} AND tenant_id = ${tenantId}`);
         if (existingOrder) {
-          const existingItems = (existingOrder.items as Array<Record<string, unknown>>) || [];
+          const existingItems = toItems(existingOrder.items);
           const items = existingItems.filter((i) => i.productId !== 'buffet_cover' && i.productId !== 'buffet_child' && i.productId !== 'buffet_senior');
           items.push({ id: 'cvr_' + Date.now(), productId: 'buffet_cover', name: `Buffet cubierto ${a} adulto${a !== 1 ? 's' : ''}`, price: Number(coverEffective), qty: a, sent: true, ready: true, sentAt: existingOrder.created_at, notes: '', modifiers: [], course: 'buffet' });
           if (c > 0) items.push({ id: 'cvr_' + Date.now() + '_1', productId: 'buffet_child', name: `Buffet ${c} niño${c !== 1 ? 's' : ''}`, price: Number(session.child_price_snapshot), qty: c, sent: true, ready: true, sentAt: existingOrder.created_at, notes: '', modifiers: [], course: 'buffet' });
@@ -167,7 +181,7 @@ export async function POST(req: NextRequest) {
 
     if (action === 'batch') {
       const { batchAction, sessionIds: sids, employeeName } = body;
-      const sessionIds = (sids as string[]) || [];
+      const sessionIds = toStringArray(sids);
 
       if (batchAction === 'close_all') {
         for (const sid of sessionIds) {
@@ -182,7 +196,7 @@ export async function POST(req: NextRequest) {
           if (s.order_id) {
             const [o] = await qr(sql`SELECT * FROM orders WHERE id = ${s.order_id} AND tenant_id = ${tenantId}`);
             if (o) {
-              const oItems = (o.items as Array<Record<string, unknown>>) || [];
+              const oItems = toItems(o.items);
               const items = oItems.filter((i) => i.productId !== 'buffet_cover' && i.productId !== 'buffet_child' && i.productId !== 'buffet_senior');
               items.push({ id: 'cvr_' + Date.now(), productId: 'buffet_cover', name: `Buffet cubierto ${adultCount} adultos`, price: coverEff, qty: adultCount, sent: true, ready: true, sentAt: o.created_at, notes: '', modifiers: [], course: 'buffet' });
               if (childCount > 0) items.push({ id: 'cvr_' + Date.now() + '_1', productId: 'buffet_child', name: `Buffet ${childCount} niños`, price: num(s.child_price_snapshot), qty: childCount, sent: true, ready: true, sentAt: o.created_at, notes: '', modifiers: [], course: 'buffet' });
@@ -209,7 +223,7 @@ export async function POST(req: NextRequest) {
 
     if (action === 'create_round') {
       const { tableId, items: its, employeeName } = body;
-      const items = (its as Array<Record<string, unknown>>) || [];
+      const items = toItems(its);
       const [session] = await qr(sql`SELECT * FROM buffet_sessions WHERE table_id = ${tableId} AND status = 'active' AND tenant_id = ${tenantId}`);
       if (!session) return Response.json({ error: 'Esta mesa no tiene una sesión de buffet activa' }, { status: 400 });
 
@@ -266,6 +280,6 @@ export async function POST(req: NextRequest) {
 
     return Response.json({ error: 'Acción desconocida' }, { status: 400 });
   } catch (e) {
-    return Response.json({ error: (e as Error).message }, { status: 500 });
+    return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 });
   }
 }

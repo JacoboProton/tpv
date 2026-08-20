@@ -37,6 +37,6 @@ export async function logPayment(opts: PaymentLogOptions): Promise<void> {
       tenantId: opts.tenantId ?? 'default',
     });
   } catch (e) {
-    console.error('[PaymentLogger] Error al guardar log:', (e as Error).message);
+    console.error('[PaymentLogger] Error al guardar log:', e instanceof Error ? e.message : String(e));
   }
 }

@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useRef } from 'react'
-import type { Floor, Catalog, Sale, Employee, CurrentUser, Offer, TicketSettings, CatalogProduct } from '../domain/types'
+import type { Floor, Catalog, Sale, Employee, CurrentUser, Offer, TicketSettings } from '../domain/types'
 import type { ModifierData } from '../domain/catalog/modifier-groups'
 import { round2 } from '../components/constants'
 import { enqueueMutation, cacheSet } from '../lib/offline'
@@ -132,7 +132,7 @@ export function useOrders({
       ticketLabel: order.label ? `Comanda ${order.label}` : '',
       ticketNumber: selectedTable?.orderId ? String(selectedTable.orderId).slice(-6).toUpperCase() : '',
       date: new Date().toLocaleString('es-ES'),
-      catalog: catalog as unknown as { products?: CatalogProduct[] }, allergensList: [],
+      catalog, allergensList: [],
     })
     printTicketHtml(html)
   }, [selectedOrder, orderPayments.orderDiscount, orderPayments.tipAmount, orderPayments.tipMethod, ticketSettings, selectedTable, currentUser, catalog])

@@ -125,23 +125,24 @@ export async function POST(req: NextRequest) {
     if (action === 'verify') {
       const rl = await rateLimit(`verify:${getClientIp(req)}`, 10, 60_000);
       if (!rl.allowed) return apiError(new Error('Demasiados intentos'), 429);
-      const { pin, pinHash } = body as Record<string, unknown>;
+      const pin = typeof body.pin === 'string' ? body.pin : undefined;
+      const pinHash = typeof body.pinHash === 'string' ? body.pinHash : undefined;
       if (!pin && !pinHash) return apiBadRequest('PIN requerido');
       const emps = await db.select().from(employees)
         .where(eq(employees.tenantId, tenantId));
       const emp = emps.find((r) => {
         const ph = r.pinHash ?? '';
         if (!ph) return false;
-        if (pin && bcrypt.compareSync(pin as string, ph)) return true;
-        if (pinHash && bcrypt.compareSync(pinHash as string, ph)) return true;
+        if (pin && bcrypt.compareSync(pin, ph)) return true;
+        if (pinHash && bcrypt.compareSync(pinHash, ph)) return true;
         if (pin) {
-          const hash = createHash('sha256').update(pin as string, 'utf8').digest('hex');
+          const hash = createHash('sha256').update(pin, 'utf8').digest('hex');
           if (bcrypt.compareSync(hash, ph)) return true;
         }
         return false;
       });
       if (!emp) return apiError(new Error('PIN invalido'), 401);
-      const deviceId = (body as Record<string, unknown>).deviceId as string | undefined;
+      const deviceId = typeof body.deviceId === 'string' ? body.deviceId : undefined;
       const loginTicket = await signLoginTicket({ sub: emp.id, tenantId, deviceId });
       return apiOk({
         id: emp.id, name: emp.name, role: emp.role,
@@ -154,10 +155,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'link-whatsapp') {
-      const { code } = body as Record<string, unknown>;
+      const code = typeof body.code === 'string' ? body.code : '';
       const [emp] = await db.select({ id: employees.id, name: employees.name })
         .from(employees)
-        .where(and(eq(employees.tenantId, tenantId), eq(employees.whatsappCode, code as string)));
+        .where(and(eq(employees.tenantId, tenantId), eq(employees.whatsappCode, code)));
       if (!emp) return apiNotFound('Codigo invalido');
       await db.update(employees)
         .set({ whatsappLinked: true, whatsappCode: '' })

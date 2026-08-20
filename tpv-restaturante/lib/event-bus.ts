@@ -76,27 +76,39 @@ export interface EventMap {
 type Handler<T> = (data: T) => void
 
 class TypedEventBus {
-  private listeners = new Map<string, Set<Handler<any>>>()
+  private listeners: { [K in keyof EventMap]: Set<Handler<EventMap[K]>> } = {
+    'order:created': new Set(),
+    'order:closed': new Set(),
+    'item:sent': new Set(),
+    'payment:completed': new Set(),
+    'payment:refunded': new Set(),
+    'stock:changed': new Set(),
+  }
 
   on<K extends keyof EventMap>(event: K, handler: Handler<EventMap[K]>): () => void {
-    if (!this.listeners.has(event as string)) this.listeners.set(event as string, new Set())
-    this.listeners.get(event as string)!.add(handler)
-    return () => this.listeners.get(event as string)?.delete(handler)
+    const set = this.listeners[event]
+    set.add(handler)
+    return () => { set.delete(handler) }
   }
 
   off<K extends keyof EventMap>(event: K, handler: Handler<EventMap[K]>): void {
-    this.listeners.get(event as string)?.delete(handler)
+    this.listeners[event].delete(handler)
   }
 
   emit<K extends keyof EventMap>(event: K, data: EventMap[K]): void {
-    this.listeners.get(event as string)?.forEach(h => {
+    this.listeners[event].forEach(h => {
       try { h(data) } catch (e) { console.error(`[EventBus] error in handler for "${event}":`, e) }
     })
   }
 
   clear(event?: keyof EventMap): void {
-    if (event) this.listeners.delete(event as string)
-    else this.listeners.clear()
+    if (event) {
+      this.listeners[event].clear()
+    } else {
+      for (const k of ['order:created', 'order:closed', 'item:sent', 'payment:completed', 'payment:refunded', 'stock:changed'] as const) {
+        this.listeners[k].clear()
+      }
+    }
   }
 }
 

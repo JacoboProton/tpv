@@ -1,10 +1,11 @@
 import { Bell } from 'lucide-react';
 import type { Theme } from '../constants';
+import type { QrCall } from '../../domain/types';
 
 export function QrCallBanner({
   qrCalls, colors, onDismiss,
 }: {
-  qrCalls: any[]; colors: Theme; onDismiss: () => void;
+  qrCalls: QrCall[]; colors: Theme; onDismiss: () => void;
 }) {
   if (qrCalls.length === 0) return null;
 

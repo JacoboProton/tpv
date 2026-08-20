@@ -208,7 +208,7 @@ export default function AlbaranesView() {
         alert('Albarán confirmado correctamente');
         loadAll();
       } else {
-        const err = await r.json();
+        const err = await r.json() as { error?: string };
         alert('Error al confirmar: ' + (err.error || 'Error desconocido'));
       }
     } catch (err: unknown) {
@@ -231,7 +231,7 @@ export default function AlbaranesView() {
         alert('Albarán anulado correctamente');
         loadAll();
       } else {
-        const err = await r.json();
+        const err = await r.json() as { error?: string };
         alert('Error al anular: ' + (err.error || 'Error desconocido'));
       }
     } catch (err: unknown) {
@@ -251,7 +251,7 @@ export default function AlbaranesView() {
       if (r.ok) {
         loadAll();
       } else {
-        const err = await r.json();
+        const err = await r.json() as { error?: string };
         alert('Error al eliminar: ' + (err.error || 'Error desconocido'));
       }
     } catch (err: unknown) {
@@ -512,7 +512,7 @@ function AlbaranForm({ suppliers, purchaseOrders, nonElaborados, editAlbaran, C,
       if (r.ok) {
         onSaved();
       } else {
-        const err = await r.json();
+        const err = await r.json() as { error?: string };
         alert('Error: ' + (err.error || 'Error desconocido'));
       }
     } catch (err: unknown) {

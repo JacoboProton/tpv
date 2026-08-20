@@ -14,6 +14,18 @@ import type { TablesRelationalConfig } from 'drizzle-orm/relations';
 
 type Tx = NodePgTransaction<Record<string, unknown>, TablesRelationalConfig>;
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+function isVectorClockLike(v: unknown): v is VectorClock {
+  if (!isRecord(v)) return false
+  for (const key of Object.keys(v)) {
+    if (typeof v[key] !== 'number') return false
+  }
+  return true
+}
+
 export async function GET(req: NextRequest) {
   try {
     const tenantId = getTenantId(req);
@@ -33,10 +45,11 @@ export async function PUT(req: NextRequest) {
   if (!rl.allowed) return apiError(new Error('Demasiadas actualizaciones de piso, intenta de nuevo en unos segundos'), 429);
 
   try {
-    const raw = await req.json();
+    const raw: unknown = await req.json();
     const body = FloorPutBodySchema.parse(raw);
-    const incomingClock = (raw.vectorClock ?? {}) as VectorClock;
-    const incomingUpdatedAt = typeof raw.updatedAt === 'number' ? raw.updatedAt : Date.now();
+    const rawRec = isRecord(raw) ? raw : {};
+    const incomingClock = isVectorClockLike(rawRec.vectorClock) ? rawRec.vectorClock : {};
+    const incomingUpdatedAt = typeof rawRec.updatedAt === 'number' ? rawRec.updatedAt : Date.now();
 
     const decision = await resolveFloorConflict(tenantId, incomingClock, incomingUpdatedAt);
     if (!decision.accepted) {
@@ -70,12 +83,12 @@ export async function PATCH(req: NextRequest) {
   if (!rl.allowed) return apiError(new Error('Demasiadas actualizaciones de piso, intenta de nuevo en unos segundos'), 429);
 
   try {
-    const raw = await req.json() as {
-      updatedTables: unknown[]; deletedTableIds: string[]; updatedOrders: Record<string, unknown>; deletedOrderIds: string[];
+    const raw: {
+      updatedTables: Array<Record<string, unknown>>; deletedTableIds: string[]; updatedOrders: Record<string, Record<string, unknown>>; deletedOrderIds: string[];
       vectorClock?: VectorClock; updatedAt?: number;
-    };
+    } = await req.json();
     const { updatedTables, deletedTableIds, updatedOrders, deletedOrderIds } = raw;
-    const incomingClock = (raw.vectorClock ?? {}) as VectorClock;
+    const incomingClock = isVectorClockLike(raw.vectorClock) ? raw.vectorClock : {};
     const incomingUpdatedAt = typeof raw.updatedAt === 'number' ? raw.updatedAt : Date.now();
 
     const decision = await resolveFloorConflict(tenantId, incomingClock, incomingUpdatedAt);
@@ -87,7 +100,7 @@ export async function PATCH(req: NextRequest) {
     await db.transaction(async (tx: Tx) => {
       await deleteTablesInTransaction(tx, deletedTableIds, tenantId);
       await deleteOrdersInTransaction(tx, deletedOrderIds, tenantId);
-      await putFloorInTransaction(tx, (updatedTables || []) as Array<Record<string, unknown>>, (updatedOrders || {}) as Record<string, Record<string, unknown>>, null, null, tenantId);
+      await putFloorInTransaction(tx, updatedTables || [], updatedOrders || {}, null, null, tenantId);
     });
     await saveFloorSync(tenantId, decision.mergedClock, Math.max(incomingUpdatedAt, decision.storedUpdatedAt ?? 0));
     const fullFloor = await fetchFullFloor(tenantId);

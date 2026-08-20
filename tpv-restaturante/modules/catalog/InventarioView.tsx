@@ -68,8 +68,9 @@ function stockBar(p: CatalogProduct): StockBarResult {
     const pct = Math.min(100, low ? Math.round((total / low) * 50) : 0);
     return { total, low: total <= low / LOCATIONS.length, pct, multi: false };
   }
-  const total = all.reduce((s, { entry }) => s + (entry?.stock || 0), 0);
-  const minLow = Math.min(...all.filter(({ entry }) => entry).map(({ entry }) => entry!.lowStock || 5));
+  const present = all.filter(({ entry }) => entry).map(({ entry }) => entry as { stock?: number; lowStock?: number });
+  const total = present.reduce((s, e) => s + (e.stock || 0), 0);
+  const minLow = Math.min(...present.map((e) => e.lowStock || 5));
   return { total, low: total <= minLow, pct: Math.min(100, minLow ? Math.round((total / minLow) * 50) : 0), multi: true };
 }
 

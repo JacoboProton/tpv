@@ -708,7 +708,7 @@ export default function CartasView() {
           const formData = new FormData();
           formData.append('file', file);
           const res = await fetch('/api/upload', { method: 'POST', body: formData });
-          const data = await res.json();
+          const data = await res.json() as { url?: string };
           if (data.url) updateProduct(editingProduct, 'image', data.url);
           setEditingProduct(null);
           e.target.value = '';
@@ -732,8 +732,8 @@ function ModificadoresTab({ colors: C }: { colors: Theme }) {
   const load = async () => {
     try {
       const [modData, catData] = await Promise.all([
-        fetch('/api/modifiers').then(r => r.json()),
-        fetch('/api/catalog').then(r => r.json()),
+        fetch('/api/modifiers').then(r => r.json() as Promise<{ groups?: ModifierGroup[]; productModifiers?: Record<string, string[]> }>),
+        fetch('/api/catalog').then(r => r.json() as Promise<{ products?: CatalogProduct[] }>),
       ]);
       if (modData) { setGroups(modData.groups || []); setProductMods(modData.productModifiers || {}); }
       if (catData) setProducts(catData.products || []);
@@ -749,7 +749,7 @@ function ModificadoresTab({ colors: C }: { colors: Theme }) {
         method: 'PUT',
         body: JSON.stringify({ groups, productModifiers: productMods }),
       });
-      const data = await r.json();
+      const data = await r.json() as { warnings?: string[]; ok?: boolean; error?: string };
       if (data.warnings) {
         setError(data.warnings.join('\n'));
       } else if (data.ok) {

@@ -86,7 +86,7 @@ export interface ComandaDrawerProps {
   tipAmount: number;
   finalTotal: number;
   onClose: () => void;
-  onAddItem: (item: Partial<OrderItem> & { id?: string; name: string; price: number; category: string; course: string; ubicacion: string; allergens: string[] }) => void;
+  onAddItem: (item: Partial<OrderItem> & { id?: string; name: string; price: number; category: string; course?: string; ubicacion?: string; allergens?: string[] }) => void;
   onChangeQty: (itemId: string, delta: number) => void;
   onRemoveItem: (itemId: string) => void;
   onCancelTable: () => void;

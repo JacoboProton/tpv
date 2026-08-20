@@ -40,7 +40,7 @@ interface OrderSectionProps {
   onRemoveItem: (itemId: string) => void;
   onUpdateNotes: (itemId: string, notes: string) => void;
   onUpdateItemCourse: (itemId: string, course: string) => void;
-  onEditItemModifiers: (item: any, product: any) => void;
+  onEditItemModifiers: (item: OrderItem, product: CatalogProduct) => void;
   onSetItemDiscount: (itemId: string, pct: number) => void;
   onRemoveItemDiscount: (itemId: string) => void;
   onSetItemCourtesy: (itemId: string) => void;
@@ -49,7 +49,7 @@ interface OrderSectionProps {
   onVoidSentItem: (itemId: string, reason: string) => void;
   onSendItemToKitchen: (itemId: string) => void;
   handleSaveNotes: () => void;
-  handleOpenNotes: (item: any) => void;
+  handleOpenNotes: (item: OrderItem) => void;
   handleBulkCourse: (course: string) => void;
   handleQtyConfirm: () => void;
   qtyPress: (digit: number) => void;

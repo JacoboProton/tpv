@@ -1,5 +1,23 @@
 import type { CurrentUser } from '@tpv/core'
 
+interface KeepaliveGlobals {
+  __keepaliveCleanup?: () => void
+  __employeeRole?: string
+  __employeeId?: string
+}
+
+declare global {
+  interface Window {
+    __keepaliveCleanup: (() => void) | undefined
+    __employeeRole?: string
+    __employeeId?: string
+  }
+}
+
+function g(): KeepaliveGlobals {
+  return window
+}
+
 export function logoutUser(
   currentUser: CurrentUser | null,
   deps: {
@@ -12,6 +30,6 @@ export function logoutUser(
     deps.turnsApi(body)
     deps.logoutApi(currentUser.id).catch(() => {})
   }
-  if ((window as any).__keepaliveCleanup) (window as any).__keepaliveCleanup()
-  try { localStorage.removeItem('tpv:current_user'); (window as any).__employeeRole = ''; (window as any).__employeeId = ''; } catch {}
+  g().__keepaliveCleanup?.()
+  try { localStorage.removeItem('tpv:current_user'); g().__employeeRole = ''; g().__employeeId = ''; } catch {}
 }

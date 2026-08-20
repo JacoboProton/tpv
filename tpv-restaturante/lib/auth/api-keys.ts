@@ -17,6 +17,10 @@ export function keyPrefix(key: string): string {
   return key.slice(0, 12) + '…';
 }
 
+export function isClientType(v: string): v is ApiKeyClientType {
+  return v === 'pos' || v === 'kds' || v === 'mobile';
+}
+
 export interface ApiKeyRow {
   id: string;
   tenantId: string;
@@ -71,7 +75,10 @@ export async function rotateApiKey(
   ));
   if (existing.length === 0) return null;
 
-  const key = generateApiKey(existing[0].clientType as ApiKeyClientType);
+  const storedType = existing[0].clientType;
+  if (!isClientType(storedType)) return null;
+
+  const key = generateApiKey(storedType);
   const now = Date.now();
   await db.update(apiKeys).set({ keyHash: hashApiKey(key), keyPrefix: keyPrefix(key), rotatedAt: now })
     .where(and(eq(apiKeys.tenantId, tenantId), eq(apiKeys.id, id)));

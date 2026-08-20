@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 export async function parseBody<T>(req: NextRequest, schema: z.ZodSchema<T>): Promise<T> {
   try {
-    const body = await req.json();
+    const body: unknown = await req.json();
     return schema.parseAsync(body);
   } catch (err) {
     if (err instanceof z.ZodError) {

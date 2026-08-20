@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Monitor, Clock } from 'lucide-react';
 import KDSView from '../../modules/kitchen/KDSView';
 import AppProviders, { type ViewData, type ViewHandlers } from '../../modules/core/app-contexts';
-import { connectRealtime, broadcastFloorUpdate, broadcastReadyNotification, disconnectRealtime, applyFloorDiff } from '../../lib/realtime';
+import { connectRealtime, broadcastFloorUpdate, broadcastReadyNotification, disconnectRealtime, applyFloorDiff, type SyncFloor, type FloorUpdatePayload } from '../../lib/realtime';
 import type { Theme } from '@/components/constants';
 import type { Floor, Catalog } from '@tpv/core';
 
@@ -13,15 +13,15 @@ const KTC: Record<string, string> = { base: '#1a1d23', surface: '#252830', surfa
 
 export default function KDSPage() {
   const [paired, setPaired] = useState<boolean | null>(null);
-  const [floor, setFloor] = useState<Record<string, unknown> | null>(null);
+  const [floor, setFloor] = useState<SyncFloor | null>(null);
   const [catalog, setCatalog] = useState<Record<string, unknown> | null>(null);
   const tenantId: string = typeof window !== 'undefined' ? (localStorage.getItem('kds_tenant_id') || 'default') : 'default';
 
   useEffect(() => {
     const ch = connectRealtime(tenantId);
     if (ch) {
-      ch.on('broadcast', { event: 'floor:updated' }, ({ payload }: { payload: any }) => {
-        setFloor((prev: any) => applyFloorDiff(prev, payload));
+      ch.on('broadcast', { event: 'floor:updated' }, ({ payload }: { payload: FloorUpdatePayload }) => {
+        setFloor((prev: SyncFloor | null) => applyFloorDiff(prev, payload));
       });
     }
     return () => { disconnectRealtime(); };
@@ -49,7 +49,7 @@ export default function KDSPage() {
   async function loadData() {
     try {
       const [flr, cat] = await Promise.all([
-        fetch('/api/floor', { headers: kdsHeaders() }).then(r => r.json() as Promise<Record<string, unknown>>),
+        fetch('/api/floor', { headers: kdsHeaders() }).then(r => r.json() as Promise<SyncFloor>),
         fetch('/api/catalog', { headers: kdsHeaders() }).then(r => r.json() as Promise<Record<string, unknown>>),
       ]);
       setFloor(flr);
@@ -108,7 +108,7 @@ export default function KDSPage() {
     showToast: () => {},
     almacenUbicacion: null,
     showFloorEditor: false,
-    persistFloor: async (next: Floor) => { void persist(next as unknown as Record<string, unknown>); },
+    persistFloor: async (next: Floor) => { void persist(next); },
     newProductOpen: false,
     setNewProductOpen: () => {},
     confirmDeleteId: null,
@@ -123,18 +123,18 @@ export default function KDSPage() {
     setView: () => {},
     markReady: () => {},
     updateItemState: (next: Floor, action: { orderId: string; itemId: string | null; previousState: string | null }) => {
-      const n = next as unknown as Record<string, unknown>;
+      const n = next as SyncFloor;
       setFloor(n);
       if (action?.previousState === 'preparing') {
         const order = (n.orders as Record<string, unknown>)[action.orderId] as Record<string, unknown> | undefined;
         const item = (order?.items as Array<Record<string, unknown>>)?.find(i => i.id === action.itemId);
-        const table = (n.tables as Array<Record<string, unknown>>)?.find(t => t.id === order?.tableId);
+        const table = n.tables.find(t => t.id === order?.tableId);
         if (item) broadcastReadyNotification((table?.name as string) || (order?.tableId as string), [item.name as string], order?.employeeName as string, tenantId);
       }
       void persist(n);
     },
     advanceOrder: (next: Floor) => {
-      const n = next as unknown as Record<string, unknown>;
+      const n = next as SyncFloor;
       setFloor(n);
       void persist(n);
     },
@@ -169,7 +169,7 @@ export default function KDSPage() {
     </AppProviders>
   );
 
-  async function persist(flr: Record<string, unknown>) {
+  async function persist(flr: SyncFloor) {
     try {
       const h: Record<string, string> = kdsHeaders();
       await fetch('/api/floor', { method: 'PUT', headers: h, body: JSON.stringify(flr) });

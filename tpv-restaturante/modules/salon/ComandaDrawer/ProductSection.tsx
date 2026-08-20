@@ -1,6 +1,7 @@
 import { Search, X, ChefHat, Package, Tag } from 'lucide-react';
 import { TICKET_EDGE, euros, ALLERGENS, ALLERGEN_COLORS, type Theme } from '@/components/constants';
-import type { CatalogProduct, ComboData, MealMenuData } from './types';
+import type { OrderItem, CatalogProduct, ComboData, MealMenuData } from './types';
+import type { Dispatch, SetStateAction } from 'react';
 
 interface ProductSectionProps {
   catalog: { products: CatalogProduct[]; categories: (string | { id: string; name: string })[] };
@@ -14,9 +15,9 @@ interface ProductSectionProps {
   setFreeItemName: (v: string) => void;
   setFreeItemPrice: (v: number) => void;
   setFreeItemCourse: (v: string) => void;
-  setConfiguringCombo: (v: any) => void;
-  setConfiguringMenu: (v: any) => void;
-  onAddItem: (item: any) => void;
+  setConfiguringCombo: Dispatch<SetStateAction<ComboData | null>>;
+  setConfiguringMenu: Dispatch<SetStateAction<MealMenuData | null>>;
+  onAddItem: (item: Partial<OrderItem> & { id?: string; name: string; price: number; category: string; course?: string; ubicacion?: string; allergens?: string[] }) => void;
   isDebtOnly: boolean;
   C: Theme;
 }

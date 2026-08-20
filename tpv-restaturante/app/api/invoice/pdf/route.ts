@@ -15,19 +15,72 @@ interface JsPDFWithPlugins extends jsPDF {
   lastAutoTable: { finalY: number };
 }
 
+interface SalePdfInput {
+  id: string;
+  tableName: string | null;
+  employeeName: string | null;
+  items: Array<{ voided?: boolean; name?: string; qty?: number; price?: number }> | unknown;
+  total: number;
+  tip: number;
+  discount: number;
+  invoiceNumber: string | null;
+  invoiceName: string | null;
+  invoiceNif: string | null;
+  invoiceAddress: string | null;
+  invoiceEmail: string | null;
+  closedAt: number;
+  paymentMethod: string | null;
+  totalWithTip: number;
+}
+
+interface PdfItemRow {
+  voided?: boolean;
+  name?: string;
+  qty?: number;
+  price?: number;
+}
+
 function d(doc: jsPDF): JsPDFWithPlugins {
   return doc as unknown as JsPDFWithPlugins;
 }
 
-async function getSettings(tenantId: string) {
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function optStr(v: unknown): string | undefined {
+  return typeof v === 'string' ? v : undefined;
+}
+
+function optNum(v: unknown): number | undefined {
+  return typeof v === 'number' ? v : undefined;
+}
+
+function optBool(v: unknown): boolean | undefined {
+  return typeof v === 'boolean' ? v : undefined;
+}
+
+function toPdfItems(v: unknown): PdfItemRow[] {
+  const list: unknown[] = Array.isArray(v) ? v : [];
+  return list.flatMap((i) => isRecord(i) ? [{
+    voided: optBool(i.voided), name: optStr(i.name),
+    qty: optNum(i.qty), price: optNum(i.price),
+  }] : []);
+}
+
+async function getSettings(tenantId: string): Promise<Record<string, string>> {
   const cached = getCachedSettings();
-  if (cached) return cached;
+  if (isRecord(cached)) {
+    const map: Record<string, string> = {};
+    for (const [k, v] of Object.entries(cached)) map[k] = typeof v === 'string' ? v : '';
+    return map;
+  }
   const db = getDb();
   const rows = await db.select({ key: settings.key, value: settings.value })
     .from(settings)
     .where(eq(settings.tenantId, tenantId));
-  const result: Record<string, unknown> = {};
-  for (const r of rows) result[r.key] = r.value;
+  const result: Record<string, string> = {};
+  for (const r of rows) result[r.key] = r.value ?? '';
   setCachedSettings(result);
   return result;
 }
@@ -43,9 +96,17 @@ export async function POST(req: NextRequest) {
     const parsed = InvoicePdfBody.safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
     const { saleId, sale: inlineSale } = parsed.data;
-    let sale;
+    let sale: SalePdfInput | null = null;
     if (inlineSale) {
-      sale = inlineSale;
+      const s = inlineSale;
+      sale = {
+        id: s.id || '', tableName: s.tableName || null, employeeName: s.employeeName || null,
+        items: s.items || [], total: Number(s.total) || 0, tip: Number(s.tip) || 0, discount: Number(s.discount) || 0,
+        invoiceNumber: s.invoiceNumber || s.id || '', invoiceName: s.invoiceName || null,
+        invoiceNif: s.invoiceNif || null, invoiceAddress: s.invoiceAddress || null,
+        invoiceEmail: s.invoiceEmail || null, closedAt: s.closedAt ? Number(s.closedAt) : Date.now(),
+        paymentMethod: s.paymentMethod || null, totalWithTip: Number(s.totalWithTip) || Number(s.total) || 0,
+      };
     } else if (saleId) {
       const rows = await db.select().from(sales)
         .where(and(eq(sales.id, saleId), eq(sales.tenantId, tenantId)))
@@ -66,7 +127,7 @@ export async function POST(req: NextRequest) {
       return apiBadRequest('saleId o sale requerido');
     }
 
-    const settingsData = await getSettings(tenantId) as Record<string, string>;
+    const settingsData = await getSettings(tenantId);
     const cif = settingsData?.companyCif || '';
     const address = settingsData?.companyAddress || '';
     const phone = settingsData?.companyPhone || '';
@@ -102,7 +163,7 @@ export async function POST(req: NextRequest) {
     p.text(dateStr, pageW / 2, y, { align: 'center' });
     y += 8;
 
-    const clientLines = [];
+    const clientLines: string[] = [];
     clientLines.push(`Cliente: ${sale.invoiceName || '—'}`);
     clientLines.push(`NIF: ${sale.invoiceNif || '—'}`);
     if (sale.invoiceAddress) clientLines.push(`Dirección: ${sale.invoiceAddress}`);
@@ -118,7 +179,7 @@ export async function POST(req: NextRequest) {
     }
     y = cy + 6;
 
-    const items = ((sale.items || []) as Array<{ voided?: boolean; name?: string; qty?: number; price?: number }>)
+    const items = toPdfItems(sale.items)
       .filter((i) => !i.voided);
     const bodyRows = items.map((i) => [
       i.name?.slice(0, 40) || '',

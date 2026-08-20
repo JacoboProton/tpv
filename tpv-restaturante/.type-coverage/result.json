@@ -1,0 +1,4242 @@
+{
+  "cache": {
+    "next-env.d.ts": {
+      "hash": "915946e261450f4fb6aab2ca862c8b440b748240",
+      "correctCount": 0,
+      "totalCount": 0,
+      "anys": []
+    },
+    "drizzle.config.ts": {
+      "hash": "1c745de79eabc666f1f9b792c028c960eebba905",
+      "correctCount": 13,
+      "totalCount": 13,
+      "anys": []
+    },
+    "instrumentation-client.ts": {
+      "hash": "700ebe444ea73bcfdfe049170427f4fa98ac07c1",
+      "correctCount": 17,
+      "totalCount": 17,
+      "anys": []
+    },
+    "sentry.server.config.ts": {
+      "hash": "083f2336fab6a8909b6e7942158f4f3cf71a9e93",
+      "correctCount": 11,
+      "totalCount": 11,
+      "anys": []
+    },
+    "sentry.edge.config.ts": {
+      "hash": "083f2336fab6a8909b6e7942158f4f3cf71a9e93",
+      "correctCount": 11,
+      "totalCount": 11,
+      "anys": []
+    },
+    "instrumentation.ts": {
+      "hash": "13648052f42084e778b3c6a80d1b2d5b1c5a7cac",
+      "correctCount": 11,
+      "totalCount": 11,
+      "anys": []
+    },
+    "next.config.ts": {
+      "hash": "5a3411ac4f448b715f061851ca8864a141df59ed",
+      "correctCount": 31,
+      "totalCount": 31,
+      "anys": []
+    },
+    "playwright.config.ts": {
+      "hash": "064e3ab8595db762aa2885fcb774e6356718ab34",
+      "correctCount": 19,
+      "totalCount": 19,
+      "anys": []
+    },
+    "lib\\env.ts": {
+      "hash": "a8a1ad63c72efd177065e02ce3c83c1fb1645495",
+      "correctCount": 30,
+      "totalCount": 30,
+      "anys": []
+    },
+    "lib\\rate-limit.ts": {
+      "hash": "6706116f097590bbb3beb8b47d55e10b119f9017",
+      "correctCount": 246,
+      "totalCount": 246,
+      "anys": []
+    },
+    "lib\\auth\\jwt.ts": {
+      "hash": "12c6a692950c88cdb2660e231524a33f33f6c712",
+      "correctCount": 290,
+      "totalCount": 290,
+      "anys": []
+    },
+    "db\\schema.ts": {
+      "hash": "7bad2336b59b609916f3c9586deb33067311f4c3",
+      "correctCount": 4236,
+      "totalCount": 4236,
+      "anys": []
+    },
+    "lib\\drizzle.ts": {
+      "hash": "da7f755bf4a3de023432be2a6ec9c7158e51f77a",
+      "correctCount": 92,
+      "totalCount": 92,
+      "anys": []
+    },
+    "lib\\auth\\api-keys.ts": {
+      "hash": "583814a988fc9cdd4285760dc1e083d8947cdc68",
+      "correctCount": 354,
+      "totalCount": 354,
+      "anys": []
+    },
+    "proxy.ts": {
+      "hash": "6cd80234358606ea57ce51a5e3f4b34ef2e6084b",
+      "correctCount": 308,
+      "totalCount": 308,
+      "anys": []
+    },
+    "server.js": {
+      "hash": "8a5488b07fbc33e8bbc6910c71f09f2a15b25ca8",
+      "correctCount": 49,
+      "totalCount": 49,
+      "anys": []
+    },
+    "vitest.config.ts": {
+      "hash": "dc21ad42eebd048e7d494f8d8952a73ef2d20fac",
+      "correctCount": 24,
+      "totalCount": 24,
+      "anys": []
+    },
+    "app\\global-error.tsx": {
+      "hash": "5139a9e611bd739de31a71714410974095175d58",
+      "correctCount": 58,
+      "totalCount": 58,
+      "anys": []
+    },
+    "components\\app\\ErrorBoundary.tsx": {
+      "hash": "b2954fe95780ddb412c84bb224559d9fbb574948",
+      "correctCount": 65,
+      "totalCount": 65,
+      "anys": []
+    },
+    "app\\layout.tsx": {
+      "hash": "8bf0ed0ed895028c7ae52e13d3e9f3bc3ad4b49b",
+      "correctCount": 74,
+      "totalCount": 74,
+      "anys": []
+    },
+    "app\\robots.ts": {
+      "hash": "9c61aa475ea2a539fa79ef3fe35ed4e3d3373440",
+      "correctCount": 9,
+      "totalCount": 9,
+      "anys": []
+    },
+    "app\\sitemap.ts": {
+      "hash": "005f6ffc82980c6a12a77a20a2b5ecacee8c2a9e",
+      "correctCount": 14,
+      "totalCount": 14,
+      "anys": []
+    },
+    "lib\\theme.ts": {
+      "hash": "d7f3f9de187ae28d007a7849dc1d8de2b96161c3",
+      "correctCount": 63,
+      "totalCount": 63,
+      "anys": []
+    },
+    "lib\\seed.ts": {
+      "hash": "a03212f16b0ffc5fe25cf6fa75352ba46fe3e303",
+      "correctCount": 1439,
+      "totalCount": 1439,
+      "anys": []
+    },
+    "lib\\constants.ts": {
+      "hash": "f157ef0e489adbb90dea3445e2f5dbdc6f598b40",
+      "correctCount": 25,
+      "totalCount": 25,
+      "anys": []
+    },
+    "lib\\payment-methods.ts": {
+      "hash": "42e57f42f4323930933e0f2a6d368a1a83e7f36b",
+      "correctCount": 13,
+      "totalCount": 13,
+      "anys": []
+    },
+    "lib\\utils.ts": {
+      "hash": "aa6beba995ec01ddcf95744ca0f508bda148ad5a",
+      "correctCount": 25,
+      "totalCount": 25,
+      "anys": []
+    },
+    "lib\\allergens.ts": {
+      "hash": "e64ad7728272a94e75eec7a506bab39a8ae644f2",
+      "correctCount": 64,
+      "totalCount": 64,
+      "anys": []
+    },
+    "components\\constants.tsx": {
+      "hash": "7f34b3b59e13445ba413d78664b364e81947615c",
+      "correctCount": 85,
+      "totalCount": 85,
+      "anys": []
+    },
+    "db\\relations.ts": {
+      "hash": "74fd37a60f254f4143457efc1d5b1d23ecd003a8",
+      "correctCount": 583,
+      "totalCount": 583,
+      "anys": []
+    },
+    "domain\\types.ts": {
+      "hash": "47acf0d66de4c04a9d7aad646d5e532aaa6ffedc",
+      "correctCount": 0,
+      "totalCount": 0,
+      "anys": []
+    },
+    "lib\\sentry-context.ts": {
+      "hash": "8dd115bddfcc553487012384bb6ece98cda6f530",
+      "correctCount": 18,
+      "totalCount": 18,
+      "anys": []
+    },
+    "lib\\offline.ts": {
+      "hash": "d11f573d282a90feb90e01b1a0e114dc1a1dc4e4",
+      "correctCount": 361,
+      "totalCount": 361,
+      "anys": []
+    },
+    "lib\\vector-clock.ts": {
+      "hash": "0b839774d4e5fdc22872a64c5c69c76ec54b2b37",
+      "correctCount": 68,
+      "totalCount": 68,
+      "anys": []
+    },
+    "lib\\session.ts": {
+      "hash": "d02e85dbd5cdb6c8b9d2640530122582a65531a2",
+      "correctCount": 105,
+      "totalCount": 105,
+      "anys": []
+    },
+    "lib\\floor-vc.ts": {
+      "hash": "1a6e731bf553fe6bd59eaec9531ec96e1524276d",
+      "correctCount": 62,
+      "totalCount": 62,
+      "anys": []
+    },
+    "lib\\api.ts": {
+      "hash": "fe5cd2bd1796252f712c370fdab6e84eb94f5a5a",
+      "correctCount": 1117,
+      "totalCount": 1117,
+      "anys": []
+    },
+    "domain\\tables\\floor-layout.ts": {
+      "hash": "b5499fb070193d0404479c28b86a063d9efe932c",
+      "correctCount": 196,
+      "totalCount": 196,
+      "anys": []
+    },
+    "hooks\\useAppInit.ts": {
+      "hash": "2b93750ba894841bc78f0348b104daf6772cf3c3",
+      "correctCount": 450,
+      "totalCount": 450,
+      "anys": []
+    },
+    "domain\\payments\\debt.ts": {
+      "hash": "61520442b20213b467f22552ee7324b244890ff4",
+      "correctCount": 55,
+      "totalCount": 55,
+      "anys": []
+    },
+    "hooks\\useDebtOrder.ts": {
+      "hash": "97118e7ecf9ae70866fb322b0a50af56fc216e56",
+      "correctCount": 99,
+      "totalCount": 99,
+      "anys": []
+    },
+    "domain\\employees\\employee-operations.ts": {
+      "hash": "d94a9072fe7121b61db47899e39467de70054287",
+      "correctCount": 69,
+      "totalCount": 69,
+      "anys": []
+    },
+    "lib\\crypto.ts": {
+      "hash": "47df62fa5107dc50bf920d9505cf5deec4b63e88",
+      "correctCount": 19,
+      "totalCount": 19,
+      "anys": []
+    },
+    "application\\auth\\login.ts": {
+      "hash": "cf407a4eb3e0441110441106ae488d5ba77fa6e0",
+      "correctCount": 199,
+      "totalCount": 199,
+      "anys": []
+    },
+    "application\\auth\\logout.ts": {
+      "hash": "af8f1e5305b3db33b5ed6f90b97179a187f63ca7",
+      "correctCount": 56,
+      "totalCount": 56,
+      "anys": []
+    },
+    "application\\auth\\clockin.ts": {
+      "hash": "acc627a7fa46eee0c293a48a3a9e1229c4239d51",
+      "correctCount": 97,
+      "totalCount": 97,
+      "anys": []
+    },
+    "hooks\\useEmployees.ts": {
+      "hash": "5ea572a6642704def3e8127d7e25bf2f9ec96463",
+      "correctCount": 373,
+      "totalCount": 373,
+      "anys": []
+    },
+    "lib\\event-bus.ts": {
+      "hash": "c9786ac1de01c667501a288e6d8ef2eaafd4841a",
+      "correctCount": 155,
+      "totalCount": 155,
+      "anys": []
+    },
+    "hooks\\useEvent.ts": {
+      "hash": "f6a95d5c77e6276307b1e3e0c518e654b1a81f69",
+      "correctCount": 19,
+      "totalCount": 19,
+      "anys": []
+    },
+    "domain\\catalog\\product-operations.ts": {
+      "hash": "f19be307383ca0c5452c8f5cf3413b52f2629d7e",
+      "correctCount": 343,
+      "totalCount": 343,
+      "anys": []
+    },
+    "hooks\\useInventory.ts": {
+      "hash": "8ac04c21c27b5a2554dc104868e03618cb2b4a37",
+      "correctCount": 316,
+      "totalCount": 316,
+      "anys": []
+    },
+    "lib\\encoding.ts": {
+      "hash": "eae024d06563bb66c8bb6e0865ee507ceae974c3",
+      "correctCount": 45,
+      "totalCount": 45,
+      "anys": []
+    },
+    "hooks\\useInvoice.ts": {
+      "hash": "d61497e1da972842957dfcdd2e60bc6c2da360b9",
+      "correctCount": 196,
+      "totalCount": 196,
+      "anys": []
+    },
+    "hooks\\useKeyboardShortcuts.ts": {
+      "hash": "7b21345e7354a636d3db50767cf5563c79d5f44e",
+      "correctCount": 73,
+      "totalCount": 73,
+      "anys": []
+    },
+    "lib\\realtime.ts": {
+      "hash": "8289081c3843581f00519442554126c25e4a29f1",
+      "correctCount": 503,
+      "totalCount": 503,
+      "anys": []
+    },
+    "lib\\sound.ts": {
+      "hash": "8cf365d5654f58d75412f145d57016d469b71155",
+      "correctCount": 101,
+      "totalCount": 101,
+      "anys": []
+    },
+    "domain\\kitchen\\kitchen.ts": {
+      "hash": "e3f4146767840ced6db04f77a8816ba9b103c863",
+      "correctCount": 110,
+      "totalCount": 110,
+      "anys": []
+    },
+    "hooks\\useKitchen.ts": {
+      "hash": "62fd927aa8635fe9f52f5f0c6b8cd7fa8ef6683b",
+      "correctCount": 176,
+      "totalCount": 176,
+      "anys": []
+    },
+    "hooks\\useLoginRouting.ts": {
+      "hash": "f6e3a6db15daa055f106bb4c372f7ce7e8e0fb62",
+      "correctCount": 135,
+      "totalCount": 135,
+      "anys": []
+    },
+    "application\\AddItemsToOrder\\add-items-to-order.ts": {
+      "hash": "79e12e53cfe9b48bbe867d1487bc72b45d0b90e1",
+      "correctCount": 479,
+      "totalCount": 479,
+      "anys": []
+    },
+    "application\\OrderItemOperations\\order-item-operations.ts": {
+      "hash": "48f3752063a09bf7e79b70b9d4233d8fab22d69a",
+      "correctCount": 502,
+      "totalCount": 502,
+      "anys": []
+    },
+    "domain\\catalog\\modifier-groups.ts": {
+      "hash": "20cf85c446d555895fbd4d7368fa0ea51de3868a",
+      "correctCount": 32,
+      "totalCount": 32,
+      "anys": []
+    },
+    "hooks\\useOrderItems.ts": {
+      "hash": "f155cdf8f47fe98f9b730f37442c4f9f098964b0",
+      "correctCount": 667,
+      "totalCount": 667,
+      "anys": []
+    },
+    "hooks\\useModifierSelector.ts": {
+      "hash": "162bcdb142275dec43463c076dc0c2a9a080b75d",
+      "correctCount": 16,
+      "totalCount": 16,
+      "anys": []
+    },
+    "hooks\\useOfflineSync.ts": {
+      "hash": "cb5c7ad34df7b0e9f360ba250f66894ed4d02b41",
+      "correctCount": 205,
+      "totalCount": 205,
+      "anys": []
+    },
+    "infrastructure\\database\\stock-log-repository.ts": {
+      "hash": "690d4d6a4d0b6b58584bda484fb9bc62646ad4e6",
+      "correctCount": 16,
+      "totalCount": 16,
+      "anys": []
+    },
+    "application\\CloseOrder\\close-order.ts": {
+      "hash": "b82afe32270f4a41aa0637834dabfbbc0d8448ca",
+      "correctCount": 518,
+      "totalCount": 518,
+      "anys": []
+    },
+    "hooks\\useOrderPayments.ts": {
+      "hash": "8b0d13f6c61a573a5ec272e921f850d3bf7d6ab7",
+      "correctCount": 377,
+      "totalCount": 377,
+      "anys": []
+    },
+    "infrastructure\\database\\floor-repository.ts": {
+      "hash": "9229bb3b1859df696206503aa08df18c33472916",
+      "correctCount": 38,
+      "totalCount": 39,
+      "anys": [
+        {
+          "line": 8,
+          "character": 11,
+          "text": "(await apiFetchFloor()) as FloorData",
+          "kind": 3
+        }
+      ]
+    },
+    "lib\\ticket-template.ts": {
+      "hash": "ba96a534b04d392ab76ff26375f95b84d61f86f3",
+      "correctCount": 242,
+      "totalCount": 242,
+      "anys": []
+    },
+    "domain\\invoice\\invoice.ts": {
+      "hash": "5cc8d47205c41f1123e1d2f23697438fb8d12bb7",
+      "correctCount": 38,
+      "totalCount": 38,
+      "anys": []
+    },
+    "application\\sales\\sales-queue.ts": {
+      "hash": "a9f8bc72c052b2b6cb98ca64cd172470be13519f",
+      "correctCount": 122,
+      "totalCount": 122,
+      "anys": []
+    },
+    "hooks\\useSalesQueue.ts": {
+      "hash": "5bd53b764639185ab629970354ac5ef810e24c3e",
+      "correctCount": 101,
+      "totalCount": 101,
+      "anys": []
+    },
+    "hooks\\useTableSelection.ts": {
+      "hash": "2ad23142c7adda3fef69c4defd111b40dd01d0d1",
+      "correctCount": 42,
+      "totalCount": 42,
+      "anys": []
+    },
+    "domain\\orders\\multi-ticket.ts": {
+      "hash": "a594e4089921f2441ae9c0b340ff7c9d88eea815",
+      "correctCount": 193,
+      "totalCount": 193,
+      "anys": []
+    },
+    "hooks\\useOrderTickets.ts": {
+      "hash": "57f4051e4bd00549e951c206dd79a14a1e2ef202",
+      "correctCount": 118,
+      "totalCount": 118,
+      "anys": []
+    },
+    "domain\\tables\\table-operations.ts": {
+      "hash": "9fd0425dca9525b5f140a0dbae15aa0801a1da47",
+      "correctCount": 303,
+      "totalCount": 303,
+      "anys": []
+    },
+    "application\\CancelTable\\cancel-table.ts": {
+      "hash": "ede2db290f89603a2a03381bc3eef2ae03dd5d45",
+      "correctCount": 177,
+      "totalCount": 177,
+      "anys": []
+    },
+    "application\\TableStatus\\toggle-table-status.ts": {
+      "hash": "e20ec0241cda3df8c470155079834d49e8443e50",
+      "correctCount": 25,
+      "totalCount": 25,
+      "anys": []
+    },
+    "hooks\\useOrderTables.ts": {
+      "hash": "c43fb60098aa1fa208fa9ae74c3069a50cc37af3",
+      "correctCount": 226,
+      "totalCount": 226,
+      "anys": []
+    },
+    "domain\\pricing\\personal-discount.ts": {
+      "hash": "6a3e0d5b6b9d099910c6eadf3ed4f5145add250f",
+      "correctCount": 197,
+      "totalCount": 197,
+      "anys": []
+    },
+    "application\\auth\\verify-pin.ts": {
+      "hash": "d1a789d81730909358a291af91fcae5934198770",
+      "correctCount": 29,
+      "totalCount": 29,
+      "anys": []
+    },
+    "application\\ApplyPersonalDiscount\\apply-personal-discount.ts": {
+      "hash": "229df2b052da684a625c88a29afc34e262030af5",
+      "correctCount": 205,
+      "totalCount": 205,
+      "anys": []
+    },
+    "hooks\\usePersonalDiscount.ts": {
+      "hash": "974adbd699bc9ff9cf2d36eb1c29fa4e536d8dcc",
+      "correctCount": 131,
+      "totalCount": 131,
+      "anys": []
+    },
+    "hooks\\useOrders.ts": {
+      "hash": "c6c71eaf0379d9609b4d0f93c1ef327dd4ad94e8",
+      "correctCount": 357,
+      "totalCount": 357,
+      "anys": []
+    },
+    "hooks\\useQrPolling.ts": {
+      "hash": "0d26528fa1a2d3d25de9e7b3847260aa263f44f9",
+      "correctCount": 22,
+      "totalCount": 22,
+      "anys": []
+    },
+    "hooks\\useRealtimeSync.ts": {
+      "hash": "379caed11e28040e30430cd3933cba186d92b056",
+      "correctCount": 207,
+      "totalCount": 207,
+      "anys": []
+    },
+    "domain\\payments\\refund.ts": {
+      "hash": "c3b5977eda343565bdde9625212c5728d6d1400a",
+      "correctCount": 27,
+      "totalCount": 27,
+      "anys": []
+    },
+    "domain\\payments\\bizum.ts": {
+      "hash": "5c3c6d31aa6338352d161c265ec8aee7c6bf56c0",
+      "correctCount": 19,
+      "totalCount": 19,
+      "anys": []
+    },
+    "hooks\\useSalesActions.ts": {
+      "hash": "463125da792d1dbd5e9198ac9627bbf1a23668cb",
+      "correctCount": 114,
+      "totalCount": 114,
+      "anys": []
+    },
+    "lib\\auth-deprecated.ts": {
+      "hash": "46b5ab87c0a81a0d63b24378ef61abdc8e306b4a",
+      "correctCount": 5,
+      "totalCount": 5,
+      "anys": []
+    },
+    "lib\\backup.ts": {
+      "hash": "7fc10687e40014768356ebf2947cd5ece392a981",
+      "correctCount": 464,
+      "totalCount": 464,
+      "anys": []
+    },
+    "lib\\events.ts": {
+      "hash": "406c42a5849f28a93b6dd8854001b981e43bd694",
+      "correctCount": 62,
+      "totalCount": 62,
+      "anys": []
+    },
+    "lib\\fiskaly.ts": {
+      "hash": "1181108f2f13339dab9532c848f7e9ec304f36ed",
+      "correctCount": 723,
+      "totalCount": 723,
+      "anys": []
+    },
+    "lib\\floor-sync.ts": {
+      "hash": "b977d28b5d40805fa36e7011620fe003251578bb",
+      "correctCount": 166,
+      "totalCount": 166,
+      "anys": []
+    },
+    "lib\\tenant.ts": {
+      "hash": "431a8cd46dbf9544226171a5b319bdd5660a3e2f",
+      "correctCount": 68,
+      "totalCount": 68,
+      "anys": []
+    },
+    "lib\\floor.ts": {
+      "hash": "89d11baf3cf4616e66d6315ca0d109fad66bc0c9",
+      "correctCount": 304,
+      "totalCount": 304,
+      "anys": []
+    },
+    "lib\\gestoriaSchemas.ts": {
+      "hash": "4996846784bebdb4f52cc8c4fe342a281e3d0697",
+      "correctCount": 210,
+      "totalCount": 210,
+      "anys": []
+    },
+    "lib\\idempotency.ts": {
+      "hash": "4685eb5fca7528936a483d5c9def877a663a6afb",
+      "correctCount": 231,
+      "totalCount": 231,
+      "anys": []
+    },
+    "lib\\logger.ts": {
+      "hash": "4542b1937556377ea6b49c940727a9b88794dc7a",
+      "correctCount": 109,
+      "totalCount": 109,
+      "anys": []
+    },
+    "lib\\modifiers.ts": {
+      "hash": "61ed9e3f0b15c58bf7114fd6b1a47e0018854ae2",
+      "correctCount": 83,
+      "totalCount": 83,
+      "anys": []
+    },
+    "lib\\payment-logger.ts": {
+      "hash": "f693094411b5f34c6a3ffd539717d4befbf143dd",
+      "correctCount": 82,
+      "totalCount": 82,
+      "anys": []
+    },
+    "lib\\qr.ts": {
+      "hash": "8245f192070e0c465935ad7c537c94685c118f39",
+      "correctCount": 11,
+      "totalCount": 11,
+      "anys": []
+    },
+    "lib\\rbac.ts": {
+      "hash": "1159807f524b20f74c7da8d8cc58edd86ff53a3f",
+      "correctCount": 181,
+      "totalCount": 181,
+      "anys": []
+    },
+    "lib\\redsys.ts": {
+      "hash": "24b01298457b641625934aecacd67f76f6d20486",
+      "correctCount": 175,
+      "totalCount": 175,
+      "anys": []
+    },
+    "lib\\run-migrations.ts": {
+      "hash": "7ddf57845ca110ef07fa33eb5ff1f634b13a1639",
+      "correctCount": 21,
+      "totalCount": 21,
+      "anys": []
+    },
+    "lib\\settings-cache.ts": {
+      "hash": "5b3adcb1a769f579bdeaf6b7d47cf4a05f745f61",
+      "correctCount": 20,
+      "totalCount": 20,
+      "anys": []
+    },
+    "lib\\thermal-printer.ts": {
+      "hash": "bb6726354d699ee434481cdf2d1d9ed28a12eed9",
+      "correctCount": 347,
+      "totalCount": 347,
+      "anys": []
+    },
+    "lib\\verifactu.ts": {
+      "hash": "093ce68ce0e8ca5b7cbce510f9d15db867233e4e",
+      "correctCount": 282,
+      "totalCount": 282,
+      "anys": []
+    },
+    "lib\\verify-webhook.ts": {
+      "hash": "ccc48e8461079530d3af999e819a34d5bcb23c35",
+      "correctCount": 54,
+      "totalCount": 54,
+      "anys": []
+    },
+    "public\\sw.js": {
+      "hash": "c7efdae77341a7065499b5d909c2fb4ae3ae68ad",
+      "correctCount": 74,
+      "totalCount": 74,
+      "anys": []
+    },
+    "scripts\\seed-new-products.ts": {
+      "hash": "8782c86a918a413966a99cfb93e94c5f92cf51de",
+      "correctCount": 120,
+      "totalCount": 120,
+      "anys": []
+    },
+    "lib\\infrastructure\\response.ts": {
+      "hash": "9bd6e6c054acad44e367c13a3773d3f904a57f10",
+      "correctCount": 82,
+      "totalCount": 82,
+      "anys": []
+    },
+    "lib\\infrastructure\\validate.ts": {
+      "hash": "6db7dcd82553ef2e9e305faa8f264dca7e207d36",
+      "correctCount": 31,
+      "totalCount": 31,
+      "anys": []
+    },
+    "domain\\invoice\\invoice-html.ts": {
+      "hash": "b6134962a4efae8feb517280f0cef50f6e736341",
+      "correctCount": 104,
+      "totalCount": 104,
+      "anys": []
+    },
+    "app\\api\\stripe\\terminal-connection-token\\route.ts": {
+      "hash": "f2a1b6acc3951429879c53bc311506f205e48143",
+      "correctCount": 219,
+      "totalCount": 220,
+      "anys": [
+        {
+          "line": 32,
+          "character": 11,
+          "text": "g.__stripeLocationId as string",
+          "kind": 3
+        }
+      ]
+    },
+    "components\\app\\FatalError.tsx": {
+      "hash": "7a8a852c24b67c7aa3f7eed8d8890b373e413572",
+      "correctCount": 51,
+      "totalCount": 51,
+      "anys": []
+    },
+    "components\\app\\MenuPrincipal.tsx": {
+      "hash": "5ac8fd72fa02772ba62dc33022648c5f07a44e01",
+      "correctCount": 285,
+      "totalCount": 285,
+      "anys": []
+    },
+    "components\\auth\\LoginScreen.tsx": {
+      "hash": "583a64eedd648edbd2879cdcb43819b9354a09b7",
+      "correctCount": 284,
+      "totalCount": 284,
+      "anys": []
+    },
+    "components\\app\\LoginGuard.tsx": {
+      "hash": "e3865d4b7df35b9ccd83efb4f09d7b5c785ec538",
+      "correctCount": 116,
+      "totalCount": 116,
+      "anys": []
+    },
+    "components\\app\\LoadingSkeleton.tsx": {
+      "hash": "0a30baf5b15eaf798a718097d3ccb94995c7dfcc",
+      "correctCount": 33,
+      "totalCount": 33,
+      "anys": []
+    },
+    "components\\app\\OfflineBanner.tsx": {
+      "hash": "3272594d94cfb55b4ff2a347208c094d28f4f047",
+      "correctCount": 25,
+      "totalCount": 25,
+      "anys": []
+    },
+    "components\\app\\FloorLoading.tsx": {
+      "hash": "e9df34dcf2a3a1538a1632624b85759de1785f2a",
+      "correctCount": 20,
+      "totalCount": 20,
+      "anys": []
+    },
+    "components\\app\\QrCallBanner.tsx": {
+      "hash": "c10e5a679efa27443d4b9082df2dfd746d837d67",
+      "correctCount": 42,
+      "totalCount": 42,
+      "anys": []
+    },
+    "application\\subscribers\\order-subscribers.ts": {
+      "hash": "36e2f122c1c78fafb0ddcb679c0d96c6a9d0afb9",
+      "correctCount": 45,
+      "totalCount": 45,
+      "anys": []
+    },
+    "application\\subscribers\\stock-subscribers.ts": {
+      "hash": "44bcc809cd5f4c9a6c057c973b3ebe498312f480",
+      "correctCount": 18,
+      "totalCount": 18,
+      "anys": []
+    },
+    "application\\subscribers\\item-subscribers.ts": {
+      "hash": "a36ca3f4eaa6377ace89fe0de9537a86e9bbaf16",
+      "correctCount": 14,
+      "totalCount": 14,
+      "anys": []
+    },
+    "application\\subscribers\\payment-subscribers.ts": {
+      "hash": "f5936a0af8ae300ef830b129adb91b7139aecf05",
+      "correctCount": 104,
+      "totalCount": 104,
+      "anys": []
+    },
+    "application\\subscribers\\order-created-subscriber.ts": {
+      "hash": "51e991c34db066a4384e5db71cfaaf3c4b197e6a",
+      "correctCount": 38,
+      "totalCount": 38,
+      "anys": []
+    },
+    "application\\subscribers\\index.ts": {
+      "hash": "381918db03b6ec4a83fb98dff24cf1d3f798d059",
+      "correctCount": 22,
+      "totalCount": 22,
+      "anys": []
+    },
+    "modules\\core\\nav-config.ts": {
+      "hash": "a49d5122d8479e0ac55bcdc5a220d5df4630f711",
+      "correctCount": 192,
+      "totalCount": 192,
+      "anys": []
+    },
+    "components\\app\\CommandPalette.tsx": {
+      "hash": "0984a0f96160ff5520a52c1381846689dc4fe2e6",
+      "correctCount": 449,
+      "totalCount": 449,
+      "anys": []
+    },
+    "components\\modals\\ModifierSelector.tsx": {
+      "hash": "6aa3ac2b9b04e445d4294d3d74e73917025732d8",
+      "correctCount": 569,
+      "totalCount": 569,
+      "anys": []
+    },
+    "modules\\salon\\ComandaDrawer\\types.ts": {
+      "hash": "465ef530fa63bc57951f9a78d7c291ccb700d3c8",
+      "correctCount": 205,
+      "totalCount": 205,
+      "anys": []
+    },
+    "modules\\debug\\EventLog.tsx": {
+      "hash": "c28b8f04d2c806a6b68205f423011c7b23797549",
+      "correctCount": 148,
+      "totalCount": 148,
+      "anys": []
+    },
+    "modules\\core\\app-contexts.tsx": {
+      "hash": "2b70bd4504047a862b89194fdf5ac773e0eea596",
+      "correctCount": 452,
+      "totalCount": 452,
+      "anys": []
+    },
+    "modules\\core\\Sidebar.tsx": {
+      "hash": "db908df32b85c10cddd0454fe466b44473be61bd",
+      "correctCount": 218,
+      "totalCount": 219,
+      "anys": [
+        {
+          "line": 41,
+          "character": 42,
+          "text": "{ '--gcol': group.color } as CSSProperties",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\core\\TopBar.tsx": {
+      "hash": "bf454fd78a4a5d0bfc496756412e8e6fc6ea9bfc",
+      "correctCount": 171,
+      "totalCount": 171,
+      "anys": []
+    },
+    "modules\\core\\view-routes.ts": {
+      "hash": "fc051c41ca7ab1cc203d6971285748304edc19c3",
+      "correctCount": 26,
+      "totalCount": 26,
+      "anys": []
+    },
+    "modules\\payment\\StripePaymentForm.tsx": {
+      "hash": "f19fc19710654e43bc48b2fa3c957a273493a2c1",
+      "correctCount": 167,
+      "totalCount": 167,
+      "anys": []
+    },
+    "modules\\payment\\StripeModal.tsx": {
+      "hash": "d65d222a05ac2f3f5cfbdd39e29a36b1c19ac9d9",
+      "correctCount": 295,
+      "totalCount": 302,
+      "anys": [
+        {
+          "line": 49,
+          "character": 14,
+          "text": "data",
+          "kind": 1
+        },
+        {
+          "line": 50,
+          "character": 37,
+          "text": "data",
+          "kind": 1
+        },
+        {
+          "line": 50,
+          "character": 42,
+          "text": "error",
+          "kind": 1
+        },
+        {
+          "line": 51,
+          "character": 24,
+          "text": "data",
+          "kind": 1
+        },
+        {
+          "line": 51,
+          "character": 29,
+          "text": "clientSecret",
+          "kind": 1
+        },
+        {
+          "line": 53,
+          "character": 22,
+          "text": "err as Error",
+          "kind": 3
+        },
+        {
+          "line": 101,
+          "character": 72,
+          "text": "selectedTable.name!",
+          "kind": 5
+        }
+      ]
+    },
+    "modules\\payment\\PaymentModal.tsx": {
+      "hash": "06fd5ab1c7c9347c406bf1f77c1dec6ca3389257",
+      "correctCount": 864,
+      "totalCount": 871,
+      "anys": [
+        {
+          "line": 64,
+          "character": 85,
+          "text": "m.id as 'efectivo' | 'tarjeta' | 'bizum' | 'fiado'",
+          "kind": 3
+        },
+        {
+          "line": 65,
+          "character": 89,
+          "text": "m.id as 'efectivo' | 'tarjeta' | 'bizum' | 'fiado'",
+          "kind": 3
+        },
+        {
+          "line": 227,
+          "character": 29,
+          "text": "meta!",
+          "kind": 5
+        },
+        {
+          "line": 238,
+          "character": 77,
+          "text": "meta!",
+          "kind": 5
+        },
+        {
+          "line": 239,
+          "character": 68,
+          "text": "meta!",
+          "kind": 5
+        },
+        {
+          "line": 262,
+          "character": 55,
+          "text": "meta!",
+          "kind": 5
+        },
+        {
+          "line": 264,
+          "character": 64,
+          "text": "meta!",
+          "kind": 5
+        }
+      ]
+    },
+    "modules\\salon\\ComandaDrawer\\ProductSection.tsx": {
+      "hash": "94aaac83b8f2cfb88df97a08353191ad539156e9",
+      "correctCount": 722,
+      "totalCount": 722,
+      "anys": []
+    },
+    "modules\\salon\\ComandaDrawer\\OrderSection.tsx": {
+      "hash": "52a81ac9e6bca9576635ed3ecaa85e520750d7f2",
+      "correctCount": 932,
+      "totalCount": 933,
+      "anys": [
+        {
+          "line": 144,
+          "character": 54,
+          "text": "item.course!",
+          "kind": 5
+        }
+      ]
+    },
+    "components\\modals\\ComboSlotSelector.tsx": {
+      "hash": "b5ca764b565cc379df9ea2d869a8a22674a539d3",
+      "correctCount": 530,
+      "totalCount": 530,
+      "anys": []
+    },
+    "components\\modals\\MenuDelDiaSelector.tsx": {
+      "hash": "b5c07bc882372b034569dff5524a8b0b1e85901e",
+      "correctCount": 738,
+      "totalCount": 738,
+      "anys": []
+    },
+    "modules\\salon\\ComandaDrawer\\DrawerModals.tsx": {
+      "hash": "100fe3aad8f6b550bd5f608b7850831e9f3aa6da",
+      "correctCount": 2030,
+      "totalCount": 2030,
+      "anys": []
+    },
+    "modules\\salon\\ComandaDrawer\\ComandaDrawer.tsx": {
+      "hash": "c24adddc85da607bb1d0550627df49daae4a5f84",
+      "correctCount": 1447,
+      "totalCount": 1447,
+      "anys": []
+    },
+    "modules\\salon\\ComandaDrawer.tsx": {
+      "hash": "9c79dd67e728e48a93ec28500fa34991edd229b0",
+      "correctCount": 1,
+      "totalCount": 1,
+      "anys": []
+    },
+    "components\\modals\\ClockinModal.tsx": {
+      "hash": "6c882d5bf44f21602400a5c495090f7f054f94b4",
+      "correctCount": 261,
+      "totalCount": 261,
+      "anys": []
+    },
+    "components\\modals\\SettingsModal.tsx": {
+      "hash": "4d2ea00b1bafa1e84de2346c2d37b9aeeb76284a",
+      "correctCount": 617,
+      "totalCount": 617,
+      "anys": []
+    },
+    "app\\(taller)\\layout.tsx": {
+      "hash": "b52ef3a43728ad44d359fc68f365806a7d3e2c14",
+      "correctCount": 1093,
+      "totalCount": 1113,
+      "anys": [
+        {
+          "line": 131,
+          "character": 72,
+          "text": "floor as Floor",
+          "kind": 3
+        },
+        {
+          "line": 142,
+          "character": 11,
+          "text": "floor as Floor",
+          "kind": 3
+        },
+        {
+          "line": 142,
+          "character": 71,
+          "text": "catalog as Catalog",
+          "kind": 3
+        },
+        {
+          "line": 179,
+          "character": 38,
+          "text": "floor as Floor",
+          "kind": 3
+        },
+        {
+          "line": 179,
+          "character": 112,
+          "text": "catalog as Catalog",
+          "kind": 3
+        },
+        {
+          "line": 204,
+          "character": 96,
+          "text": "handleReadyNotification as (payload: unknown) => void",
+          "kind": 3
+        },
+        {
+          "line": 206,
+          "character": 76,
+          "text": "floor as Floor",
+          "kind": 3
+        },
+        {
+          "line": 208,
+          "character": 38,
+          "text": "catalog as Catalog",
+          "kind": 3
+        },
+        {
+          "line": 221,
+          "character": 62,
+          "text": "data as ModifierData",
+          "kind": 3
+        },
+        {
+          "line": 245,
+          "character": 70,
+          "text": "tenants as { id: string; name: string }[]",
+          "kind": 3
+        },
+        {
+          "line": 253,
+          "character": 420,
+          "text": "clockinSummary as { totalHours?: number; entries?: unknown[] } | null",
+          "kind": 3
+        },
+        {
+          "line": 268,
+          "character": 19,
+          "text": "catalog as unknown as ComandaDrawerProps['catalog']",
+          "kind": 3
+        },
+        {
+          "line": 272,
+          "character": 21,
+          "text": "addItem as unknown as ComandaDrawerProps['onAddItem']",
+          "kind": 3
+        },
+        {
+          "line": 279,
+          "character": 182,
+          "text": "setItemPrice as (itemId: string, price: number | null) => void",
+          "kind": 3
+        },
+        {
+          "line": 283,
+          "character": 23,
+          "text": "moveTable as (currentId: string, destId: string | null) => void",
+          "kind": 3
+        },
+        {
+          "line": 287,
+          "character": 78,
+          "text": "oid!",
+          "kind": 5
+        },
+        {
+          "line": 290,
+          "character": 18,
+          "text": "combos as unknown as ComandaDrawerProps['combos']",
+          "kind": 3
+        },
+        {
+          "line": 290,
+          "character": 80,
+          "text": "(catalog?.mealMenus || []) as unknown as ComandaDrawerProps['mealMenus']",
+          "kind": 3
+        },
+        {
+          "line": 311,
+          "character": 121,
+          "text": "confirmModifiersAndAdd as unknown as ModifierSelectorProps['onConfirm']",
+          "kind": 3
+        },
+        {
+          "line": 320,
+          "character": 24,
+          "text": "C as unknown as Record<string, string>",
+          "kind": 3
+        }
+      ]
+    },
+    "app\\(taller)\\page.tsx": {
+      "hash": "cc3988cea4c8edf0f45c10e99d4c9906768e1382",
+      "correctCount": 5,
+      "totalCount": 5,
+      "anys": []
+    },
+    "app\\descargar\\page.tsx": {
+      "hash": "bda87c95d10d0063a7f00f78178307661a167033",
+      "correctCount": 81,
+      "totalCount": 81,
+      "anys": []
+    },
+    "app\\fichar\\page.tsx": {
+      "hash": "0076cab2097a070141ccc90092b92fa9387be7ce",
+      "correctCount": 174,
+      "totalCount": 175,
+      "anys": [
+        {
+          "line": 21,
+          "character": 12,
+          "text": "data",
+          "kind": 1
+        }
+      ]
+    },
+    "modules\\kitchen\\KDSView.tsx": {
+      "hash": "53eaac250de8f9528ced6942ed50ccca9692a313",
+      "correctCount": 2183,
+      "totalCount": 2190,
+      "anys": [
+        {
+          "line": 147,
+          "character": 28,
+          "text": "updateItemState as unknown as (next: KDSFloor, action: { orderId: string; itemId: string | null; previousState: string | null }) => void",
+          "kind": 3
+        },
+        {
+          "line": 148,
+          "character": 25,
+          "text": "advanceOrder as unknown as (next: KDSFloor, action: { orderId: string; itemId: string | null; previousState: string | null } | null) => void",
+          "kind": 3
+        },
+        {
+          "line": 151,
+          "character": 16,
+          "text": "floorCtx.floor as unknown as KDSFloor | null",
+          "kind": 3
+        },
+        {
+          "line": 152,
+          "character": 18,
+          "text": "catalogCtx.catalog as unknown as KDSCatalog | null",
+          "kind": 3
+        },
+        {
+          "line": 196,
+          "character": 46,
+          "text": "(window as unknown as Record<string, unknown>).webkitAudioContext as typeof AudioContext",
+          "kind": 3
+        },
+        {
+          "line": 196,
+          "character": 47,
+          "text": "window as unknown as Record<string, unknown>",
+          "kind": 3
+        },
+        {
+          "line": 275,
+          "character": 11,
+          "text": "Object.entries(floor.orders).map(([id, o]) => {\r\n      const table = floor.tables?.find(t => t.id === o.tableId);\r\n      const items = o.items.filter(i => i.sent && !i.served && i.ubicacion !== 'Bar');\r\n      const zoneItems = zoneFilter === 'all' ? items : items.filter(i => {\r\n        if (!catalog?.products) return false;\r\n        const p = catalog.products.find(p => p.id === i.productId);\r\n        if (!p) return false;\r\n        const cat = catalog.categories?.find(c => (typeof c === 'string' ? c : c.name) === (typeof p.category === 'string' ? p.category : ''));\r\n        return typeof cat !== 'string' && cat?.printerZone === zoneFilter;\r\n      });\r\n      if (zoneItems.length === 0) return null;\r\n      return { ...o, orderId: id, tableName: table?.name || o.tableId || id, items: zoneItems };\r\n    }).filter(Boolean) as FilteredOrder[]",
+          "kind": 3
+        }
+      ]
+    },
+    "app\\kds\\page.tsx": {
+      "hash": "0dd92242786424fdbe2f8078a52479a490f08ca3",
+      "correctCount": 384,
+      "totalCount": 398,
+      "anys": [
+        {
+          "line": 34,
+          "character": 12,
+          "text": "data",
+          "kind": 1
+        },
+        {
+          "line": 35,
+          "character": 12,
+          "text": "data",
+          "kind": 1
+        },
+        {
+          "line": 35,
+          "character": 17,
+          "text": "paired",
+          "kind": 1
+        },
+        {
+          "line": 98,
+          "character": 11,
+          "text": "floor as unknown as Floor",
+          "kind": 3
+        },
+        {
+          "line": 99,
+          "character": 13,
+          "text": "catalog as unknown as Catalog",
+          "kind": 3
+        },
+        {
+          "line": 104,
+          "character": 12,
+          "text": "KTC as unknown as Theme",
+          "kind": 3
+        },
+        {
+          "line": 128,
+          "character": 22,
+          "text": "(n.orders as Record<string, unknown>)[action.orderId] as Record<string, unknown> | undefined",
+          "kind": 3
+        },
+        {
+          "line": 129,
+          "character": 22,
+          "text": "order?.items as Array<Record<string, unknown>>",
+          "kind": 3
+        },
+        {
+          "line": 131,
+          "character": 46,
+          "text": "table?.name as string",
+          "kind": 3
+        },
+        {
+          "line": 131,
+          "character": 73,
+          "text": "order?.tableId as string",
+          "kind": 3
+        },
+        {
+          "line": 131,
+          "character": 101,
+          "text": "item.name as string",
+          "kind": 3
+        },
+        {
+          "line": 131,
+          "character": 123,
+          "text": "order?.employeeName as string",
+          "kind": 3
+        },
+        {
+          "line": 141,
+          "character": 44,
+          "text": "catalog.products as Array<Record<string, unknown>>",
+          "kind": 3
+        },
+        {
+          "line": 142,
+          "character": 17,
+          "text": "next as unknown as Record<string, unknown>",
+          "kind": 3
+        }
+      ]
+    },
+    "app\\menu\\layout.tsx": {
+      "hash": "038249cbe4f1a28befc03d0c0c357856e5999276",
+      "correctCount": 31,
+      "totalCount": 31,
+      "anys": []
+    },
+    "app\\menu\\page.tsx": {
+      "hash": "4565a4e91dfe467f9995c31a6f1f7c9d5eb5417f",
+      "correctCount": 1144,
+      "totalCount": 1146,
+      "anys": [
+        {
+          "line": 355,
+          "character": 37,
+          "text": "combo.slots!",
+          "kind": 5
+        },
+        {
+          "line": 399,
+          "character": 25,
+          "text": "combo.slots!",
+          "kind": 5
+        }
+      ]
+    },
+    "app\\pedir\\page.tsx": {
+      "hash": "3b508808b5439939618c6d50f2749431367f53ed",
+      "correctCount": 1482,
+      "totalCount": 1494,
+      "anys": [
+        {
+          "line": 97,
+          "character": 14,
+          "text": "cat",
+          "kind": 1
+        },
+        {
+          "line": 97,
+          "character": 19,
+          "text": "s",
+          "kind": 1
+        },
+        {
+          "line": 97,
+          "character": 22,
+          "text": "z",
+          "kind": 1
+        },
+        {
+          "line": 102,
+          "character": 19,
+          "text": "catData.categories as unknown[]",
+          "kind": 3
+        },
+        {
+          "line": 103,
+          "character": 46,
+          "text": "(cats[0] as Record<string, unknown>).id as string",
+          "kind": 3
+        },
+        {
+          "line": 103,
+          "character": 47,
+          "text": "cats[0] as Record<string, unknown>",
+          "kind": 3
+        },
+        {
+          "line": 127,
+          "character": 21,
+          "text": "catalog.categories as Category[]",
+          "kind": 3
+        },
+        {
+          "line": 128,
+          "character": 12,
+          "text": "catalog.products as Product[]",
+          "kind": 3
+        },
+        {
+          "line": 138,
+          "character": 12,
+          "text": "catalog.categories as Category[]",
+          "kind": 3
+        },
+        {
+          "line": 202,
+          "character": 23,
+          "text": "data as unknown as Record<string, unknown>",
+          "kind": 3
+        },
+        {
+          "line": 273,
+          "character": 61,
+          "text": "orderResult.orderId as string",
+          "kind": 3
+        },
+        {
+          "line": 370,
+          "character": 108,
+          "text": "cart.find(i => i.productId === p.id)!",
+          "kind": 5
+        }
+      ]
+    },
+    "app\\reservar\\page.tsx": {
+      "hash": "7a03d23e949f7bc812bf37213d8eea4e063d702f",
+      "correctCount": 913,
+      "totalCount": 913,
+      "anys": []
+    },
+    "app\\sentry-example-page\\page.tsx": {
+      "hash": "fd5e5d10fee211a2de616e8afc4665af0c8cef61",
+      "correctCount": 16,
+      "totalCount": 16,
+      "anys": []
+    },
+    "app\\waitlist\\page.tsx": {
+      "hash": "ab7b45116b96bc352ef2e8994b472b3132c01d7d",
+      "correctCount": 370,
+      "totalCount": 370,
+      "anys": []
+    },
+    "components\\modals\\DrawerModal.tsx": {
+      "hash": "e481fe83c4bb366c9b4647a023677d86789e7080",
+      "correctCount": 325,
+      "totalCount": 325,
+      "anys": []
+    },
+    "components\\modals\\QRCodeModal.tsx": {
+      "hash": "0326721ec40b991b404d9671c9fdf62d40f80bbe",
+      "correctCount": 150,
+      "totalCount": 150,
+      "anys": []
+    },
+    "components\\views\\FoodCostView.tsx": {
+      "hash": "cf4412114b81faf2b914fb8e2f88848ac0a0d37a",
+      "correctCount": 705,
+      "totalCount": 705,
+      "anys": []
+    },
+    "components\\views\\ReservaSettingsView.tsx": {
+      "hash": "232f229c6ece909377c4aef1fe26937e57d76c20",
+      "correctCount": 2148,
+      "totalCount": 2148,
+      "anys": []
+    },
+    "components\\views\\VerifactuPanel.tsx": {
+      "hash": "dc5f6ec54638645fae75ec816a1bac03dcc7b4c3",
+      "correctCount": 749,
+      "totalCount": 751,
+      "anys": [
+        {
+          "line": 34,
+          "character": 9,
+          "text": "v",
+          "kind": 2
+        },
+        {
+          "line": 34,
+          "character": 20,
+          "text": "r",
+          "kind": 1
+        }
+      ]
+    },
+    "domain\\employees\\employees.ts": {
+      "hash": "39151024e8d040c78af55d6633283dba898a5cf1",
+      "correctCount": 52,
+      "totalCount": 52,
+      "anys": []
+    },
+    "domain\\inventory\\stock.ts": {
+      "hash": "ae5ec7eb01293b40b2e52e866d9cdb235bf233e6",
+      "correctCount": 66,
+      "totalCount": 66,
+      "anys": []
+    },
+    "domain\\order\\line-totals.ts": {
+      "hash": "cb20bbe2926ac5c7cdabd214237befc9d461969b",
+      "correctCount": 55,
+      "totalCount": 55,
+      "anys": []
+    },
+    "domain\\order\\order.ts": {
+      "hash": "82f03ad2079c0253e25ee2cc7879e8baa771e12b",
+      "correctCount": 71,
+      "totalCount": 71,
+      "anys": []
+    },
+    "domain\\payments\\payments.ts": {
+      "hash": "b226f8e11c69898aaf75825ebba409aa0235caff",
+      "correctCount": 70,
+      "totalCount": 70,
+      "anys": []
+    },
+    "domain\\pricing\\offers.ts": {
+      "hash": "f89ba9a5c5cc6e71a0a95fb5db24998185a78222",
+      "correctCount": 59,
+      "totalCount": 59,
+      "anys": []
+    },
+    "domain\\tables\\table.ts": {
+      "hash": "02d00f64a218b4279fdbd868af5c77cc249fb998",
+      "correctCount": 93,
+      "totalCount": 93,
+      "anys": []
+    },
+    "infrastructure\\database\\catalog-repository.ts": {
+      "hash": "b88dc25ca0bac4bd38b448307e3891b5cf207d64",
+      "correctCount": 69,
+      "totalCount": 70,
+      "anys": [
+        {
+          "line": 39,
+          "character": 11,
+          "text": "(await apiFetchCatalog()) as Catalog",
+          "kind": 3
+        }
+      ]
+    },
+    "infrastructure\\database\\employees-repository.ts": {
+      "hash": "3322145362fbfdde1d0669de09eeeed0fd689efb",
+      "correctCount": 73,
+      "totalCount": 75,
+      "anys": [
+        {
+          "line": 17,
+          "character": 9,
+          "text": "data",
+          "kind": 2
+        },
+        {
+          "line": 17,
+          "character": 23,
+          "text": "e",
+          "kind": 1
+        }
+      ]
+    },
+    "infrastructure\\database\\sales-repository.ts": {
+      "hash": "e6157e608d11f2253e2ada70ee209ae1d3b9bcb9",
+      "correctCount": 62,
+      "totalCount": 63,
+      "anys": [
+        {
+          "line": 28,
+          "character": 31,
+          "text": "data as unknown as SalesData",
+          "kind": 3
+        }
+      ]
+    },
+    "lib\\schemas\\api-schemas.ts": {
+      "hash": "14f3579b88cf15fd0149d964483279d4086bcef5",
+      "correctCount": 2812,
+      "totalCount": 2812,
+      "anys": []
+    },
+    "lib\\schemas\\floorSchema.ts": {
+      "hash": "52af7499609603da10d2b7d7b4ad97d3b4bfe382",
+      "correctCount": 179,
+      "totalCount": 179,
+      "anys": []
+    },
+    "lib\\types\\legacy.ts": {
+      "hash": "01c68b77a3f573fc1dcf09b4579bebbe8af047be",
+      "correctCount": 10,
+      "totalCount": 10,
+      "anys": []
+    },
+    "modules\\admin\\AccesosView.tsx": {
+      "hash": "7bab907e5654585cc769f897bde19fa3429b7a83",
+      "correctCount": 365,
+      "totalCount": 366,
+      "anys": [
+        {
+          "line": 47,
+          "character": 19,
+          "text": "(await fetchAccessLogs(500, 0)) as { rows?: AccessLogRow[] }",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\admin\\AuditView.tsx": {
+      "hash": "77621e5e851a2682ec839dda3855eb1d63b220d9",
+      "correctCount": 375,
+      "totalCount": 376,
+      "anys": [
+        {
+          "line": 66,
+          "character": 15,
+          "text": "data as AuditLog[]",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\admin\\pedidos-compra\\types.ts": {
+      "hash": "38fcb05957d43c219bae69aa602259631cd275ed",
+      "correctCount": 105,
+      "totalCount": 105,
+      "anys": []
+    },
+    "modules\\admin\\pedidos-compra\\OrdersTab.tsx": {
+      "hash": "ec1412160fb2d71261fa072684ebf9676750993f",
+      "correctCount": 1106,
+      "totalCount": 1107,
+      "anys": [
+        {
+          "line": 246,
+          "character": 7,
+          "text": "n[i] as unknown as Record<string, string | number>",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\admin\\pedidos-compra\\AutoTab.tsx": {
+      "hash": "d41e3f2f0d1b958dd126db178f0c47184470e47b",
+      "correctCount": 570,
+      "totalCount": 570,
+      "anys": []
+    },
+    "modules\\admin\\pedidos-compra\\SuppliersTab.tsx": {
+      "hash": "c3a579c1c69f5fd2997844455e641242a6956df0",
+      "correctCount": 1126,
+      "totalCount": 1136,
+      "anys": [
+        {
+          "line": 143,
+          "character": 9,
+          "text": "newOffer!",
+          "kind": 5
+        },
+        {
+          "line": 143,
+          "character": 33,
+          "text": "newOffer!",
+          "kind": 5
+        },
+        {
+          "line": 145,
+          "character": 17,
+          "text": "newOffer!",
+          "kind": 5
+        },
+        {
+          "line": 146,
+          "character": 11,
+          "text": "newOffer!",
+          "kind": 5
+        },
+        {
+          "line": 147,
+          "character": 20,
+          "text": "newOffer!",
+          "kind": 5
+        },
+        {
+          "line": 148,
+          "character": 23,
+          "text": "newOffer!",
+          "kind": 5
+        },
+        {
+          "line": 149,
+          "character": 23,
+          "text": "newOffer!",
+          "kind": 5
+        },
+        {
+          "line": 167,
+          "character": 84,
+          "text": "no!",
+          "kind": 5
+        },
+        {
+          "line": 175,
+          "character": 89,
+          "text": "no!",
+          "kind": 5
+        },
+        {
+          "line": 178,
+          "character": 106,
+          "text": "no!",
+          "kind": 5
+        }
+      ]
+    },
+    "modules\\admin\\pedidos-compra\\PedidosCompraView.tsx": {
+      "hash": "007ef4143d850b5de853a97fbd94d3960de0dc84",
+      "correctCount": 174,
+      "totalCount": 174,
+      "anys": []
+    },
+    "modules\\admin\\PedidosCompraView.tsx": {
+      "hash": "6f88cf7616f806158231de7e4291992addae3981",
+      "correctCount": 1,
+      "totalCount": 1,
+      "anys": []
+    },
+    "modules\\admin\\SolicitudesView.tsx": {
+      "hash": "35f8bc99855e2f615e6d11b1109a8d7e218013fc",
+      "correctCount": 491,
+      "totalCount": 491,
+      "anys": []
+    },
+    "modules\\buffet\\BuffetKioskView.tsx": {
+      "hash": "8d0a1191f320d19f5907d0e79e9bd45c4e625cb0",
+      "correctCount": 2500,
+      "totalCount": 2505,
+      "anys": [
+        {
+          "line": 94,
+          "character": 22,
+          "text": "useAuth().currentUser as unknown as { name?: string } | null",
+          "kind": 3
+        },
+        {
+          "line": 111,
+          "character": 19,
+          "text": "await fetchBuffetSessions() as { sessions?: BuffetSession[]; config?: BuffetConfig }",
+          "kind": 3
+        },
+        {
+          "line": 136,
+          "character": 18,
+          "text": "await buffetAction(action, { employeeName: currentUser?.name, ...payload }) as { error?: string }",
+          "kind": 3
+        },
+        {
+          "line": 149,
+          "character": 19,
+          "text": "await fetchBuffetRounds(sessionId) as BuffetRound[]",
+          "kind": 3
+        },
+        {
+          "line": 694,
+          "character": 21,
+          "text": "await fetchBuffetRounds(session.id) as BuffetRound[]",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\catalog\\AlbaranesView.tsx": {
+      "hash": "d3a467fcccb8ca97c1ba20375109a69afe45dd41",
+      "correctCount": 2397,
+      "totalCount": 2402,
+      "anys": [
+        {
+          "line": 214,
+          "character": 46,
+          "text": "err as Error",
+          "kind": 3
+        },
+        {
+          "line": 237,
+          "character": 43,
+          "text": "err as Error",
+          "kind": 3
+        },
+        {
+          "line": 257,
+          "character": 45,
+          "text": "err as Error",
+          "kind": 3
+        },
+        {
+          "line": 460,
+          "character": 7,
+          "text": "n[i] as unknown as Record<string, string | number>",
+          "kind": 3
+        },
+        {
+          "line": 518,
+          "character": 25,
+          "text": "err as Error",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\catalog\\AlmacenDetalleView.tsx": {
+      "hash": "4a49f120963329f1a8f24150a0d43deeda4d4991",
+      "correctCount": 631,
+      "totalCount": 642,
+      "anys": [
+        {
+          "line": 36,
+          "character": 18,
+          "text": "catalogCtx.catalog as unknown as DetalleCatalog",
+          "kind": 3
+        },
+        {
+          "line": 37,
+          "character": 20,
+          "text": "catalogCtx.almacenUbicacion as unknown as string",
+          "kind": 3
+        },
+        {
+          "line": 39,
+          "character": 24,
+          "text": "catalogCtx.updateProductField as unknown as (id: string, field: string, value: string) => void",
+          "kind": 3
+        },
+        {
+          "line": 160,
+          "character": 53,
+          "text": "e.target as HTMLElement",
+          "kind": 3
+        },
+        {
+          "line": 160,
+          "character": 98,
+          "text": "e.target as HTMLElement",
+          "kind": 3
+        },
+        {
+          "line": 161,
+          "character": 53,
+          "text": "e.target as HTMLElement",
+          "kind": 3
+        },
+        {
+          "line": 161,
+          "character": 98,
+          "text": "e.target as HTMLElement",
+          "kind": 3
+        },
+        {
+          "line": 173,
+          "character": 51,
+          "text": "e.target as HTMLElement",
+          "kind": 3
+        },
+        {
+          "line": 173,
+          "character": 96,
+          "text": "e.target as HTMLElement",
+          "kind": 3
+        },
+        {
+          "line": 174,
+          "character": 51,
+          "text": "e.target as HTMLElement",
+          "kind": 3
+        },
+        {
+          "line": 174,
+          "character": 96,
+          "text": "e.target as HTMLElement",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\catalog\\AlmacenMenuView.tsx": {
+      "hash": "1ed2f5276a4298b7994154981237f9c372138111",
+      "correctCount": 417,
+      "totalCount": 418,
+      "anys": [
+        {
+          "line": 53,
+          "character": 18,
+          "text": "catalogCtx.catalog as unknown as InventoryCatalog",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\catalog\\CarruselPanel.tsx": {
+      "hash": "3c88f8865c974a8f0d4013f5b3b694e39f45dcf2",
+      "correctCount": 453,
+      "totalCount": 455,
+      "anys": [
+        {
+          "line": 25,
+          "character": 18,
+          "text": "ct.catalog as unknown as Catalog",
+          "kind": 3
+        },
+        {
+          "line": 26,
+          "character": 17,
+          "text": "ct.saveCarrusel as unknown as (data: { id: string; carouselSort: number | null }[]) => void",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\catalog\\CartasView.tsx": {
+      "hash": "3f7c40d2d1ebb51506b3e3cfb0e1529d84f98d86",
+      "correctCount": 2811,
+      "totalCount": 2814,
+      "anys": [
+        {
+          "line": 87,
+          "character": 18,
+          "text": "catalogCtx.catalog as unknown as Catalog",
+          "kind": 3
+        },
+        {
+          "line": 88,
+          "character": 17,
+          "text": "catalogCtx.saveCartas as unknown as (c: Catalog) => void",
+          "kind": 3
+        },
+        {
+          "line": 134,
+          "character": 12,
+          "text": "p as unknown as Record<string, unknown>",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\catalog\\CombosPanel.tsx": {
+      "hash": "4d95bf116072518e5a5705af82c2a97ee00b6f24",
+      "correctCount": 855,
+      "totalCount": 861,
+      "anys": [
+        {
+          "line": 65,
+          "character": 17,
+          "text": "ct.combos as unknown as Combo[]",
+          "kind": 3
+        },
+        {
+          "line": 66,
+          "character": 18,
+          "text": "ct.catalog as unknown as ComboCatalog",
+          "kind": 3
+        },
+        {
+          "line": 67,
+          "character": 17,
+          "text": "ct.saveCombosFn as unknown as (combos: Combo[]) => void",
+          "kind": 3
+        },
+        {
+          "line": 72,
+          "character": 5,
+          "text": "next[ci] as unknown as Record<string, unknown>",
+          "kind": 3
+        },
+        {
+          "line": 78,
+          "character": 5,
+          "text": "next[ci].slots[si] as unknown as Record<string, unknown>",
+          "kind": 3
+        },
+        {
+          "line": 84,
+          "character": 5,
+          "text": "next[ci].slots[si].items[ii] as unknown as Record<string, unknown>",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\catalog\\InventarioView.tsx": {
+      "hash": "cfd8455451a6f43f53cdc09b8b2e13dda6e2b378",
+      "correctCount": 2188,
+      "totalCount": 2208,
+      "anys": [
+        {
+          "line": 85,
+          "character": 12,
+          "text": "ui.colors as unknown as Record<string, string>",
+          "kind": 3
+        },
+        {
+          "line": 87,
+          "character": 18,
+          "text": "catalogCtx.catalog as unknown as Catalog",
+          "kind": 3
+        },
+        {
+          "line": 88,
+          "character": 24,
+          "text": "catalogCtx.updateProductField as unknown as (id: string, field: string, value: unknown) => void",
+          "kind": 3
+        },
+        {
+          "line": 91,
+          "character": 23,
+          "text": "catalogCtx.addProduct as unknown as (data: Record<string, unknown>) => void",
+          "kind": 3
+        },
+        {
+          "line": 108,
+          "character": 12,
+          "text": "data",
+          "kind": 1
+        },
+        {
+          "line": 109,
+          "character": 10,
+          "text": "data",
+          "kind": 1
+        },
+        {
+          "line": 109,
+          "character": 15,
+          "text": "url",
+          "kind": 1
+        },
+        {
+          "line": 109,
+          "character": 54,
+          "text": "data",
+          "kind": 1
+        },
+        {
+          "line": 109,
+          "character": 59,
+          "text": "url",
+          "kind": 1
+        },
+        {
+          "line": 129,
+          "character": 17,
+          "text": "form as unknown as Record<string, unknown>",
+          "kind": 3
+        },
+        {
+          "line": 249,
+          "character": 49,
+          "text": "e.target as HTMLElement",
+          "kind": 3
+        },
+        {
+          "line": 249,
+          "character": 94,
+          "text": "e.target as HTMLElement",
+          "kind": 3
+        },
+        {
+          "line": 250,
+          "character": 49,
+          "text": "e.target as HTMLElement",
+          "kind": 3
+        },
+        {
+          "line": 250,
+          "character": 94,
+          "text": "e.target as HTMLElement",
+          "kind": 3
+        },
+        {
+          "line": 266,
+          "character": 39,
+          "text": "e.target as HTMLElement",
+          "kind": 3
+        },
+        {
+          "line": 266,
+          "character": 84,
+          "text": "e.target as HTMLElement",
+          "kind": 3
+        },
+        {
+          "line": 267,
+          "character": 39,
+          "text": "e.target as HTMLElement",
+          "kind": 3
+        },
+        {
+          "line": 267,
+          "character": 84,
+          "text": "e.target as HTMLElement",
+          "kind": 3
+        },
+        {
+          "line": 641,
+          "character": 38,
+          "text": "form as unknown as Record<string, unknown>",
+          "kind": 3
+        },
+        {
+          "line": 706,
+          "character": 36,
+          "text": "form as unknown as Record<string, unknown>",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\catalog\\MenusDelDiaPanel.tsx": {
+      "hash": "9d2df7101f7d356c9421a783da00a81eb489020b",
+      "correctCount": 1223,
+      "totalCount": 1231,
+      "anys": [
+        {
+          "line": 82,
+          "character": 20,
+          "text": "(ct.catalog?.mealMenus || []) as unknown as MealMenu[]",
+          "kind": 3
+        },
+        {
+          "line": 83,
+          "character": 18,
+          "text": "ct.catalog as unknown as { products: { id: string; name: string; price: number }[] }",
+          "kind": 3
+        },
+        {
+          "line": 84,
+          "character": 17,
+          "text": "ct.saveMealMenusFn as unknown as (menus: MealMenu[]) => void",
+          "kind": 3
+        },
+        {
+          "line": 89,
+          "character": 5,
+          "text": "next[ci] as unknown as Record<string, unknown>",
+          "kind": 3
+        },
+        {
+          "line": 95,
+          "character": 5,
+          "text": "next[ci].courses[csi] as unknown as Record<string, unknown>",
+          "kind": 3
+        },
+        {
+          "line": 101,
+          "character": 5,
+          "text": "next[ci].courses[csi].items[ii] as unknown as Record<string, unknown>",
+          "kind": 3
+        },
+        {
+          "line": 107,
+          "character": 5,
+          "text": "next[ci].schedules[si] as unknown as Record<string, unknown>",
+          "kind": 3
+        },
+        {
+          "line": 167,
+          "character": 5,
+          "text": "next[ci].extras[ei] as unknown as Record<string, unknown>",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\catalog\\OfertasPanel.tsx": {
+      "hash": "cab5f9a3d6e2db6f5074756dc8843dbf2cac40fb",
+      "correctCount": 656,
+      "totalCount": 660,
+      "anys": [
+        {
+          "line": 62,
+          "character": 17,
+          "text": "ct.offers as unknown as OfferData[]",
+          "kind": 3
+        },
+        {
+          "line": 63,
+          "character": 18,
+          "text": "ct.catalog as unknown as OfferCatalog",
+          "kind": 3
+        },
+        {
+          "line": 64,
+          "character": 17,
+          "text": "ct.saveOffersFn as unknown as (offers: OfferData[]) => void",
+          "kind": 3
+        },
+        {
+          "line": 72,
+          "character": 5,
+          "text": "next[i] as unknown as Record<string, unknown>",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\catalog\\PreciosPanel.tsx": {
+      "hash": "7493ef96f2dd6ad5318b1b23eb7758185154e1cb",
+      "correctCount": 1428,
+      "totalCount": 1432,
+      "anys": [
+        {
+          "line": 305,
+          "character": 18,
+          "text": "ct.catalog as unknown as { products: CatalogProduct[] }",
+          "kind": 3
+        },
+        {
+          "line": 306,
+          "character": 21,
+          "text": "(ct.catalog?.priceRules || []) as unknown as PriceRule[]",
+          "kind": 3
+        },
+        {
+          "line": 307,
+          "character": 22,
+          "text": "ct.savePriceRulesFn as unknown as (rules: PriceRule[]) => Promise<void>",
+          "kind": 3
+        },
+        {
+          "line": 372,
+          "character": 59,
+          "text": "p as unknown as CatalogProduct",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\catalog\\ProduccionView.tsx": {
+      "hash": "e173100ba7e14458fb9a285bb97ee68769139fc5",
+      "correctCount": 2011,
+      "totalCount": 2015,
+      "anys": [
+        {
+          "line": 70,
+          "character": 18,
+          "text": "catalogCtx.catalog as unknown as Catalog",
+          "kind": 3
+        },
+        {
+          "line": 217,
+          "character": 35,
+          "text": "err as Error",
+          "kind": 3
+        },
+        {
+          "line": 359,
+          "character": 25,
+          "text": "err as Error",
+          "kind": 3
+        },
+        {
+          "line": 592,
+          "character": 25,
+          "text": "err as Error",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\catalog\\StockAlertasView.tsx": {
+      "hash": "790f1b3d56a94d1a251102681820d35636bb22d9",
+      "correctCount": 377,
+      "totalCount": 378,
+      "anys": [
+        {
+          "line": 29,
+          "character": 18,
+          "text": "catalogCtx.catalog as unknown as { products?: StockProduct[] } | null",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\salon\\MesaCard.tsx": {
+      "hash": "cfb9d11aabeb4f01d2b46694a3881aa0f58fa186",
+      "correctCount": 342,
+      "totalCount": 342,
+      "anys": []
+    },
+    "modules\\salon\\SalonView.tsx": {
+      "hash": "f19bc27885b8bf0b05837cf9c09f048c0093d673",
+      "correctCount": 783,
+      "totalCount": 787,
+      "anys": [
+        {
+          "line": 27,
+          "character": 16,
+          "text": "floorCtx.floor as unknown as SalonFloor",
+          "kind": 3
+        },
+        {
+          "line": 28,
+          "character": 23,
+          "text": "floorCtx.persistFloor as unknown as (floor: SalonFloor) => Promise<void>",
+          "kind": 3
+        },
+        {
+          "line": 47,
+          "character": 96,
+          "text": "reservationForm.guests as unknown as string",
+          "kind": 3
+        },
+        {
+          "line": 222,
+          "character": 89,
+          "text": "e.target.value as unknown as string",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\editor\\FloorEditor.tsx": {
+      "hash": "c777fd1ba486032fc73b641126aab57d968d8c4d",
+      "correctCount": 2139,
+      "totalCount": 2157,
+      "anys": [
+        {
+          "line": 68,
+          "character": 16,
+          "text": "floorCtx.floor as unknown as FloorData",
+          "kind": 3
+        },
+        {
+          "line": 170,
+          "character": 11,
+          "text": "e.target as HTMLElement",
+          "kind": 3
+        },
+        {
+          "line": 190,
+          "character": 28,
+          "text": "e.target as HTMLElement",
+          "kind": 3
+        },
+        {
+          "line": 262,
+          "character": 14,
+          "text": "t as unknown as Record<string, unknown>",
+          "kind": 3
+        },
+        {
+          "line": 340,
+          "character": 31,
+          "text": "ev.target?.result as string",
+          "kind": 3
+        },
+        {
+          "line": 427,
+          "character": 47,
+          "text": "selectedId!",
+          "kind": 5
+        },
+        {
+          "line": 434,
+          "character": 50,
+          "text": "selectedId!",
+          "kind": 5
+        },
+        {
+          "line": 705,
+          "character": 45,
+          "text": "selectedId!",
+          "kind": 5
+        },
+        {
+          "line": 713,
+          "character": 45,
+          "text": "selectedId!",
+          "kind": 5
+        },
+        {
+          "line": 724,
+          "character": 45,
+          "text": "selectedId!",
+          "kind": 5
+        },
+        {
+          "line": 733,
+          "character": 47,
+          "text": "selectedId!",
+          "kind": 5
+        },
+        {
+          "line": 737,
+          "character": 55,
+          "text": "selectedId!",
+          "kind": 5
+        },
+        {
+          "line": 750,
+          "character": 47,
+          "text": "selectedId!",
+          "kind": 5
+        },
+        {
+          "line": 759,
+          "character": 46,
+          "text": "selectedId!",
+          "kind": 5
+        },
+        {
+          "line": 772,
+          "character": 45,
+          "text": "selectedId!",
+          "kind": 5
+        },
+        {
+          "line": 781,
+          "character": 47,
+          "text": "selectedId!",
+          "kind": 5
+        },
+        {
+          "line": 787,
+          "character": 47,
+          "text": "selectedId!",
+          "kind": 5
+        },
+        {
+          "line": 795,
+          "character": 61,
+          "text": "selectedId!",
+          "kind": 5
+        }
+      ]
+    },
+    "modules\\kitchen\\CocinaView.tsx": {
+      "hash": "257aa1319a1023eefe259ea1480195dea70f837a",
+      "correctCount": 362,
+      "totalCount": 363,
+      "anys": [
+        {
+          "line": 49,
+          "character": 16,
+          "text": "(maybeFloor ?? { tables: [], orders: {} }) as unknown as CocinaFloor",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\kitchen\\BarraView.tsx": {
+      "hash": "6aa5d1871afdba64bc7a015e4c170f8218d5d4a8",
+      "correctCount": 347,
+      "totalCount": 348,
+      "anys": [
+        {
+          "line": 47,
+          "character": 16,
+          "text": "(maybeFloor ?? { tables: [], orders: {} }) as unknown as BarraFloor",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\kitchen\\ComandasAbiertasView.tsx": {
+      "hash": "c3ee08583b2a48285c962f47b967001fcaec5d03",
+      "correctCount": 364,
+      "totalCount": 365,
+      "anys": [
+        {
+          "line": 43,
+          "character": 16,
+          "text": "(maybeFloor ?? { tables: [], orders: {} }) as unknown as AbiertasFloor",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\reports\\charts-lazy.tsx": {
+      "hash": "bb9483d443e450d3a1bcd8d5195770e278d3dbe6",
+      "correctCount": 71,
+      "totalCount": 71,
+      "anys": []
+    },
+    "modules\\reports\\InformesView.tsx": {
+      "hash": "d1d41620e22f778a3b0232c7a3ca7d5131b5eb17",
+      "correctCount": 5878,
+      "totalCount": 5902,
+      "anys": [
+        {
+          "line": 21,
+          "character": 19,
+          "text": "res as { ok: boolean }",
+          "kind": 3
+        },
+        {
+          "line": 407,
+          "character": 58,
+          "text": "v as number",
+          "kind": 3
+        },
+        {
+          "line": 515,
+          "character": 54,
+          "text": "data as Closure[]",
+          "kind": 3
+        },
+        {
+          "line": 566,
+          "character": 15,
+          "text": "[\n          d.toLocaleDateString('es-ES'),\n          d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),\n          s.tableName, s.employeeName || 'Sin asignar', s.total.toFixed(2), metodos,\n        ] as (string | number)[]",
+          "kind": 3
+        },
+        {
+          "line": 907,
+          "character": 15,
+          "text": "[\n          d.toLocaleDateString('es-ES'),\n          d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),\n          s.tableName, s.employeeName || 'Sin asignar',\n          s.total.toFixed(2), (s.tip || 0).toFixed(2),\n          s.tipMethod || s.paymentMethod || 'efectivo',\n        ] as (string | number)[]",
+          "kind": 3
+        },
+        {
+          "line": 1009,
+          "character": 54,
+          "text": "data as Closure[]",
+          "kind": 3
+        },
+        {
+          "line": 1146,
+          "character": 18,
+          "text": "data as { rows: AccessLogRow[]; total: number }",
+          "kind": 3
+        },
+        {
+          "line": 1147,
+          "character": 27,
+          "text": "data as AccessLogRow[]",
+          "kind": 3
+        },
+        {
+          "line": 1273,
+          "character": 17,
+          "text": "await fetchBackup() as { exportedAt?: number; stats?: Record<string, number>; data?: Record<string, unknown> }",
+          "kind": 3
+        },
+        {
+          "line": 1291,
+          "character": 22,
+          "text": "err as Error",
+          "kind": 3
+        },
+        {
+          "line": 1307,
+          "character": 18,
+          "text": "new JsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' }) as unknown as {\n        getCurrentPageInfo: () => { pageNumber: number };\n        setFontSize: (s: number) => void;\n        setTextColor: (r: number, g: number, b: number) => void;\n        text: (t: string, x: number, y: number, opts?: { align?: string }) => void;\n        line: (x1: number, y1: number, x2: number, y2: number) => void;\n        addPage: () => void;\n        save: (name: string) => void;\n      }",
+          "kind": 3
+        },
+        {
+          "line": 1376,
+          "character": 8,
+          "text": "(d.products || []) as Record<string, unknown>[]",
+          "kind": 3
+        },
+        {
+          "line": 1379,
+          "character": 8,
+          "text": "(d.productStock || []) as Record<string, unknown>[]",
+          "kind": 3
+        },
+        {
+          "line": 1382,
+          "character": 9,
+          "text": "(d.categories || []) as ({ name: string } | string)[]",
+          "kind": 3
+        },
+        {
+          "line": 1385,
+          "character": 8,
+          "text": "(d.tables || []) as Record<string, unknown>[]",
+          "kind": 3
+        },
+        {
+          "line": 1388,
+          "character": 9,
+          "text": "(d.sales || []) as Record<string, unknown>[]",
+          "kind": 3
+        },
+        {
+          "line": 1391,
+          "character": 8,
+          "text": "(d.employees || []) as Record<string, unknown>[]",
+          "kind": 3
+        },
+        {
+          "line": 1394,
+          "character": 9,
+          "text": "(d.offers || []) as Record<string, unknown>[]",
+          "kind": 3
+        },
+        {
+          "line": 1394,
+          "character": 83,
+          "text": "o.active as boolean",
+          "kind": 3
+        },
+        {
+          "line": 1397,
+          "character": 9,
+          "text": "(d.deliveryRunners || []) as Record<string, unknown>[]",
+          "kind": 3
+        },
+        {
+          "line": 1397,
+          "character": 92,
+          "text": "r.active as boolean",
+          "kind": 3
+        },
+        {
+          "line": 1401,
+          "character": 22,
+          "text": "err as Error",
+          "kind": 3
+        },
+        {
+          "line": 1454,
+          "character": 75,
+          "text": "data as { rows: StockLogRow[] }",
+          "kind": 3
+        },
+        {
+          "line": 1500,
+          "character": 72,
+          "text": "data as { rows: TurnRow[] }",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\reports\\VentasDashboardView.tsx": {
+      "hash": "a66d35f73414cc13105bf6e3125ea24885a170d5",
+      "correctCount": 821,
+      "totalCount": 823,
+      "anys": [
+        {
+          "line": 209,
+          "character": 22,
+          "text": "Icon",
+          "kind": 1
+        },
+        {
+          "line": 213,
+          "character": 21,
+          "text": "Icon",
+          "kind": 1
+        }
+      ]
+    },
+    "modules\\orders\\DeliveryView.tsx": {
+      "hash": "1f6c8f63f04430cdb4bc96bd867b1634a4874e03",
+      "correctCount": 1092,
+      "totalCount": 1099,
+      "anys": [
+        {
+          "line": 71,
+          "character": 18,
+          "text": "catalogCtx.catalog as unknown as { products: CatalogProduct[] }",
+          "kind": 3
+        },
+        {
+          "line": 81,
+          "character": 48,
+          "text": "d as Runner[]",
+          "kind": 3
+        },
+        {
+          "line": 82,
+          "character": 46,
+          "text": "d as DeliveryOrder[]",
+          "kind": 3
+        },
+        {
+          "line": 93,
+          "character": 48,
+          "text": "d as Runner[]",
+          "kind": 3
+        },
+        {
+          "line": 98,
+          "character": 48,
+          "text": "d as Runner[]",
+          "kind": 3
+        },
+        {
+          "line": 111,
+          "character": 46,
+          "text": "d as DeliveryOrder[]",
+          "kind": 3
+        },
+        {
+          "line": 141,
+          "character": 46,
+          "text": "d as DeliveryOrder[]",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\orders\\PedidosView.tsx": {
+      "hash": "1c25bf31193a2605a7bfb9fd38c39d70f5d228f9",
+      "correctCount": 1098,
+      "totalCount": 1103,
+      "anys": [
+        {
+          "line": 55,
+          "character": 16,
+          "text": "salesCtx.sales as unknown as PedidoSale[]",
+          "kind": 3
+        },
+        {
+          "line": 56,
+          "character": 19,
+          "text": "salesCtx.handleRefund as unknown as (saleId: string, refund: Refund) => void",
+          "kind": 3
+        },
+        {
+          "line": 58,
+          "character": 25,
+          "text": "salesCtx.printInvoice as unknown as (sale: PedidoSale) => void",
+          "kind": 3
+        },
+        {
+          "line": 59,
+          "character": 24,
+          "text": "salesCtx.handleDownloadPdf as unknown as (sale: PedidoSale) => void",
+          "kind": 3
+        },
+        {
+          "line": 60,
+          "character": 29,
+          "text": "salesCtx.handleSendInvoiceEmail as unknown as (sale: PedidoSale) => void",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\orders\\FiadosView.tsx": {
+      "hash": "cbc8ebe95487d8b98c73ce2ba0f791e6561b0f81",
+      "correctCount": 375,
+      "totalCount": 377,
+      "anys": [
+        {
+          "line": 50,
+          "character": 16,
+          "text": "salesCtx.sales as unknown as FiadoSale[]",
+          "kind": 3
+        },
+        {
+          "line": 51,
+          "character": 16,
+          "text": "floorCtx.floor as unknown as FiadoFloor | null",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\employees\\EmpleadosView.tsx": {
+      "hash": "1ac449fa23486f57734d174a0312ff3b82f9042b",
+      "correctCount": 1289,
+      "totalCount": 1292,
+      "anys": [
+        {
+          "line": 57,
+          "character": 20,
+          "text": "authCtx.employees as unknown as Employee[]",
+          "kind": 3
+        },
+        {
+          "line": 58,
+          "character": 16,
+          "text": "authCtx.addEmployee as unknown as (emp: Employee) => void",
+          "kind": 3
+        },
+        {
+          "line": 59,
+          "character": 24,
+          "text": "authCtx.updateEmployeeField as unknown as (id: string, field: string, value: unknown) => void",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\reports\\gestoria\\types.ts": {
+      "hash": "1a84d6e2ab3bedb9847ff71ac3e2bb6e340395ac",
+      "correctCount": 140,
+      "totalCount": 140,
+      "anys": []
+    },
+    "modules\\reports\\gestoria\\utils.ts": {
+      "hash": "1a6a5fd1fa40031019f2b54f4c1f47cde7c91e5c",
+      "correctCount": 149,
+      "totalCount": 150,
+      "anys": [
+        {
+          "line": 35,
+          "character": 7,
+          "text": "nota as string",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\reports\\gestoria\\PanelTab.tsx": {
+      "hash": "d4a141915f5528ac4a1e35545bddcdaac30bc2cf",
+      "correctCount": 440,
+      "totalCount": 440,
+      "anys": []
+    },
+    "modules\\reports\\gestoria\\DocumentsTab.tsx": {
+      "hash": "1faef5409a576c0127fa3c2ba22034f9ffdae2a0",
+      "correctCount": 1077,
+      "totalCount": 1079,
+      "anys": [
+        {
+          "line": 46,
+          "character": 13,
+          "text": "res as { ok?: boolean }",
+          "kind": 3
+        },
+        {
+          "line": 96,
+          "character": 7,
+          "text": "next[idx] as unknown as Record<string, unknown>",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\reports\\gestoria\\PayrollsTab.tsx": {
+      "hash": "aef8b5f71b1dc8b41a1996fa330a5141bc0451ed",
+      "correctCount": 727,
+      "totalCount": 728,
+      "anys": [
+        {
+          "line": 34,
+          "character": 13,
+          "text": "res as { ok?: boolean }",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\reports\\gestoria\\RegimenTab.tsx": {
+      "hash": "beb24f4eeb6821e74c2b1fbc03606d767668f5ed",
+      "correctCount": 161,
+      "totalCount": 161,
+      "anys": []
+    },
+    "modules\\reports\\gestoria\\AuthorizationTab.tsx": {
+      "hash": "e58458cece043f4e5dd8f36f4a1d184d62fd0c62",
+      "correctCount": 299,
+      "totalCount": 300,
+      "anys": [
+        {
+          "line": 49,
+          "character": 29,
+          "text": "await import('../../../lib/api').then(m => m.fetchGestoriaAuthorization()) as Authorization",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\reports\\gestoria\\GestoriaView.tsx": {
+      "hash": "2bc02ba55681088cc0f7a65716d303db87a6059e",
+      "correctCount": 540,
+      "totalCount": 549,
+      "anys": [
+        {
+          "line": 38,
+          "character": 19,
+          "text": "s as GestoriaSettings",
+          "kind": 3
+        },
+        {
+          "line": 39,
+          "character": 20,
+          "text": "tx as TaxModel[]",
+          "kind": 3
+        },
+        {
+          "line": 46,
+          "character": 19,
+          "text": "ex as GestoriaDocument[]",
+          "kind": 3
+        },
+        {
+          "line": 47,
+          "character": 18,
+          "text": "inc as GestoriaDocument[]",
+          "kind": 3
+        },
+        {
+          "line": 48,
+          "character": 19,
+          "text": "pr as GestoriaPayroll[]",
+          "kind": 3
+        },
+        {
+          "line": 49,
+          "character": 24,
+          "text": "auth as Authorization",
+          "kind": 3
+        },
+        {
+          "line": 50,
+          "character": 29,
+          "text": "e as Error",
+          "kind": 3
+        },
+        {
+          "line": 64,
+          "character": 23,
+          "text": "res as { data: Record<string, unknown> }",
+          "kind": 3
+        },
+        {
+          "line": 76,
+          "character": 29,
+          "text": "e as Error",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\reports\\GestoriaView.tsx": {
+      "hash": "c0bfae69eba9fb01129a6ace39b4ece3d5676034",
+      "correctCount": 1,
+      "totalCount": 1,
+      "anys": []
+    },
+    "modules\\pairing\\PairingPanel.tsx": {
+      "hash": "dd8cbec572c1d4eef8b99f012254dd1ffc26ca35",
+      "correctCount": 430,
+      "totalCount": 432,
+      "anys": [
+        {
+          "line": 43,
+          "character": 19,
+          "text": "data as KDSPairing[]",
+          "kind": 3
+        },
+        {
+          "line": 51,
+          "character": 18,
+          "text": "await generateKDSPairCode(label) as { code?: string } | null",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\employees\\TurnosView.tsx": {
+      "hash": "136be1d1b19323f34226cd3b2d90a56a2821c76d",
+      "correctCount": 1775,
+      "totalCount": 1775,
+      "anys": []
+    },
+    "modules\\employees\\RegistroHorarioView.tsx": {
+      "hash": "ad6e87f0d0f4322f2649ab882def20f3b1741fc3",
+      "correctCount": 1531,
+      "totalCount": 1536,
+      "anys": [
+        {
+          "line": 212,
+          "character": 39,
+          "text": "await Promise.all([\r\n      import('jspdf'), import('jspdf-autotable') as unknown as { autoTable: (doc: unknown, opts: unknown) => void },\r\n    ]) as [{ jsPDF: new (opts: unknown) => unknown }, { autoTable: (doc: unknown, opts: unknown) => void }]",
+          "kind": 3
+        },
+        {
+          "line": 213,
+          "character": 23,
+          "text": "import('jspdf-autotable') as unknown as { autoTable: (doc: unknown, opts: unknown) => void }",
+          "kind": 3
+        },
+        {
+          "line": 215,
+          "character": 16,
+          "text": "new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' }) as unknown as {\r\n      setFontSize: (s: number) => void; setTextColor: (r: number, g: number, b: number) => void;\r\n      text: (t: string, x: number, y: number, opts?: { align?: string }) => void;\r\n      line: (x1: number, y1: number, x2: number, y2: number) => void;\r\n      save: (name: string) => void;\r\n    }",
+          "kind": 3
+        },
+        {
+          "line": 414,
+          "character": 19,
+          "text": "session.entrada!",
+          "kind": 5
+        },
+        {
+          "line": 417,
+          "character": 19,
+          "text": "session.salida!",
+          "kind": 5
+        }
+      ]
+    },
+    "modules\\customers\\ReservasView.tsx": {
+      "hash": "402d261a66eaea2205dc19a2ca4c740ee69099a1",
+      "correctCount": 2027,
+      "totalCount": 2036,
+      "anys": [
+        {
+          "line": 69,
+          "character": 16,
+          "text": "floorCtx.floor as unknown as Floor",
+          "kind": 3
+        },
+        {
+          "line": 87,
+          "character": 19,
+          "text": "await fetchReservations() as Reservation[]",
+          "kind": 3
+        },
+        {
+          "line": 398,
+          "character": 16,
+          "text": "await fetchSettings() as Record<string, unknown>",
+          "kind": 3
+        },
+        {
+          "line": 407,
+          "character": 23,
+          "text": "await fetchReservations({ date }) as Reservation[]",
+          "kind": 3
+        },
+        {
+          "line": 414,
+          "character": 27,
+          "text": "settings?.reservationScheduleType as string | undefined",
+          "kind": 3
+        },
+        {
+          "line": 429,
+          "character": 20,
+          "text": "settings?.reservationOpenTime as string",
+          "kind": 3
+        },
+        {
+          "line": 430,
+          "character": 21,
+          "text": "settings?.reservationCloseTime as string",
+          "kind": 3
+        },
+        {
+          "line": 488,
+          "character": 28,
+          "text": "val as string",
+          "kind": 3
+        },
+        {
+          "line": 498,
+          "character": 17,
+          "text": "{ id: reservation?.id, date, time, pax, name, phone, email, status, zone, notes, tableId, source } as Reservation",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\customers\\WaitlistView.tsx": {
+      "hash": "e785b435d0d21d522583f17866c771aa772f84fa",
+      "correctCount": 1375,
+      "totalCount": 1382,
+      "anys": [
+        {
+          "line": 64,
+          "character": 18,
+          "text": "s as WaitlistSettings",
+          "kind": 3
+        },
+        {
+          "line": 65,
+          "character": 17,
+          "text": "w as WaitlistEntry[]",
+          "kind": 3
+        },
+        {
+          "line": 81,
+          "character": 26,
+          "text": "settings!",
+          "kind": 5
+        },
+        {
+          "line": 82,
+          "character": 30,
+          "text": "prev!",
+          "kind": 5
+        },
+        {
+          "line": 89,
+          "character": 30,
+          "text": "prev!",
+          "kind": 5
+        },
+        {
+          "line": 94,
+          "character": 30,
+          "text": "prev!",
+          "kind": 5
+        },
+        {
+          "line": 131,
+          "character": 33,
+          "text": "settings!",
+          "kind": 5
+        }
+      ]
+    },
+    "modules\\orders\\OnlineOrdersView.tsx": {
+      "hash": "6266ada1ca7b68100bde5d2e8e6bdc267cd9891b",
+      "correctCount": 1013,
+      "totalCount": 1014,
+      "anys": [
+        {
+          "line": 299,
+          "character": 35,
+          "text": "statusCfg.next!",
+          "kind": 5
+        }
+      ]
+    },
+    "modules\\orders\\TicketsView.tsx": {
+      "hash": "d31e36fb347be08e75fb4d8856cf4263039a78f1",
+      "correctCount": 1004,
+      "totalCount": 1005,
+      "anys": [
+        {
+          "line": 43,
+          "character": 16,
+          "text": "salesCtx.sales as unknown as TicketSale[]",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\payment\\PaymentsView.tsx": {
+      "hash": "bd97d6698518c7e72464e36292463614d8a4586b",
+      "correctCount": 841,
+      "totalCount": 842,
+      "anys": [
+        {
+          "line": 108,
+          "character": 45,
+          "text": "err as Error",
+          "kind": 3
+        }
+      ]
+    },
+    "modules\\core\\ViewRouter.tsx": {
+      "hash": "d3c662f5b537cc9cd43ab8f2509e7b834dd5e66a",
+      "correctCount": 235,
+      "totalCount": 235,
+      "anys": []
+    },
+    "__tests__\\helpers\\mock-rbac.ts": {
+      "hash": "fea4c2b7fc2b876b9347d3f53dd66efcc7ea1af0",
+      "correctCount": 11,
+      "totalCount": 11,
+      "anys": []
+    },
+    "__tests__\\helpers\\request.ts": {
+      "hash": "f65fadbee722658e164e0d3162a1aad2767cc83c",
+      "correctCount": 41,
+      "totalCount": 41,
+      "anys": []
+    },
+    "__tests__\\helpers\\setup.ts": {
+      "hash": "0833811c7c7efc1260523fbc19d7fa403d280edc",
+      "correctCount": 18,
+      "totalCount": 18,
+      "anys": []
+    },
+    "app\\api\\api-keys\\route.ts": {
+      "hash": "d9bec4c526dbef7e11412a55a15e0d9be94910bb",
+      "correctCount": 199,
+      "totalCount": 199,
+      "anys": []
+    },
+    "app\\api\\catalog\\route.ts": {
+      "hash": "c9d19b3a0cb7bec03c34a7fdb44af17a5371f87f",
+      "correctCount": 1567,
+      "totalCount": 1571,
+      "anys": [
+        {
+          "line": 117,
+          "character": 6,
+          "text": "extras",
+          "kind": 1
+        },
+        {
+          "line": 192,
+          "character": 10,
+          "text": "allergens",
+          "kind": 2
+        },
+        {
+          "line": 192,
+          "character": 29,
+          "text": "a",
+          "kind": 1
+        },
+        {
+          "line": 192,
+          "character": 42,
+          "text": "a",
+          "kind": 1
+        }
+      ]
+    },
+    "app\\api\\clockin\\route.ts": {
+      "hash": "ee94d9de25d521cb8c790245d4bdb26f98bfc871",
+      "correctCount": 684,
+      "totalCount": 684,
+      "anys": []
+    },
+    "app\\api\\employees\\route.ts": {
+      "hash": "8128a96dcafced92f87db54b5a063eaaaea5a963",
+      "correctCount": 543,
+      "totalCount": 543,
+      "anys": []
+    },
+    "app\\api\\fichar\\employees\\route.ts": {
+      "hash": "ddf962e1ecc8548295750c44f4ad0d8b2e7a2cd9",
+      "correctCount": 53,
+      "totalCount": 53,
+      "anys": []
+    },
+    "app\\api\\kds\\route.ts": {
+      "hash": "d866ebcdcd9a4d5bca203ba263c7a1a8dcd37db9",
+      "correctCount": 346,
+      "totalCount": 346,
+      "anys": []
+    },
+    "app\\api\\keep-alive\\route.ts": {
+      "hash": "ea7078d3c1a3fff1172e3861c3550d375e95dcb2",
+      "correctCount": 36,
+      "totalCount": 36,
+      "anys": []
+    },
+    "app\\api\\sales\\route.ts": {
+      "hash": "b36583c727298009a4c2225b7630c662db253fe1",
+      "correctCount": 654,
+      "totalCount": 656,
+      "anys": [
+        {
+          "line": 115,
+          "character": 21,
+          "text": "items",
+          "kind": 2
+        },
+        {
+          "line": 135,
+          "character": 17,
+          "text": "items",
+          "kind": 2
+        }
+      ]
+    },
+    "app\\api\\session\\route.ts": {
+      "hash": "da8209eb6df118ebecfc5f340fb42090ce6f3e55",
+      "correctCount": 411,
+      "totalCount": 411,
+      "anys": []
+    },
+    "app\\api\\settings\\route.ts": {
+      "hash": "b2683369a2eb2853f655c030e7b5872abfce0c8e",
+      "correctCount": 132,
+      "totalCount": 132,
+      "anys": []
+    },
+    "app\\api\\tickets\\deliver\\route.ts": {
+      "hash": "e8f7ca28b477d1e4c225c97f560db55134b3a334",
+      "correctCount": 522,
+      "totalCount": 529,
+      "anys": [
+        {
+          "line": 53,
+          "character": 9,
+          "text": "v",
+          "kind": 2
+        },
+        {
+          "line": 53,
+          "character": 20,
+          "text": "i",
+          "kind": 1
+        },
+        {
+          "line": 141,
+          "character": 18,
+          "text": "createTransport",
+          "kind": 1
+        },
+        {
+          "line": 142,
+          "character": 16,
+          "text": "transporter",
+          "kind": 1
+        },
+        {
+          "line": 142,
+          "character": 30,
+          "text": "createTransport",
+          "kind": 1
+        },
+        {
+          "line": 149,
+          "character": 16,
+          "text": "transporter",
+          "kind": 1
+        },
+        {
+          "line": 149,
+          "character": 28,
+          "text": "sendMail",
+          "kind": 1
+        }
+      ]
+    },
+    "app\\(taller)\\albaranes\\page.tsx": {
+      "hash": "2ded88628963b638de607e5c707269ae06b0d2b5",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\alertas-stock\\page.tsx": {
+      "hash": "850c57d68a90779937f4cbc2a53b65c80c868f52",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\almacen\\page.tsx": {
+      "hash": "f511179c94e1645774bdf0f17dae0b4e369b87ac",
+      "correctCount": 9,
+      "totalCount": 9,
+      "anys": []
+    },
+    "app\\(taller)\\audit\\page.tsx": {
+      "hash": "e4ad79e79ca6e4206f205de0a3135e70c9c0b404",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\barra\\page.tsx": {
+      "hash": "17474f79b896c4e3815559c4382198f8e54a085c",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\buffet\\page.tsx": {
+      "hash": "98ced10c4121d8625d516154c5b4d3d1660e863e",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\carrusel\\page.tsx": {
+      "hash": "ebdc5b37593edf1fd5a58c1868a629e8af57e458",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\carta\\page.tsx": {
+      "hash": "e788e52a50469dafd6c952ed7ae98c46eb8c6533",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\cocina\\page.tsx": {
+      "hash": "38aa5934ee00c463b5c4789945dbba445d68c5e8",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\cocina-kds\\page.tsx": {
+      "hash": "97784940962da3b88de55fc30fafaf66b2617bbf",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\comandas\\page.tsx": {
+      "hash": "d1aa26d8c788185d3fff969fc3ab4bb08a831a41",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\combos\\page.tsx": {
+      "hash": "4e3b71c31a00d4a461d390dc3f03d5b832da021b",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\dashboard\\page.tsx": {
+      "hash": "56822d638ca4f03d516138d851b6b4c8eea74db3",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\empleados\\page.tsx": {
+      "hash": "fcba1e850f0040872d0033f7c30db5eff1d7bf22",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\fiados\\page.tsx": {
+      "hash": "e5b47e2172c5f4a8179442be25d10df9813e4b51",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\gestoria\\page.tsx": {
+      "hash": "35b7a9dd52cafb555029056c050d4f82312a8bdf",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\inventario\\page.tsx": {
+      "hash": "52690e79817d46c423932ed51becd6001aaf740d",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\informes\\page.tsx": {
+      "hash": "22cf2ba0a75674db7e5ad5cd62057794addbdf8e",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\lista-espera\\page.tsx": {
+      "hash": "42d9cdaa17dfcb54e89d5d7ba8e8c5916d816046",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\menus\\page.tsx": {
+      "hash": "7071c0c14789718a68115daa1cfdf56833b48930",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\ofertas\\page.tsx": {
+      "hash": "eb83647ad2112f04c2bad5654b3cfc51f6f01aea",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\onlineorders\\page.tsx": {
+      "hash": "339da985d1a97e54803c827d8803fa3bbf77e0b8",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\pagos\\page.tsx": {
+      "hash": "443e808443368d9df58aca8788a22bdcc64173dd",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\pairing\\page.tsx": {
+      "hash": "0c302f64cc775eb8daa9e1a56b90db689c4edf00",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\pedidos\\page.tsx": {
+      "hash": "b744a7de23c5c53fdde18201b83fca8d21b7b303",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\pedidos-compra\\page.tsx": {
+      "hash": "c9723609d30fa352c3391aa225af82998ecbf049",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\precios\\page.tsx": {
+      "hash": "4eeaa11c37e2dbd5854ec47095b679ac7976c386",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\produccion\\page.tsx": {
+      "hash": "5887bef16fa5be3b5508846632508e89b102eea3",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\registro-horario\\page.tsx": {
+      "hash": "f4df0d83b0ddc0bfe9cf8210278c638b9b12392e",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\reparto\\page.tsx": {
+      "hash": "eec25c448e7d5c017d3d435f04ab9eb3102ebbfc",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\reservas\\page.tsx": {
+      "hash": "e02507cb834fce1f6877610f166f8b39ac152572",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\salon\\page.tsx": {
+      "hash": "a9428b067149f6aa302d6e04a89824ac6bb7ad5f",
+      "correctCount": 32,
+      "totalCount": 32,
+      "anys": []
+    },
+    "app\\(taller)\\solicitudes\\page.tsx": {
+      "hash": "64d83b553922551ce9e7df4fd1bb57bed86bc33b",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\tickets\\page.tsx": {
+      "hash": "b3ede7370107e2c1e562041af13f69f47f3ac6fe",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\(taller)\\turnos\\page.tsx": {
+      "hash": "365e8d65549832a1db32653186cdb1dec0894e87",
+      "correctCount": 3,
+      "totalCount": 3,
+      "anys": []
+    },
+    "app\\api\\access-logs\\route.ts": {
+      "hash": "b970c076ade3b9c3a811f995212ab5df89f74f6d",
+      "correctCount": 174,
+      "totalCount": 176,
+      "anys": [
+        {
+          "line": 16,
+          "character": 14,
+          "text": "parsed.data as { employeeId: string; employeeName: string; role: string; entryPoint: string }",
+          "kind": 3
+        },
+        {
+          "line": 56,
+          "character": 19,
+          "text": "countResult as unknown as { rows: { total: number }[] }",
+          "kind": 3
+        }
+      ]
+    },
+    "app\\(taller)\\[...view]\\page.tsx": {
+      "hash": "58bc1ec7d7318561b5a58fb4ec7a875804178458",
+      "correctCount": 16,
+      "totalCount": 16,
+      "anys": []
+    },
+    "app\\api\\add-stock\\route.ts": {
+      "hash": "3b407f608aecf05d69251afdc032ddee71034dc6",
+      "correctCount": 106,
+      "totalCount": 106,
+      "anys": []
+    },
+    "app\\api\\albaranes\\route.ts": {
+      "hash": "abc7738842341d2933fc2e8c81744816c21cea28",
+      "correctCount": 1100,
+      "totalCount": 1101,
+      "anys": [
+        {
+          "line": 59,
+          "character": 9,
+          "text": "r.rows as T[]",
+          "kind": 3
+        }
+      ]
+    },
+    "app\\api\\auto-order-settings\\route.ts": {
+      "hash": "0a202ea5b4be719cce2e52deaf22a58bfe30a052",
+      "correctCount": 115,
+      "totalCount": 115,
+      "anys": []
+    },
+    "app\\api\\backup\\route.ts": {
+      "hash": "1daa3477d29da6653e3d198f4ffcd1dcdb463eaf",
+      "correctCount": 312,
+      "totalCount": 312,
+      "anys": []
+    },
+    "app\\api\\buffet\\route.ts": {
+      "hash": "b8c25daa0862998fb415046c3c2079a9c18bf23c",
+      "correctCount": 1161,
+      "totalCount": 1161,
+      "anys": []
+    },
+    "app\\api\\backup-cron\\route.ts": {
+      "hash": "2beb1644f9393b351f49bec973ceb3d61f670e65",
+      "correctCount": 60,
+      "totalCount": 60,
+      "anys": []
+    },
+    "app\\api\\cancelled\\route.ts": {
+      "hash": "cad38d427744d417f5b60c6e49611374f21ce4f3",
+      "correctCount": 165,
+      "totalCount": 165,
+      "anys": []
+    },
+    "app\\api\\clockin-corrections\\route.ts": {
+      "hash": "315598238aab5c9acb1564fd816c1598e5e50c36",
+      "correctCount": 83,
+      "totalCount": 83,
+      "anys": []
+    },
+    "app\\api\\closures\\route.ts": {
+      "hash": "15b5c6ea63d9940f541ba74680895f0d607d22de",
+      "correctCount": 189,
+      "totalCount": 190,
+      "anys": [
+        {
+          "line": 46,
+          "character": 10,
+          "text": "b.id!",
+          "kind": 5
+        }
+      ]
+    },
+    "app\\api\\combos\\route.ts": {
+      "hash": "7b716142c6a3b43c0208c9a51a8d64c898fc3c9d",
+      "correctCount": 364,
+      "totalCount": 364,
+      "anys": []
+    },
+    "app\\api\\debug\\route.ts": {
+      "hash": "cf9790e5219134fd719347d756158a56d5dec937",
+      "correctCount": 64,
+      "totalCount": 65,
+      "anys": [
+        {
+          "line": 18,
+          "character": 18,
+          "text": "result as unknown as { rows: Array<Record<string, unknown>> }",
+          "kind": 3
+        }
+      ]
+    },
+    "app\\api\\delivery-zones\\route.ts": {
+      "hash": "5e2d3b04240380f4809a2c925584dc736b8335ee",
+      "correctCount": 262,
+      "totalCount": 262,
+      "anys": []
+    },
+    "app\\api\\demo-seed\\route.ts": {
+      "hash": "6e6e795427745a5d1c7249572c637bf1c5f0331e",
+      "correctCount": 391,
+      "totalCount": 391,
+      "anys": []
+    },
+    "app\\api\\floor\\route.ts": {
+      "hash": "ad1cdb1a99fd4a8be2156c6ad0b6aa13893ac537",
+      "correctCount": 310,
+      "totalCount": 310,
+      "anys": []
+    },
+    "app\\api\\food-cost\\route.ts": {
+      "hash": "3898458a39e15688595288636d8d6ab2beced9e2",
+      "correctCount": 270,
+      "totalCount": 270,
+      "anys": []
+    },
+    "app\\api\\gestoria\\route.ts": {
+      "hash": "d3777f0a4860c7735d6e2fe6baaa2315f3fb79f9",
+      "correctCount": 1258,
+      "totalCount": 1259,
+      "anys": [
+        {
+          "line": 61,
+          "character": 14,
+          "text": "l as Record<string, unknown>",
+          "kind": 3
+        }
+      ]
+    },
+    "app\\api\\health\\route.ts": {
+      "hash": "a8da3dc0b5ee8a0369d1c843f387bc4ca1e63c39",
+      "correctCount": 34,
+      "totalCount": 35,
+      "anys": [
+        {
+          "line": 16,
+          "character": 23,
+          "text": "e as Error",
+          "kind": 3
+        }
+      ]
+    },
+    "app\\api\\meal-menus\\route.ts": {
+      "hash": "17167dbb4cacff4c94eb00acd7eb061fb18fc650",
+      "correctCount": 387,
+      "totalCount": 388,
+      "anys": [
+        {
+          "line": 64,
+          "character": 6,
+          "text": "extras",
+          "kind": 1
+        }
+      ]
+    },
+    "app\\api\\migrate\\route.ts": {
+      "hash": "09c01bb73bbd2c26994bd37fbd8e945b50399fa6",
+      "correctCount": 36,
+      "totalCount": 36,
+      "anys": []
+    },
+    "app\\api\\modifiers\\route.ts": {
+      "hash": "b6aad0b03932635c40d3532b1171e161b73296c5",
+      "correctCount": 323,
+      "totalCount": 323,
+      "anys": []
+    },
+    "app\\api\\move-stock\\route.ts": {
+      "hash": "007c78795b031d4364b05fde15f1b8fbd7333b06",
+      "correctCount": 154,
+      "totalCount": 154,
+      "anys": []
+    },
+    "app\\api\\offers\\route.ts": {
+      "hash": "45e61297cc82772b4cd6670a7bb5d6f4885da64b",
+      "correctCount": 163,
+      "totalCount": 163,
+      "anys": []
+    },
+    "app\\api\\payments\\route.ts": {
+      "hash": "504f60afce9dc0d9af16c427dc7dae30ad07671a",
+      "correctCount": 270,
+      "totalCount": 272,
+      "anys": [
+        {
+          "line": 71,
+          "character": 50,
+          "text": "refunds",
+          "kind": 2
+        },
+        {
+          "line": 72,
+          "character": 50,
+          "text": "refunds",
+          "kind": 2
+        }
+      ]
+    },
+    "app\\api\\price-rules\\route.ts": {
+      "hash": "2161f53a0ad464f0a66810b8697c9d8ba42a345e",
+      "correctCount": 178,
+      "totalCount": 178,
+      "anys": []
+    },
+    "app\\api\\production\\route.ts": {
+      "hash": "dde1b9528b84cef03a993cb5e1ba38bf4768e4b1",
+      "correctCount": 690,
+      "totalCount": 690,
+      "anys": []
+    },
+    "app\\api\\purchase-orders\\route.ts": {
+      "hash": "a9c6ebf5c837afbe6d642f89345693f82d48178f",
+      "correctCount": 850,
+      "totalCount": 850,
+      "anys": []
+    },
+    "app\\api\\qr\\route.ts": {
+      "hash": "3ba86cbfc1c4f8c039877e8aa8c5cd320cd0be9d",
+      "correctCount": 55,
+      "totalCount": 55,
+      "anys": []
+    },
+    "app\\api\\qr-calls\\route.ts": {
+      "hash": "e19f84aecd22173029bc27cbc285d7135bfdbedd",
+      "correctCount": 256,
+      "totalCount": 256,
+      "anys": []
+    },
+    "app\\api\\qr-order\\route.ts": {
+      "hash": "49d339eedd3402dbb2c8dd5610c171ebc50d9c6f",
+      "correctCount": 809,
+      "totalCount": 810,
+      "anys": [
+        {
+          "line": 92,
+          "character": 76,
+          "text": "orderIds",
+          "kind": 2
+        }
+      ]
+    },
+    "app\\api\\recipes\\route.ts": {
+      "hash": "dde0200f158770a37c6019aeca5041e7ac2fa6a5",
+      "correctCount": 344,
+      "totalCount": 344,
+      "anys": []
+    },
+    "app\\api\\reservations\\route.ts": {
+      "hash": "592fde75fe8ec9c9c2c62b59c10aa95c18485db5",
+      "correctCount": 394,
+      "totalCount": 396,
+      "anys": [
+        {
+          "line": 72,
+          "character": 18,
+          "text": "r.id as string",
+          "kind": 3
+        },
+        {
+          "line": 83,
+          "character": 16,
+          "text": "r.id as string",
+          "kind": 3
+        }
+      ]
+    },
+    "app\\api\\reset-orders\\route.ts": {
+      "hash": "1787b57744e11785da9424976954354413e2e3b9",
+      "correctCount": 88,
+      "totalCount": 88,
+      "anys": []
+    },
+    "app\\api\\seed-products\\route.ts": {
+      "hash": "b076b37ac22ff8449992f019ad2c24be88a46ed9",
+      "correctCount": 253,
+      "totalCount": 253,
+      "anys": []
+    },
+    "app\\api\\shifts\\route.ts": {
+      "hash": "5a319e3801708d7c5f7fea902d0e5f3ede5e967c",
+      "correctCount": 491,
+      "totalCount": 491,
+      "anys": []
+    },
+    "app\\api\\split-stock\\route.ts": {
+      "hash": "6ae3ed7cf5d673d107a0a88e1b6012de5d5f06be",
+      "correctCount": 269,
+      "totalCount": 269,
+      "anys": []
+    },
+    "app\\api\\stock-log\\route.ts": {
+      "hash": "c2ab43584091a6f667980a55445e7a1f4d8b0173",
+      "correctCount": 211,
+      "totalCount": 212,
+      "anys": [
+        {
+          "line": 33,
+          "character": 26,
+          "text": "countResult as unknown as { rows: { total: number }[] }",
+          "kind": 3
+        }
+      ]
+    },
+    "app\\api\\supplier-catalog\\route.ts": {
+      "hash": "a166bc964d41f3927956e24887b48f1eab8f596a",
+      "correctCount": 305,
+      "totalCount": 305,
+      "anys": []
+    },
+    "app\\api\\supplier-price-history\\route.ts": {
+      "hash": "da3259c61f0eb6d0ddf7d8c3d8b713079f94df97",
+      "correctCount": 207,
+      "totalCount": 207,
+      "anys": []
+    },
+    "app\\api\\suppliers\\route.ts": {
+      "hash": "ebbf110dd13ddcf643834a2c9ae49ac9fa7a13e6",
+      "correctCount": 162,
+      "totalCount": 162,
+      "anys": []
+    },
+    "app\\api\\tenants\\route.ts": {
+      "hash": "c2133e7ee5164b7c82b08ccc179e7682c69f4223",
+      "correctCount": 262,
+      "totalCount": 262,
+      "anys": []
+    },
+    "app\\api\\time-off-requests\\route.ts": {
+      "hash": "361c6f4c853c074eb6380a5a3f4c87194614d8e0",
+      "correctCount": 219,
+      "totalCount": 219,
+      "anys": []
+    },
+    "app\\api\\turns\\route.ts": {
+      "hash": "616ce433e092fffc4c7a280880666e8b7f6470a8",
+      "correctCount": 149,
+      "totalCount": 149,
+      "anys": []
+    },
+    "app\\api\\upload\\route.ts": {
+      "hash": "09826c93ebe50fb02babad20483f6363c0c76379",
+      "correctCount": 81,
+      "totalCount": 83,
+      "anys": [
+        {
+          "line": 14,
+          "character": 18,
+          "text": "file as File",
+          "kind": 3
+        },
+        {
+          "line": 20,
+          "character": 38,
+          "text": "file as File",
+          "kind": 3
+        }
+      ]
+    },
+    "app\\api\\verifactu\\route.ts": {
+      "hash": "5aa1f6521d7299e460fa56dcae6d3175803ab4c5",
+      "correctCount": 348,
+      "totalCount": 349,
+      "anys": [
+        {
+          "line": 104,
+          "character": 60,
+          "text": "fkErr as Error",
+          "kind": 3
+        }
+      ]
+    },
+    "app\\api\\waitlist\\route.ts": {
+      "hash": "8e9766a8c23b18c08174f42d4bfe8a83542c5c76",
+      "correctCount": 581,
+      "totalCount": 582,
+      "anys": [
+        {
+          "line": 167,
+          "character": 60,
+          "text": "ids",
+          "kind": 2
+        }
+      ]
+    },
+    "app\\buffet\\tv\\page.tsx": {
+      "hash": "acf0784f154c658308af19012c9f21b27a09ccbc",
+      "correctCount": 417,
+      "totalCount": 417,
+      "anys": []
+    },
+    "app\\fichar\\[employeeId]\\page.tsx": {
+      "hash": "f8b05bbcdf6d950d7a6641daeb2eca15a2066292",
+      "correctCount": 789,
+      "totalCount": 789,
+      "anys": []
+    },
+    "app\\kds\\pair\\page.tsx": {
+      "hash": "6cbafe833249d8a79b0305adf0e1638bcb478d4b",
+      "correctCount": 270,
+      "totalCount": 270,
+      "anys": []
+    },
+    "app\\qr\\[tableId]\\page.tsx": {
+      "hash": "263541f7bd31d0f8c76aa60ca157949c0ea3c497",
+      "correctCount": 1412,
+      "totalCount": 1415,
+      "anys": [
+        {
+          "line": 277,
+          "character": 21,
+          "text": "orderResult.round as string",
+          "kind": 3
+        },
+        {
+          "line": 296,
+          "character": 69,
+          "text": "orderResult.orderId as string",
+          "kind": 3
+        },
+        {
+          "line": 439,
+          "character": 114,
+          "text": "cart.find(i => i.productId === p.id)!",
+          "kind": 5
+        }
+      ]
+    },
+    "app\\api\\catalog\\csv\\route.ts": {
+      "hash": "9c7773060c118516a5507d767d8f16cc603705de",
+      "correctCount": 259,
+      "totalCount": 259,
+      "anys": []
+    },
+    "app\\api\\delivery\\orders\\route.ts": {
+      "hash": "12d39759f8136b88f24c6bdb3a7ba15041373bcd",
+      "correctCount": 237,
+      "totalCount": 238,
+      "anys": [
+        {
+          "line": 31,
+          "character": 14,
+          "text": "parsed.data as {\r\n      id?: string; orderId?: string; tableId?: string; customerName: string;\r\n      customerPhone?: string; address: string; addressLat?: string | number;\r\n      addressLng?: string | number; notes?: string; runnerId?: string;\r\n      items?: unknown; status?: string; estimatedAt?: number; deliveredAt?: number;\r\n    }",
+          "kind": 3
+        }
+      ]
+    },
+    "app\\api\\delivery\\combined-orders\\route.ts": {
+      "hash": "a6673cf10e1f760d30aab75d1dec5d2cb15eebbf",
+      "correctCount": 224,
+      "totalCount": 224,
+      "anys": []
+    },
+    "app\\api\\delivery\\runners\\route.ts": {
+      "hash": "4ca91d9964b0d185b0044d58385e3548b2c35f39",
+      "correctCount": 168,
+      "totalCount": 168,
+      "anys": []
+    },
+    "app\\api\\delivery\\tracking\\route.ts": {
+      "hash": "0c36e9ff96f0417b8254f7414ca5245d28206d81",
+      "correctCount": 152,
+      "totalCount": 152,
+      "anys": []
+    },
+    "app\\api\\export\\sales\\route.ts": {
+      "hash": "8844166dcc777384771f8107ecebbac2f66d8269",
+      "correctCount": 223,
+      "totalCount": 224,
+      "anys": [
+        {
+          "line": 40,
+          "character": 12,
+          "text": "itemsArr",
+          "kind": 1
+        }
+      ]
+    },
+    "app\\api\\invoice\\pdf\\route.ts": {
+      "hash": "c48af398859a146c20c33ae98ab76c0354ff0a07",
+      "correctCount": 664,
+      "totalCount": 665,
+      "anys": [
+        {
+          "line": 43,
+          "character": 9,
+          "text": "doc as unknown as JsPDFWithPlugins",
+          "kind": 3
+        }
+      ]
+    },
+    "app\\api\\invoice\\send\\route.ts": {
+      "hash": "b63e116fd7e2ed83048fff00a13aa345de419e61",
+      "correctCount": 162,
+      "totalCount": 167,
+      "anys": [
+        {
+          "line": 45,
+          "character": 16,
+          "text": "createTransport",
+          "kind": 1
+        },
+        {
+          "line": 46,
+          "character": 14,
+          "text": "transporter",
+          "kind": 1
+        },
+        {
+          "line": 46,
+          "character": 28,
+          "text": "createTransport",
+          "kind": 1
+        },
+        {
+          "line": 53,
+          "character": 14,
+          "text": "transporter",
+          "kind": 1
+        },
+        {
+          "line": 53,
+          "character": 26,
+          "text": "sendMail",
+          "kind": 1
+        }
+      ]
+    },
+    "app\\api\\kds\\audit\\route.ts": {
+      "hash": "5f7967905313108948d87876309dedbac55f9574",
+      "correctCount": 165,
+      "totalCount": 166,
+      "anys": [
+        {
+          "line": 52,
+          "character": 6,
+          "text": "details",
+          "kind": 1
+        }
+      ]
+    },
+    "app\\api\\realtime\\token\\route.ts": {
+      "hash": "0420b1ff1650d1aa8b45e11839da773f9899b373",
+      "correctCount": 61,
+      "totalCount": 61,
+      "anys": []
+    },
+    "app\\api\\reservations\\availability\\route.ts": {
+      "hash": "3a8195f62e0261e7872bfb584afe071a702e80fd",
+      "correctCount": 391,
+      "totalCount": 391,
+      "anys": []
+    },
+    "app\\api\\sales\\refund\\route.ts": {
+      "hash": "c2925bc5a9450ee98b4e783a99e0c03faaf19deb",
+      "correctCount": 227,
+      "totalCount": 227,
+      "anys": []
+    },
+    "app\\api\\stripe\\payment-intent\\route.ts": {
+      "hash": "bc3f2efcd872d8a7075790f57f51e36f8d7eb402",
+      "correctCount": 181,
+      "totalCount": 182,
+      "anys": [
+        {
+          "line": 91,
+          "character": 14,
+          "text": "err as Error",
+          "kind": 3
+        }
+      ]
+    },
+    "app\\api\\stripe\\reconciliation\\route.ts": {
+      "hash": "eda54214c305ecb96f41383b0af6c9b2223146b5",
+      "correctCount": 422,
+      "totalCount": 424,
+      "anys": [
+        {
+          "line": 123,
+          "character": 30,
+          "text": "pi as unknown as { refunds?: { data: Stripe.Refund[] } }",
+          "kind": 3
+        },
+        {
+          "line": 124,
+          "character": 22,
+          "text": "sale as unknown as { refunds?: { stripeRefundId: string }[] }",
+          "kind": 3
+        }
+      ]
+    },
+    "app\\api\\stripe\\terminal-payment-intent\\route.ts": {
+      "hash": "6313109196f371c7efad49992881cb71541a22ad",
+      "correctCount": 172,
+      "totalCount": 173,
+      "anys": [
+        {
+          "line": 84,
+          "character": 14,
+          "text": "err as Error",
+          "kind": 3
+        }
+      ]
+    },
+    "app\\api\\stripe\\webhook\\route.ts": {
+      "hash": "697474b5a2d5bc745146644e12fc6cec474334a5",
+      "correctCount": 626,
+      "totalCount": 631,
+      "anys": [
+        {
+          "line": 8,
+          "character": 25,
+          "text": "o",
+          "kind": 1
+        },
+        {
+          "line": 8,
+          "character": 46,
+          "text": "Object",
+          "kind": 1
+        },
+        {
+          "line": 9,
+          "character": 9,
+          "text": "o",
+          "kind": 1
+        },
+        {
+          "line": 9,
+          "character": 30,
+          "text": "o",
+          "kind": 1
+        },
+        {
+          "line": 9,
+          "character": 62,
+          "text": "o",
+          "kind": 1
+        }
+      ]
+    },
+    "app\\api\\stripe\\webhook-events\\route.ts": {
+      "hash": "9cf56ccf1e910cee237d264f7170c1d0768f5d81",
+      "correctCount": 163,
+      "totalCount": 163,
+      "anys": []
+    },
+    "app\\api\\verifactu\\qr\\route.ts": {
+      "hash": "670d26dee714eddc9fc97871e7d3ae9e7cb96a3a",
+      "correctCount": 35,
+      "totalCount": 35,
+      "anys": []
+    },
+    "app\\api\\verifactu\\delete-test\\route.ts": {
+      "hash": "e827b044fbce2ff4e75b8c668f7e81b72c4c7af6",
+      "correctCount": 88,
+      "totalCount": 89,
+      "anys": [
+        {
+          "line": 15,
+          "character": 50,
+          "text": "body.adminPin as string",
+          "kind": 3
+        }
+      ]
+    },
+    "app\\api\\verifactu\\regenerate\\route.ts": {
+      "hash": "e48cccc282fcba2dfb888e8b82e71582fe9eafcc",
+      "correctCount": 425,
+      "totalCount": 425,
+      "anys": []
+    },
+    "app\\api\\verifactu\\retry\\route.ts": {
+      "hash": "4a4fecbb0944dd0fc18a748f872c8619b2ee2228",
+      "correctCount": 245,
+      "totalCount": 247,
+      "anys": [
+        {
+          "line": 45,
+          "character": 17,
+          "text": "(saleRows[0].items ?? []) as Record<string, unknown>[]",
+          "kind": 3
+        },
+        {
+          "line": 80,
+          "character": 18,
+          "text": "err as Error",
+          "kind": 3
+        }
+      ]
+    },
+    "app\\api\\verifactu\\setup\\route.ts": {
+      "hash": "4d2d1407636f661a0bab834f2878aa58d3eeb06f",
+      "correctCount": 107,
+      "totalCount": 107,
+      "anys": []
+    },
+    "app\\api\\verifactu\\verify\\route.ts": {
+      "hash": "fb75dbbded59b1616c64ec54596285930d78d24b",
+      "correctCount": 196,
+      "totalCount": 196,
+      "anys": []
+    },
+    "app\\api\\webhooks\\glovo\\route.ts": {
+      "hash": "f0eed3f43af034a46c4ca7a03e95f47d08f01431",
+      "correctCount": 281,
+      "totalCount": 281,
+      "anys": []
+    },
+    "app\\api\\webhooks\\ubereats\\route.ts": {
+      "hash": "effa57f873c1712dd7e2d5fcdf864a3a9f6d855d",
+      "correctCount": 339,
+      "totalCount": 339,
+      "anys": []
+    },
+    "app\\pedir\\track\\[orderId]\\page.tsx": {
+      "hash": "2d669f7aa8ba8a190e314befaee47c2f98d2e935",
+      "correctCount": 330,
+      "totalCount": 331,
+      "anys": [
+        {
+          "line": 114,
+          "character": 58,
+          "text": "k as keyof OrderItem",
+          "kind": 3
+        }
+      ]
+    },
+    "app\\qr\\[tableId]\\order\\[orderId]\\page.tsx": {
+      "hash": "37ed96086be5ba0c653eef0d6d17380fca2d9d69",
+      "correctCount": 330,
+      "totalCount": 330,
+      "anys": []
+    }
+  }
+}

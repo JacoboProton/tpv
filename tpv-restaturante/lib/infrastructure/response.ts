@@ -9,8 +9,8 @@ export function apiCreated(data?: unknown) {
 }
 
 export function apiError(err: unknown, status = 500) {
-  const msg = (err as Error).message;
-  const cause = (err as Error).cause;
+  const msg = err instanceof Error ? err.message : typeof err === 'string' ? err : 'Error interno';
+  const cause = err instanceof Error && err.cause ? String(err.cause) : '';
   return NextResponse.json({ error: cause ? `${msg}: ${cause}` : msg }, { status });
 }
 

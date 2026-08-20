@@ -17,6 +17,10 @@ import type { Theme } from '@/components/constants';
 // ---- Types ----
 interface SaleItem { name: string; qty: number; }
 interface Payment { method: string; amount: number; confirmed?: boolean; }
+
+function isOk(res: unknown): boolean {
+  return !!res && (res as { ok: boolean }).ok === true;
+}
 interface Sale {
   id: string; total: number; closedAt: number; items: SaleItem[];
   paymentMethod: string; payments?: Payment[];
@@ -378,7 +382,7 @@ function ResumenTab({ sales, colors: C }: { sales: Sale[]; colors: Theme }) {
         {(() => {
           const fiadoSales = sales.filter(s => s.isFiado && !s.isDebtPayment);
           const paidTableIds = new Set(sales.filter(s => s.isDebtPayment).map(s => s.tableId));
-          const pending = fiadoSales.filter(s => !paidTableIds.has(s.tableId!));
+          const pending = fiadoSales.filter(s => s.tableId && !paidTableIds.has(s.tableId));
           const totalPending = pending.reduce((s, x) => s + (x.totalWithTip || 0), 0);
           return pending.length === 0 ? (
             <p style={{ color: C.muted }} className="text-sm text-center py-3">No hay deudas pendientes</p>
@@ -762,8 +766,8 @@ function CierreCajaTab({ sales, colors: C }: { sales: Sale[]; colors: Theme }) {
                             cuadratura, cuadratura_expected: expectedEfectivo,
                             cuadratura_counted: totalCounted, cuadratura_diff: round2(totalCounted - expectedEfectivo),
                           };
-                          const res = await saveClosure(data as unknown as Record<string, unknown>);
-                          if (res && (res as { ok: boolean }).ok) {
+                          const res = await saveClosure(data);
+                          if (isOk(res)) {
                             setLastClosure(data);
                             setExistingClosures(prev => [data, ...prev]);
                           }
@@ -1096,8 +1100,8 @@ function ControlCajaTab({ sales, colors: C }: { sales: Sale[]; colors: Theme }) 
                 cuadratura: cuadDenoms, cuadratura_expected: expectedCash,
                 cuadratura_counted: totalCounted, cuadratura_diff: diff,
               };
-              const res = await saveClosure(data as unknown as Record<string, unknown>);
-              if (res && (res as { ok: boolean }).ok) {
+              const res = await saveClosure(data);
+              if (isOk(res)) {
                 setExistingClosures(prev => [data, ...prev]);
               }
             } catch (e) {
@@ -1300,8 +1304,8 @@ function RespaldoTab({ colors: C }: { colors: Theme }) {
         import('jspdf'),
         import('jspdf-autotable'),
       ]);
-      const jsPDF = JsPDF as unknown as new (opts: { orientation: string; unit: string; format: string }) => unknown;
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' }) as unknown as {
+      if (!JsPDF) return;
+      const doc = new JsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' }) as unknown as {
         getCurrentPageInfo: () => { pageNumber: number };
         setFontSize: (s: number) => void;
         setTextColor: (r: number, g: number, b: number) => void;
@@ -1339,9 +1343,9 @@ function RespaldoTab({ colors: C }: { colors: Theme }) {
             return String(v);
           })),
           styles: { fontSize: 7, cellPadding: 1.5 },
-          headStyles: { fillColor: [122, 139, 106] as unknown as number[], textColor: 255, fontStyle: 'bold' },
-          alternateRowStyles: { fillColor: [240, 238, 235] as unknown as number[] },
-        } as unknown as Record<string, unknown>);
+          headStyles: { fillColor: [122, 139, 106], textColor: 255, fontStyle: 'bold' },
+          alternateRowStyles: { fillColor: [240, 238, 235] },
+        });
       }
 
       const d = (data.data || {}) as Record<string, unknown>;
@@ -1351,7 +1355,7 @@ function RespaldoTab({ colors: C }: { colors: Theme }) {
       doc.text('RESPALDO DE DATOS', 105, 30, { align: 'center' });
       doc.setFontSize(11);
       doc.setTextColor(60, 60, 60);
-      doc.text(`La Comanda — ${new Date(data.exportedAt!).toLocaleString('es-ES')}`, 105, 40, { align: 'center' });
+      doc.text(`La Comanda — ${new Date(data.exportedAt ?? Date.now()).toLocaleString('es-ES')}`, 105, 40, { align: 'center' });
       doc.setFontSize(10);
       let yy = 55;
       const stats = data.stats || {};
@@ -1634,7 +1638,7 @@ function CierresGuardadosTab({ colors: C }: { colors: Theme }) {
                   <>
                     <p style={{ color: C.muted }} className="text-xs uppercase tracking-wide mb-1">Por método</p>
                     <div className="flex flex-col gap-1 mb-3">
-                      {c.methods!.map(m => (
+                      {c.methods.map(m => (
                         <div key={m.method} className="flex justify-between text-sm">
                           <span style={{ color: C.muted }}>{m.label || m.method}</span>
                           <span className="font-mono" style={{ color: C.brassLight }}>{euros(m.total)}</span>
@@ -1648,7 +1652,7 @@ function CierresGuardadosTab({ colors: C }: { colors: Theme }) {
                   <>
                     <p style={{ color: C.muted }} className="text-xs uppercase tracking-wide mb-1">Por empleado</p>
                     <div className="flex flex-col gap-1 mb-3">
-                      {c.employees!.map(e => (
+                      {c.employees.map(e => (
                         <div key={e.name} className="flex justify-between text-sm">
                           <span style={{ color: C.muted }}>{e.name} <span className="text-xs">({e.count} tickets)</span></span>
                           <span className="font-mono" style={{ color: C.brassLight }}>{euros(e.total)}</span>

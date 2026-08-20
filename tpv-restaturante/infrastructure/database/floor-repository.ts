@@ -15,7 +15,7 @@ export async function getFloor(): Promise<FloorData | null> {
 export async function saveFloor(floor: FloorData): Promise<void> {
   cacheSet('floor', floor)
   try {
-    await apiSaveFloor(floor as unknown as Record<string, unknown>)
+    await apiSaveFloor(floor)
   } catch {
     /* offline — cache handles it */
   }

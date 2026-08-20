@@ -1,7 +1,7 @@
 import type { Employee, Floor } from '../types'
 
 export function createEmployee(data: Partial<Employee>): Employee {
-  return { id: 'e_' + Date.now(), ...data } as Employee
+  return { id: 'e_' + Date.now(), name: data.name || '', role: data.role || 'camarero', ...data }
 }
 
 export function canDeleteEmployee(employees: Employee[], employeeId: string): { allowed: boolean; error?: string } {

@@ -26,6 +26,31 @@ interface VerifactuPanelProps {
   sales?: { id: string }[];
 }
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+function toVerifactuRegistros(v: unknown): VerifactuRegistro[] {
+  if (!Array.isArray(v)) return []
+  return v.flatMap((r) => {
+    if (!isRecord(r) || typeof r.id !== 'string' || typeof r.sale_id !== 'string') return []
+    return [{
+      id: r.id, sale_id: r.sale_id,
+      num_serie: typeof r.num_serie === 'string' ? r.num_serie : '',
+      fecha_expedicion: typeof r.fecha_expedicion === 'string' ? r.fecha_expedicion : '',
+      importe_total: typeof r.importe_total === 'number' ? r.importe_total : 0,
+      huella: typeof r.huella === 'string' ? r.huella : '',
+      qr_url: typeof r.qr_url === 'string' ? r.qr_url : '',
+      estado: typeof r.estado === 'string' ? r.estado : '',
+    }]
+  })
+}
+
+function toVerifyResult(v: unknown): VerifyResult {
+  if (!isRecord(v)) return { valid: false }
+  return { valid: v.valid === true }
+}
+
 export default function VerifactuPanel({ colors: C, sales = [] }: VerifactuPanelProps) {
   const [registros, setRegistros]       = useState<VerifactuRegistro[]>([]);
   const [loading, setLoading]           = useState(true);
@@ -45,7 +70,7 @@ export default function VerifactuPanel({ colors: C, sales = [] }: VerifactuPanel
   async function loadRegistros() {
     setLoading(true);
     try {
-      const data = await fetchVerifactuRegistros() as VerifactuRegistro[];
+      const data = toVerifactuRegistros(await fetchVerifactuRegistros());
       setRegistros(data);
     } catch {
       showToast('Error al cargar registros Verifactu');
@@ -56,7 +81,7 @@ export default function VerifactuPanel({ colors: C, sales = [] }: VerifactuPanel
 
   useEffect(() => {
     fetchVerifactuRegistros()
-      .then(data => setRegistros(data as VerifactuRegistro[]))
+      .then(data => setRegistros(toVerifactuRegistros(data)))
       .catch(() => showToast('Error al cargar registros Verifactu'))
       .finally(() => setLoading(false));
   }, []);
@@ -66,10 +91,10 @@ export default function VerifactuPanel({ colors: C, sales = [] }: VerifactuPanel
     const results: Record<string, VerifyResult> = {};
     for (const reg of registros) {
       try {
-        const res = await verifyVerifactuChain(reg.sale_id) as VerifyResult;
+        const res = toVerifyResult(await verifyVerifactuChain(reg.sale_id));
         results[reg.sale_id] = res;
       } catch (err) {
-        results[reg.sale_id] = { valid: false, details: { error: (err as Error).message || 'Error de red' } };
+        results[reg.sale_id] = { valid: false, details: { error: err instanceof Error ? err.message : 'Error de red' } };
       }
     }
     setVerResults(results);
@@ -89,7 +114,7 @@ export default function VerifactuPanel({ colors: C, sales = [] }: VerifactuPanel
       setManualSaleId('');
       await loadRegistros();
     } catch (err) {
-      showToast('Error al registrar: ' + (err as Error).message);
+      showToast('Error al registrar: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setRegistering(false);
     }
@@ -103,7 +128,7 @@ export default function VerifactuPanel({ colors: C, sales = [] }: VerifactuPanel
       showToast(data.message || `Reintentados ${data.retried} registros`);
       await loadRegistros();
     } catch (err) {
-      showToast('Error al reintentar: ' + (err as Error).message);
+      showToast('Error al reintentar: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setRetrying(false);
     }

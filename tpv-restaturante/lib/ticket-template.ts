@@ -1,5 +1,3 @@
-import type { CatalogProduct } from '@tpv/core';
-
 interface TicketItem {
   name: string;
   qty: number;
@@ -37,7 +35,7 @@ interface TicketParams {
   ticketLabel?: string;
   ticketNumber?: string | number;
   date?: string;
-  catalog?: { products?: CatalogProduct[] };
+  catalog?: { products?: Array<{ id?: string; allergens?: string[] }> };
   allergensList?: Allergen[];
 }
 
@@ -120,7 +118,8 @@ export function printTicketHtml(html: string): void {
   const iframe = document.createElement('iframe');
   iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:0;height:0;border:none';
   document.body.appendChild(iframe);
-  const w = iframe.contentWindow!;
+  const w = iframe.contentWindow;
+  if (!w) return;
   w.document.open();
   w.document.write(html);
   w.document.close();

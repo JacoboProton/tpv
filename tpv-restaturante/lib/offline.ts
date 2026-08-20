@@ -172,9 +172,8 @@ export function enqueueMutation(input: EnqueueMutationInput | string, payload?: 
 
 export function dequeueMutation(): MutationV2 | null {
   const q = getMutations()
-  if (q.length === 0) return null;
-  const first = q.shift()!;
-  persistQueue(q);
+  const first = q.shift() ?? null;
+  if (first) persistQueue(q);
   return first;
 }
 

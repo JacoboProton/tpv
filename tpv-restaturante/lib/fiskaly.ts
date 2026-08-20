@@ -12,6 +12,33 @@ const API_SECRET = process.env.FISKALY_API_SECRET;
 const TAXPAYER_NIF = process.env.FISKALY_TAXPAYER_NIF;
 const TERRITORY = process.env.FISKALY_TERRITORY || 'CANARY_ISLANDS';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function isUnknownArray(v: unknown): v is unknown[] {
+  return Array.isArray(v);
+}
+
+function str(v: unknown): string | undefined {
+  return typeof v === 'string' ? v : undefined;
+}
+
+function mergeStdHeaders(extra?: HeadersInit): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!extra) return out;
+  if (extra instanceof Headers) {
+    extra.forEach((value, key) => {
+      out[key] = value;
+    });
+  } else if (Array.isArray(extra)) {
+    for (const [key, value] of extra) out[key] = value;
+  } else {
+    Object.assign(out, extra);
+  }
+  return out;
+}
+
 interface TokenCache {
   bearer: string;
   expiresAt: number;
@@ -85,7 +112,7 @@ async function fiskalyFetch(path: string, options: RequestInit = {}): Promise<un
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
-      ...(options.headers as Record<string, string>),
+      ...mergeStdHeaders(options.headers),
     },
   });
   if (!res.ok) {
@@ -114,8 +141,11 @@ export async function createOrUpdateTaxpayer(legalName?: string): Promise<unknow
 }
 
 export async function listSigners(): Promise<unknown[]> {
-  const data = await fiskalyFetch('/signers', { method: 'GET' }) as { results?: unknown[]; content?: { results?: unknown[] } };
-  return data.results || data.content?.results || [];
+  const data = await fiskalyFetch('/signers', { method: 'GET' });
+  if (!isRecord(data)) return [];
+  if (isUnknownArray(data.results)) return data.results;
+  if (isRecord(data.content) && isUnknownArray(data.content.results)) return data.content.results;
+  return [];
 }
 
 export async function createSigner(): Promise<unknown> {
@@ -199,13 +229,15 @@ export async function setupFiskaly(legalName?: string): Promise<unknown> {
   const db = getDb();
   await createOrUpdateTaxpayer(legalName);
 
-  const c = await createClient() as { content?: { id?: string; signer?: { id?: string } }; id?: string };
-  const clientId = c.content?.id || c.id;
+  const c = await createClient();
+  const clientId = str(isRecord(c) && isRecord(c.content) ? c.content.id : isRecord(c) ? c.id : undefined);
   if (!clientId) throw new Error('No client ID in response: ' + JSON.stringify(c));
   await db.insert(fiskalyConfig).values({ key: 'client_id', value: clientId, updatedAt: Date.now() })
     .onConflictDoUpdate({ target: fiskalyConfig.key, set: { value: clientId, updatedAt: Date.now() } });
 
-  const signerId = c.content?.signer?.id || null;
+  const signerId = isRecord(c) && isRecord(c.content) && isRecord(c.content.signer)
+    ? str(c.content.signer.id)
+    : null;
   if (signerId) {
     await db.insert(fiskalyConfig).values({ key: 'signer_id', value: signerId, updatedAt: Date.now() })
       .onConflictDoUpdate({ target: fiskalyConfig.key, set: { value: signerId, updatedAt: Date.now() } });
@@ -315,13 +347,16 @@ export async function registerSaleInFiskaly(sale: Sale, numSerie?: string): Prom
     })),
   };
 
-  const invRes = await createInvoice({ clientId: cfg.client_id, invoiceContent }) as Record<string, unknown>;
-  const inv = (invRes.content as Record<string, unknown> | undefined) || invRes;
+  const invRes = await createInvoice({ clientId: cfg.client_id, invoiceContent });
+  const inv = isRecord(invRes) && isRecord(invRes.content) ? invRes.content : invRes;
+  const invId = str(isRecord(inv) ? inv.id : undefined) || str(isRecord(invRes) ? invRes.id : undefined);
+  const compliance = isRecord(inv) ? inv.compliance : undefined;
+  const complianceUrl = isRecord(compliance) ? str(compliance.url) : undefined;
 
   return {
-    fiskalyInvoiceId: (inv.id || invRes.id) as string | undefined,
-    verificationUrl: ((inv as Record<string, unknown>).compliance as Record<string, unknown> | undefined)?.url as string | null || null,
-    qrUrl: ((inv as Record<string, unknown>).compliance as Record<string, unknown> | undefined)?.url as string | null || null,
+    fiskalyInvoiceId: invId,
+    verificationUrl: complianceUrl ?? null,
+    qrUrl: complianceUrl ?? null,
     signedInvoice: inv,
   };
 }

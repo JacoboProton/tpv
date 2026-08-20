@@ -17,6 +17,10 @@ function num(v: unknown, fallback = 0): number {
   return Number(v) || fallback;
 }
 
+function str(v: unknown, fallback = ''): string {
+  return typeof v === 'string' ? v : fallback;
+}
+
 export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin'])(req);
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
@@ -43,7 +47,7 @@ export async function GET(req: NextRequest) {
       FROM recipes r WHERE r.tenant_id = ${tenantId}
     `);
     const recipeCostMap: NumMap = {};
-    for (const r of recipeRows) recipeCostMap[r.product_id as string] = num(r.cost_per_unit);
+    for (const r of recipeRows) recipeCostMap[str(r.product_id)] = num(r.cost_per_unit);
 
     const ingredientCountRows = await qr(sql`
       SELECT r.product_id, COUNT(ri.id) AS ingredient_count
@@ -53,17 +57,18 @@ export async function GET(req: NextRequest) {
       GROUP BY r.product_id
     `);
     const ingredientCountMap: NumMap = {};
-    for (const ic of ingredientCountRows) ingredientCountMap[ic.product_id as string] = num(ic.ingredient_count);
+    for (const ic of ingredientCountRows) ingredientCountMap[str(ic.product_id)] = num(ic.ingredient_count);
 
     const foodCostData = productRows.map((p) => {
-      const recipeCost = recipeCostMap[p.id as string] || 0;
+      const id = str(p.id);
+      const recipeCost = recipeCostMap[id] || 0;
       const hasRecipe = recipeCost > 0;
-      const ingredientCount = ingredientCountMap[p.id as string] || 0;
+      const ingredientCount = ingredientCountMap[id] || 0;
       const price = num(p.price);
       const costPct = price > 0 ? (recipeCost / price) * 100 : 0;
       const margin = price > 0 ? price - recipeCost : 0;
       const marginPct = price > 0 ? (margin / price) * 100 : 0;
-      return { id: p.id, name: p.name as string, category: p.category as string, price, type: p.type as string, recipeCost, hasRecipe, ingredientCount, costPct, margin, marginPct };
+      return { id, name: str(p.name), category: str(p.category), price, type: str(p.type), recipeCost, hasRecipe, ingredientCount, costPct, margin, marginPct };
     });
 
     let filtered = foodCostData;

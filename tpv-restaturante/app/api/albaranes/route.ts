@@ -8,6 +8,53 @@ import { AlbaranBody } from '@/lib/schemas/api-schemas';
 
 type Row = Record<string, unknown>;
 
+interface AlbaranRow extends Row {
+  id: string;
+  supplier_id: string;
+  supplier_name: string;
+  albaran_number: string;
+  delivery_date: string;
+  invoice_number: string | null;
+  notes: string | null;
+  total_amount: string | null;
+  total_net: string | null;
+  total_iva: string | null;
+  header_discount_pct: string | null;
+  header_discount_amount: string | null;
+  recargo_equivalencia_pct: string | null;
+  recargo_amount: string | null;
+  portes_amount: string | null;
+  status: string;
+  received_by: string | null;
+  anulado_by: string | null;
+  anulado_at: number | null;
+  anulado_reason: string | null;
+  linked_purchase_order_id: string | null;
+  created_at: number;
+  updated_at: number | null;
+}
+
+interface AlbaranLineRow extends Row {
+  id: number;
+  albaran_id: string;
+  product_id: string;
+  product_name: string;
+  quantity: string;
+  pack_size: string | null;
+  price_per_pack: string;
+  price_per_unit: string;
+  supplier_sku: string | null;
+  iva_pct: string | null;
+  line_discount_pct: string | null;
+  line_discount_amount: string | null;
+  subtotal: string;
+  iva_amount: string | null;
+  total_line: string;
+  batch_number: string | null;
+  expiry_date: string | null;
+  location: string;
+}
+
 async function qr<T extends Row = Row>(db: ReturnType<typeof getDb>, q: SQL): Promise<T[]> {
   const r = await db.execute(q);
   return r.rows as T[];
@@ -26,7 +73,7 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get('status');
 
     let query = sql`SELECT * FROM albaranes WHERE tenant_id = ${tenantId}`;
-    const conds = [];
+    const conds: SQL[] = [];
     if (supplierId) conds.push(sql`supplier_id = ${supplierId}`);
     if (startDate) conds.push(sql`delivery_date >= ${startDate}`);
     if (endDate) conds.push(sql`delivery_date <= ${endDate}`);
@@ -34,36 +81,36 @@ export async function GET(req: NextRequest) {
     if (conds.length > 0) query = sql`${query} AND ${conds.reduce((a: SQL, c: SQL) => sql`${a} AND ${c}`)}`;
     query = sql`${query} ORDER BY delivery_date DESC, created_at DESC LIMIT 200`;
 
-    const albaranes = await qr(db, query);
-    const result = [];
+    const albaranes = await qr<AlbaranRow>(db, query);
+    const result: Array<Record<string, unknown>> = [];
 
     for (const a of albaranes) {
-      const lines = await qr(db, sql`SELECT * FROM albaran_lines WHERE albaran_id = ${a.id} AND tenant_id = ${tenantId} ORDER BY id`);
+      const lines = await qr<AlbaranLineRow>(db, sql`SELECT * FROM albaran_lines WHERE albaran_id = ${a.id} AND tenant_id = ${tenantId} ORDER BY id`);
       result.push({
         id: a.id, supplierId: a.supplier_id, supplierName: a.supplier_name,
         albaranNumber: a.albaran_number, deliveryDate: a.delivery_date,
         invoiceNumber: a.invoice_number, notes: a.notes,
-        totalAmount: parseFloat(a.total_amount as string), totalNet: parseFloat((a.total_net as string) || '0'),
-        totalIva: parseFloat((a.total_iva as string) || '0'),
-        headerDiscountPct: parseFloat((a.header_discount_pct as string) || '0'),
-        headerDiscountAmount: parseFloat((a.header_discount_amount as string) || '0'),
-        recargoEquivalenciaPct: parseFloat((a.recargo_equivalencia_pct as string) || '0'),
-        recargoAmount: parseFloat((a.recargo_amount as string) || '0'),
-        portesAmount: parseFloat((a.portes_amount as string) || '0'),
-        status: a.status as string || 'draft', receivedBy: a.received_by,
+        totalAmount: parseFloat(a.total_amount ?? ''), totalNet: parseFloat(a.total_net ?? '0'),
+        totalIva: parseFloat(a.total_iva ?? '0'),
+        headerDiscountPct: parseFloat(a.header_discount_pct ?? '0'),
+        headerDiscountAmount: parseFloat(a.header_discount_amount ?? '0'),
+        recargoEquivalenciaPct: parseFloat(a.recargo_equivalencia_pct ?? '0'),
+        recargoAmount: parseFloat(a.recargo_amount ?? '0'),
+        portesAmount: parseFloat(a.portes_amount ?? '0'),
+        status: a.status || 'draft', receivedBy: a.received_by,
         anuladoBy: a.anulado_by, anuladoAt: a.anulado_at ? Number(a.anulado_at) : null,
         anuladoReason: a.anulado_reason, linkedPurchaseOrderId: a.linked_purchase_order_id,
         createdAt: Number(a.created_at), updatedAt: a.updated_at ? Number(a.updated_at) : null,
         lines: lines.map((l) => ({
           id: l.id, productId: l.product_id, productName: l.product_name,
-          quantity: parseFloat(l.quantity as string), packSize: parseFloat((l.pack_size as string) || '1'),
-          pricePerPack: parseFloat(l.price_per_pack as string), pricePerUnit: parseFloat(l.price_per_unit as string),
-          supplierSku: l.supplier_sku, ivaPct: parseFloat((l.iva_pct as string) || '0'),
-          lineDiscountPct: parseFloat((l.line_discount_pct as string) || '0'),
-          lineDiscountAmount: parseFloat((l.line_discount_amount as string) || '0'),
-          subtotal: parseFloat(l.subtotal as string), ivaAmount: parseFloat((l.iva_amount as string) || '0'),
-          totalLine: parseFloat(l.total_line as string), batchNumber: l.batch_number,
-          expiryDate: l.expiry_date, location: (l.location as string) || 'Almacén',
+          quantity: parseFloat(l.quantity), packSize: parseFloat(l.pack_size ?? '1'),
+          pricePerPack: parseFloat(l.price_per_pack), pricePerUnit: parseFloat(l.price_per_unit),
+          supplierSku: l.supplier_sku, ivaPct: parseFloat(l.iva_pct ?? '0'),
+          lineDiscountPct: parseFloat(l.line_discount_pct ?? '0'),
+          lineDiscountAmount: parseFloat(l.line_discount_amount ?? '0'),
+          subtotal: parseFloat(l.subtotal), ivaAmount: parseFloat(l.iva_amount ?? '0'),
+          totalLine: parseFloat(l.total_line), batchNumber: l.batch_number,
+          expiryDate: l.expiry_date, location: l.location || 'Almacén',
         })),
       });
     }
@@ -80,11 +127,10 @@ export async function POST(req: NextRequest) {
     const parsed = AlbaranBody.safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
     const body = parsed.data;
-    const action = (body as unknown as { action: string }).action;
+    const action = body.action || '';
 
     if (action === 'create') {
-      const { supplierId, supplierName, albaranNumber, deliveryDate, invoiceNumber, notes, lines: rawLines, receivedBy, headerDiscountPct, recargoEquivalenciaPct, portesAmount, linkedPurchaseOrderId } = body;
-      const lines = rawLines as Row[] | undefined;
+      const { supplierId, supplierName, albaranNumber, deliveryDate, invoiceNumber, notes, lines, receivedBy, headerDiscountPct, recargoEquivalenciaPct, portesAmount, linkedPurchaseOrderId } = body;
       const id = 'alb_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
 
       let totalNet = 0;
@@ -135,8 +181,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'update') {
-      const { id, supplierId, supplierName, albaranNumber, deliveryDate, invoiceNumber, notes, lines: rawLines, receivedBy, headerDiscountPct, recargoEquivalenciaPct, portesAmount } = body;
-      const lines = rawLines as Row[] | undefined;
+      const { id, supplierId, supplierName, albaranNumber, deliveryDate, invoiceNumber, notes, lines, receivedBy, headerDiscountPct, recargoEquivalenciaPct, portesAmount } = body;
 
       const [existing] = await qr(db, sql`SELECT status FROM albaranes WHERE id = ${id} AND tenant_id = ${tenantId}`);
       if (existing?.status === 'confirmed') {
@@ -254,7 +299,7 @@ export async function POST(req: NextRequest) {
 
     if (action === 'confirm') {
       const { id } = body;
-      const batches = (body as unknown as { batches: Row[] }).batches;
+      const batches = body.batches;
       const [albaran] = await qr(db, sql`SELECT * FROM albaranes WHERE id = ${id} AND tenant_id = ${tenantId}`);
       if (!albaran) return apiNotFound('Albarán no encontrado');
       if (albaran.status !== 'draft') return apiBadRequest('Solo se pueden confirmar albaranes en borrador');

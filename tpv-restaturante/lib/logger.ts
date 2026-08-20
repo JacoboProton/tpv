@@ -2,7 +2,7 @@
 import { pino } from "pino";
 import * as Sentry from "@sentry/nextjs";
 
-const SENTRY_LEVEL: Record<number, string> = {
+const SENTRY_LEVEL: Record<number, Sentry.Breadcrumb["level"]> = {
   10: "debug",
   20: "debug",
   30: "info",
@@ -27,12 +27,12 @@ const logger = pino({
       const last = args[args.length - 1];
       const message = typeof last === "string" ? last : "";
       const data =
-        typeof args[0] === "object" && args[0] !== null
-          ? (args[0] as Record<string, unknown>)
+        typeof args[0] === "object" && args[0] !== null && !Array.isArray(args[0])
+          ? args[0]
           : undefined;
       Sentry.addBreadcrumb({
         category: "log",
-        level: (SENTRY_LEVEL[level] as Sentry.Breadcrumb["level"]) || "info",
+        level: SENTRY_LEVEL[level] ?? "info",
         message,
         data,
       });

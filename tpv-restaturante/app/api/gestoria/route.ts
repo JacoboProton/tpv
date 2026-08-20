@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { sql, SQL } from 'drizzle-orm';
+import { ZodError } from 'zod';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { validateRequest, ConfirmSchema } from '../../../lib/gestoriaSchemas';
@@ -9,16 +10,93 @@ import { GestoriaBody } from '@/lib/schemas/api-schemas';
 
 type Row = Record<string, unknown>;
 
+interface GestoriaLine {
+  id?: string;
+  document_id?: string;
+  description?: string;
+  category?: string;
+  base_amount?: number | string;
+  vat_rate?: number | string;
+  vat_amount?: number | string;
+  withholding?: number | string;
+  zone?: string;
+  type?: string;
+  sort_order?: number | string;
+}
+
+interface GestoriaDocRow {
+  id: string;
+  type: string;
+  file_name: string;
+  provider_name: string | null;
+  provider_nif: string | null;
+  document_date?: string | null;
+  confirmed?: boolean;
+  is_periodic?: boolean;
+  notes?: string | null;
+  created_at?: number;
+  lines?: GestoriaLine[] | string;
+}
+
+interface PayrollRow extends Row {
+  id: string;
+  employee_name: string;
+  employee_nif: string;
+  month: number;
+  year: number;
+  gross_amount: number | string;
+  irpf_withholding: number | string;
+  social_security_worker: number | string;
+  social_security_company: number | string;
+  net_amount: number | string;
+  notes: string | null;
+  created_at: number;
+}
+
+function parseLines(value: unknown): GestoriaLine[] {
+  const list: unknown[] = typeof value === 'string' ? (() => {
+    try { const parsed: unknown = JSON.parse(value); return Array.isArray(parsed) ? parsed : []; } catch { return []; }
+  })() : (Array.isArray(value) ? value : []);
+  return list.flatMap((l) => {
+    if (typeof l !== 'object' || l === null || Array.isArray(l)) return [];
+    const r = l as Record<string, unknown>;
+    return [{
+      id: optStr(r.id), document_id: optStr(r.document_id), description: optStr(r.description),
+      category: optStr(r.category), zone: optStr(r.zone), type: optStr(r.type),
+      base_amount: optNumStr(r.base_amount), vat_rate: optNumStr(r.vat_rate), vat_amount: optNumStr(r.vat_amount),
+      withholding: optNumStr(r.withholding), sort_order: optNumStr(r.sort_order),
+    }];
+  });
+}
+
+function optStr(v: unknown): string | undefined {
+  return typeof v === 'string' ? v : undefined;
+}
+
+function optNumStr(v: unknown): number | string | undefined {
+  return typeof v === 'number' || typeof v === 'string' ? v : undefined;
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
 function makeId() { return 'g_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8); }
 
-async function qr<T extends Row = Row>(db: ReturnType<typeof getDb>, q: SQL): Promise<T[]> {
+async function qr<T extends object = Row>(db: ReturnType<typeof getDb>, q: SQL): Promise<T[]> {
   const r = await db.execute(q);
-  return r.rows as T[];
+  const rows: unknown[] = r.rows;
+  return rows.filter((x): x is T => isRecord(x));
+}
+
+function validateErrorMsg(e: unknown): string {
+  if (e instanceof ZodError) return e.issues.map((i) => i.message).join('; ');
+  return e instanceof Error ? e.message : String(e);
 }
 
 async function getOperationsData(tenantId: string) {
   const db = getDb();
-  const docs = await qr(db, sql`
+  const docs = await qr<GestoriaDocRow>(db, sql`
     SELECT d.provider_nif, d.provider_name, d.file_name, d.type,
       COALESCE(json_agg(json_build_object(
         'base_amount', l.base_amount, 'zone', l.zone, 'type', l.type
@@ -29,14 +107,14 @@ async function getOperationsData(tenantId: string) {
     GROUP BY d.id
   `);
 
-  const entregas_intra = [];
-  const adquisiciones_intra = [];
+  const entregas_intra: Array<{ nif: string; name: string; base: number; operacion: string }> = [];
+  const adquisiciones_intra: Array<{ nif: string; name: string; base: number; operacion: string }> = [];
 
   for (const d of docs) {
-    const lines = (typeof d.lines === 'string' ? JSON.parse(d.lines as string) : d.lines) as Row[];
+    const lines = parseLines(d.lines);
     const euLines = lines.filter((l) => l.zone === 'eu');
     for (const l of euLines) {
-      const entry = { nif: (d.provider_nif as string) || '', name: (d.provider_name as string) || (d.file_name as string) || '', base: Number(l.base_amount || 0), operacion: (l.type as string) === 'service' ? 'servicio' : 'bien' };
+      const entry = { nif: d.provider_nif || '', name: d.provider_name || d.file_name || '', base: Number(l.base_amount || 0), operacion: l.type === 'service' ? 'servicio' : 'bien' };
       if (d.type === 'expense') adquisiciones_intra.push(entry);
       else entregas_intra.push(entry);
     }
@@ -87,7 +165,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (action === 'payrolls') {
-      const rows = await qr(db, sql`SELECT * FROM gestoria_payrolls WHERE tenant_id = ${tenantId} ORDER BY year DESC, month DESC, created_at DESC`);
+      const rows = await qr<PayrollRow>(db, sql`SELECT * FROM gestoria_payrolls WHERE tenant_id = ${tenantId} ORDER BY year DESC, month DESC, created_at DESC`);
       return apiOk(rows.map((r) => ({
         id: r.id, employeeName: r.employee_name, employeeNif: r.employee_nif,
         month: r.month, year: r.year, grossAmount: Number(r.gross_amount),
@@ -98,8 +176,11 @@ export async function GET(req: NextRequest) {
     }
 
     if (action === 'taxmodels') {
-      const rows = await qr(db, sql`SELECT * FROM gestoria_tax_models WHERE tenant_id = ${tenantId} ORDER BY year DESC, model_code, quarter`);
-      return apiOk(rows.map((r) => ({ ...r, data: typeof r.data === 'string' ? JSON.parse(r.data as string) : r.data })));
+      const rows = await qr<Row>(db, sql`SELECT * FROM gestoria_tax_models WHERE tenant_id = ${tenantId} ORDER BY year DESC, model_code, quarter`);
+      return apiOk(rows.map((r) => {
+        const data: unknown = typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
+        return { ...r, data };
+      }));
     }
 
     if (action === 'authorization') {
@@ -120,10 +201,11 @@ export async function POST(req: NextRequest) {
     const parsed = GestoriaBody.safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
     const body = parsed.data;
-    try { validateRequest(body); } catch (e) { return apiBadRequest((e as { errors?: string }).errors || (e as Error).message); }
+    try { validateRequest(body); } catch (e) { return apiBadRequest(validateErrorMsg(e)); }
     const { action } = body;
 
     if (action === 'document') {
+      if (!body.document) return apiBadRequest('missing document');
       const doc = body.document;
       const id = doc.id || makeId();
       await db.execute(sql`INSERT INTO gestoria_documents (id, type, file_name, provider_name, provider_nif, document_date, confirmed, is_periodic, notes, created_at, tenant_id) VALUES (${id}, ${doc.type}, ${doc.fileName || ''}, ${doc.providerName || ''}, ${doc.providerNif || ''}, ${doc.documentDate || ''}, ${doc.confirmed || false}, ${doc.isPeriodic || false}, ${doc.notes || ''}, ${Date.now()}, ${tenantId})`);
@@ -138,6 +220,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'payroll') {
+      if (!body.payroll) return apiBadRequest('missing payroll');
       const p = body.payroll;
       const id = p.id || makeId();
       await db.execute(sql`
@@ -184,7 +267,7 @@ export async function PUT(req: NextRequest) {
     const parsed = GestoriaBody.safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
     const body = parsed.data;
-    try { validateRequest(body); } catch (e) { return apiBadRequest((e as { errors?: string }).errors || (e as Error).message); }
+    try { validateRequest(body); } catch (e) { return apiBadRequest(validateErrorMsg(e)); }
     const { action } = body;
 
     if (action === 'settings') {
@@ -228,7 +311,7 @@ export async function DELETE(req: NextRequest) {
     const parsed = GestoriaBody.safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
     const body = parsed.data;
-    try { ConfirmSchema.parse(body); } catch (e) { return apiBadRequest((e as { errors?: string }).errors || (e as Error).message); }
+    try { ConfirmSchema.parse(body); } catch (e) { return apiBadRequest(validateErrorMsg(e)); }
     const { action, id } = body;
     if (action === 'document') {
       await db.execute(sql`DELETE FROM gestoria_documents WHERE id = ${id} AND tenant_id = ${tenantId}`);
@@ -256,21 +339,21 @@ async function calculateTaxModelDraft(modelCode: string, year: number, quarter: 
   const qEnd = new Date(year, quarter * 3, 0, 23, 59, 59, 999).getTime();
 
   const sales: Row[] = await qr(db, sql`SELECT * FROM sales WHERE closed_at >= ${qStart} AND closed_at <= ${qEnd} AND tenant_id = ${tenantId} ORDER BY closed_at`);
-  const confirmedDocs: Row[] = await qr(db, sql`SELECT d.*, (SELECT json_agg(l.*) FROM gestoria_document_lines l WHERE l.document_id = d.id) as lines FROM gestoria_documents d WHERE d.confirmed = true AND d.tenant_id = ${tenantId} AND d.created_at >= ${qStart} AND d.created_at <= ${qEnd}`);
+  const confirmedDocs: GestoriaDocRow[] = await qr<GestoriaDocRow>(db, sql`SELECT d.*, (SELECT json_agg(l.*) FROM gestoria_document_lines l WHERE l.document_id = d.id) as lines FROM gestoria_documents d WHERE d.confirmed = true AND d.tenant_id = ${tenantId} AND d.created_at >= ${qStart} AND d.created_at <= ${qEnd}`);
 
   const salesTotal = sales.reduce((s: number, r) => s + Number(r.total || 0), 0);
   const salesVat = salesTotal * 0.21;
-  const toLines = (d: Row) => (typeof d.lines === 'string' ? JSON.parse(d.lines as string) : (d.lines || [])) as Row[];
-  const sumBase = (s: number, l: Row) => s + Number(l.base_amount || 0);
-  const sumVat = (s: number, l: Row) => s + Number(l.vat_amount || 0);
+  const toLines = (d: GestoriaDocRow) => parseLines(d.lines);
+  const sumBase = (s: number, l: GestoriaLine) => s + Number(l.base_amount || 0);
+  const sumVat = (s: number, l: GestoriaLine) => s + Number(l.vat_amount || 0);
   const expenseTotal = confirmedDocs.reduce((s: number, d) => s + toLines(d).reduce(sumBase, 0), 0);
   const expenseVat = confirmedDocs.reduce((s: number, d) => s + toLines(d).reduce(sumVat, 0), 0);
 
-  const payrolls: Row[] = await qr(db, sql`SELECT * FROM gestoria_payrolls WHERE tenant_id = ${tenantId} AND year = ${year} AND ((${quarter} = 1 AND month >= 1 AND month <= 3) OR (${quarter} = 2 AND month >= 4 AND month <= 6) OR (${quarter} = 3 AND month >= 7 AND month <= 9) OR (${quarter} = 4 AND month >= 10 AND month <= 12))`);
+  const payrolls: PayrollRow[] = await qr(db, sql`SELECT * FROM gestoria_payrolls WHERE tenant_id = ${tenantId} AND year = ${year} AND ((${quarter} = 1 AND month >= 1 AND month <= 3) OR (${quarter} = 2 AND month >= 4 AND month <= 6) OR (${quarter} = 3 AND month >= 7 AND month <= 9) OR (${quarter} = 4 AND month >= 10 AND month <= 12))`);
 
   const totalIrpfWithholding = payrolls.reduce((s: number, p) => s + Number(p.irpf_withholding || 0), 0);
   const totalSsCompany = payrolls.reduce((s: number, p) => s + Number(p.social_security_company || 0), 0);
-  const sumGross = (s: number, p: Row) => s + Number(p.gross_amount || 0);
+  const sumGross = (s: number, p: PayrollRow) => s + Number(p.gross_amount || 0);
 
   switch (modelCode) {
     case '303': {
@@ -292,7 +375,7 @@ async function calculateTaxModelDraft(modelCode: string, year: number, quarter: 
     case '349': {
       const euDocs = confirmedDocs.reduce((acc: Array<{ nif: string; name: string; base: number; operacion: string }>, d) => {
         const lines = toLines(d).filter((l) => l.zone === 'eu');
-        return acc.concat(lines.map((l) => ({ nif: (d.provider_nif as string) || '', name: (d.provider_name as string) || (d.file_name as string) || '', base: Number(l.base_amount || 0), operacion: (l.type as string) === 'service' ? 'servicio' : 'bien' })));
+        return acc.concat(lines.map((l) => ({ nif: d.provider_nif || '', name: d.provider_name || d.file_name || '', base: Number(l.base_amount || 0), operacion: l.type === 'service' ? 'servicio' : 'bien' })));
       }, []);
       return { entregas_intra: [], adquisiciones_intra: euDocs, total_operaciones: round2(euDocs.reduce((s: number, e) => s + e.base, 0)) };
     }
@@ -302,8 +385,8 @@ async function calculateTaxModelDraft(modelCode: string, year: number, quarter: 
         if (!d.provider_nif) return acc;
         const base = toLines(d).reduce(sumBase, 0);
         if (base < 3005.06) return acc;
-        const key = d.provider_nif as string;
-        if (!acc[key]) acc[key] = { nif: key, name: (d.provider_name as string) || '', total: 0, operations: 0 };
+        const key = d.provider_nif;
+        if (!acc[key]) acc[key] = { nif: key, name: d.provider_name || '', total: 0, operations: 0 };
         acc[key].total += base; acc[key].operations++;
         return acc;
       }, {} as Record<string, ProviderAcc>);

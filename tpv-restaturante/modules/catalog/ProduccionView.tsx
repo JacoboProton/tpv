@@ -211,7 +211,7 @@ export default function ProduccionView() {
       if (r.ok) {
         loadAll();
       } else {
-        const err = await r.json();
+        const err = await r.json() as { error?: string };
         alert('Error al anular: ' + (err.error || 'Error desconocido'));
       }
     } catch (err: unknown) {
@@ -353,7 +353,7 @@ function ProduccionForm({ elaborados, recipes, recipeMap, C, onClose, onSaved, o
       if (r.ok) {
         onSaved();
       } else {
-        const err = await r.json();
+        const err = await r.json() as { error?: string };
         alert('Error: ' + (err.error || 'Error desconocido'));
       }
     } catch (err: unknown) {
@@ -586,7 +586,7 @@ function RecipeManager({ catalog, recipes, elaborados, C, onBack, onSaved }: Rec
         setEditingRecipe(null);
         onSaved();
       } else {
-        const err = await r.json();
+        const err = await r.json() as { error?: string };
         alert('Error: ' + (err.error || 'Error desconocido'));
       }
     } catch (err: unknown) {

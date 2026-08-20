@@ -1,5 +1,6 @@
 import { cacheGet, cacheSet } from './offline';
 import { advanceLocalClock, mergeLocalClock } from './floor-vc';
+import type { VectorClock } from './vector-clock';
 
 declare global {
   interface Window {
@@ -30,12 +31,27 @@ function apiHeaders(headers: Record<string, string> = {}): Record<string, string
   return headers;
 }
 
+function mergeHeaders(base: Record<string, string>, extra?: HeadersInit): Record<string, string> {
+  if (!extra) return base;
+  const out: Record<string, string> = { ...base };
+  if (extra instanceof Headers) {
+    extra.forEach((value, key) => {
+      out[key] = value;
+    });
+  } else if (Array.isArray(extra)) {
+    for (const [key, value] of extra) out[key] = value;
+  } else {
+    Object.assign(out, extra);
+  }
+  return out;
+}
+
 async function apiFetch(url: string, options: RequestInit = {}): Promise<unknown> {
   try {
     const { headers: customHeaders, ...rest } = options;
     const res = await fetch(url, {
       ...rest,
-      headers: apiHeaders({ ...(customHeaders as Record<string, string> | undefined) }),
+      headers: mergeHeaders(apiHeaders(), customHeaders),
     });
     if (!res.ok) {
       const body = await res.text();
@@ -72,41 +88,45 @@ export async function saveCatalog(catalog: unknown): Promise<unknown> {
 
 let lastFloor: Record<string, unknown> | null = null;
 
-export function setLastFloor(floor: Record<string, unknown> | null): void {
-  lastFloor = floor ? JSON.parse(JSON.stringify(floor)) : null;
+export function setLastFloor(floor: unknown): void {
+  lastFloor = (floor ? JSON.parse(JSON.stringify(floor)) : null) as Record<string, unknown> | null;
 }
 
 export function getLastFloor(): Record<string, unknown> | null {
   return lastFloor;
 }
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function isUnknownArray(v: unknown): v is unknown[] {
+  return Array.isArray(v);
+}
+
+function isVectorClock(v: unknown): v is VectorClock {
+  return isRecord(v) && Object.values(v).every(x => typeof x === 'number');
+}
+
 function stableKeyOrder(a: unknown, b: unknown): boolean {
   if (a === b) return true;
-  if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
-  const ka = Object.keys(a);
-  const kb = Object.keys(b);
-  if (ka.length !== kb.length) return false;
-  ka.sort();
-  kb.sort();
-  for (let i = 0; i < ka.length; i++) {
-    if (ka[i] !== kb[i]) return false;
+  if (!isRecord(a) || !isRecord(b)) return false;
+  const keyA = Object.keys(a).sort();
+  const keyB = Object.keys(b).sort();
+  if (keyA.length !== keyB.length) return false;
+  for (let i = 0; i < keyA.length; i++) {
+    if (keyA[i] !== keyB[i]) return false;
   }
-  for (const k of ka) {
-    const av = (a as Record<string, unknown>)[k];
-    const bv = (b as Record<string, unknown>)[k];
-    if (typeof av === 'object' && typeof bv === 'object' && av !== null && bv !== null) {
-      if (Array.isArray(av) && Array.isArray(bv)) {
-        if (av.length !== bv.length) return false;
-        for (let i = 0; i < av.length; i++) {
-          if (typeof av[i] === 'object' || typeof bv[i] === 'object') {
-            if (!stableKeyOrder(av[i], bv[i])) return false;
-          } else if (av[i] !== bv[i]) {
-            return false;
-          }
-        }
-      } else if (!stableKeyOrder(av, bv)) {
-        return false;
+  for (const k of keyA) {
+    const av: unknown = a[k];
+    const bv: unknown = b[k];
+    if (isUnknownArray(av) && isUnknownArray(bv)) {
+      if (av.length !== bv.length) return false;
+      for (let i = 0; i < av.length; i++) {
+        if (!stableKeyOrder(av[i], bv[i])) return false;
       }
+    } else if (typeof av === 'object' && typeof bv === 'object' && av !== null && bv !== null) {
+      if (!stableKeyOrder(av, bv)) return false;
     } else if (av !== bv) {
       return false;
     }
@@ -122,29 +142,28 @@ export interface FloorDiff {
   deletedOrderIds?: string[];
 }
 
-export function computeFloorDiff(last: Record<string, unknown> | null, next: Record<string, unknown>): FloorDiff {
-  if (!last || !last.tables || !next || !next.tables) {
-    return { isFullSync: true };
-  }
-  const lastTables = last.tables as unknown[];
-  const nextTables = next.tables as unknown[];
-  if (lastTables.length !== nextTables.length || 
-      !stableKeyOrder(last.zones, next.zones) || 
-      last.background !== next.background) {
+export function computeFloorDiff(last: Record<string, unknown> | null, next: unknown): FloorDiff {
+  const nextTablesRaw: unknown = isRecord(next) ? next.tables : undefined;
+  const lastTablesRaw: unknown = last?.tables;
+  const lastTables = isUnknownArray(lastTablesRaw) ? lastTablesRaw : [];
+  const nextTables = isUnknownArray(nextTablesRaw) ? nextTablesRaw : [];
+  if (lastTables.length !== nextTables.length ||
+      !stableKeyOrder(last?.zones, isRecord(next) ? next.zones : undefined) ||
+      last?.background !== (isRecord(next) ? next.background : undefined)) {
     return { isFullSync: true };
   }
 
   const updatedTables: unknown[] = [];
   const deletedTableIds: string[] = [];
-  const lastTablesMap = new Map<string, Record<string, unknown>>(
-    (lastTables as Array<Record<string, unknown>>).map(t => [t.id as string, t])
-  );
-  
-  for (const t of nextTables as Array<Record<string, unknown>>) {
-    const prev = lastTablesMap.get(t.id as string);
-    if (!prev) {
-      return { isFullSync: true };
-    }
+  const lastTablesMap = new Map<string, Record<string, unknown>>();
+  for (const t of lastTables) {
+    if (isRecord(t) && typeof t.id === 'string') lastTablesMap.set(t.id, t);
+  }
+
+  for (const t of nextTables) {
+    if (!isRecord(t) || typeof t.id !== 'string') return { isFullSync: true };
+    const prev = lastTablesMap.get(t.id);
+    if (!prev) return { isFullSync: true };
     if (prev.x !== t.x || prev.y !== t.y || prev.width !== t.width || prev.height !== t.height ||
         prev.radius !== t.radius || prev.shape !== t.shape || prev.rotation !== t.rotation ||
         prev.seats !== t.seats || prev.zone !== t.zone || prev.layer !== t.layer || prev.color !== t.color ||
@@ -163,8 +182,10 @@ export function computeFloorDiff(last: Record<string, unknown> | null, next: Rec
 
   const updatedOrders: Record<string, unknown> = {};
   const deletedOrderIds: string[] = [];
-  const lastOrders = (last.orders as Record<string, unknown>) || {};
-  const nextOrders = (next.orders as Record<string, unknown>) || {};
+  const lastOrdersRaw: unknown = last?.orders;
+  const nextOrdersRaw: unknown = isRecord(next) ? next.orders : undefined;
+  const lastOrders = isRecord(lastOrdersRaw) ? lastOrdersRaw : {};
+  const nextOrders = isRecord(nextOrdersRaw) ? nextOrdersRaw : {};
 
   for (const [oid, o] of Object.entries(nextOrders)) {
     const prev = lastOrders[oid];
@@ -188,15 +209,16 @@ export function computeFloorDiff(last: Record<string, unknown> | null, next: Rec
 }
 
 export async function fetchFloor(): Promise<unknown> {
-  const floor = await apiFetchWithCache('/api/floor', 'floor') as Record<string, unknown> | null;
-  if (floor) {
+  const floor = await apiFetchWithCache('/api/floor', 'floor');
+  if (isRecord(floor)) {
     setLastFloor(floor);
-    mergeLocalClock((floor as { vectorClock?: Record<string, number> }).vectorClock);
+    const vc: unknown = floor.vectorClock;
+    if (isVectorClock(vc)) mergeLocalClock(vc);
   }
-  return floor;
+  return floor ?? null;
 }
 
-export async function saveFloor(floor: Record<string, unknown>): Promise<unknown> {
+export async function saveFloor<const T extends object>(floor: T): Promise<unknown> {
   const { vectorClock, updatedAt } = advanceLocalClock();
   const body = { ...floor, vectorClock, updatedAt };
   cacheSet('floor', body);
@@ -206,10 +228,10 @@ export async function saveFloor(floor: Record<string, unknown>): Promise<unknown
   if (diff.isFullSync) {
     return apiFetch('/api/floor', { method: 'PUT', body: JSON.stringify(body) });
   } else {
-    if (diff.updatedTables!.length === 0 && 
-        diff.deletedTableIds!.length === 0 && 
-        Object.keys(diff.updatedOrders!).length === 0 && 
-        diff.deletedOrderIds!.length === 0) {
+    if ((diff.updatedTables?.length ?? 0) === 0 && 
+        (diff.deletedTableIds?.length ?? 0) === 0 && 
+        Object.keys(diff.updatedOrders ?? {}).length === 0 && 
+        (diff.deletedOrderIds?.length ?? 0) === 0) {
       return { ok: true };
     }
     return apiFetch('/api/floor', { method: 'PATCH', body: JSON.stringify({ ...diff, vectorClock, updatedAt }) });
@@ -221,7 +243,7 @@ export async function fetchSales(): Promise<unknown> {
 }
 
 export async function addSale(sale: unknown): Promise<unknown> {
-  const saleId = (sale as { id?: string } | null)?.id
+  const saleId = isRecord(sale) && typeof sale.id === 'string' ? sale.id : undefined
   const headers: Record<string, string> = {}
   if (saleId) headers['x-idempotency-key'] = saleId
   return apiFetch('/api/sales', { method: 'POST', body: JSON.stringify(sale), headers })

@@ -8,6 +8,14 @@ import { clone } from '../components/constants'
 import { eventBus } from '../lib/event-bus'
 import { createProduct, ensureCategoryExists, removeProduct, detectStockChanges, addProductToCatalog, setProductField, getLowStockProducts } from '../domain/catalog/product-operations'
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+function isCatalog(v: unknown): v is Catalog {
+  return isRecord(v) && Array.isArray(v.products) && Array.isArray(v.categories)
+}
+
 interface UseInventoryProps {
   catalog: Catalog
   setCatalog: (c: Catalog) => void
@@ -83,8 +91,8 @@ export function useInventory({ catalog, setCatalog, offers, setOffers, combos, s
     try {
       await fetch('/api/catalog', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: payload })
     } catch { enqueueMutation({ key: '/api/catalog', method: 'PATCH', payload: { action: 'reorder-carousel', data }, idempotencyKey: `carrusel:${Date.now()}` }); showToast('Sin conexión — el carrusel se guardará cuando vuelva la red') }
-    const updated = await fetch('/api/catalog').then(r => r.json())
-    setCatalog(updated as Catalog)
+    const updated: unknown = await fetch('/api/catalog').then(r => r.json())
+    if (isCatalog(updated)) setCatalog(updated)
   }, [setCatalog, showToast])
 
   const saveCartas = useCallback(async (next: Catalog) => {
@@ -94,7 +102,7 @@ export function useInventory({ catalog, setCatalog, offers, setOffers, combos, s
       await saveCatalog({ categories, products, combos: combos || catalog.combos || [] })
       showToast('✓ Guardado')
     } catch (e) {
-      showToast('Error: ' + ((e as Error)?.message || 'desconocido'))
+      showToast('Error: ' + (e instanceof Error ? e.message : 'desconocido'))
     }
   }, [catalog, setCatalog, showToast])
 

@@ -8,7 +8,7 @@ export function registerOrderSubscribers(deps: {
   eventBus.on('order:closed', async (data: OrderClosedEvent) => {
     registerVerifactu(data.saleId, { ...data, items: data.items }).then(() => {
       deps.showToast(`✅ Factura electrónica registrada (${data.invoiceNumber || data.saleId})`)
-    }).catch(err => {
+    }).catch((err: unknown) => {
       console.warn('Verifactu:', err)
       deps.showToast('⚠️ Error al registrar factura electrónica — revisa Gestoría')
     })

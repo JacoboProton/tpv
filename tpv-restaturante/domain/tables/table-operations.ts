@@ -88,8 +88,8 @@ export function reopenOrder(
     id: reopenedId,
     tableId,
     items: historyEntry.items.map((i: OrderItem) => ({ ...i, sent: false, ready: false })),
-  } as Order
-  ;(reopened as any).reopenedAt = Date.now()
+  }
+  reopened.reopenedAt = Date.now()
   next.orders[reopenedId] = reopened
 
   if (!table.orderIds) table.orderIds = []
@@ -98,7 +98,7 @@ export function reopenOrder(
   table.status = 'ocupada'
 
   if (next.history?.[tableId]) {
-    next.history[tableId] = next.history[tableId].filter((h: any) => h.id !== historyEntry.id)
+    next.history[tableId] = next.history[tableId].filter((h) => h.id !== historyEntry.id)
   }
 
   return { floor: next, orderId: reopenedId }

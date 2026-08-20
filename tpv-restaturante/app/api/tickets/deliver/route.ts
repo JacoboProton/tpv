@@ -43,7 +43,22 @@ interface TicketSale {
   closedAt: number;
   ticketNumber?: number | string | null;
   invoiceEmail?: string;
-  invoicePhone?: string;
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function toItems(v: unknown): TicketSale['items'] {
+  if (!Array.isArray(v)) return undefined;
+  return v.flatMap((i) => isRecord(i)
+    ? [{
+        name: typeof i.name === 'string' ? i.name : undefined,
+        qty: typeof i.qty === 'number' ? i.qty : undefined,
+        price: typeof i.price === 'number' ? i.price : undefined,
+        voided: typeof i.voided === 'boolean' ? i.voided : undefined,
+      }]
+    : []);
 }
 
 function buildTicketFor(sale: TicketSale, s: Record<string, string>, qrDataUrlValue: string | null) {
@@ -95,11 +110,11 @@ export async function POST(req: NextRequest) {
 
     const sale: TicketSale = {
       id: row.id, total: Number(row.total || 0), tableName: row.tableName,
-      employeeName: row.employeeName, items: row.items as TicketSale['items'],
+      employeeName: row.employeeName, items: toItems(row.items),
       discount: Number(row.discount || 0), discountAmount: Number(row.discountAmount || 0),
       tip: Number(row.tip || 0), tipMethod: row.tipMethod || '', totalWithTip: Number(row.totalWithTip || row.total || 0),
       closedAt: Number(row.closedAt), ticketNumber: row.ticketNumber,
-      invoiceEmail: row.invoiceEmail ?? undefined, invoicePhone: (row as Record<string, unknown>).invoicePhone as string | undefined,
+      invoiceEmail: row.invoiceEmail ?? undefined,
     };
 
     let qrUrl = '';
@@ -140,7 +155,7 @@ export async function POST(req: NextRequest) {
           });
           results.email = 'sent';
         } catch (e) {
-          results.email = `error:${(e as Error).message}`;
+          results.email = `error:${e instanceof Error ? e.message : String(e)}`;
         }
       }
     }
@@ -158,7 +173,7 @@ export async function POST(req: NextRequest) {
           await sendTwilio(sid, token, `whatsapp:${whatsappNumber}`, `whatsapp:${to.phone}`, msg);
           results.whatsapp = 'sent';
         } catch (e) {
-          results.whatsapp = `error:${(e as Error).message}`;
+          results.whatsapp = `error:${e instanceof Error ? e.message : String(e)}`;
         }
       }
     }

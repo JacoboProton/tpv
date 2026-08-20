@@ -1,11 +1,11 @@
-import type { Floor, Table, Order } from '../types'
+import type { Floor, Table, Order, CustomerInfo } from '../types'
 
 export function createTicket(
   floor: Floor,
   tableId: string,
   employeeName?: string,
 ): { floor: Floor; orderId: string; ticketNum: number } {
-  const next = JSON.parse(JSON.stringify(floor))
+  const next: Floor = structuredClone(floor)
   const table = next.tables.find((t: Table) => t.id === tableId)
   if (!table) return { floor, orderId: '', ticketNum: 0 }
 
@@ -30,7 +30,7 @@ export function deleteTicket(
   tableId: string,
   orderId: string,
 ): { floor: Floor; activeOrderId: string | null } {
-  const next = JSON.parse(JSON.stringify(floor))
+  const next: Floor = structuredClone(floor)
   const table = next.tables.find((t: Table) => t.id === tableId)
   const order = next.orders[orderId]
   if (!table || !order || order.items.length > 0) return { floor, activeOrderId: null }
@@ -53,7 +53,7 @@ export function renameTicket(
   orderId: string,
   label: string,
 ): Floor {
-  const next = JSON.parse(JSON.stringify(floor))
+  const next: Floor = structuredClone(floor)
   const order: Order = next.orders[orderId]
   if (order) order.label = label
   return next
@@ -62,9 +62,9 @@ export function renameTicket(
 export function linkCustomer(
   floor: Floor,
   orderId: string,
-  customer: any,
+  customer: CustomerInfo | null,
 ): Floor {
-  const next = JSON.parse(JSON.stringify(floor))
+  const next: Floor = structuredClone(floor)
   const order: Order = next.orders[orderId]
   if (order) order.customer = customer
   return next
@@ -74,7 +74,7 @@ export function unlinkCustomer(
   floor: Floor,
   orderId: string,
 ): Floor {
-  const next = JSON.parse(JSON.stringify(floor))
+  const next: Floor = structuredClone(floor)
   const order: Order = next.orders[orderId]
   if (order) order.customer = null
   return next

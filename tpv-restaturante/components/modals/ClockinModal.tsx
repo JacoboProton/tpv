@@ -2,17 +2,18 @@
 
 import { Loader2 } from 'lucide-react'
 import type { Theme } from '../constants'
+import type { Employee, ClockinSummary } from '@tpv/core'
 
 interface ClockinModalProps {
   C: Theme
-  currentUser: any
+  currentUser: Employee | null
   clockinLoading: boolean
-  clockinSummary: any
+  clockinSummary: ClockinSummary | null
   onAction: (action: string) => void
   onClose: () => void
 }
 
-function formatMinutes(mins: number): string {
+function formatMinutes(mins: number | undefined): string {
   if (!mins && mins !== 0) return '—'
   const h = Math.floor(mins / 60)
   const m = Math.round(mins % 60)
@@ -37,17 +38,21 @@ export default function ClockinModal({ C, currentUser, clockinLoading, clockinSu
                 <div className="flex justify-between text-xs">
                   <span style={{ color: C.muted }}>Entrada</span>
                   <span className="font-mono" style={{ color: C.sageLight }}>
-                    {new Date(clockinSummary.entrada).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                    {new Date(clockinSummary.entrada || Date.now()).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
-                {clockinSummary.pausas?.filter((p: any) => !p.end).length > 0 && (
-                  <div className="flex justify-between text-xs">
-                    <span style={{ color: C.muted }}>En pausa</span>
-                    <span className="font-mono" style={{ color: C.brassLight }}>
-                      desde {new Date(clockinSummary.pausas.find((p: any) => !p.end).start).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                )}
+                {(() => {
+                  const activePause = clockinSummary.pausas?.find((p) => !p.end)
+                  if (!activePause) return null
+                  return (
+                    <div className="flex justify-between text-xs">
+                      <span style={{ color: C.muted }}>En pausa</span>
+                      <span className="font-mono" style={{ color: C.brassLight }}>
+                        desde {new Date(activePause.start).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  )
+                })()}
                 {clockinSummary.salida && (
                   <div className="flex justify-between text-xs">
                     <span style={{ color: C.muted }}>Salida</span>

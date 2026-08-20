@@ -43,7 +43,7 @@ export default function TopBar({
           </span>
         )}
         {currentUser?.role !== 'admin' && (
-          <span className="text-xs text-muted">{(currentUser as any)?.role}</span>
+          <span className="text-xs text-muted">{currentUser?.role}</span>
         )}
       </div>
 

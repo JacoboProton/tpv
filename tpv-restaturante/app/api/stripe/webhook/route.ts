@@ -6,6 +6,10 @@ import { getDb } from '../../../../lib/drizzle';
 import { logPayment } from '../../../../lib/payment-logger';
 import { sales, webhookEvents, qrOrders } from '../../../../db/schema';
 
+function isPaymentIntent(o: Stripe.Event.Data.Object): o is Stripe.PaymentIntent {
+  return o !== null && typeof o === 'object' && 'metadata' in o;
+}
+
 function getStripe() {
   if (!process.env.STRIPE_SECRET_KEY) return null;
   return new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -191,11 +195,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Stripe no configurado' }, { status: 500 });
     }
 
-    let event;
+    let event: Stripe.Event;
     try {
       event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
     } catch (err: unknown) {
-      console.error('Firma Stripe inválida:', (err as Error).message);
+      console.error('Firma Stripe inválida:', err instanceof Error ? err.message : String(err));
       return apiBadRequest('Firma inválida');
     }
 
@@ -227,7 +231,7 @@ export async function POST(req: NextRequest) {
 
       await markProcessed(event.id);
 
-      const pi = event.data.object as Stripe.PaymentIntent;
+      const pi = isPaymentIntent(event.data.object) ? event.data.object : null;
       logPayment({
         tenantId: pi?.metadata?.tenantId || 'default',
         eventId: event.id,
@@ -242,8 +246,9 @@ export async function POST(req: NextRequest) {
 
       return apiOk({ received: true });
     } catch (err: unknown) {
-      const piErr = event.data.object as Stripe.PaymentIntent;
-      await markFailed(event.id, piErr, (err as Error).message);
+      const piErr = isPaymentIntent(event.data.object) ? event.data.object : null;
+      const errMsg = err instanceof Error ? err.message : String(err);
+      await markFailed(event.id, piErr, errMsg);
       logPayment({
         tenantId: piErr?.metadata?.tenantId || 'default',
         eventId: event.id,
@@ -251,13 +256,13 @@ export async function POST(req: NextRequest) {
         operation: `webhook.${event.type}`,
         amountCents: piErr?.amount ?? 0,
         status: 'error',
-        error: (err as Error).message,
+        error: errMsg,
         source: 'webhook',
       });
       throw err;
     }
   } catch (err) {
-    console.error('[Stripe Webhook] Error:', (err as Error).message);
+    console.error('[Stripe Webhook] Error:', err instanceof Error ? err.message : String(err));
     return apiError(err);
   }
 }

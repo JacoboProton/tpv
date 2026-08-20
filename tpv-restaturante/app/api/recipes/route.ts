@@ -92,8 +92,8 @@ export async function POST(req: NextRequest) {
         const currentCost = latestBatch ? num(latestBatch.cost_per_unit) : iCostPerUnit;
 
         processedIngredients.push({
-          ingredientId: ing.ingredientId,
-          ingredientName: ing.ingredientName,
+          ingredientId: ing.ingredientId || '',
+          ingredientName: ing.ingredientName || '',
           quantity: iQty,
           unit: ing.unit || 'kg',
           costPerUnit: currentCost,

@@ -1,4 +1,10 @@
-import type { Sale } from '../types'
+export interface SaleLike {
+  closedAt: number
+  total: number
+  items?: { name?: string; qty?: number }[]
+  paymentMethod?: string
+  payments?: { method?: string; amount: number }[]
+}
 
 export interface PeriodTotals {
   total: number
@@ -20,7 +26,7 @@ export interface DailyPoint {
   previous: number
 }
 
-function totalsInRange(sales: Sale[], start: number, endExclusive: number): PeriodTotals {
+function totalsInRange(sales: SaleLike[], start: number, endExclusive: number): PeriodTotals {
   let total = 0
   let tickets = 0
   for (const s of sales) {
@@ -41,7 +47,7 @@ const DAY_MS = 86400000
  * cuando el periodo anterior no tiene ventas (no hay base de comparación).
  */
 export function comparePeriod(
-  sales: Sale[],
+  sales: SaleLike[],
   start: number,
   endExclusive: number,
 ): PeriodComparison {
@@ -67,7 +73,7 @@ export interface DailyComparison {
  * `todayStart` debe fijarse a medianoche local de hoy.
  */
 export function previousWeekComparison(
-  sales: Sale[],
+  sales: SaleLike[],
   todayStart: number,
 ): DailyComparison {
   const points: DailyPoint[] = []
@@ -95,7 +101,7 @@ export function previousWeekComparison(
 /**
  * Ventas por franja horaria de un dia, para detectar horas punta.
  */
-export function hourlySales(sales: Sale[], dayStart: number): { hour: string; total: number; tickets: number }[] {
+export function hourlySales(sales: SaleLike[], dayStart: number): { hour: string; total: number; tickets: number }[] {
   const out: { hour: string; total: number; tickets: number }[] = []
   for (let h = 0; h < 24; h++) {
     const start = dayStart + h * 3600000
@@ -115,7 +121,7 @@ export interface ProductRank {
 /**
  * Top productos por cantidad vendida en [start, end).
  */
-export function topProducts(sales: Sale[], start: number, endExclusive: number, limit = 5): ProductRank[] {
+export function topProducts(sales: SaleLike[], start: number, endExclusive: number, limit = 5): ProductRank[] {
   const counts: Record<string, number> = {}
   for (const s of sales) {
     if (s.closedAt < start || s.closedAt >= endExclusive) continue
@@ -136,7 +142,7 @@ export interface MethodTotal {
   total: number
 }
 
-export function paymentMethodTotals(sales: Sale[], start: number, endExclusive: number): MethodTotal[] {
+export function paymentMethodTotals(sales: SaleLike[], start: number, endExclusive: number): MethodTotal[] {
   const map: Record<string, number> = {}
   for (const s of sales) {
     if (s.closedAt < start || s.closedAt >= endExclusive) continue

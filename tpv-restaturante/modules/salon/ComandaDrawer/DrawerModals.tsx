@@ -1,4 +1,4 @@
-import type { OrderItem, OrderInfo, FloorData, CatalogProduct, HistoryEntry, ComboData, MealMenuData } from './types';
+import type { OrderItem, OrderInfo, FloorData, CatalogProduct, HistoryEntry, ComboData, MealMenuData, CustomerInfo } from './types';
 import type { Table } from '@tpv/core';
 import type { Theme } from '@/components/constants';
 import { Check } from 'lucide-react';
@@ -42,8 +42,8 @@ interface DrawerModalsProps {
   setShowCustomerSearch: (v: boolean) => void;
   customerQuery: string;
   setCustomerQuery: React.Dispatch<React.SetStateAction<string>>;
-  customerResults: any[];
-  setCustomerResults: React.Dispatch<React.SetStateAction<any[]>>;
+  customerResults: CustomerInfo[];
+  setCustomerResults: React.Dispatch<React.SetStateAction<CustomerInfo[]>>;
   floor: FloorData;
   onLinkCustomer: (orderId: string | undefined, customer: { id: string; name: string; phone: string }) => void;
   showLineDiscount: OrderItem | null;

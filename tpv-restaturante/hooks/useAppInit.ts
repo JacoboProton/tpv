@@ -15,6 +15,38 @@ import { seedCatalog, seedFloor, seedEmployees } from '../components/constants'
 import { normalizeTableFields, migrateTo3ColumnLayout } from '../domain/tables/floor-layout'
 import type { Tenant, Catalog, Floor, Sale, Employee, Offer, Combo, TicketSettings, CurrentUser } from '../domain/types'
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+function isUnknownArray(v: unknown): v is unknown[] {
+  return Array.isArray(v)
+}
+
+function isCatalog(v: unknown): v is Catalog {
+  return isRecord(v) && isUnknownArray(v.products) && isUnknownArray(v.categories)
+}
+
+function isFloor(v: unknown): v is Floor {
+  return isRecord(v) && isUnknownArray(v.tables) && isRecord(v.orders)
+}
+
+function isSale(v: unknown): v is Sale {
+  return isRecord(v) && typeof v.id === 'string'
+}
+
+function isEmployee(v: unknown): v is Employee {
+  return isRecord(v) && typeof v.id === 'string' && typeof v.name === 'string'
+}
+
+function isOffer(v: unknown): v is Offer {
+  return isRecord(v) && typeof v.active === 'boolean' && isUnknownArray(v.days)
+}
+
+function isCombo(v: unknown): v is Combo {
+  return isRecord(v) && typeof v.id === 'string' && typeof v.name === 'string'
+}
+
 interface UseAppInitProps {
   tenantId: string
   setTenantId: (id: string) => void
@@ -50,7 +82,7 @@ export function useAppInit({
     const hasSession = typeof window !== 'undefined' &&
       !!localStorage.getItem('tpv:current_user')
     if (!hasSession) {
-      setEmployees(seedEmployees() as unknown as Employee[])
+      setEmployees(seedEmployees())
       setLoading(false)
       return
     }
@@ -72,36 +104,36 @@ export function useAppInit({
 
       const preFetchCache = cacheGet<Sale[]>('sales')
 
-      const [catRaw, flrRaw, slsRaw, empsRaw] = await Promise.all([
+      const [catRaw, flrRaw, slsRaw, empsRaw]: unknown[] = await Promise.all([
         fetchCatalog(),
         fetchFloor(),
         fetchSales(),
         fetchEmployees(),
       ])
-      const cat = catRaw as Catalog
-      const flr = flrRaw as Floor
-      const sls = slsRaw as Sale[]
-      const emps = empsRaw as Employee[]
+      const cat = isCatalog(catRaw) ? catRaw : null
+      const flr = isFloor(flrRaw) ? flrRaw : null
+      const sls = isUnknownArray(slsRaw) ? slsRaw.filter((s): s is Sale => isSale(s)) : []
+      const emps = isUnknownArray(empsRaw) ? empsRaw.filter((e): e is Employee => isEmployee(e)) : []
 
-      if (!cat?.products || cat.products.length === 0) {
+      if (cat && (!cat.products || cat.products.length === 0)) {
         const seed = seedCatalog()
         await saveCatalog(seed)
-        setCatalog(seed as unknown as Catalog)
-      } else {
+        setCatalog(seed)
+      } else if (cat) {
         setCatalog(cat)
       }
 
-      if (!flr?.tables || flr.tables.length === 0) {
+      if (flr && (!flr.tables || flr.tables.length === 0)) {
         const seed = seedFloor()
-        await saveFloor(seed as unknown as Record<string, unknown>)
-        setFloor(seed as unknown as Floor)
-      } else {
+        await saveFloor(seed)
+        setFloor(seed)
+      } else if (flr) {
         const normalized = normalizeTableFields(flr.tables)
         flr.tables = normalized
         if (flr.tables.filter((t) => t.type === 'barra').length < 6) {
           const migrated = migrateTo3ColumnLayout(flr)
           Object.assign(flr, migrated)
-          await saveFloor(flr as unknown as Record<string, unknown>)
+          await saveFloor(flr)
         }
         setFloor(flr)
       }
@@ -109,7 +141,7 @@ export function useAppInit({
       if (!emps?.length) {
         const seed = seedEmployees()
         await saveEmployees(seed)
-        setEmployees(seed as unknown as Employee[])
+        setEmployees(seed)
       } else {
         setEmployees(emps)
       }
@@ -126,15 +158,17 @@ export function useAppInit({
       cacheSet('sales', salesFromApi)
 
       const stg = await fetchSettings().catch(() => null)
-      if (stg) setTicketSettings(stg as TicketSettings)
-      const off = await fetchOffers().catch(() => []) as Offer[]
-      setOffers(off)
-      const cmb = (cat?.combos as Combo[] | undefined) || (await fetchCombos().catch(() => [])) as Combo[]
-      setCombos(cmb)
+      if (isRecord(stg)) setTicketSettings(stg)
+      const off = await fetchOffers().catch(() => [])
+      const offList: unknown[] = isUnknownArray(off) ? off : []
+      setOffers(offList.filter((o): o is Offer => isOffer(o)))
+      const combosRaw: unknown = await fetchCombos().catch(() => [])
+      const cmbList: unknown[] = isUnknownArray(combosRaw) ? combosRaw : []
+      setCombos(cat?.combos || cmbList.filter((c): c is Combo => isCombo(c)))
     } catch (err) {
       console.error('Error cargando datos:', err)
       captureException(err)
-      setFatalError((err as Error)?.message || String(err))
+      setFatalError(err instanceof Error ? err.message : String(err))
     } finally {
       setLoading(false)
     }

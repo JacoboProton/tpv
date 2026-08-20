@@ -46,18 +46,23 @@ export interface ModifierSelectorProps {
 }
 
 export default function ModifierSelector({ product, modifierGroups, onConfirm, onCancel, colors: C, initialModifiers }: ModifierSelectorProps) {
+  function asArray(v: string | readonly string[] | null): string[] {
+    if (v == null) return []
+    return typeof v === 'string' ? [v] : [...v]
+  }
+
   const [selected, setSelected] = useState<Record<string, string | string[] | null>>(() => {
     if (initialModifiers && initialModifiers.length > 0) {
       const init: Record<string, string | string[] | null> = {};
       for (const g of modifierGroups) {
         const groupMods = initialModifiers.filter(m => m.groupId === g.id);
         if (g.type === 'single') {
-          init[g.id] = groupMods[0]?.optionId || (g.options.find(o => o.isDefault)?.id) || (g.options[0]?.id || null) as string | null;
+          init[g.id] = groupMods[0]?.optionId || (g.options.find(o => o.isDefault)?.id) || g.options[0]?.id || null;
         } else {
           init[g.id] = groupMods.map(m => m.optionId);
-          if ((init[g.id] as string[]).length === 0) {
+          if (asArray(init[g.id]).length === 0) {
             const defs = g.options.filter(o => o.isDefault).map(o => o.id);
-            init[g.id] = g.required && defs.length === 0 ? [g.options[0]?.id].filter(Boolean) as string[] : defs;
+            init[g.id] = g.required && defs.length === 0 ? [g.options[0]?.id].filter((id): id is string => !!id) : defs;
           }
         }
       }
@@ -67,10 +72,10 @@ export default function ModifierSelector({ product, modifierGroups, onConfirm, o
     for (const g of modifierGroups) {
       if (g.type === 'single') {
         const def = g.options.find(o => o.isDefault);
-        init[g.id] = def ? def.id : (g.options[0]?.id || null) as string | null;
+        init[g.id] = def ? def.id : g.options[0]?.id || null;
       } else {
         const defs = g.options.filter(o => o.isDefault).map(o => o.id);
-        init[g.id] = g.required && defs.length === 0 ? [g.options[0]?.id].filter(Boolean) as string[] : defs;
+        init[g.id] = g.required && defs.length === 0 ? [g.options[0]?.id].filter((id): id is string => !!id) : defs;
       }
     }
     return init;
@@ -87,7 +92,7 @@ export default function ModifierSelector({ product, modifierGroups, onConfirm, o
       if (group.type === 'single') {
         next[group.id] = option.id;
       } else {
-        const arr = [...((prev[group.id] as string[]) || [])];
+        const arr = asArray(prev[group.id]);
         const idx = arr.indexOf(option.id);
         if (idx >= 0) arr.splice(idx, 1);
         else arr.push(option.id);
@@ -99,14 +104,14 @@ export default function ModifierSelector({ product, modifierGroups, onConfirm, o
 
   function isSelected(group: ModifierGroup, option: ModifierOption): boolean {
     if (group.type === 'single') return selected[group.id] === option.id;
-    return ((selected[group.id] as string[]) || []).includes(option.id);
+    return asArray(selected[group.id]).includes(option.id);
   }
 
   function canConfirm(): boolean {
     for (const g of modifierGroups) {
       if (g.required) {
         if (g.type === 'single' && !selected[g.id]) return false;
-        if (g.type === 'multiple' && (!selected[g.id] || (selected[g.id] as string[]).length === 0)) return false;
+        if (g.type === 'multiple' && asArray(selected[g.id]).length === 0) return false;
       }
     }
     return true;
@@ -117,14 +122,14 @@ export default function ModifierSelector({ product, modifierGroups, onConfirm, o
     for (const g of modifierGroups) {
       const val = selected[g.id];
       if (g.type === 'single') {
-        const opt = g.options.find(o => o.id === (val as string));
+        const opt = typeof val === 'string' ? g.options.find(o => o.id === val) : undefined;
         if (opt) result.push({
           groupId: g.id, groupName: g.name,
           optionId: opt.id, optionName: opt.name,
           priceDelta: opt.priceDelta || 0,
         });
       } else {
-        for (const oid of ((val as string[]) || [])) {
+        for (const oid of asArray(val)) {
           const opt = g.options.find(o => o.id === oid);
           if (opt) result.push({
             groupId: g.id, groupName: g.name,
@@ -140,10 +145,10 @@ export default function ModifierSelector({ product, modifierGroups, onConfirm, o
   const totalExtra = modifierGroups.reduce((s, g) => {
     const val = selected[g.id];
     if (g.type === 'single') {
-      const opt = g.options.find(o => o.id === (val as string));
+      const opt = typeof val === 'string' ? g.options.find(o => o.id === val) : undefined;
       return s + (opt?.priceDelta || 0);
     }
-    return s + ((val as string[]) || []).reduce((a, oid) => {
+    return s + asArray(val).reduce((a, oid) => {
       const opt = g.options.find(o => o.id === oid);
       return a + (opt?.priceDelta || 0);
     }, 0);

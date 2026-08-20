@@ -165,7 +165,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'reorder') {
-      const ids = Array.isArray(body.ids) ? body.ids : [];
+      const raw: unknown[] = Array.isArray(body.ids) ? body.ids : [];
+      const ids = raw.filter((x): x is string => typeof x === 'string');
       for (let i = 0; i < ids.length; i++) {
         await db.update(waitlist).set({ position: i + 1, updatedAt: Date.now() })
           .where(and(eq(waitlist.id, ids[i]), eq(waitlist.tenantId, tenantId)));

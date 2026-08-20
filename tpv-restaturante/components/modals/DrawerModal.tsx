@@ -6,8 +6,12 @@ import { sha256 } from '../../lib/crypto'
 
 interface Props {
   C: Record<string, string>
-  ticketSettings: Record<string, any>
+  ticketSettings: Record<string, unknown>
   showToast: (msg: string) => void
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
 
 export default function DrawerModal({ C, ticketSettings, showToast }: Props) {
@@ -23,7 +27,7 @@ export default function DrawerModal({ C, ticketSettings, showToast }: Props) {
   }
 
   function handleAction(): void {
-    const policy = ticketSettings.drawerOpenPolicy || 'confirm'
+    const policy = typeof ticketSettings.drawerOpenPolicy === 'string' ? ticketSettings.drawerOpenPolicy : 'confirm'
     if (policy === 'quick') { openDrawer() }
     else if (policy === 'confirm') { setShowConfirm(true) }
     else if (policy === 'pin') { setPinInput(''); setShowPin(true) }
@@ -78,7 +82,7 @@ export default function DrawerModal({ C, ticketSettings, showToast }: Props) {
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2 mb-4">
-              {[1,2,3,4,5,6,7,8,9].map((n: any) => (
+              {[1,2,3,4,5,6,7,8,9].map((n: number) => (
                 <button key={n} onClick={() => { if (pinInput.length < 4) setPinInput(p => p + n) }}
                   style={{ background: C.surfaceLight, border: `1px solid ${C.line}`, color: C.cream }}
                   className="rounded-lg py-3 text-lg font-mono font-bold hover:opacity-80">{n}</button>
@@ -96,8 +100,8 @@ export default function DrawerModal({ C, ticketSettings, showToast }: Props) {
                   body: JSON.stringify({ action: 'verify', pin: pinInput, pinHash: await sha256(pinInput) }),
                 })
                 if (!r.ok) { showToast('PIN de administrador incorrecto'); setPinInput(''); return }
-                const admin = await r.json()
-                if (admin.role !== 'admin') { showToast('PIN de administrador incorrecto'); setPinInput(''); return }
+                const admin: unknown = await r.json()
+                if (!isRecord(admin) || admin.role !== 'admin') { showToast('PIN de administrador incorrecto'); setPinInput(''); return }
                 openDrawer(); setShowPin(false)
               }}
                 disabled={pinInput.length < 4}

@@ -25,7 +25,7 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
       }
       if (e.key === '/') {
         const input = document.querySelector('[data-search-products]')
-        if (input) { e.preventDefault(); (input as HTMLElement).focus(); return }
+        if (input instanceof HTMLElement) { e.preventDefault(); input.focus(); return }
         handlers.onFocusSearch()
         return
       }

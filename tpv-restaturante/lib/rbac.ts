@@ -9,6 +9,27 @@ interface SessionEmployee {
   tenantId: string;
 }
 
+interface SessionRow {
+  employee_id: string;
+  role: string;
+  last_seen: string;
+}
+
+interface PinRow {
+  pin_hash: string;
+}
+
+function isSessionRow(r: unknown): r is SessionRow {
+  if (typeof r !== 'object' || r === null) return false;
+  if (!('employee_id' in r) || !('role' in r) || !('last_seen' in r)) return false;
+  return typeof r.employee_id === 'string' && typeof r.role === 'string' && typeof r.last_seen === 'string';
+}
+
+function isPinRow(r: unknown): r is PinRow {
+  if (typeof r !== 'object' || r === null) return false;
+  return 'pin_hash' in r && typeof r.pin_hash === 'string';
+}
+
 export async function getSessionEmployee(req: Request): Promise<SessionEmployee | null> {
   try {
     const employeeId = req.headers.get('x-employee-id');
@@ -26,9 +47,9 @@ export async function getSessionEmployee(req: Request): Promise<SessionEmployee 
         AND active = true
       LIMIT 1
     `);
-    const rows = result.rows as Array<{ employee_id: string; role: string; last_seen: string }>;
+    const rows: unknown[] = result.rows;
 
-    if (rows.length === 0) return null;
+    if (rows.length === 0 || !isSessionRow(rows[0])) return null;
     const session = rows[0];
 
     if (Date.now() - Number(session.last_seen) > SESSION_TTL) {
@@ -87,13 +108,14 @@ export async function requireAdminPin(req: Request, adminPin: string | null): Pr
     SELECT pin_hash FROM employees
     WHERE tenant_id = ${tenantId} AND role = 'admin'
   `);
-  const rows = pinResult.rows as Array<{ pin_hash: string }>;
+  const rows: unknown[] = pinResult.rows;
   const { compareSync } = await import('bcryptjs');
   const { createHash } = await import('crypto');
-  const match = rows.some(r =>
-    compareSync(adminPin, r.pin_hash) ||
-    compareSync(createHash('sha256').update(adminPin, 'utf8').digest('hex'), r.pin_hash)
-  );
+  const match = rows.some(r => {
+    if (!isPinRow(r)) return false;
+    return compareSync(adminPin, r.pin_hash) ||
+      compareSync(createHash('sha256').update(adminPin, 'utf8').digest('hex'), r.pin_hash);
+  });
   if (!match) return { authorized: false, error: 'PIN de administrador incorrecto', status: 403 };
   return { authorized: true };
 }

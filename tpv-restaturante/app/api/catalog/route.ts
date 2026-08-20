@@ -128,6 +128,115 @@ export async function GET(req: NextRequest) {
   } catch (err) { return apiError(err); }
 }
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+function optStr(v: unknown): string | undefined {
+  return typeof v === 'string' ? v : undefined
+}
+
+function optNum(v: unknown): number | undefined {
+  return typeof v === 'number' ? v : undefined
+}
+
+function optBool(v: unknown): boolean | undefined {
+  return typeof v === 'boolean' ? v : undefined
+}
+
+function toSlotItems(v: unknown): Array<{ id: string; product_id?: string; surcharge?: number }> | undefined {
+  if (v === undefined) return undefined
+  const list: unknown[] = Array.isArray(v) ? v : []
+  return list.flatMap((it) => isRecord(it) && typeof it.id === 'string'
+    ? [{ id: it.id, product_id: optStr(it.product_id), surcharge: optNum(it.surcharge) }] : [])
+}
+
+function toSlots(v: unknown): Array<{
+  id: string; name: string; minChoices?: number; maxChoices?: number;
+  items?: Array<{ id: string; product_id?: string; surcharge?: number }>;
+}> | undefined {
+  if (v === undefined) return undefined
+  const list: unknown[] = Array.isArray(v) ? v : []
+  return list.flatMap((s) => isRecord(s) && typeof s.id === 'string' && typeof s.name === 'string'
+    ? [{ id: s.id, name: s.name, minChoices: optNum(s.minChoices), maxChoices: optNum(s.maxChoices), items: s.items === undefined ? undefined : toSlotItems(s.items) }] : [])
+}
+
+function toCategories(v: unknown): Array<{
+  id?: string; name?: string; sortOrder?: number; active?: boolean;
+  printerZone?: string; showQr?: boolean;
+}> | undefined {
+  if (v === undefined) return undefined
+  const list: unknown[] = Array.isArray(v) ? v : []
+  return list.flatMap((c) => {
+    if (typeof c === 'string') return [{ id: undefined, name: c, sortOrder: undefined, active: undefined, printerZone: undefined, showQr: undefined }]
+    if (!isRecord(c)) return []
+    return [{
+      id: optStr(c.id), name: optStr(c.name), sortOrder: optNum(c.sortOrder),
+      active: optBool(c.active), printerZone: optStr(c.printerZone), showQr: optBool(c.showQr),
+    }]
+  })
+}
+
+function toProducts(v: unknown): Array<{
+  id: string; name: string; category: string; price: string | number;
+  ubicacion?: string; course?: string; image?: string | null;
+  allergens?: string[]; description?: string | null; featured?: boolean;
+  active?: boolean; showTpv?: boolean; showQr?: boolean; agotado?: boolean;
+  carouselSort?: number | null; type?: string; inventariable?: boolean;
+  stockByLocation?: Record<string, { stock?: number; lowStock?: number }>;
+}> | undefined {
+  if (v === undefined) return undefined
+  const list: unknown[] = Array.isArray(v) ? v : []
+  return list.flatMap((p) => {
+    if (!isRecord(p) || typeof p.id !== 'string' || typeof p.name !== 'string' || typeof p.category !== 'string') return []
+    const allergens: string[] | undefined = Array.isArray(p.allergens)
+      ? p.allergens.flatMap((a) => typeof a === 'string' ? [a] : []) : undefined
+    let stockByLocation: Record<string, { stock?: number; lowStock?: number }> | undefined
+    if (isRecord(p.stockByLocation)) {
+      stockByLocation = {}
+      for (const [loc, entry] of Object.entries(p.stockByLocation)) {
+        if (isRecord(entry)) {
+          stockByLocation[loc] = { stock: optNum(entry.stock), lowStock: optNum(entry.lowStock) }
+        }
+      }
+    }
+    return [{
+      id: p.id, name: p.name, category: p.category,
+      price: typeof p.price === 'number' ? p.price : String(p.price ?? '0'),
+      ubicacion: optStr(p.ubicacion), course: optStr(p.course),
+      image: p.image === null ? null : optStr(p.image),
+      description: p.description === null ? null : optStr(p.description),
+      featured: optBool(p.featured), active: optBool(p.active),
+      showTpv: optBool(p.showTpv), showQr: optBool(p.showQr), agotado: optBool(p.agotado),
+      carouselSort: p.carouselSort === null ? null : optNum(p.carouselSort),
+      type: optStr(p.type), inventariable: optBool(p.inventariable),
+      stockByLocation,
+    }]
+  })
+}
+
+function toCombos(v: unknown): Array<{
+  id: string; name: string; description?: string; price: string | number;
+  image?: string | null; active?: boolean; discountPct?: number;
+  slots?: Array<{
+    id: string; name: string; minChoices?: number; maxChoices?: number;
+    items?: Array<{ id: string; product_id?: string; surcharge?: number }>;
+  }>;
+}> | undefined {
+  if (v === undefined) return undefined
+  const list: unknown[] = Array.isArray(v) ? v : []
+  return list.flatMap((c) => {
+    if (!isRecord(c) || typeof c.id !== 'string' || typeof c.name !== 'string') return []
+    return [{
+      id: c.id, name: c.name, description: optStr(c.description),
+      price: typeof c.price === 'number' ? c.price : String(c.price ?? '0'),
+      image: c.image === null ? null : optStr(c.image), active: optBool(c.active),
+      discountPct: optNum(c.discountPct),
+      slots: c.slots === undefined ? undefined : toSlots(c.slots),
+    }]
+  })
+}
+
 export async function PUT(req: NextRequest) {
   const auth = await requireRole(['admin'])(req);
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
@@ -136,27 +245,10 @@ export async function PUT(req: NextRequest) {
       const db = getDb();
     const parsed = z.object({}).passthrough().safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
-    const body = parsed.data as Record<string, unknown>;
-    const catData = body.categories as Array<{
-      id?: string; name?: string; sortOrder?: number; active?: boolean;
-      printerZone?: string; showQr?: boolean;
-    }> | undefined;
-    const prodData = body.products as Array<{
-      id: string; name: string; category: string; price: string | number;
-      ubicacion?: string; course?: string; image?: string | null;
-      allergens?: string[]; description?: string | null; featured?: boolean;
-      active?: boolean;       showTpv?: boolean; showQr?: boolean; agotado?: boolean;
-      carouselSort?: number | null; type?: string; inventariable?: boolean;
-      stockByLocation?: Record<string, { stock?: number; lowStock?: number }>;
-    }> | undefined;
-    const comboData = body.combos as Array<{
-      id: string; name: string; description?: string; price: string | number;
-      image?: string | null; active?: boolean; discountPct?: number;
-      slots?: Array<{
-        id: string; name: string; minChoices?: number; maxChoices?: number;
-        items?: Array<{ id: string; product_id?: string; surcharge?: number }>;
-      }>;
-    }> | undefined;
+    const body = parsed.data;
+    const catData = toCategories(body.categories);
+    const prodData = toProducts(body.products);
+    const comboData = toCombos(body.combos);
     const tenantId = getTenantId(req);
 
     await db.transaction(async (tx) => {
@@ -266,14 +358,15 @@ export async function PATCH(req: NextRequest) {
       const db = getDb();
     const parsed = z.object({ action: z.string().min(1) }).passthrough().safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
-    const body = parsed.data as Record<string, unknown>;
-    const action = body.action as string;
-    const data = body.data as unknown;
+    const body = parsed.data;
+    const action = typeof body.action === 'string' ? body.action : '';
+    const data: unknown = body.data;
     const tenantId = getTenantId(req);
 
     if (action === 'reorder-categories') {
-      const list = data as Array<{ id: string; sortOrder?: number }>;
-      for (const cat of list) {
+      const list: unknown[] = Array.isArray(data) ? data : [];
+      const items = list.flatMap((item) => isRecord(item) && typeof item.id === 'string' ? [{ id: item.id, sortOrder: optNum(item.sortOrder) }] : []);
+      for (const cat of items) {
         await db.update(categories)
           .set({ sortOrder: cat.sortOrder ?? 0 })
           .where(and(eq(categories.id, cat.id), eq(categories.tenantId, tenantId)));
@@ -282,8 +375,16 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (action === 'toggle-product' || action === 'update-product') {
-      const { id, field, value } = data as { id?: string; field?: string; value?: unknown };
-      const fieldMap = {
+      const d = isRecord(data) ? data : {};
+      const id = optStr(d.id);
+      const field = optStr(d.field);
+      const value: unknown = d.value;
+      type ProductSet = {
+        name?: string; price?: string; description?: string;
+        showTpv?: boolean; showQr?: boolean; agotado?: boolean;
+        course?: string; ubicacion?: string; carouselSort?: number;
+      };
+      const fieldMap: Record<string, ProductSet> = {
         name: { name: String(value ?? '') },
         price: { price: String(value ?? '0') },
         description: { description: String(value ?? '') },
@@ -295,7 +396,7 @@ export async function PATCH(req: NextRequest) {
         carouselSort: { carouselSort: Number(value ?? 0) },
         sortOrder: { carouselSort: Number(value ?? 0) },
       };
-      const setValues = fieldMap[field as keyof typeof fieldMap];
+      const setValues = field !== undefined && field in fieldMap ? fieldMap[field] : undefined;
       if (!setValues || !id) return apiBadRequest('Campo no permitido');
       await db.update(products)
         .set(setValues)
@@ -304,13 +405,16 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (action === 'toggle-category') {
-      const { id, field, value } = data as { id?: string; field?: string; value?: unknown };
-      const fieldMap = {
+      const d = isRecord(data) ? data : {};
+      const id = optStr(d.id);
+      const field = optStr(d.field);
+      const value: unknown = d.value;
+      const fieldMap: Record<string, Partial<{ name: string; showQr: boolean; sortOrder: number }>> = {
         name: { name: String(value ?? '') },
         showQr: { showQr: Boolean(value) },
         sortOrder: { sortOrder: Number(value ?? 0) },
       };
-      const setValues = fieldMap[field as keyof typeof fieldMap];
+      const setValues = field !== undefined && field in fieldMap ? fieldMap[field] : undefined;
       if (!setValues || !id) return apiBadRequest('Campo no permitido');
       await db.update(categories)
         .set(setValues)
@@ -319,15 +423,18 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (action === 'delete-product') {
-      const { id } = data as { id?: string };
+      const d = isRecord(data) ? data : {};
+      const id = optStr(d.id) ?? '';
       await db.delete(products)
-        .where(and(eq(products.id, id ?? ''), eq(products.tenantId, tenantId)));
+        .where(and(eq(products.id, id), eq(products.tenantId, tenantId)));
       return apiOk();
     }
 
     if (action === 'reorder-carousel') {
-      const list = data as Array<{ id: string; carouselSort?: number | null }>;
-      for (const item of list) {
+      const list: unknown[] = Array.isArray(data) ? data : [];
+      const items = list.flatMap((item) => isRecord(item) && typeof item.id === 'string'
+          ? [{ id: item.id, carouselSort: item.carouselSort === null ? null : optNum(item.carouselSort) }] : []);
+      for (const item of items) {
         await db.update(products)
           .set({ carouselSort: item.carouselSort ?? null })
           .where(and(eq(products.id, item.id), eq(products.tenantId, tenantId)));

@@ -28,11 +28,11 @@ export interface CatalogProduct {
 export interface Catalog {
   products: CatalogProduct[]
   categories: string[]
-  combos: any[]
-  mealMenus: any[]
-  priceRules: any[]
-  carrusel?: any[]
-  cartas?: any[]
+  combos: unknown[]
+  mealMenus: unknown[]
+  priceRules: unknown[]
+  carrusel?: unknown[]
+  cartas?: unknown[]
 }
 
 export async function getCatalog(): Promise<Catalog | null> {

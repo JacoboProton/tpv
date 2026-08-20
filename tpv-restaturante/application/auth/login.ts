@@ -1,6 +1,28 @@
 import { sha256 } from '@/lib/crypto'
 import type { Employee } from '@tpv/core'
 
+interface LoginEmployee extends Employee {
+  loginTicket?: string
+}
+
+interface KeepaliveWindow {
+  __keepaliveCleanup?: () => void
+  __employeeRole?: string
+  __employeeId?: string
+}
+
+declare global {
+  interface Window {
+    __keepaliveCleanup: (() => void) | undefined
+    __employeeRole?: string
+    __employeeId?: string
+  }
+}
+
+function keepaliveHandle(): KeepaliveWindow {
+  return window
+}
+
 export interface LoginDeps {
   fetchVerify: (pin: string, pinHash: string) => Promise<Response>
   sessionLogin: (id: string, role: string, force?: boolean, loginTicket?: string) => Promise<{ conflict?: boolean }>
@@ -15,9 +37,9 @@ export async function executeLogin(pin: string, deps: LoginDeps): Promise<Employ
   try {
     const res = await fetchVerify(pin, await sha256(pin))
     if (!res.ok) { showToast('PIN incorrecto'); setPinInput(''); return null }
-    const emp = await res.json()
+    const emp = (await res.json()) as LoginEmployee
     if (!emp || !emp.id) { showToast('PIN incorrecto'); setPinInput(''); return null }
-    const loginTicket = emp.loginTicket as string | undefined
+    const loginTicket = emp.loginTicket
 
     if (emp.role !== 'admin') {
       const sessionRes = await deps.sessionLogin(emp.id, emp.role, undefined, loginTicket)
@@ -30,11 +52,12 @@ export async function executeLogin(pin: string, deps: LoginDeps): Promise<Employ
       deps.sessionLogin(emp.id, emp.role, undefined, loginTicket).catch(() => {})
     }
 
-    if ((window as any).__keepaliveCleanup) (window as any).__keepaliveCleanup()
+    const w = keepaliveHandle()
+    if (w.__keepaliveCleanup) w.__keepaliveCleanup()
 
     setPinInput('')
 
-    ;(window as any).__keepaliveCleanup = deps.startKeepalive(emp.id, () => {
+    keepaliveHandle().__keepaliveCleanup = deps.startKeepalive(emp.id, () => {
       deps.showToast('Sesión cerrada en otro terminal')
       deps.logout()
     })
@@ -70,8 +93,8 @@ export async function tryRestoreSession(
     const data = await deps.sessionKeepalive(emp.id)
     if (data.ok) {
       deps.setCurrentUser(emp)
-      try { (window as any).__employeeRole = emp.role; (window as any).__employeeId = emp.id; } catch {}
-      ;(window as any).__keepaliveCleanup = deps.startKeepalive(emp.id, () => {
+      try { const w = keepaliveHandle(); w.__employeeRole = emp.role; w.__employeeId = emp.id; } catch {}
+      keepaliveHandle().__keepaliveCleanup = deps.startKeepalive(emp.id, () => {
         deps.showToast('Sesión cerrada en otro terminal')
         deps.logout()
       })

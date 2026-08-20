@@ -1,10 +1,14 @@
-import { sql, eq } from 'drizzle-orm';
+import { sql, eq, type SQL } from 'drizzle-orm';
 import { getDb } from './drizzle';
 import { tables, orders, floorPlan } from '../db/schema';
 import type { TenantId } from './tenant';
 
+interface FloorTx {
+  execute: (q: SQL) => Promise<unknown>;
+}
+
 export async function putFloorInTransaction(
-  tx: any,
+  tx: FloorTx,
   tableData: Record<string, unknown>[],
   orderData: Record<string, Record<string, unknown>>,
   zones: unknown,
@@ -35,8 +39,8 @@ export async function putFloorInTransaction(
   }
 
   if (zones || background) {
-    const zonesVal = typeof zones === 'string' ? JSON.parse(zones) : (zones || []);
-    const bgVal = typeof background === 'string' ? JSON.parse(background) : (background ?? null);
+    const zonesVal: unknown = typeof zones === 'string' ? JSON.parse(zones) : (zones || []);
+    const bgVal: unknown = typeof background === 'string' ? JSON.parse(background) : (background ?? null);
     await tx.execute(sql`
       INSERT INTO "floor_plan" ("id","zones","background") VALUES (1, ${JSON.stringify(zonesVal)}, ${JSON.stringify(bgVal)})
       ON CONFLICT ("id") DO UPDATE SET "zones"=EXCLUDED.zones,"background"=EXCLUDED.background
@@ -44,7 +48,7 @@ export async function putFloorInTransaction(
   }
 }
 
-export async function deleteTablesInTransaction(tx: any, ids: string[], tenantId: TenantId) {
+export async function deleteTablesInTransaction(tx: FloorTx, ids: string[], tenantId: TenantId) {
   if (!ids || ids.length === 0) return;
   await tx.execute(sql`
     DELETE FROM "tables"
@@ -52,7 +56,7 @@ export async function deleteTablesInTransaction(tx: any, ids: string[], tenantId
   `);
 }
 
-export async function deleteOrdersInTransaction(tx: any, ids: string[], tenantId: TenantId) {
+export async function deleteOrdersInTransaction(tx: FloorTx, ids: string[], tenantId: TenantId) {
   if (!ids || ids.length === 0) return;
   await tx.execute(sql`
     DELETE FROM "orders"

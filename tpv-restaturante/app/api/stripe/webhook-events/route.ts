@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
 
     return apiOk(events);
   } catch (err) {
-    console.error('[Webhook Events] Error listing:', (err as Error).message);
+    console.error('[Webhook Events] Error listing:', (err instanceof Error ? err.message : String(err)));
     return apiError(err);
   }
 }
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
 
     return apiOk();
   } catch (err) {
-    console.error('[Webhook Events] Error resetting:', (err as Error).message);
+    console.error('[Webhook Events] Error resetting:', (err instanceof Error ? err.message : String(err)));
     return apiError(err);
   }
 }

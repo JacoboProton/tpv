@@ -4,7 +4,7 @@ import { apiOk, apiError } from '../../../../lib/infrastructure/response';
 import { requireRole } from '../../../../lib/rbac';
 
 export async function GET() {
-  const auth = await requireRole(['admin'])(null as unknown as NextRequest);
+  const auth = await requireRole(['admin'])(new NextRequest('http://localhost'));
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
     const config = await getFiskalyConfig();
@@ -28,7 +28,9 @@ export async function POST(req: NextRequest) {
     }
     if (body.genAgreement) {
       const pdfBuffer = await (await import('../../../../lib/fiskaly')).generateTaxpayerAgreement();
-      return new Response(pdfBuffer as unknown as ArrayBuffer, {
+      const bin = new Uint8Array(pdfBuffer.byteLength);
+      pdfBuffer.copy(bin);
+      return new Response(bin, {
         status: 200,
         headers: {
           'Content-Type': 'application/pdf',
@@ -37,10 +39,12 @@ export async function POST(req: NextRequest) {
       });
     }
     if (body.uploadAgreement) {
-      const r = await (await import('../../../../lib/fiskaly')).uploadTaxpayerAgreement(body.signedPdfBase64 as string);
+      const r = await (await import('../../../../lib/fiskaly')).uploadTaxpayerAgreement(
+        typeof body.signedPdfBase64 === 'string' ? body.signedPdfBase64 : ''
+      );
       return apiOk(r);
     }
-    const result = await setupFiskaly(body.legalName as string);
+    const result = await setupFiskaly(typeof body.legalName === 'string' ? body.legalName : undefined);
     return apiOk(result);
   } catch (err) { return apiError(err); }
 }

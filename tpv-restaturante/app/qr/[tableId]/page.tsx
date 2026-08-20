@@ -35,6 +35,11 @@ interface Product {
   course?: string;
 }
 
+interface CatalogData {
+  categories: Category[];
+  products: Product[];
+}
+
 interface BuffetSession {
   round: number;
   cooldown_until: number;
@@ -60,7 +65,7 @@ interface Settings {
 export default function QrMenuPage() {
   const { tableId } = useParams<{ tableId: string }>();
   const router = useRouter();
-  const [catalog, setCatalog] = useState<Record<string, unknown> | null>(null);
+  const [catalog, setCatalog] = useState<CatalogData | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [buffetSession, setBuffetSession] = useState<BuffetSession | null>(null);
   const [buffetConfig, setBuffetConfig] = useState<BuffetConfig | null>(null);
@@ -94,16 +99,13 @@ export default function QrMenuPage() {
       fetch('/api/catalog').then(r => r.json()),
       fetch('/api/settings').then(r => r.json()),
       fetch(`/api/buffet?scope=table_session&tableId=${tableId}`).then(r => r.json()),
-    ]).then(([cat, s, buffet]) => {
-      const catData = cat as Record<string, unknown>;
-      setCatalog(catData);
-      setSettings(s as Settings);
-      const cats = catData.categories as unknown[];
-      if (cats?.length > 0) setActiveCategory((cats[0] as Record<string, unknown>).id as string);
-      if (buffet?.session) {
-        setBuffetSession(buffet.session as BuffetSession);
-        setBuffetConfig(buffet.config as BuffetConfig);
-      }
+    ]).then(([cat, s, buffet]: [CatalogData, Settings, { session?: BuffetSession; config?: BuffetConfig }]) => {
+      setCatalog(cat);
+      setSettings(s);
+      const cats = cat.categories;
+      if (cats?.length > 0) setActiveCategory(cats[0].id as string);
+      if (buffet?.session) setBuffetSession(buffet.session);
+      if (buffet?.config) setBuffetConfig(buffet.config);
     }).catch(() => {}).finally(() => setLoading(false));
   }, [tableId]);
 
@@ -117,8 +119,8 @@ export default function QrMenuPage() {
   const visibleProducts: Product[] = useMemo(() => {
     if (!catalog) return [];
     const catMap: Record<string, Category> = {};
-    for (const c of (catalog.categories as Category[] || [])) catMap[c.name] = c;
-    return ((catalog.products as Product[] || [])).filter(p => {
+    for (const c of (catalog.categories || [])) catMap[c.name] = c;
+    return ((catalog.products || [])).filter(p => {
       if (p.active === false || p.showQr === false || p.agotado === true) return false;
       const cat = catMap[p.category];
       if (!cat || cat.active === false || cat.showQr === false) return false;
@@ -128,7 +130,7 @@ export default function QrMenuPage() {
 
   const categories: Category[] = useMemo(() => {
     if (!catalog) return [];
-    return (catalog.categories as Category[] || []).filter(c => {
+    return (catalog.categories || []).filter(c => {
       if (c.active === false || c.showQr === false) return false;
       return visibleProducts.some(p => p.category === c.name);
     });
@@ -211,7 +213,7 @@ export default function QrMenuPage() {
         });
         const data = await r.json() as { ok?: boolean; orderId?: string; error?: string };
         if (data.ok) {
-          setOrderResult(data as unknown as Record<string, unknown>);
+          setOrderResult(data as Record<string, unknown>);
           setCart([]);
           setShowCheckout(false);
           setShowCart(false);

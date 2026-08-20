@@ -139,7 +139,7 @@ export default function TicketsView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ saleId: deliverSale.id, to: { email: deliverEmail.trim(), phone: deliverPhone.trim() } }),
       });
-      const data = await res.json();
+      const data = await res.json() as { results?: { email?: string; whatsapp?: string } };
       const results = data.results || {};
       const parts: string[] = [];
       if (deliverEmail.trim()) parts.push(results.email === 'sent' ? 'email enviado' : results.email === 'no_smtp' ? 'email pendiente (SMTP no configurado)' : `email: ${results.email || 'error'}`);

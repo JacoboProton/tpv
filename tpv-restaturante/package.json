@@ -18,10 +18,21 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "attw": "attw",
-    "type-coverage": "type-coverage --strict --ignore-files '**/*.test.ts'",
+    "type-coverage": "type-coverage",
     "contract:test": "pact-test",
     "mutation:test": "stryker run",
     "bundle:check": "next build && size-limit"
+  },
+  "typeCoverage": {
+    "strict": true,
+    "cache": true,
+    "atLeast": 99,
+    "ignoreFiles": [
+      "**/*.test.ts",
+      "**/*.spec.ts",
+      "coverage/**",
+      ".next/**"
+    ]
   },
   "dependencies": {
     "@sentry/nextjs": "^10.68.0",
@@ -71,6 +82,7 @@
     "jsdom": "^29.1.1",
     "lint-staged": "^17.3.0",
     "size-limit": "^13.0.3",
+    "type-coverage": "^2.30.1",
     "typescript": "^5",
     "vitest": "^4.1.9"
   },

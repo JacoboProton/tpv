@@ -37,6 +37,8 @@ export interface ItemModifierEdit {
 export interface AddableProduct extends Product {
   menuSel?: { productId: string }[]
   comboSel?: { productId: string }[]
+  menuData?: { name: string; price: number }
+  comboData?: { name: string; price: number }
 }
 
 export function useOrderItems(
@@ -59,9 +61,11 @@ export function useOrderItems(
   const getContext = useCallback(() => {
     if (!selectedTableId || !floor) return null
     const table = floor?.tables?.find((t) => t.id === selectedTableId)
-    if (!table) return
+    if (!table) return null
     const activeOid = activeTicketId || table.orderIds?.[0] || table.orderId
-    const order = activeOid ? floor.orders[activeOid] : null
+    if (!activeOid) return null
+    const order = floor.orders[activeOid]
+    if (!order) return null
     return { table, order, activeOid }
   }, [selectedTableId, floor, activeTicketId])
 
@@ -141,14 +145,14 @@ export function useOrderItems(
   const changeQty = useCallback((itemId: string, delta: number) => {
     const ctx = getContext()
     if (!ctx?.order) return
-    const next = changeItemQuantityOp(floor, ctx.activeOid!, itemId, delta)
+    const next = changeItemQuantityOp(floor, ctx.activeOid, itemId, delta)
     if (next) persistFloor(next)
   }, [floor, getContext, persistFloor])
 
   const updateItemNotes = useCallback((itemId: string, notes: string) => {
     const ctx = getContext()
     if (!ctx?.order) return
-    const next = updateItemNotesOp(floor, ctx.activeOid!, itemId, notes)
+    const next = updateItemNotesOp(floor, ctx.activeOid, itemId, notes)
     if (next) persistFloor(next)
   }, [floor, getContext, persistFloor])
 
@@ -163,7 +167,7 @@ export function useOrderItems(
   const sendToKitchenCourse = useCallback((course?: string) => {
     const ctx = getContext()
     if (!ctx?.order) return
-    const next = sendToKitchenCourseOp(floor, ctx.activeOid!, course)
+    const next = sendToKitchenCourseOp(floor, ctx.activeOid, course)
     if (next) {
       persistFloor(next)
       showToast(`${course || 'Todo'} enviado a cocina`)
@@ -173,11 +177,11 @@ export function useOrderItems(
   const sendItemToKitchen = useCallback((itemId: string) => {
     const ctx = getContext()
     if (!ctx?.order) return
-    const result = sendSingleItemToKitchen(floor, ctx.activeOid!, itemId)
+    const result = sendSingleItemToKitchen(floor, ctx.activeOid, itemId)
     if (result) {
       persistFloor(result.floor)
       eventBus.emit('item:sent', {
-        orderId: ctx.activeOid!, itemId,
+        orderId: ctx.activeOid, itemId,
         productName: result.itemName, course: result.course,
         tableName: result.tableName,
       })
@@ -187,7 +191,7 @@ export function useOrderItems(
   const updateItemCourse = useCallback((itemId: string, course?: string) => {
     const ctx = getContext()
     if (!ctx?.order) return
-    const next = updateItemCourseOp(floor, ctx.activeOid!, itemId, course)
+    const next = updateItemCourseOp(floor, ctx.activeOid, itemId, course)
     if (next) persistFloor(next)
   }, [floor, getContext, persistFloor])
 
@@ -208,42 +212,42 @@ export function useOrderItems(
   const voidSentItem = useCallback((itemId: string, reason: string) => {
     const ctx = getContext()
     if (!ctx?.order) return
-    const next = voidOrderItemOp(floor, ctx.activeOid!, itemId, reason, currentUser?.name)
+    const next = voidOrderItemOp(floor, ctx.activeOid, itemId, reason, currentUser?.name)
     if (next) persistFloor(next)
   }, [floor, getContext, currentUser, persistFloor])
 
   const setItemDiscount = useCallback((itemId: string, pct: number) => {
     const ctx = getContext()
     if (!ctx?.order) return
-    const next = setLineDiscountOp(floor, ctx.activeOid!, itemId, pct)
+    const next = setLineDiscountOp(floor, ctx.activeOid, itemId, pct)
     if (next) persistFloor(next)
   }, [floor, getContext, persistFloor])
 
   const removeItemDiscount = useCallback((itemId: string) => {
     const ctx = getContext()
     if (!ctx?.order) return
-    const next = removeLineDiscountOp(floor, ctx.activeOid!, itemId)
+    const next = removeLineDiscountOp(floor, ctx.activeOid, itemId)
     if (next) persistFloor(next)
   }, [floor, getContext, persistFloor])
 
   const setItemCourtesy = useCallback((itemId: string) => {
     const ctx = getContext()
     if (!ctx?.order) return
-    const next = setItemCourtesyOp(floor, ctx.activeOid!, itemId)
+    const next = setItemCourtesyOp(floor, ctx.activeOid, itemId)
     if (next) persistFloor(next)
   }, [floor, getContext, persistFloor])
 
   const removeItemCourtesy = useCallback((itemId: string) => {
     const ctx = getContext()
     if (!ctx?.order) return
-    const next = removeItemCourtesyOp(floor, ctx.activeOid!, itemId)
+    const next = removeItemCourtesyOp(floor, ctx.activeOid, itemId)
     if (next) persistFloor(next)
   }, [floor, getContext, persistFloor])
 
   const setItemPrice = useCallback((itemId: string, newPrice: number) => {
     const ctx = getContext()
     if (!ctx?.order) return
-    const next = setItemOverridePriceOp(floor, ctx.activeOid!, itemId, newPrice)
+    const next = setItemOverridePriceOp(floor, ctx.activeOid, itemId, newPrice)
     if (next) persistFloor(next)
   }, [floor, getContext, persistFloor])
 

@@ -7,10 +7,10 @@ import { useEvent } from '@/hooks/useEvent'
 const MAX_LOG = 20
 
 export function EventLog() {
-  const [events, setEvents] = useState<Array<{ event: string; data: any; time: string }>>([])
+  const [events, setEvents] = useState<Array<{ event: string; data: unknown; time: string }>>([])
   const [visible, setVisible] = useState(false)
 
-  const log = useCallback((event: string, data: any) => {
+  const log = useCallback((event: string, data: unknown) => {
     setEvents(prev => [{ event, data, time: new Date().toLocaleTimeString() }, ...prev].slice(0, MAX_LOG))
   }, [])
 

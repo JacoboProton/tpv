@@ -1,5 +1,5 @@
 import { expandMenu, expandCombo, clone } from '@tpv/core'
-import type { MenuExpansionItem, Floor, Catalog, Product, OrderItem } from '@tpv/core'
+import type { MenuExpansionItem, Floor, Catalog, Product, OrderItem, ModifierSelection } from '@tpv/core'
 
 function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100
@@ -36,7 +36,7 @@ function findOrCreateOrder(floor: Floor, tableId: string, employeeName: string, 
 
 export interface AddNormalItemInput {
   product: Product
-  modifiers?: any[]
+  modifiers?: ModifierSelection[]
   extraPrice?: number
   employeeName?: string
   activeTicketId?: string | null
@@ -177,7 +177,7 @@ export function addComboItems(
 export interface EditItemModifiersInput {
   itemId: string
   product: Product
-  modifiers: any[]
+  modifiers: ModifierSelection[]
   extraPrice: number
 }
 

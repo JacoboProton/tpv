@@ -21,9 +21,18 @@ export function useSalesQueue({ setSales, showToast }: UseSalesQueueProps) {
     setQueue([...queueRef.current])
   }, [])
 
+  const addSaleTyped = useCallback(async (sale: Sale): Promise<{ ok: boolean; ticketNumber?: string }> => {
+    const res = await addSale(sale)
+    if (res && typeof res === 'object') {
+      const rec = res as { ok?: boolean; ticketNumber?: string }
+      return { ok: rec.ok === true, ticketNumber: rec.ticketNumber }
+    }
+    return { ok: false }
+  }, [])
+
   const flush = useCallback(async () => {
     await processSalesQueue(queueRef.current, processingRef, {
-      addSale: addSale as (sale: Sale) => Promise<{ ok: boolean; ticketNumber?: string }>,
+      addSale: addSaleTyped,
       setSales,
       cacheSet,
       showToast,
@@ -37,7 +46,7 @@ export function useSalesQueue({ setSales, showToast }: UseSalesQueueProps) {
       },
     })
     setQueue([...queueRef.current])
-  }, [setSales, showToast])
+  }, [setSales, showToast, addSaleTyped])
 
   const pendingCount = queue.length
 

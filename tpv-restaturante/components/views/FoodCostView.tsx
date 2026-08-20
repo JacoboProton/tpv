@@ -131,7 +131,7 @@ export default function FoodCostView({ colors: C, onNavigate }: FoodCostViewProp
     return <div className="text-center py-8"><Loader2 className="w-5 h-5 animate-spin mx-auto" style={{ color: C.brassLight }} /></div>;
   }
 
-  const { summary, items } = data || { summary: {} as FoodCostSummary, items: [] as FoodCostItem[] };
+  const { summary, items } = data || { summary: { totalItems: 0, avgFoodCost: 0, itemsAbove35: 0, itemsWithRecipe: 0 }, items: [] };
 
   return (
     <div className="space-y-4">

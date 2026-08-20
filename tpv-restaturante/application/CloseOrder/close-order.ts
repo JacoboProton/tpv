@@ -1,5 +1,5 @@
 import { calculateOfferDiscount, calculateOrderTotals, buildPayments, isFiado, hasPendingBizum, formatPaymentMethod, closeTableOrders, isDebtPayment, deductStock, generateInvoiceNumber, clone } from '@tpv/core'
-import type { CatalogProduct, Floor, Order, Catalog, Offer, PaymentSplit, Sale } from '@tpv/core'
+import type { Floor, Order, Catalog, Offer, PaymentSplit, Sale } from '@tpv/core'
 
 export interface CloseOrderItem {
   id: string
@@ -85,7 +85,7 @@ function buildStockLogs(
 
   for (const item of order.items) {
     if (item.productId) {
-      const p = nextCatalog.products.find((pr) => pr.id === item.productId) as CatalogProduct | undefined
+      const p = nextCatalog.products.find((pr) => pr.id === item.productId)
       if (p) {
         const { stockByLocation, newStock } = deductStock(p.stockByLocation, p.ubicacion || 'Bar', item.qty)
         p.stockByLocation = stockByLocation
@@ -104,7 +104,7 @@ function buildStockLogs(
       for (const m of item.modifiers) {
         const opt = modOptMap[m.optionId]
         if (opt?.stockDeduct && opt.stockArticleId) {
-          const p = nextCatalog.products.find((pr) => pr.id === opt.stockArticleId) as CatalogProduct | undefined
+          const p = nextCatalog.products.find((pr) => pr.id === opt.stockArticleId)
           if (p) {
             const qty = (opt.stockQuantity || 0) * item.qty
             const { stockByLocation, newStock } = deductStock(p.stockByLocation, p.ubicacion || 'Bar', qty)
@@ -131,7 +131,8 @@ export function executeCloseOrder(input: CloseOrderInput): CloseOrderResult {
   const { floor, selectedTableId, order, catalog, modifierData, offers, orderDiscount, tipAmount, tipMethod, paymentSplits, paymentIntentId, currentUser, invoice, trainingMode } = input
 
   const nextFloor = clone(floor) as Floor
-  const table = nextFloor.tables.find((t) => t.id === selectedTableId)!
+  const table = nextFloor.tables.find((t) => t.id === selectedTableId)
+  if (!table) throw new Error('Mesa no encontrada')
   const wasDebt = isDebtPayment(order, table.isFiado ?? false)
 
   const warnings: string[] = []

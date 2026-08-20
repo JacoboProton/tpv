@@ -60,8 +60,9 @@ export async function POST(req: NextRequest) {
         });
         return apiOk({ method: 'smtp', email });
       } catch (smtpErr) {
-        console.warn('[Invoice Send] SMTP falló, modo descarga:', (smtpErr as Error).message);
-        return apiOk({ ok: false, method: 'smtp_failed', error: (smtpErr as Error).message, email });
+        const errMsg = smtpErr instanceof Error ? smtpErr.message : String(smtpErr);
+        console.warn('[Invoice Send] SMTP falló, modo descarga:', errMsg);
+        return apiOk({ ok: false, method: 'smtp_failed', error: errMsg, email });
       }
     }
 

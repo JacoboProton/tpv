@@ -46,14 +46,53 @@ export function addProductToCatalog(catalog: Catalog, productData: NewProductInp
   return ensureCategoryExists(next, productData.category)
 }
 
-export function setProductField(catalog: Catalog, productId: string, field: string, value: any): Catalog | null {
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+function toProductField(field: string, value: unknown): Partial<Product> {
+  switch (field) {
+    case 'name': return { name: String(value) }
+    case 'category': return { category: String(value) }
+    case 'ubicacion': return { ubicacion: String(value) }
+    case 'price': return { price: Number(value) }
+    case 'cost': return { cost: Number(value) }
+    case 'stock': return { stock: Number(value) }
+    case 'lowStock': return { lowStock: Number(value) }
+    case 'discount': return { discount: Number(value) }
+    case 'barcode': return { barcode: String(value) }
+    case 'course': return { course: String(value) }
+    case 'image': return { image: value === '' ? null : String(value) }
+    case 'description': return { description: value === '' ? null : String(value) }
+    case 'agotado': return { agotado: Boolean(value) }
+    case 'active': return { active: Boolean(value) }
+    case 'showTpv': return { showTpv: Boolean(value) }
+    case 'showQr': return { showQr: Boolean(value) }
+    case 'featured': return { featured: Boolean(value) }
+    case 'carouselSort': return { carouselSort: Number(value) }
+    default: return {}
+  }
+}
+
+export function setProductField(catalog: Catalog, productId: string, field: string, value: unknown): Catalog | null {
   const next: Catalog = JSON.parse(JSON.stringify(catalog))
   const p = next.products.find(p => p.id === productId)
   if (!p) return null
   if (field === 'stockByLocation') {
-    (p as any).stockByLocation = value
+    if (isRecord(value)) {
+      const stockByLocation: Record<string, StockEntry> = {}
+      for (const [loc, entry] of Object.entries(value)) {
+        if (isRecord(entry)) {
+          stockByLocation[loc] = {
+            stock: Number(entry.stock ?? 0),
+            lowStock: typeof entry.lowStock === 'number' ? Number(entry.lowStock) : undefined,
+          }
+        }
+      }
+      p.stockByLocation = stockByLocation
+    }
   } else {
-    (p as any)[field] = (field === 'name' || field === 'category' || field === 'ubicacion') ? value : Number(value)
+    Object.assign(p, toProductField(field, value))
   }
   return next
 }

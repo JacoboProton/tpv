@@ -8,6 +8,15 @@ import { generateRegistroFactura, formatFecha } from '../../../../lib/verifactu'
 import { verifactuRegistros, sales, backups } from '../../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiUnauthorized } from '../../../../lib/infrastructure/response';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function toItems(v: unknown): Record<string, unknown>[] {
+  const list: unknown[] = Array.isArray(v) ? v : [];
+  return list.flatMap((i) => isRecord(i) ? [i] : []);
+}
+
 // SIN requireRole — usa requireAdminPin (autenticación por PIN de administrador)
 // porque es una operación sensible (regenera registros Verifactu ante la AEAT) que
 // requiere confirmación explícita con PIN. La llama el admin desde Gestoría →
@@ -15,8 +24,9 @@ import { apiOk, apiError, apiBadRequest, apiUnauthorized } from '../../../../lib
 export async function POST(req: NextRequest) {
   try {
     const db = getDb();
-    const body: Record<string, unknown> = await req.json();
-    const adminCheck = await requireAdminPin(req, body.adminPin as string);
+    const body = await req.json() as Record<string, unknown>;
+    const adminPin = typeof body.adminPin === 'string' ? body.adminPin : '';
+    const adminCheck = await requireAdminPin(req, adminPin);
     if (!adminCheck.authorized) {
       return apiUnauthorized(adminCheck.error);
     }
@@ -45,7 +55,7 @@ export async function POST(req: NextRequest) {
     await db.delete(verifactuRegistros)
       .where(eq(verifactuRegistros.tenantId, tenantId));
 
-    const results = [];
+    const results: Array<{ saleId: string; success: boolean; numSerie?: string; error?: string }> = [];
     let previousHash = '0';
     const year = new Date().getFullYear();
 
@@ -64,24 +74,24 @@ export async function POST(req: NextRequest) {
         const fechaExpedicion = formatFecha(closedAt);
         const now = Date.now();
 
-        let fiskalyInvoiceId = null;
-        let verificationUrl = null;
-        let qrUrl = null;
+        let fiskalyInvoiceId: string | null = null;
+        let verificationUrl: string | null = null;
+        let qrUrl: string | null = null;
         let estado = 'pendiente';
         let hash = '0';
         let xml = '';
-        let fechaHoraFirma = null;
+        let fechaHoraFirma: string | null = null;
 
         try {
           const fiskalySale = {
             id: sale.id, total: Number(sale.total ?? 0), totalWithTip: Number(sale.totalWithTip ?? sale.total ?? 0),
             closedAt: sale.closedAt ? Number(sale.closedAt) : Date.now(),
-            items: (sale.items ?? []) as Record<string, unknown>[],
+            items: toItems(sale.items),
           };
           const fiskalyResult = await registerSaleInFiskaly(fiskalySale, numSerie);
-          fiskalyInvoiceId = fiskalyResult.fiskalyInvoiceId;
-          verificationUrl = fiskalyResult.verificationUrl;
-          qrUrl = fiskalyResult.qrUrl;
+          fiskalyInvoiceId = fiskalyResult.fiskalyInvoiceId ?? null;
+          verificationUrl = fiskalyResult.verificationUrl ?? null;
+          qrUrl = fiskalyResult.qrUrl ?? null;
           estado = 'registrado';
 
           const saleForVerifactu = {
@@ -89,7 +99,7 @@ export async function POST(req: NextRequest) {
             totalWithTip: sale.totalWithTip ? Number(sale.totalWithTip) : Number(sale.total),
             total: sale.total ? Number(sale.total) : 0,
             tableName: sale.tableName ?? undefined,
-            items: (sale.items ?? []) as Record<string, unknown>[],
+            items: toItems(sale.items),
           };
 
           const localResult = generateRegistroFactura(saleForVerifactu, previousHash, numSerie);
@@ -98,14 +108,14 @@ export async function POST(req: NextRequest) {
           fechaHoraFirma = localResult.fechaHoraFirma;
           if (!qrUrl) qrUrl = localResult.qrUrl;
         } catch (fkErr) {
-          console.error(`Fiskaly fallback a simulación local para venta ${sale.id}:`, (fkErr as Error).message);
+          console.error(`Fiskaly fallback a simulación local para venta ${sale.id}:`, (fkErr instanceof Error ? fkErr.message : String(fkErr)));
 
           const saleForVerifactu = {
             id: sale.id, closedAt: sale.closedAt ? Number(sale.closedAt) : Date.now(),
             totalWithTip: sale.totalWithTip ? Number(sale.totalWithTip) : Number(sale.total),
             total: sale.total ? Number(sale.total) : 0,
             tableName: sale.tableName ?? undefined,
-            items: (sale.items ?? []) as Record<string, unknown>[],
+            items: toItems(sale.items),
           };
 
           const fallback = generateRegistroFactura(saleForVerifactu, previousHash, numSerie);
@@ -139,7 +149,7 @@ export async function POST(req: NextRequest) {
         previousHash = hash;
         results.push({ saleId: sale.id, success: true, numSerie });
       } catch (err) {
-        results.push({ saleId: sale.id, success: false, error: (err as Error).message });
+        results.push({ saleId: sale.id, success: false, error: (err instanceof Error ? err.message : String(err)) });
       }
     }
 

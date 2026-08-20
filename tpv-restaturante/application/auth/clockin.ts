@@ -1,5 +1,9 @@
 import type { CurrentUser } from '@tpv/core'
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
 export interface ClockinDeps {
   fetchSummary: (employeeId: string, date: string) => Promise<{ summary?: unknown }>
   fetchClockin: (body: { employeeId: string; employeeName: string; method: string; action: string }) => Promise<Response>
@@ -31,12 +35,13 @@ export async function handleClockinAction(
       method: 'tpc',
       action,
     })
-    const data = await r.json()
-    if (data.ok) {
+    const data: unknown = await r.json()
+    if (isRecord(data) && data.ok === true) {
       deps.showToast(`✅ ${action} registrada`)
       loadClockinSummary(currentUser, deps)
     } else {
-      deps.showToast('❌ ' + (data.error || 'Error'))
+      const msg = isRecord(data) && typeof data.error === 'string' ? data.error : 'Error'
+      deps.showToast('❌ ' + msg)
     }
   } catch {
     deps.showToast('❌ Error de conexión')

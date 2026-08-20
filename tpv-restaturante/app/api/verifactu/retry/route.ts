@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const results = [];
+    const results: Array<{ saleId: string; numSerie?: string; success: boolean; error?: string; fiskalyInvoiceId?: string | null }> = [];
 
     for (const reg of simulados) {
       try {

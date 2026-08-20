@@ -59,15 +59,37 @@ export async function GET(req: NextRequest) {
         eq(sales.tenantId, tenantId)
       ));
 
-    const saleMap = new Map();
+    const saleMap = new Map<string, typeof saleRows[number]>();
     for (const s of saleRows) {
-      saleMap.set(s.paymentIntentId, s);
+      saleMap.set(s.paymentIntentId ?? '', s);
     }
 
-    const orphans = [];
-    const mismatches = [];
-    const refundMismatches = [];
-    const disputed = [];
+    const orphans: Array<{
+      paymentIntentId: string;
+      amount: string;
+      currency: string;
+      status: Stripe.PaymentIntent.Status;
+      created: string;
+      metadata: Stripe.Metadata;
+    }> = [];
+    const mismatches: Array<{
+      paymentIntentId: string;
+      saleId: string;
+      stripeAmount: string;
+      saleTotal: string;
+      difference: string;
+    }> = [];
+    const refundMismatches: Array<{
+      paymentIntentId: string;
+      saleId: string;
+      unrecordedRefunds: Array<{ id: string; amount: string; created: string }>;
+    }> = [];
+    const disputed: Array<{
+      paymentIntentId: string;
+      saleId: string;
+      status: string;
+      data: unknown;
+    }> = [];
 
     for (const pi of filteredPIs) {
       const sale = saleMap.get(pi.id);
@@ -133,7 +155,7 @@ export async function GET(req: NextRequest) {
     const piIdsInStripe = new Set(filteredPIs.map((pi) => pi.id));
     type SaleRow = typeof saleRows[number];
     const salesNotInStripe = saleRows
-      .filter((s: SaleRow) => !piIdsInStripe.has(s.paymentIntentId as string))
+      .filter((s: SaleRow) => !piIdsInStripe.has(s.paymentIntentId ?? ''))
       .map((s: SaleRow) => ({
         saleId: s.id,
         paymentIntentId: s.paymentIntentId,
@@ -159,7 +181,7 @@ export async function GET(req: NextRequest) {
       generatedAt: Date.now(),
     });
   } catch (err) {
-    console.error('[Reconciliation] Error:', (err as Error).message);
+    console.error('[Reconciliation] Error:', err instanceof Error ? err.message : String(err));
     return apiError(err);
   }
 }

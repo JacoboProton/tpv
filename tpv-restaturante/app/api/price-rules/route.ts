@@ -4,6 +4,7 @@ import { eq, sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { productPriceRules } from '../../../db/schema';
+import { PriceRulesBody } from '../../../lib/schemas/api-schemas';
 import { requireRole } from '../../../lib/rbac';
 import { withIdempotency } from '../../../lib/idempotency';
 
@@ -32,7 +33,9 @@ export async function PUT(req: NextRequest) {
   return withIdempotency(req, '/api/price-rules', async () => {
     try {
       const tenantId = getTenantId(req);
-      const rules = await req.json();
+      const parsed = PriceRulesBody.safeParse(await req.json());
+      if (!parsed.success) return apiBadRequest(parsed.error.message);
+      const rules = parsed.data;
       const db = getDb();
       await db.delete(productPriceRules).where(eq(productPriceRules.tenantId, tenantId));
       for (const r of rules) {
@@ -40,7 +43,7 @@ export async function PUT(req: NextRequest) {
           id: r.id, productId: r.product_id, name: r.name,
           active: r.active ?? true, days: r.days,
           startTime: r.start_time, endTime: r.end_time,
-          type: r.type, value: r.value, createdAt: Date.now(), tenantId,
+          type: r.type, value: String(r.value), createdAt: Date.now(), tenantId,
         });
       }
       return apiOk();

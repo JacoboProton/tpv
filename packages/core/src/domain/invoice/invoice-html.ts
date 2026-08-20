@@ -3,6 +3,13 @@ import { calculateIgic } from './invoice'
 
 import type { Sale } from '../types'
 
+interface InvoiceSaleItem {
+  name?: string
+  qty?: number
+  price?: number
+  voided?: boolean
+}
+
 export function esc(value: unknown): string {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -12,13 +19,13 @@ export function esc(value: unknown): string {
     .replace(/'/g, '&#39;')
 }
 
-export function buildInvoiceHtml(ticketSettings: Record<string, any>, sale: Sale, opts: { qrDataUrl?: string } = {}): string {
+export function buildInvoiceHtml(ticketSettings: Record<string, unknown>, sale: Sale, opts: { qrDataUrl?: string } = {}): string {
   const { restaurantName, companyCif, companyAddress, companyPhone, footerText } = ticketSettings
   const { qrDataUrl } = opts
   const totalConIva = sale.total || 0
   const { baseImponible, cuotaIgic } = calculateIgic(totalConIva)
-  const itemsHtml = (sale.items || []).filter((i: any) => !i.voided).map((i: any) =>
-    `<tr><td style="padding:3px 0">${esc(i.name)}</td><td style="text-align:center;width:40px">${i.qty}</td><td style="text-align:right;width:70px">${euros(i.price)}</td><td style="text-align:right;width:80px">${euros((i.price || 0) * (i.qty || 0))}</td></tr>`
+  const itemsHtml = ((sale.items || []) as InvoiceSaleItem[]).filter((i) => !i.voided).map((i) =>
+    `<tr><td style="padding:3px 0">${esc(i.name)}</td><td style="text-align:center;width:40px">${i.qty}</td><td style="text-align:right;width:70px">${euros(i.price ?? 0)}</td><td style="text-align:right;width:80px">${euros((i.price || 0) * (i.qty || 0))}</td></tr>`
   ).join('')
   return `<html><head><meta charset="utf-8"><style>
     @page { margin:8mm 12mm; size: A4; }
@@ -45,7 +52,7 @@ export function buildInvoiceHtml(ticketSettings: Record<string, any>, sale: Sale
         ${companyPhone ? `Tel: ${esc(companyPhone)}` : ''}
       </div>
       <div class="numero">${esc(sale.invoiceNumber || sale.id)} · Ticket #${esc(sale.ticketNumber || '-')}</div>
-      <div class="info">${new Date(sale.closedAt).toLocaleDateString('es-ES', { day:'2-digit', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' as any })}</div>
+      <div class="info">${new Date(sale.closedAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
     </div>
     <div class="client-box">
       <p><strong>Cliente:</strong> ${esc(sale.invoiceName) || '—'}</p>

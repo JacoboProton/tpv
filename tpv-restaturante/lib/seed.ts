@@ -26,7 +26,7 @@ export interface SeedTable {
   orderId: null;
   reserved: null;
   isFiado: boolean;
-  type: string;
+  type: 'mesa' | 'barra' | 'llevar' | 'domicilio';
   x: number;
   y: number;
   width: number;
@@ -57,7 +57,7 @@ export interface SeedEmployee {
   id: string;
   name: string;
   pin: string;
-  role: string;
+  role: 'admin' | 'camarero' | 'cocina' | 'manager';
   personalDiscountEnabled: boolean;
   monthlyLimit: number;
   monthlyUsed: number;

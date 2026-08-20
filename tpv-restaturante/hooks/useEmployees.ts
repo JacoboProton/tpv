@@ -12,6 +12,14 @@ import { logoutUser } from '../application/auth/logout'
 import { handleClockinAction as handleClockinActionOp, loadClockinSummary as loadClockinSummaryOp } from '../application/auth/clockin'
 import type { LoginEmployee, ClockinSummary } from '../domain/types'
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+function isClockinSummary(v: unknown): v is ClockinSummary {
+  return isRecord(v) && typeof v.isActive === 'boolean'
+}
+
 interface UseEmployeesProps {
   employees: Employee[]
   setEmployees: (e: Employee[]) => void
@@ -54,7 +62,10 @@ export function useEmployees({
 
   const deleteEmployee = useCallback((id: string) => {
     const result = canDeleteEmployee(employees, id)
-    if (!result.allowed) { showToast(result.error!); return }
+    if (!result.allowed) {
+      if (result.error) showToast(result.error)
+      return
+    }
     persistEmployees(employees.filter((e: Employee) => e.id !== id))
   }, [employees, persistEmployees, showToast])
 
@@ -122,7 +133,7 @@ export function useEmployees({
       fetch(`/api/clockin?employeeId=${employeeId}&date=${date}`).then(r => r.ok ? r.json() : Promise.reject()),
     fetchClockin: (body: { employeeId: string; employeeName: string; method: string; action: string }) => fetch('/api/clockin', { method: 'POST', body: JSON.stringify(body) }),
     showToast,
-    setClockinSummary: (s: unknown) => setClockinSummary(s as ClockinSummary | null),
+    setClockinSummary: (s: unknown) => setClockinSummary(isClockinSummary(s) ? s : null),
     setClockinLoading,
   }
 

@@ -9,9 +9,66 @@ import { z } from 'zod';
 
 type Row = Record<string, unknown>;
 
-async function qr(query: SQL): Promise<Row[]> {
+interface PurchaseOrderRow extends Row {
+  id: string;
+  supplier_id: string | null;
+  supplier_name: string | null;
+  status: string | null;
+  expected_date: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: number | string;
+  updated_at: number | string | null;
+  min_order?: number | string | null;
+  pack_size?: number | string | null;
+  price?: number | string | null;
+  sku?: string | null;
+  supplier_price?: number | string | null;
+}
+
+interface PurchaseOrderLineRow extends Row {
+  id: number | string;
+  order_id: string;
+  product_id: string | null;
+  product_name: string | null;
+  quantity: number | string;
+  price_per_unit: number | string;
+  received_qty: number | string | null;
+  supplier_sku: string | null;
+}
+
+interface SupplierCatalogRow extends Row {
+  id: string;
+  supplier_id: string;
+  product_id: string | null;
+  pack_size: number | string | null;
+  price: number | string | null;
+  min_order: number | string | null;
+  sku: string | null;
+  supplier_name?: string | null;
+}
+
+async function qr<T extends object = Row>(query: SQL): Promise<T[]> {
   const db = getDb();
-  return db.execute(query).then((r: { rows: Row[] }) => r.rows);
+  const r = await db.execute(query);
+  const rows: unknown[] = r.rows;
+  return rows.filter((x): x is T => typeof x === 'object' && x !== null && !Array.isArray(x));
+}
+
+interface AutoOrderSettingsRow extends Row {
+  key: string;
+  value: string | null;
+}
+
+interface StockLogRow extends Row {
+  total: number | string | null;
+}
+
+interface ProductRow extends Row {
+  id: string;
+  name: string | null;
+  type: string | null;
+  total_stock: number | string | null;
 }
 
 export async function GET(req: NextRequest) {
@@ -25,17 +82,17 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get('status');
 
     let query = sql`SELECT * FROM purchase_orders WHERE tenant_id = ${tenantId}`;
-    const conds = [];
+    const conds: SQL[] = [];
     if (supplierId) conds.push(sql`supplier_id = ${supplierId}`);
     if (status) conds.push(sql`status = ${status}`);
     if (conds.length > 0) query = sql`${query} AND ${conds.reduce((a: SQL, c: SQL) => sql`${a} AND ${c}`)}`;
     query = sql`${query} ORDER BY created_at DESC LIMIT 200`;
 
-    const orders = await qr(query);
-    const result = [];
+    const orders = await qr<PurchaseOrderRow>(query);
+    const result: Array<Record<string, unknown>> = [];
 
     for (const o of orders) {
-      const lines = await qr(sql`
+      const lines = await qr<PurchaseOrderLineRow>(sql`
         SELECT * FROM purchase_order_lines WHERE order_id = ${o.id} AND tenant_id = ${tenantId} ORDER BY id
       `);
       result.push({
@@ -98,12 +155,12 @@ export async function POST(req: NextRequest) {
       for (const l of lines || []) {
         await db.execute(sql`UPDATE purchase_order_lines SET received_qty=${l.receivedQty || 0} WHERE id=${l.lineId} AND order_id=${id} AND tenant_id = ${tenantId}`);
       }
-      const [order] = await qr(sql`SELECT * FROM purchase_orders WHERE id=${id} AND tenant_id = ${tenantId}`);
+      const [order] = await qr<PurchaseOrderRow>(sql`SELECT * FROM purchase_orders WHERE id=${id} AND tenant_id = ${tenantId}`);
       for (const l of lines || []) {
-        const [line] = await qr(sql`SELECT * FROM purchase_order_lines WHERE id=${l.lineId} AND order_id=${id} AND tenant_id = ${tenantId}`);
-        if (line && l.receivedQty > 0) {
-          const [cat] = await qr(sql`
-            SELECT sc.id FROM supplier_catalog sc
+        const [line] = await qr<PurchaseOrderLineRow>(sql`SELECT * FROM purchase_order_lines WHERE id=${l.lineId} AND order_id=${id} AND tenant_id = ${tenantId}`);
+        if (order && line && Number(l.receivedQty) > 0) {
+          const [cat] = await qr<SupplierCatalogRow>(sql`
+            SELECT sc.* FROM supplier_catalog sc
             WHERE sc.supplier_id = ${order.supplier_id} AND sc.product_id = ${line.product_id} AND sc.tenant_id = ${tenantId} LIMIT 1
           `);
           if (cat) {
@@ -113,7 +170,7 @@ export async function POST(req: NextRequest) {
           }
         }
       }
-      const allLines = await qr(sql`SELECT quantity, received_qty FROM purchase_order_lines WHERE order_id=${id} AND tenant_id = ${tenantId}`);
+      const allLines = await qr<PurchaseOrderLineRow>(sql`SELECT quantity, received_qty FROM purchase_order_lines WHERE order_id=${id} AND tenant_id = ${tenantId}`);
       const allReceived = allLines.every((l) => Number(l.received_qty) >= Number(l.quantity));
       const anyReceived = allLines.some((l) => Number(l.received_qty) > 0);
       const newStatus = allReceived ? 'received' : anyReceived ? 'partial' : 'draft';
@@ -136,7 +193,7 @@ export async function POST(req: NextRequest) {
 }
 
 async function getAutoSettings(tenantId: string) {
-  const rows = await qr(sql`SELECT * FROM auto_order_settings WHERE tenant_id = ${tenantId}`);
+  const rows = await qr<AutoOrderSettingsRow>(sql`SELECT * FROM auto_order_settings WHERE tenant_id = ${tenantId}`);
   return Object.fromEntries(rows.map((r) => [r.key, r.value]));
 }
 
@@ -145,45 +202,45 @@ function num(v: unknown, fallback = 0): number {
 }
 
 async function handleAutoPreview(body: Record<string, unknown>) {
-  const tenantId = (body.tenantId as string) || 'default';
+  const tenantId = typeof body.tenantId === 'string' ? body.tenantId : 'default';
   const settings = await getAutoSettings(tenantId);
   const leadTimeDays = num(body.leadTimeDays) || num(settings.leadTimeDays) || 2;
   const safetyStockDays = num(body.safetyStockDays) || num(settings.safetyStockDays) || 3;
   const minOrderValue = num(body.minOrderValue) || num(settings.minOrderValue) || 50;
   const consolidateBySupplier = String(body.consolidateBySupplier ?? settings.consolidateBySupplier) === 'true';
 
-  const products = await qr(sql`
+  const products = await qr<ProductRow>(sql`
     SELECT p.id, p.name, p.type,
       COALESCE((SELECT SUM(ps.stock) FROM product_stock ps WHERE ps.product_id = p.id AND ps.tenant_id = ${tenantId}), 0) AS total_stock
     FROM products p WHERE p.active = true AND p.tenant_id = ${tenantId}
   `);
 
-  const toReplenish: Row[] = [];
+  const toReplenish: ProductRow[] = [];
   for (const p of products) {
     if (p.type === 'elaborado') continue;
     const stock = num(p.total_stock);
-    const dailyConsumption = await estimateDailyConsumption(p.id as string, tenantId);
+    const dailyConsumption = await estimateDailyConsumption(p.id, tenantId);
     const neededForLeadTime = dailyConsumption * leadTimeDays;
     const safetyStock = dailyConsumption * safetyStockDays;
     if (stock < (neededForLeadTime + safetyStock)) toReplenish.push(p);
   }
 
-  const needSupplier: Array<{ product: Row; offer: Row; neededQty: number }> = [];
-  const noOfferProducts: Row[] = [];
+  const needSupplier: Array<{ product: ProductRow; offer: SupplierCatalogRow; neededQty: number }> = [];
+  const noOfferProducts: ProductRow[] = [];
 
   for (const prod of toReplenish) {
     const stock = num(prod.total_stock);
-    const dailyConsumption = await estimateDailyConsumption(prod.id as string, tenantId);
+    const dailyConsumption = await estimateDailyConsumption(prod.id, tenantId);
     const neededQty = Math.max(0, (dailyConsumption * (leadTimeDays + safetyStockDays)) - stock);
 
-    let offers = await qr(sql`
+    let offers = await qr<SupplierCatalogRow>(sql`
       SELECT sc.*, s.name AS supplier_name FROM supplier_catalog sc
       JOIN suppliers s ON s.id = sc.supplier_id
       WHERE sc.product_id = ${prod.id} AND sc.active = true AND sc.is_preferred = true AND sc.tenant_id = ${tenantId}
       ORDER BY sc.price LIMIT 1
     `);
     if (offers.length === 0) {
-      offers = await qr(sql`
+      offers = await qr<SupplierCatalogRow>(sql`
         SELECT sc.*, s.name AS supplier_name FROM supplier_catalog sc
         JOIN suppliers s ON s.id = sc.supplier_id
         WHERE sc.product_id = ${prod.id} AND sc.active = true AND sc.tenant_id = ${tenantId}
@@ -199,13 +256,13 @@ async function handleAutoPreview(body: Record<string, unknown>) {
     needSupplier.push({ product: prod, offer: offers[0], neededQty });
   }
 
-  const bySupplier: Record<string, { supplierId: string; supplierName: string; lines: Row[]; total: number }> = {};
+  const bySupplier: Record<string, { supplierId: string; supplierName: string; lines: Array<Record<string, unknown>>; total: number }> = {};
   for (const item of needSupplier) {
-    const sid = item.offer.supplier_id as string;
-    if (!bySupplier[sid]) bySupplier[sid] = { supplierId: sid, supplierName: item.offer.supplier_name as string, lines: [], total: 0 };
+    const sid = item.offer.supplier_id;
+    if (!bySupplier[sid]) bySupplier[sid] = { supplierId: sid, supplierName: item.offer.supplier_name || '', lines: [], total: 0 };
     const packSize = num(item.offer.pack_size, 1);
     const qty = Math.ceil(item.neededQty / packSize) * packSize;
-    const finalQty = Math.max(qty, num(item.offer.min_order));
+    const finalQty = Math.max(qty, num(item.offer.min_order, 0));
     const lineTotal = finalQty * num(item.offer.price);
     bySupplier[sid].lines.push({
       productId: item.product.id, productName: item.product.name,
@@ -229,12 +286,27 @@ async function handleAutoPreview(body: Record<string, unknown>) {
   });
 }
 
+interface PreviewGroup {
+  supplierId: string;
+  supplierName: string;
+  lines: Array<Record<string, unknown>>;
+  total: number;
+  minOrderValue?: number;
+}
+
+interface AutoPreviewResult {
+  preview: PreviewGroup[];
+  noOfferProducts: Array<{ id: string; name: string }>;
+  skippedByMin: Array<{ supplierName: string; total: number; minOrderValue: number }>;
+  settings: Record<string, string>;
+}
+
 async function handleAutoGenerate(body: Record<string, unknown>) {
   const db = getDb();
   const previewRes = await handleAutoPreview(body);
-  const preview = await previewRes.json();
+  const preview = await previewRes.json() as AutoPreviewResult;
 
-  const tenantId = (body.tenantId as string) || 'default';
+  const tenantId = typeof body.tenantId === 'string' ? body.tenantId : 'default';
   const created: Array<Record<string, unknown>> = [];
   for (const group of preview.preview) {
     const id = 'po_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
@@ -258,7 +330,7 @@ async function estimateDailyConsumption(productId: string, tenantId: string): Pr
   try {
     const db = getDb();
     const thirtyDaysAgo = Date.now() - 30 * 86400000;
-    const [log] = await qr(sql`
+    const [log] = await qr<StockLogRow>(sql`
       SELECT SUM(ABS(change_amount)) AS total FROM stock_log
       WHERE product_id = ${productId} AND reason = 'venta' AND created_at >= ${thirtyDaysAgo} AND tenant_id = ${tenantId}
     `);

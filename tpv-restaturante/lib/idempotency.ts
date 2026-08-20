@@ -47,7 +47,7 @@ export async function storeIdempotencyResponse(
       endpoint,
       method,
       status,
-      responseBody: body as Record<string, unknown> | null,
+      responseBody: body,
       createdAt: Date.now(),
       expiresAt: Date.now() + IDEMPOTENCY_TTL_MS,
     }).onConflictDoNothing();

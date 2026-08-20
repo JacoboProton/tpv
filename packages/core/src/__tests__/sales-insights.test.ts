@@ -85,9 +85,9 @@ describe('domain/reports/sales-insights', () => {
     const dayStart = TODAY - (TODAY % DAY)
     const sales = [
       makeSale({ id: 'a', total: 10, closedAt: dayStart + 1000, items: [
-        { name: 'Cafe', qty: 2 }, { name: 'Tortilla', qty: 1 },
+        { id: 'i1', productId: 'p1', name: 'Cafe', qty: 2, price: 1 }, { id: 'i2', productId: 'p2', name: 'Tortilla', qty: 1, price: 2 },
       ] }),
-      makeSale({ id: 'b', total: 10, closedAt: dayStart + 2000, items: [{ name: 'Cafe', qty: 3 }] }),
+      makeSale({ id: 'b', total: 10, closedAt: dayStart + 2000, items: [{ id: 'i3', productId: 'p1', name: 'Cafe', qty: 3, price: 1 }] }),
     ]
     const result = topProducts(sales, dayStart, dayStart + DAY, 2)
     expect(result[0]).toEqual({ name: 'Cafe', qty: 5 })

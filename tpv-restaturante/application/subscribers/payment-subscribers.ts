@@ -15,10 +15,10 @@ export function registerPaymentSubscribers(deps: {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(refundBody),
       })
       if (!res.ok) {
-        const errData = await res.json()
+        const errData = await res.json() as { error?: string }
         deps.showToast(`Error en devolución: ${errData.error}`)
       } else {
-        const resData = await res.json()
+        const resData = await res.json() as { stripeRefundId?: string }
         if (resData.stripeRefundId) {
           deps.showToast(`Devolución de ${euros(data.amount)} procesada en Stripe (${resData.stripeRefundId})`)
         } else {

@@ -15,6 +15,21 @@ function sha256(s: string): string {
   return createHash('sha256').update(s, 'utf8').digest('hex');
 }
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+interface OpenLog {
+  employee_id: string;
+  employee_name: string;
+}
+
+function toOpenLogs(v: unknown): OpenLog[] {
+  const list: unknown[] = Array.isArray(v) ? v : [];
+  return list.flatMap((x) => isRecord(x) && typeof x.employee_id === 'string' && typeof x.employee_name === 'string'
+    ? [{ employee_id: x.employee_id, employee_name: x.employee_name }] : []);
+}
+
 export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
@@ -146,11 +161,11 @@ export async function PUT(req: NextRequest) {
     const tenantId = getTenantId(req);
     const parsed = z.object({ action: z.string().min(1) }).passthrough().safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
-    const body = parsed.data as Record<string, unknown>;
-    const putAction = body.action as string;
+    const body = parsed.data;
+    const putAction = body.action;
 
     if (putAction === 'edit-record') {
-      const recordAction = body.recordAction as string | undefined;
+      const recordAction = typeof body.recordAction === 'string' ? body.recordAction : undefined;
       const newAction = recordAction;
       const createdAt = Number(body.createdAt) || Date.now();
       const id = Number(body.id);
@@ -166,19 +181,19 @@ export async function PUT(req: NextRequest) {
       const targetDate = String(closeDate || new Date().toISOString().slice(0, 10));
       const endTime = String(defaultEndTime || '23:59');
 
-      const openLogs = (await db.execute(sql`
+      const exec = await db.execute(sql`
         SELECT DISTINCT employee_id, employee_name FROM clockin_logs
         WHERE clockin_date = ${targetDate} AND action = 'entrada' AND tenant_id = ${tenantId}
         AND employee_id NOT IN (
           SELECT employee_id FROM clockin_logs
           WHERE clockin_date = ${targetDate} AND action = 'salida' AND tenant_id = ${tenantId}
         )
-      `)) as unknown as { employee_id: string; employee_name: string }[];
+      `);
+      const openLogs = toOpenLogs(exec.rows);
 
-      const [h, m] = (endTime as string).split(':').map(Number);
+      const [h, m] = endTime.split(':').map(Number);
       const closeAt = new Date(targetDate + 'T' + endTime);
-      for (const emp of openLogs) {
-        const e = emp as unknown as { employee_id: string; employee_name: string };
+      for (const e of openLogs) {
         await db.insert(clockinLogs).values({
           employeeId: e.employee_id, employeeName: e.employee_name,
           action: 'salida', method: 'auto', clockinDate: targetDate,

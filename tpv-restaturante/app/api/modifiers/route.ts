@@ -86,11 +86,11 @@ export async function PUT(req: NextRequest) {
           for (let i = 0; i < g.options.length; i++) {
             const o = g.options[i];
             await tx.insert(modifierOptions).values({
-              id: o.id, groupId: g.id, name: o.name,
-              priceDelta: o.priceDelta || 0, isDefault: o.isDefault || false,
+              id: o.id || g.id + '_o' + i, groupId: g.id, name: o.name,
+              priceDelta: String(o.priceDelta || 0), isDefault: o.isDefault || false,
               sortOrder: i, stockDeduct: !!o.stockDeduct,
               stockArticleId: o.stockArticleId || '',
-              stockQuantity: o.stockQuantity || 0, tenantId,
+              stockQuantity: String(o.stockQuantity || 0), tenantId,
             });
           }
         }

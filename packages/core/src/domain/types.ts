@@ -94,7 +94,7 @@ export interface OrderItem {
   servedBy?: string
   servedAt?: number
   notes?: string
-  modifiers?: any[]
+  modifiers?: ModifierSelection[]
   course?: string
   ubicacion?: string
   category?: string
@@ -124,7 +124,7 @@ export interface Order {
   source?: string
   reopenedAt?: number
   label?: string
-  customer?: CustomerInfo | null | any
+  customer?: CustomerInfo | null
   _mergedFrom?: string[]
   _mergedLabel?: string
   personalDiscountApplied?: boolean
@@ -242,12 +242,13 @@ export interface RefundInput {
 
 export interface SaleItem {
   id: string
-  productId: string
+  productId?: string | null
   name: string
   price: number
   qty: number
   modifiers?: ModifierSelection[]
   notes?: string
+  voided?: boolean
 }
 
 export interface SaleRefund extends RefundInput {
@@ -258,7 +259,7 @@ export interface SaleRefund extends RefundInput {
 
 export interface Sale {
   id: string
-  items: any[]
+  items: SaleItem[]
   subtotal: number
   discount: number
   discountAmount?: number

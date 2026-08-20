@@ -6,12 +6,22 @@ import { logPayment } from '../../../../lib/payment-logger';
 import { getTenantId } from '../../../../lib/tenant';
 import { sales } from '../../../../db/schema';
 import { requireRole } from '../../../../lib/rbac';
+import { RefundBody } from '../../../../lib/schemas/api-schemas';
 import { rateLimit } from '../../../../lib/rate-limit';
 import { withIdempotency } from '../../../../lib/idempotency';
 
 function getStripe() {
   if (!process.env.STRIPE_SECRET_KEY) return null;
   return new Stripe(process.env.STRIPE_SECRET_KEY);
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function toRecords(v: unknown): Array<Record<string, unknown>> {
+  const list: unknown[] = Array.isArray(v) ? v : [];
+  return list.flatMap((i) => isRecord(i) ? [i] : []);
 }
 
 export async function PUT(req: NextRequest) {
@@ -26,7 +36,11 @@ export async function PUT(req: NextRequest) {
   return withIdempotency(req, '/api/sales/refund', async () => {
     try {
       const db = getDb();
-      const { saleId, refund } = await req.json();
+      const parsed = RefundBody.safeParse(await req.json());
+      if (!parsed.success) {
+        return Response.json({ error: parsed.error.message }, { status: 400 });
+      }
+      const { saleId, refund } = parsed.data;
       if (!saleId || !refund) {
         return Response.json({ error: 'saleId and refund required' }, { status: 400 });
       }
@@ -40,8 +54,8 @@ export async function PUT(req: NextRequest) {
       }
 
       const piId = sale.paymentIntentId;
-      const currentRefunds = sale.refunds || [];
-      let stripeRefundId = null;
+      const currentRefunds = toRecords(sale.refunds);
+      let stripeRefundId: string | null = null;
 
       if (piId && piId.startsWith('pi_')) {
         const stripe = getStripe();
@@ -66,22 +80,23 @@ export async function PUT(req: NextRequest) {
         }
       }
 
-      const updated = [...(currentRefunds as unknown as Array<Record<string, unknown>>), { ...(refund as Record<string, unknown>), stripeRefundId }];
+      const updated = [...currentRefunds, { ...refund, stripeRefundId }];
       await db.update(sales).set({ refunds: updated }).where(eq(sales.id, saleId));
 
       return Response.json({ ok: true, refunds: updated, stripeRefundId });
     } catch (e) {
-      console.error('[Refund] Error:', (e as Error).message);
+      const errMsg = e instanceof Error ? e.message : String(e);
+      console.error('[Refund] Error:', errMsg);
       logPayment({
         tenantId,
         paymentIntentId: null,
         operation: 'refund.create',
         amountCents: 0,
         status: 'error',
-        error: (e as Error).message,
+        error: errMsg,
         source: 'refund',
       });
-      return Response.json({ error: (e as Error).message }, { status: 500 });
+      return Response.json({ error: errMsg }, { status: 500 });
     }
   });
 }

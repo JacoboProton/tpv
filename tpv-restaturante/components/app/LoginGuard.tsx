@@ -1,15 +1,16 @@
 import MenuPrincipal from './MenuPrincipal';
 import LoginScreen from '../auth/LoginScreen';
 import type { Theme } from '../constants';
+import type { LoginEmployee } from '../../domain/types';
 
 export function LoginGuard({
   employees, menuMode, setMenuMode, entryPoint, setEntryPoint,
   loginSelected, setLoginSelected, pinInput, setPinInput,
   pressDigit, deleteDigit, colors,
 }: {
-  employees: any[]; menuMode: string; setMenuMode: (m: string) => void;
+  employees: LoginEmployee[]; menuMode: string; setMenuMode: (m: string) => void;
   entryPoint: string; setEntryPoint: (e: string) => void;
-  loginSelected: any; setLoginSelected: (s: any) => void;
+  loginSelected: LoginEmployee | null; setLoginSelected: (s: LoginEmployee | null) => void;
   pinInput: string; setPinInput: (p: string) => void;
   pressDigit: (d: string) => void; deleteDigit: () => void;
   colors: Theme;

@@ -61,31 +61,31 @@ export default function VentasDashboardView() {
   const avgTicket = todayCount > 0 ? round2(todayTotal / todayCount) : 0
 
   const todayVsYesterday = useMemo(
-    () => comparePeriod(sales as any[], todayTs, todayTs + 86400000),
+    () => comparePeriod(sales, todayTs, todayTs + 86400000),
     [sales, todayTs],
   )
   const weekVsPrev = useMemo(
-    () => comparePeriod(sales as any[], todayTs - 6 * 86400000, todayTs + 86400000),
+    () => comparePeriod(sales, todayTs - 6 * 86400000, todayTs + 86400000),
     [sales, todayTs],
   )
 
   const dailyData = useMemo(
-    () => previousWeekComparison(sales as any[], todayTs).points,
+    () => previousWeekComparison(sales, todayTs).points,
     [sales, todayTs],
   )
 
   const hourly = useMemo(
-    () => hourlySales(sales as any[], todayTs),
+    () => hourlySales(sales, todayTs),
     [sales, todayTs],
   )
 
   const top = useMemo(
-    () => topProducts(sales as any[], todayTs - (rangeDays - 1) * 86400000, todayTs + 86400000, 5),
+    () => topProducts(sales, todayTs - (rangeDays - 1) * 86400000, todayTs + 86400000, 5),
     [sales, todayTs, rangeDays],
   )
 
   const methodTotals = useMemo(
-    () => paymentMethodTotals(sales as any[], todayTs - (rangeDays - 1) * 86400000, todayTs + 86400000),
+    () => paymentMethodTotals(sales, todayTs - (rangeDays - 1) * 86400000, todayTs + 86400000),
     [sales, todayTs, rangeDays],
   )
 
@@ -100,7 +100,7 @@ export default function VentasDashboardView() {
     return [...todaySales].sort((a, b) => b.closedAt - a.closedAt).slice(0, 10)
   }, [todaySales])
 
-  function KpiCard({ icon: Icon, label, value, sub, color, extra }: { icon: any; label: string; value: string; sub?: string; color: string; extra?: React.ReactNode }) {
+  function KpiCard({ icon: Icon, label, value, sub, color, extra }: { icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; label: string; value: string; sub?: string; color: string; extra?: React.ReactNode }) {
     return (
       <div style={{ background: C.surface, border: `1px solid ${C.line}` }}
         className="rounded-xl p-4 flex items-center gap-3">
@@ -153,7 +153,7 @@ export default function VentasDashboardView() {
               <YAxis stroke={C.muted} fontSize={12} />
               <Tooltip
                 contentStyle={{ background: C.surfaceLight, border: `1px solid ${C.line}`, borderRadius: '8px', color: C.cream }}
-                formatter={(v: any) => euros(Number(v))} />
+                formatter={(v: unknown) => euros(Number(v))} />
               <Legend wrapperStyle={{ fontSize: 11, color: C.muted }} />
               <Bar dataKey="total" name="Esta semana" fill={C.brass} radius={[4, 4, 0, 0]} />
               <Bar dataKey="previous" name="Semana anterior" fill={C.surfaceLight} radius={[4, 4, 0, 0]} />
@@ -171,7 +171,7 @@ export default function VentasDashboardView() {
               <YAxis stroke={C.muted} fontSize={11} />
               <Tooltip
                 contentStyle={{ background: C.surfaceLight, border: `1px solid ${C.line}`, borderRadius: '8px', color: C.cream }}
-                formatter={(v: any) => euros(Number(v))} />
+                formatter={(v: unknown) => euros(Number(v))} />
               <Line type="monotone" dataKey="total" stroke={C.sage} strokeWidth={2} dot={{ r: 3, fill: C.sage }} />
             </LineChart>
           </ResponsiveContainer>

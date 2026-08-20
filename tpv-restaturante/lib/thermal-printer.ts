@@ -165,14 +165,16 @@ export function webUsbSupported(): boolean {
 export async function connectPrinter(): Promise<boolean> {
   if (!webUsbSupported()) throw new Error('WebUSB no está disponible en este navegador. Usa Chrome o Edge con HTTPS.');
   try {
-    const device = await navigator.usb!.requestDevice({ filters: [] });
+    const usb = navigator.usb;
+    if (!usb) throw new Error('WebUSB no está disponible en este navegador.');
+    const device = await usb.requestDevice({ filters: [] });
     await device.open();
     await device.selectConfiguration(1);
     await device.claimInterface(0);
     printerDevice = device;
     return true;
   } catch (err) {
-    if ((err as Error).name === 'NotFoundError') return false;
+    if (err instanceof Error && err.name === 'NotFoundError') return false;
     throw err;
   }
 }

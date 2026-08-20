@@ -7,6 +7,20 @@ import type { Theme } from '../constants';
 const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 const DAY_SHORT = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+function toStringRecord(v: unknown): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (isRecord(v)) {
+    for (const [k, val] of Object.entries(v)) {
+      if (typeof val === 'string') out[k] = val
+    }
+  }
+  return out
+}
+
 interface Shift {
   days: number[];
   label: string;
@@ -51,7 +65,7 @@ export default function ReservaSettingsView({ colors: C }: ReservaSettingsViewPr
     setLoading(true);
     try {
       const { fetchSettings } = await import('../../lib/api');
-      const s = await fetchSettings() as Record<string, string>;
+      const s = toStringRecord(await fetchSettings());
       setSettings(s);
       setLocalShifts(parseJSON<Shift[]>(s.reservationShifts, []));
       setLocalBlocked(parseJSON<BlockedDate[]>(s.reservationBlockedDates, []));
@@ -80,13 +94,13 @@ export default function ReservaSettingsView({ colors: C }: ReservaSettingsViewPr
     try {
       const { saveSettings } = await import('../../lib/api');
       await saveSettings({ ...settings, ...nextSettings });
-      setSettings(prev => ({ ...prev!, ...nextSettings }));
+      setSettings(prev => ({ ...(prev ?? {}), ...nextSettings }));
     } catch {}
     setSaving(false);
   }
 
   function toggle(key: string) {
-    handleSave({ [key]: settings![key] === 'true' ? 'false' : 'true' });
+    handleSave({ [key]: (settings ?? {})[key] === 'true' ? 'false' : 'true' });
   }
 
   function setVal(key: string, val: string) {
@@ -97,9 +111,9 @@ export default function ReservaSettingsView({ colors: C }: ReservaSettingsViewPr
     setLocalShifts([...localShifts, { days: [1], label: 'Turno', open: '13:00', close: '16:00' }]);
   }
 
-  function updateShift(i: number, field: string, val: string) {
+  function updateShift(i: number, field: 'label' | 'open' | 'close', val: string) {
     const copy = [...localShifts];
-    (copy[i] as unknown as Record<string, unknown>)[field] = val;
+    copy[i] = { ...copy[i], [field]: val };
     setLocalShifts(copy);
   }
 
@@ -123,9 +137,9 @@ export default function ReservaSettingsView({ colors: C }: ReservaSettingsViewPr
     setLocalBlocked([...localBlocked, { date: '', reason: '' }]);
   }
 
-  function updateBlocked(i: number, field: string, val: string) {
+  function updateBlocked(i: number, field: 'date' | 'reason', val: string) {
     const copy = [...localBlocked];
-    (copy[i] as unknown as Record<string, unknown>)[field] = val;
+    copy[i] = { ...copy[i], [field]: val };
     setLocalBlocked(copy);
   }
 
@@ -277,7 +291,7 @@ function ScheduleTab({ settings, setVal, toggle, localShifts, addShift, updateSh
   toggle: (key: string) => void;
   localShifts: Shift[];
   addShift: () => void;
-  updateShift: (i: number, field: string, val: string) => void;
+  updateShift: (i: number, field: 'label' | 'open' | 'close', val: string) => void;
   toggleShiftDay: (i: number, d: number) => void;
   removeShift: (i: number) => void;
   saveShifts: () => void;
@@ -493,7 +507,7 @@ function CancelTab({ settings, setVal, C }: {
 function BlockedTab({ localBlocked, addBlocked, updateBlocked, removeBlocked, saveBlocked, C }: {
   localBlocked: BlockedDate[];
   addBlocked: () => void;
-  updateBlocked: (i: number, field: string, val: string) => void;
+  updateBlocked: (i: number, field: 'date' | 'reason', val: string) => void;
   removeBlocked: (i: number) => void;
   saveBlocked: () => void;
   C: Theme;

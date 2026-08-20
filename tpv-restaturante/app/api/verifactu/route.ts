@@ -70,13 +70,13 @@ export async function POST(req: NextRequest) {
     const fechaExpedicion = formatFecha(sale.closedAt ?? Date.now());
     const now = Date.now();
 
-    let fiskalyInvoiceId = null;
-    let verificationUrl = null;
-    let qrUrl = null;
+    let fiskalyInvoiceId: string | null = null;
+    let verificationUrl: string | null = null;
+    let qrUrl: string | null = null;
     let estado = 'pendiente';
     let hash = '0';
     let xml = '';
-    let fechaHoraFirma = null;
+    let fechaHoraFirma: string | null = null;
 
     const lastRows = await db.select({ huella: verifactuRegistros.huella }).from(verifactuRegistros)
       .where(eq(verifactuRegistros.tenantId, tenantId))
@@ -86,9 +86,9 @@ export async function POST(req: NextRequest) {
 
     try {
       const fiskalyResult = await registerSaleInFiskaly(sale, numSerie);
-      fiskalyInvoiceId = fiskalyResult.fiskalyInvoiceId;
-      verificationUrl = fiskalyResult.verificationUrl;
-      qrUrl = fiskalyResult.qrUrl;
+      fiskalyInvoiceId = fiskalyResult.fiskalyInvoiceId ?? null;
+      verificationUrl = fiskalyResult.verificationUrl ?? null;
+      qrUrl = fiskalyResult.qrUrl ?? null;
       estado = 'registrado';
 
       const localResult = generateRegistroFactura(sale, previousHash, numSerie, {

@@ -11,6 +11,20 @@ interface UseInvoiceProps {
   showToast: (msg: string) => void
 }
 
+interface QrResponse {
+  dataUrl?: string
+}
+
+interface PdfResponse {
+  pdf: string
+  filename: string
+}
+
+interface SendResponse {
+  method?: string
+  error?: string
+}
+
 export function useInvoice({ ticketSettings, showToast }: UseInvoiceProps) {
 
   const printInvoice = useCallback(async (sale: Sale) => {
@@ -20,7 +34,7 @@ export function useInvoice({ ticketSettings, showToast }: UseInvoiceProps) {
       try {
         const res = await fetch(`/api/verifactu/qr?text=${encodeURIComponent(sale.verifactuQrUrl)}`)
         if (res.ok) {
-          const data = await res.json()
+          const data = (await res.json()) as QrResponse
           if (data.dataUrl) opts = { qrDataUrl: data.dataUrl }
         }
       } catch { /* QR opcional */ }
@@ -29,11 +43,14 @@ export function useInvoice({ ticketSettings, showToast }: UseInvoiceProps) {
     const iframe = document.createElement('iframe')
     iframe.style.display = 'none'
     document.body.appendChild(iframe)
-    iframe.contentWindow!.document.open()
-    iframe.contentWindow!.document.write(html)
-    iframe.contentWindow!.document.close()
-    iframe.contentWindow!.focus()
-    iframe.contentWindow!.print()
+    const w = iframe.contentWindow
+    if (w) {
+      w.document.open()
+      w.document.write(html)
+      w.document.close()
+      w.focus()
+      w.print()
+    }
     setTimeout(() => document.body.removeChild(iframe), 1000)
   }, [ticketSettings])
 
@@ -46,7 +63,7 @@ export function useInvoice({ ticketSettings, showToast }: UseInvoiceProps) {
         body: JSON.stringify({ sale }),
       })
       if (!res.ok) { showToast('Error al generar PDF'); return }
-      const data = await res.json()
+      const data = (await res.json()) as PdfResponse
       const blob = b64ToBlob(data.pdf, 'application/pdf')
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a'); a.href = url; a.download = data.filename
@@ -64,13 +81,13 @@ export function useInvoice({ ticketSettings, showToast }: UseInvoiceProps) {
         body: JSON.stringify({ sale }),
       })
       if (!pdfRes.ok) { showToast('Error al generar PDF'); return }
-      const pdfData = await pdfRes.json()
+      const pdfData = (await pdfRes.json()) as PdfResponse
       const sendRes = await fetch('/api/invoice/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ saleId: sale.id, pdfBase64: pdfData.pdf, filename: pdfData.filename, to: sale.invoiceEmail }),
       })
-      const sendData = await sendRes.json()
+      const sendData = (await sendRes.json()) as SendResponse
       if (sendData.method === 'smtp') showToast('Factura enviada por email')
       else if (sendData.method === 'download') { handleDownloadPdf(sale); showToast('Email no configurado — PDF descargado') }
       else showToast('Error al enviar: ' + (sendData.error || 'desconocido'))
