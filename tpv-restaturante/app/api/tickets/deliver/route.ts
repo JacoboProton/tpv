@@ -31,6 +31,7 @@ async function sendTwilio(accountSid: string, authToken: string, from: string, t
     method: 'POST',
     headers: { Authorization: `Basic ${cred}`, 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams(params),
+    signal: AbortSignal.timeout(12000),
   });
   if (!res.ok) throw new Error(`Twilio error ${res.status}: ${await res.text()}`);
 }
@@ -151,13 +152,24 @@ export async function POST(req: NextRequest) {
             port: parseInt(process.env.SMTP_PORT || '587'),
             secure: process.env.SMTP_PORT === '465',
             auth: { user: smtpUser, pass: process.env.SMTP_PASS },
+            connectionTimeout: 10000,
+            greetingTimeout: 10000,
+            socketTimeout: 15000,
           });
           const fromEmail = process.env.SMTP_FROM || smtpUser;
-          await transporter.sendMail({
+          const mailOptions = {
             from: `"${process.env.SMTP_FROM_NAME || s.restaurantName || 'La Comanda'}" <${fromEmail}>`,
             to: to.email,
             subject: `${ref} · ${totalEuro}`,
             html,
+          };
+          await new Promise<void>((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error('SMTP timeout')), 12000);
+            transporter.sendMail(mailOptions, (err: unknown) => {
+              clearTimeout(timer);
+              if (err) reject(err instanceof Error ? err : new Error(String(err)));
+              else resolve();
+            });
           });
           results.email = 'sent';
         } catch (e) {

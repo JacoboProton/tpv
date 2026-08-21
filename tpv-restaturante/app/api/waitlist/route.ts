@@ -42,6 +42,7 @@ async function sendTwilioSms(accountSid: string, authToken: string, from: string
     method: 'POST',
     headers: { Authorization: `Basic ${cred}`, 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams(params),
+    signal: AbortSignal.timeout(12000),
   });
   if (!res.ok) {
     const text = await res.text();
