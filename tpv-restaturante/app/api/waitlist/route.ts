@@ -29,13 +29,19 @@ async function getSettings(tenantId: string) {
   return s;
 }
 
-async function sendTwilioSms(accountSid: string, authToken: string, from: string, to: string, body: string) {
+async function sendTwilioSms(accountSid: string, authToken: string, from: string, to: string, body: string, contentSid?: string) {
   const cred = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
-  const params = new URLSearchParams({ To: to, From: from, Body: body });
+  const params: Record<string, string> = { To: to, From: from };
+  if (contentSid) {
+    params.ContentSid = contentSid;
+    params.ContentVariables = JSON.stringify({});
+  } else {
+    params.Body = body;
+  }
   const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
     method: 'POST',
     headers: { Authorization: `Basic ${cred}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: params,
+    body: new URLSearchParams(params),
   });
   if (!res.ok) {
     const text = await res.text();
@@ -58,11 +64,12 @@ async function sendNotifications(entry: { name?: string; phone?: string }, s: Re
   const restaurant = row?.value || 'Restaurante';
   const msg = `¡${name}, su mesa en ${restaurant} está lista! Por favor, acérquese al mostrador.`;
 
+  const contentSid = s.waitlistTwilioContentSid;
   if (s.waitlistSmsEnabled === 'true' && twilioPhone) {
     sendTwilioSms(sid, token, twilioPhone, entry.phone, msg).catch(() => {});
   }
   if (s.waitlistWhatsAppEnabled === 'true' && twilioWhatsApp) {
-    sendTwilioSms(sid, token, `whatsapp:${twilioWhatsApp}`, `whatsapp:${entry.phone}`, msg).catch(() => {});
+    sendTwilioSms(sid, token, `whatsapp:${twilioWhatsApp}`, `whatsapp:${entry.phone}`, msg, contentSid).catch(() => {});
   }
 }
 

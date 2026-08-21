@@ -18,13 +18,19 @@ async function getSettings(tenantId: string): Promise<Record<string, string>> {
   return s;
 }
 
-async function sendTwilio(accountSid: string, authToken: string, from: string, to: string, body: string) {
+async function sendTwilio(accountSid: string, authToken: string, from: string, to: string, body: string, contentSid?: string) {
   const cred = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
-  const params = new URLSearchParams({ To: to, From: from, Body: body });
+  const params: Record<string, string> = { To: to, From: from };
+  if (contentSid) {
+    params.ContentSid = contentSid;
+    params.ContentVariables = JSON.stringify({});
+  } else {
+    params.Body = body;
+  }
   const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
     method: 'POST',
     headers: { Authorization: `Basic ${cred}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: params,
+    body: new URLSearchParams(params),
   });
   if (!res.ok) throw new Error(`Twilio error ${res.status}: ${await res.text()}`);
 }
@@ -164,13 +170,14 @@ export async function POST(req: NextRequest) {
       const sid = s.waitlistTwilioSid;
       const token = s.waitlistTwilioToken;
       const whatsappNumber = s.waitlistTwilioWhatsApp;
+      const contentSid = s.waitlistTwilioContentSid;
       if (!sid || !token || !whatsappNumber) {
         results.whatsapp = 'no_twilio';
       } else {
         const msg = `${ref}\nTotal: ${totalEuro}\nGracias por su visita.`
           + (qrUrl ? `\nVerifique su ticket con la app AEAT: ${qrUrl}` : '');
         try {
-          await sendTwilio(sid, token, `whatsapp:${whatsappNumber}`, `whatsapp:${to.phone}`, msg);
+          await sendTwilio(sid, token, `whatsapp:${whatsappNumber}`, `whatsapp:${to.phone}`, msg, contentSid);
           results.whatsapp = 'sent';
         } catch (e) {
           results.whatsapp = `error:${e instanceof Error ? e.message : String(e)}`;
