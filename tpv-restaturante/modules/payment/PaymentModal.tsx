@@ -1,16 +1,18 @@
 "use client";
 
-import { useState, type ComponentType } from 'react';
-import { Banknote, CreditCard, Smartphone, Clock, X, CheckCircle2, Printer, Check, Trash2, type LucideProps } from 'lucide-react';
+import { useState, useEffect, type ComponentType } from 'react';
+import { Banknote, CreditCard, Smartphone, Clock, X, CheckCircle2, Printer, Check, Trash2, Gift, type LucideProps } from 'lucide-react';
 import { euros, round2, PAYMENT_METHODS, type Theme } from '@/components/constants';
 import type { Table, CurrentUser } from '@tpv/core';
 import StripeModal from '@/modules/payment/StripeModal';
+import { apiFetch } from '@/lib/api';
 
 interface PaymentSplit {
   id: string;
   method: string;
   amount: number;
   itemIds?: string[];
+  code?: string;
 }
 
 interface SplitOrderItem {
@@ -41,6 +43,7 @@ interface PaymentModalProps {
   canConfirm: boolean;
   onAddSplit: (method: string) => void;
   onUpdateSplitAmount: (id: string, value: string) => void;
+  onUpdateSplitCode?: (id: string, value: string) => void;
   onRemoveSplit: (id: string) => void;
   onToggleSplitItem?: (splitId: string, itemId: string) => void;
   onConfirm: () => void;
@@ -62,8 +65,8 @@ interface PaymentModalProps {
 
 const PAYMENT_METHODS_UI = PAYMENT_METHODS.map(m => ({
   ...m,
-  icon: { efectivo: Banknote, tarjeta: CreditCard, bizum: Smartphone, fiado: Clock }[m.id as 'efectivo' | 'tarjeta' | 'bizum' | 'fiado'] as ComponentType<LucideProps>,
-  color: { efectivo: '#7a9a7c', tarjeta: '#c4a04a', bizum: '#6b9bf8', fiado: '#b05e5e' }[m.id as 'efectivo' | 'tarjeta' | 'bizum' | 'fiado'],
+  icon: { efectivo: Banknote, tarjeta: CreditCard, bizum: Smartphone, fiado: Clock, gift: Gift }[m.id as 'efectivo' | 'tarjeta' | 'bizum' | 'fiado' | 'gift'] as ComponentType<LucideProps>,
+  color: { efectivo: '#7a9a7c', tarjeta: '#c4a04a', bizum: '#6b9bf8', fiado: '#b05e5e', gift: '#c98a3a' }[m.id as 'efectivo' | 'tarjeta' | 'bizum' | 'fiado' | 'gift'],
 }));
 
 export default function PaymentModal({
@@ -71,7 +74,7 @@ export default function PaymentModal({
   currentUser,
   finalTotal, orderDiscount, tipAmount, setTipAmount, tipMethod, setTipMethod,
   paymentSplits, remaining, canConfirm,
-  onAddSplit, onUpdateSplitAmount, onRemoveSplit, onToggleSplitItem,
+  onAddSplit, onUpdateSplitAmount, onRemoveSplit, onToggleSplitItem, onUpdateSplitCode,
   onConfirm, onStripeSuccess, onCancel,
   onPrint,
   showToast,
@@ -82,6 +85,7 @@ export default function PaymentModal({
 }: PaymentModalProps) {
   const [showInvoice, setShowInvoice] = useState(false);
   const [stripeOpen, setStripeOpen] = useState(false);
+  const [cardInfo, setCardInfo] = useState<Record<string, { balance?: number; status?: string; error?: string }>>({});
   const hasCardSplit = paymentSplits.some(s => s.method === 'tarjeta');
   const hasBizumSplit = paymentSplits.some(s => s.method === 'bizum');
   const hasStripeSplit = hasCardSplit || hasBizumSplit;
@@ -106,6 +110,28 @@ export default function PaymentModal({
   }
 
   const tipPresets = [0, 5, 10, 15, 20];
+
+  const giftKey = paymentSplits.filter(s => s.method === 'gift').map(s => s.id + ':' + (s.code || '')).join('|');
+  useEffect(() => {
+    const giftEntries = paymentSplits.filter(s => s.method === 'gift' && s.code);
+    if (giftEntries.length === 0) { setCardInfo({}); return; }
+    let cancelled = false;
+    const t = setTimeout(() => {
+      (async () => {
+        const next: Record<string, { balance?: number; status?: string; error?: string }> = {};
+        await Promise.all(giftEntries.map(async (g) => {
+          try {
+            const d = await apiFetch('/api/gift-cards?code=' + encodeURIComponent(g.code || '')) as { balance: number; status: string };
+            if (!cancelled) next[g.id] = { balance: d.balance, status: d.status };
+          } catch {
+            if (!cancelled) next[g.id] = { error: 'Tarjeta no encontrada' };
+          }
+        }));
+        if (!cancelled) setCardInfo(next);
+      })();
+    }, 350);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [giftKey]);
 
   return (
     <>
@@ -250,7 +276,23 @@ export default function PaymentModal({
                         <X className="w-4 h-4" />
                       </button>
                     </div>
-                    {!isFiado && orderItems && orderItems.length > 0 && (
+                    {sp.method === 'gift' && (
+                      <div className="mt-1">
+                        <input type="text" value={sp.code ?? ''} onChange={e => onUpdateSplitCode?.(sp.id, e.target.value)} placeholder="Código tarjeta regalo" style={{ background: C.surface, color: C.cream }} className="w-full rounded-md px-2.5 py-1.5 text-sm font-mono" />
+                        {cardInfo[sp.id]?.error && (
+                          <p className="text-[11px] mt-1" style={{ color: C.wineLight }}>{cardInfo[sp.id].error}</p>
+                        )}
+                        {cardInfo[sp.id]?.balance != null && (
+                          <p className="text-[11px] mt-1" style={{ color: C.muted }}>
+                            Saldo: {euros(cardInfo[sp.id].balance!)}{cardInfo[sp.id].status && cardInfo[sp.id].status !== 'active' ? ' · ' + cardInfo[sp.id].status : ''}
+                          </p>
+                        )}
+                        {cardInfo[sp.id]?.balance != null && sp.amount > (cardInfo[sp.id].balance! + 0.001) && (
+                          <p className="text-[11px] mt-1" style={{ color: C.wineLight }}>Saldo insuficiente (disponible {euros(cardInfo[sp.id].balance!)})</p>
+                        )}
+                      </div>
+                    )}
+                    {!isFiado && sp.method !== 'gift' && orderItems && orderItems.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mt-1">
                         {orderItems.map(item => {
                           const alreadyAssigned = assignedItemIds.has(item.id) && !splitItemIds.has(item.id);

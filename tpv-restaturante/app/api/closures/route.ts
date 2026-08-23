@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
       ticket_count?: number; avg_ticket?: string | number; methods?: unknown;
       employees?: unknown; sales_ids?: string[]; closed_at?: number;
       employee_name?: string; cuadratura?: unknown; cuadratura_expected?: unknown;
-      cuadratura_counted?: unknown; cuadratura_diff?: unknown;
+      cuadratura_counted?: unknown; cuadratura_diff?: unknown; openingFloat?: number;
     };
 
     if (b.action === 'delete') {
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
       closedAt: Number(b.closed_at ?? Date.now()),
       employeeName: b.employee_name ?? '',
       cuadratura: b.cuadratura
-        ? { denoms: b.cuadratura, expected: b.cuadratura_expected, counted: b.cuadratura_counted, diff: b.cuadratura_diff }
+        ? { denoms: b.cuadratura, expected: b.cuadratura_expected, counted: b.cuadratura_counted, diff: b.cuadratura_diff, openingFloat: Number(b.openingFloat ?? 0) }
         : [],
     }).onConflictDoUpdate({
       target: [closures.id, closures.tenantId],

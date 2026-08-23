@@ -1505,3 +1505,21 @@ export const floorSync = pgTable("floor_sync", {
 }, (table) => [
 	index("idx_floor_sync_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
 ]);
+
+
+export const giftCards = pgTable("gift_cards", {
+	id: text().primaryKey().notNull(),
+	code: text().notNull().unique(),
+	balance: numeric({ precision: 12, scale: 2 }).notNull().default('0'),
+	initialBalance: numeric("initial_balance", { precision: 12, scale: 2 }).notNull().default('0'),
+	status: text().notNull().default('active'),
+	holderName: text("holder_name"),
+	expiresAt: timestamp("expires_at"),
+	notes: text(),
+	createdAt: timestamp("created_at").defaultNow().notNull(),
+	createdBy: text("created_by"),
+	tenantId: text("tenant_id").default('default').notNull(),
+}, (table) => [
+	index("idx_giftcards_code").using("btree", table.code.asc().nullsLast().op("text_ops")),
+	index("idx_giftcards_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
+]);

@@ -228,11 +228,13 @@ export interface Payment {
   amount: number
   confirmed?: boolean
   itemIds?: string[]
+  code?: string
 }
 
 export interface PaymentSplit {
   method: string
   amount: number
+  code?: string
 }
 
 export interface RefundInput {

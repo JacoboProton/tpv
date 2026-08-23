@@ -8,6 +8,7 @@ export interface PaymentSplitState {
   method: string
   amount: number
   itemIds?: string[]
+  code?: string
 }
 
 export function addSplit(

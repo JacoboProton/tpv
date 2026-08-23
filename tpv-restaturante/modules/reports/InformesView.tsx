@@ -9,7 +9,7 @@ import {
   BarChart3, Banknote, CreditCard, Smartphone, Clock, Download, Printer, LogIn, ShieldCheck, User, Save,
 } from 'lucide-react';
 import { euros, round2, PAYMENT_METHODS } from '@/components/constants';
-import { fetchAccessLogs, fetchBackup, fetchStockLog, fetchTurns, fetchClosures, saveClosure } from '../../lib/api';
+import { fetchAccessLogs, fetchBackup, fetchStockLog, fetchTurns, fetchClosures, saveClosure, apiFetch } from '../../lib/api';
 import VerifactuPanel from '@/components/views/VerifactuPanel';
 import FoodCostView from '@/components/views/FoodCostView';
 import type { Theme } from '@/components/constants';
@@ -39,8 +39,9 @@ interface Closure {
   id: string; date: string; total: number; ticket_count: number;
   avg_ticket: number; methods?: ClosureMethod[]; employees?: ClosureEmployee[];
   sales_ids: string[]; closed_at: number; employee_name: string;
-  cuadratura?: DenomItem[] | { denoms: DenomItem[]; expected: number; counted: number; diff: number; };
+  cuadratura?: DenomItem[] | { denoms: DenomItem[]; expected: number; counted: number; diff: number; openingFloat?: number; };
   cuadratura_expected?: number; cuadratura_counted?: number; cuadratura_diff?: number;
+  openingFloat?: number;
 }
 
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -69,9 +70,10 @@ export default function InformesView() {
     { id: 'turns',     label: 'Turnos' },
     { id: 'cierres',   label: 'Cierres' },
     { id: 'respaldo',  label: 'Respaldo' },
+    { id: 'tarjetas',  label: 'Tarjetas regalo' },
   ];
 
-  if (sales.length === 0 && tab !== 'accesos' && tab !== 'verifactu' && tab !== 'respaldo' && tab !== 'extracto' && tab !== 'cierres') {
+  if (sales.length === 0 && tab !== 'accesos' && tab !== 'verifactu' && tab !== 'respaldo' && tab !== 'extracto' && tab !== 'cierres' && tab !== 'tarjetas') {
     return (
       <div className="text-center py-16">
         <BarChart3 className="w-10 h-10 mx-auto mb-3" style={{ color: C.muted }} />
@@ -122,6 +124,7 @@ export default function InformesView() {
       {tab === 'turns'     && <TurnsTab colors={C} />}
       {tab === 'cierres'   && <CierresGuardadosTab colors={C} />}
       {tab === 'respaldo'  && <RespaldoTab colors={C} />}
+      {tab === 'tarjetas'  && <GiftCardsTab colors={C} />}
     </div>
   );
 }
@@ -448,6 +451,11 @@ function CuadraturaCard({ closure, colors: C }: { closure: Closure; colors: Them
           <p style={{ color: C.muted }} className="text-xs mt-1">
             {new Date(Number(closure.closed_at)).toLocaleString('es-ES')} — {euros(closure.total)} — {closure.ticket_count} tickets
           </p>
+          {raw && !Array.isArray(raw) && raw.openingFloat ? (
+            <p style={{ color: C.muted }} className="text-xs mt-1">
+              Fondo inicial: {euros(raw.openingFloat)}
+            </p>
+          ) : null}
         </div>
         {hasCuadratura && (
           <button onClick={() => setOpen(!open)} style={{ color: C.muted }} className="text-xs underline">
@@ -511,6 +519,7 @@ function CierreCajaTab({ sales, colors: C }: { sales: Sale[]; colors: Theme }) {
   const [existingClosures, setExistingClosures] = useState<Closure[]>([]);
   const [cuadraturaCounts, setCuadraturaCounts] = useState<Record<number, string>>(() => DENOMS.reduce((acc, d) => ({ ...acc, [d.value]: '' }), {}));
   const [cuadraturaOk, setCuadraturaOk] = useState(false);
+  const [openingFloat, setOpeningFloat] = useState(0);
 
   useEffect(() => {
     fetchClosures().then(data => setExistingClosures((data as Closure[]) || [])).catch(() => {});
@@ -521,6 +530,8 @@ function CierreCajaTab({ sales, colors: C }: { sales: Sale[]; colors: Theme }) {
     setLastClosure(found || null);
     setCuadraturaOk(false);
     setCuadraturaCounts(DENOMS.reduce((acc, d) => ({ ...acc, [d.value]: '' }), {}));
+    const of0 = found && !Array.isArray(found.cuadratura) && found.cuadratura?.openingFloat ? found.cuadratura.openingFloat : 0;
+    setOpeningFloat(of0);
   }, [dateValue, existingClosures]);
 
   const periodSales = useMemo(() => {
@@ -690,7 +701,7 @@ function CierreCajaTab({ sales, colors: C }: { sales: Sale[]; colors: Theme }) {
             </h4>
 
             {(() => {
-              const expectedEfectivo = periodSales.reduce((sum, s) => {
+              const expectedEfectivo = openingFloat + periodSales.reduce((sum, s) => {
                 const payments = s.payments?.length ? s.payments : [{ method: s.paymentMethod, amount: s.total }];
                 return sum + payments.filter(p => p.method === 'efectivo').reduce((a, p) => a + p.amount, 0);
               }, 0);
@@ -707,8 +718,20 @@ function CierreCajaTab({ sales, colors: C }: { sales: Sale[]; colors: Theme }) {
                   <hr style={{ borderColor: C.line }} className="my-3" />
 
                   <p className="text-sm font-medium mb-2" style={{ color: C.cream }}>Recuento físico de efectivo</p>
+                  <div className="text-sm mb-2 flex items-center justify-between" style={{ color: C.muted }}>
+                    <span>Fondo inicial de caja:</span>
+                    <span className="font-mono" style={{ color: C.cream }}>
+                      <input
+                        type="number" min="0" step="0.01"
+                        value={openingFloat}
+                        onChange={e => setOpeningFloat(parseFloat(e.target.value) || 0)}
+                        style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}`, width: '90px', textAlign: 'right' }}
+                        className="rounded-lg px-2 py-1 text-sm"
+                      />
+                    </span>
+                  </div>
                   <div className="text-sm mb-3 flex items-center justify-between" style={{ color: C.muted }}>
-                    <span>Esperado en caja (ventas efectivo):</span>
+                    <span>Esperado en caja (fondo + ventas efectivo):</span>
                     <span className="font-mono" style={{ color: C.cream }}>{euros(expectedEfectivo)}</span>
                   </div>
 
@@ -762,7 +785,7 @@ function CierreCajaTab({ sales, colors: C }: { sales: Sale[]; colors: Theme }) {
                             ticket_count: ticketCount, avg_ticket: round2(avgTicket),
                             methods, employees,
                             sales_ids: periodSales.map(s => s.id),
-                            closed_at: Date.now(), employee_name: 'Admin',
+                            closed_at: Date.now(), employee_name: 'Admin', openingFloat,
                             cuadratura, cuadratura_expected: expectedEfectivo,
                             cuadratura_counted: totalCounted, cuadratura_diff: round2(totalCounted - expectedEfectivo),
                           };
@@ -1003,6 +1026,7 @@ function ControlCajaTab({ sales, colors: C }: { sales: Sale[]; colors: Theme }) 
   const todayStr = new Date().toISOString().slice(0, 10);
   const [cuadraturaCounts, setCuadraturaCounts] = useState<Record<number, string>>(() => DENOMS.reduce((acc, d) => ({ ...acc, [d.value]: '' }), {}));
   const [validated, setValidated] = useState(false);
+  const [openingFloat, setOpeningFloat] = useState(0);
   const [existingClosures, setExistingClosures] = useState<Closure[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -1015,7 +1039,7 @@ function ControlCajaTab({ sales, colors: C }: { sales: Sale[]; colors: Theme }) 
 
   const todaySales = sales.filter(s => new Date(Number(s.closedAt)).toISOString().slice(0, 10) === todayStr);
 
-  const expectedCash = todaySales.reduce((sum, s) => {
+  const expectedCash = openingFloat + todaySales.reduce((sum, s) => {
     const payments = s.payments?.length ? s.payments : [{ method: s.paymentMethod, amount: s.total }];
     return sum + payments.filter(p => p.method === 'efectivo').reduce((a, p) => a + p.amount, 0);
   }, 0);
@@ -1042,8 +1066,20 @@ function ControlCajaTab({ sales, colors: C }: { sales: Sale[]; colors: Theme }) 
         <hr style={{ borderColor: C.line }} className="my-3" />
 
         <p className="text-sm font-medium mb-2" style={{ color: C.cream }}>Recuento físico de efectivo</p>
+        <div className="text-sm mb-2 flex items-center justify-between" style={{ color: C.muted }}>
+          <span>Fondo inicial de caja:</span>
+          <span className="font-mono" style={{ color: C.cream }}>
+            <input
+              type="number" min="0" step="0.01"
+              value={openingFloat}
+              onChange={e => setOpeningFloat(parseFloat(e.target.value) || 0)}
+              style={{ background: C.surfaceLight, color: C.cream, border: `1px solid ${C.line}`, width: '90px', textAlign: 'right' }}
+              className="rounded-lg px-2 py-1 text-sm"
+            />
+          </span>
+        </div>
         <div className="text-sm mb-3 flex items-center justify-between" style={{ color: C.muted }}>
-          <span>Esperado en caja (ventas efectivo):</span>
+          <span>Esperado en caja (fondo + ventas efectivo):</span>
           <span className="font-mono" style={{ color: C.cream }}>{euros(expectedCash)}</span>
         </div>
 
@@ -1098,7 +1134,7 @@ function ControlCajaTab({ sales, colors: C }: { sales: Sale[]; colors: Theme }) 
                 sales_ids: todaySales.map(s => s.id),
                 closed_at: Date.now(), employee_name: 'Admin',
                 cuadratura: cuadDenoms, cuadratura_expected: expectedCash,
-                cuadratura_counted: totalCounted, cuadratura_diff: diff,
+                cuadratura_counted: totalCounted, cuadratura_diff: diff, openingFloat,
               };
               const res = await saveClosure(data);
               if (isOk(res)) {
@@ -1700,6 +1736,120 @@ function CierresGuardadosTab({ colors: C }: { colors: Theme }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+
+// ---------- Tab: Tarjetas regalo ----------
+interface GiftCard {
+  id: string; code: string; balance: number; status: string;
+  holderName: string | null; expiresAt: string | null;
+}
+function errMsg(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+function GiftCardsTab({ colors: C }: { colors: Theme }) {
+  const [cards, setCards] = useState<GiftCard[]>([]);
+  const [amount, setAmount] = useState('');
+  const [code, setCode] = useState('');
+  const [holder, setHolder] = useState('');
+  const [expires, setExpires] = useState('');
+  const [rechargeId, setRechargeId] = useState<string | null>(null);
+  const [rechargeAmt, setRechargeAmt] = useState('');
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function load() {
+    try {
+      const rows = (await apiFetch('/api/gift-cards')) as GiftCard[];
+      setCards(rows || []);
+    } catch (e) { setMsg({ ok: false, text: errMsg(e) }); }
+  }
+  useEffect(() => { void load(); }, []);
+
+  async function emitir(e: FormEvent) {
+    e.preventDefault();
+    setMsg(null);
+    const amt = parseFloat(amount);
+    if (!(amt > 0)) { setMsg({ ok: false, text: 'Importe inicial inválido' }); return; }
+    setLoading(true);
+    try {
+      await apiFetch('/api/gift-cards', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'issue', amount: amt, code: code || undefined, holderName: holder || undefined, expiresAt: expires || undefined }),
+      });
+      setMsg({ ok: true, text: 'Tarjeta emitida correctamente' });
+      setAmount(''); setCode(''); setHolder(''); setExpires('');
+      await load();
+    } catch (e) { setMsg({ ok: false, text: errMsg(e) }); }
+    finally { setLoading(false); }
+  }
+
+  async function recargar(id: string) {
+    const amt = parseFloat(rechargeAmt);
+    if (!(amt > 0)) { setMsg({ ok: false, text: 'Importe de recarga inválido' }); return; }
+    setLoading(true);
+    try {
+      const card = cards.find(c => c.id === id);
+      await apiFetch('/api/gift-cards', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'recharge', code: card?.code, amount: amt }),
+      });
+      setMsg({ ok: true, text: 'Tarjeta recargada' });
+      setRechargeId(null); setRechargeAmt('');
+      await load();
+    } catch (e) { setMsg({ ok: false, text: errMsg(e) }); }
+    finally { setLoading(false); }
+  }
+
+  const inputCls = 'rounded-lg px-3 py-2 text-sm w-full mt-1';
+  const box = { background: C.surfaceLight, color: C.cream };
+  return (
+    <div style={{ background: C.surface, border: `1px solid ${C.line}` }} className="rounded-xl p-5">
+      <h3 className="font-display text-xl mb-4" style={{ color: C.brassLight }}>Tarjetas regalo</h3>
+      {msg && <div className="mb-4 text-sm" style={{ color: msg.ok ? C.sageLight : C.wineLight }}>{msg.text}</div>}
+      <form onSubmit={emitir} className="grid grid-cols-2 gap-3 mb-6">
+        <label className="text-xs" style={{ color: C.muted }}>Importe inicial (€)
+          <input type="number" step="0.01" min="0" value={amount} onChange={e => setAmount(e.target.value)} style={box} className={inputCls} placeholder="50" required />
+        </label>
+        <label className="text-xs" style={{ color: C.muted }}>Código (opcional)
+          <input type="text" value={code} onChange={e => setCode(e.target.value.toUpperCase())} style={box} className={inputCls + " font-mono"} placeholder="auto" />
+        </label>
+        <label className="text-xs" style={{ color: C.muted }}>Titular (opcional)
+          <input type="text" value={holder} onChange={e => setHolder(e.target.value)} style={box} className={inputCls} placeholder="Nombre" />
+        </label>
+        <label className="text-xs" style={{ color: C.muted }}>Caducidad (opcional)
+          <input type="date" value={expires} onChange={e => setExpires(e.target.value)} style={box} className={inputCls} />
+        </label>
+        <button type="submit" disabled={loading} style={{ background: C.brass, color: C.base }} className="col-span-2 rounded-lg py-2.5 text-sm font-semibold disabled:opacity-50 hover:opacity-90">
+          {loading ? 'Procesando…' : 'Emitir tarjeta'}
+        </button>
+      </form>
+      <h4 className="text-sm font-medium mb-2" style={{ color: C.muted }}>Tarjetas emitidas</h4>
+      {cards.length === 0 ? <p className="text-sm" style={{ color: C.muted }}>Sin tarjetas emitidas.</p> : (
+        <div className="flex flex-col gap-2">
+          {cards.map(c => (
+            <div key={c.id} style={{ background: C.surfaceLight }} className="rounded-lg px-3 py-2.5 flex items-center gap-3 flex-wrap">
+              <div className="flex-1 min-w-[160px]">
+                <p className="font-mono text-sm">{c.code}</p>
+                <p className="text-xs" style={{ color: C.muted }}>{c.holderName || 'Sin titular'}{c.expiresAt ? ' · caduca ' + new Date(c.expiresAt).toLocaleDateString() : ''}</p>
+              </div>
+              <span className="font-mono" style={{ color: c.status === 'redeemed' ? C.muted : C.brassLight }}>{euros(Number(c.balance))}</span>
+              <span className="text-[10px] uppercase px-2 py-0.5 rounded" style={{ background: c.status === 'active' ? C.sage : C.surface, color: c.status === 'active' ? C.base : C.muted }}>{c.status}</span>
+              {rechargeId === c.id ? (
+                <span className="flex items-center gap-2">
+                  <input type="number" step="0.01" min="0" value={rechargeAmt} onChange={e => setRechargeAmt(e.target.value)} style={box} className="rounded-md px-2 py-1 text-sm w-24 font-mono" placeholder="€" />
+                  <button onClick={() => void recargar(c.id)} style={{ color: C.sageLight }} className="text-xs">OK</button>
+                  <button onClick={() => { setRechargeId(null); setRechargeAmt(''); }} style={{ color: C.muted }} className="text-xs">✕</button>
+                </span>
+              ) : (
+                <button onClick={() => { setRechargeId(c.id); setRechargeAmt(''); }} style={{ color: C.brass }} className="text-xs">Recargar</button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

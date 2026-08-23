@@ -7,12 +7,14 @@ const METHOD_LABELS: Record<string, string> = {
   tarjeta: 'Tarjeta',
   bizum: 'Bizum',
   fiado: 'Fiado',
+  gift: 'Tarjeta regalo',
 }
 
 export function buildPayments(splits: PaymentSplit[]): Payment[] {
   return splits.map(s => ({
     method: s.method,
     amount: round2(s.amount),
+    ...(s.code ? { code: s.code } : {}),
     ...(s.method === 'bizum' ? { confirmed: false } : {}),
   }))
 }

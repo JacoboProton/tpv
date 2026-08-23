@@ -8,6 +8,7 @@ import { euros } from '../components/constants'
 import { saveStockLog } from '../infrastructure/database/stock-log-repository'
 import { eventBus } from '../lib/event-bus'
 import { addSplit as addSplitOp, updateSplitAmount as updateSplitAmountOp, removeSplit as removeSplitOp, toggleSplitItem as toggleSplitItemOp, computePaymentTotals, type PaymentSplitState } from '@tpv/core'
+import { apiFetch } from '@/lib/api'
 import { executeCloseOrder } from '../application/CloseOrder/close-order'
 
 export function useOrderPayments(
@@ -56,6 +57,10 @@ export function useOrderPayments(
     setPaymentSplits((prev) => toggleSplitItemOp(prev, splitId, itemId, selectedOrder?.items ?? []))
   }, [selectedOrder])
 
+  const updateSplitCode = useCallback((id: string, value: string) => {
+    setPaymentSplits((prev) => prev.map(p => p.id === id ? { ...p, code: value.toUpperCase() } : p))
+  }, [])
+
   const resetPaymentState = useCallback(() => {
     setPaying(false)
     setPaymentSplits([])
@@ -69,12 +74,26 @@ export function useOrderPayments(
     setInvoiceEmail('')
   }, [])
 
-  const closeBill = useCallback(() => {
+  const closeBill = useCallback(async () => {
     if (!selectedTableId || !floor) return
     const table = floor.tables?.find((t) => t.id === selectedTableId)
     if (!table || !table.orderId) return
     const order: Order = floor.orders?.[table.orderId] as Order
     if (!order) return
+
+    const giftSplits = paymentSplits.filter(s => s.method === 'gift' && s.code && s.amount > 0)
+    for (const g of giftSplits) {
+      try {
+        await apiFetch('/api/gift-cards', {
+          method: 'POST',
+          body: JSON.stringify({ action: 'redeem', code: g.code, amount: g.amount }),
+        })
+      } catch (e) {
+        const m = e instanceof Error ? e.message : String(e);
+        showToast('Error tarjeta regalo (' + (g.code || '?') + '): ' + (m || 'saldo insuficiente'))
+        return
+      }
+    }
 
     const { nextFloor, nextCatalog, sale, stockLogs, warnings, wasDebt } = executeCloseOrder({
       floor,
@@ -134,7 +153,7 @@ export function useOrderPayments(
   }, [floor, catalog, sales, selectedTableId, orderDiscount, tipAmount, tipMethod,
       paymentSplits, paymentIntentId, invoiceNif, invoiceName, invoiceAddress, invoiceEmail,
       modifierData, offers, trainingMode, currentUser, persistFloor,
-      setCatalog, persistSales, showToast, resetPaymentState, setSelectedTableId])
+      setCatalog, persistSales, showToast, resetPaymentState, setSelectedTableId, apiFetch])
 
   return {
     paying, setPaying,
@@ -149,7 +168,7 @@ export function useOrderPayments(
     invoiceEmail, setInvoiceEmail,
     orderTotal, discountedTotal, finalTotal,
     splitsUsed, remaining, canConfirm,
-    addSplit, updateSplitAmount, removeSplit, toggleSplitItem,
+    addSplit, updateSplitAmount, removeSplit, toggleSplitItem, updateSplitCode,
     closeBill, resetPaymentState,
   }
 }

@@ -173,7 +173,7 @@ export default function TallerLayout({
     cancelTable, voidTable, moveTable, mergeTables, reopenOrder,
     createNewTicket, switchTicket, deleteEmptyTicket, renameTicket,
     linkCustomer, unlinkCustomer,
-    addSplit, updateSplitAmount, removeSplit, toggleSplitItem,
+    addSplit, updateSplitAmount, removeSplit, toggleSplitItem, updateSplitCode,
     closeBill, handlePrint, debtFloorRef,
   } = orders;
 
@@ -298,7 +298,7 @@ export default function TallerLayout({
           finalTotal={finalTotal} orderDiscount={orderDiscount} tipAmount={tipAmount} setTipAmount={setTipAmount}
           tipMethod={tipMethod} setTipMethod={setTipMethod}
           paymentSplits={paymentSplits} remaining={remaining} canConfirm={canConfirm}
-          onAddSplit={addSplit} onUpdateSplitAmount={updateSplitAmount} onRemoveSplit={removeSplit} onToggleSplitItem={toggleSplitItem}
+          onAddSplit={addSplit} onUpdateSplitAmount={updateSplitAmount} onUpdateSplitCode={updateSplitCode} onRemoveSplit={removeSplit} onToggleSplitItem={toggleSplitItem}
           onConfirm={closeBill} onStripeSuccess={(pi) => { setPaymentIntentId(pi.id); closeBill(); }}
           onCancel={() => { setPaying(false); setPaymentSplits([]); setTipAmount(0); setTipMethod('efectivo'); setInvoiceNif(''); setInvoiceName(''); setInvoiceAddress(''); setInvoiceEmail(''); }}
           onPrint={handlePrint} showToast={showToast} orderItems={selectedOrder?.items || []}

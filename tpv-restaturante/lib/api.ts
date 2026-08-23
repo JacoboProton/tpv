@@ -46,7 +46,7 @@ function mergeHeaders(base: Record<string, string>, extra?: HeadersInit): Record
   return out;
 }
 
-async function apiFetch(url: string, options: RequestInit = {}): Promise<unknown> {
+export async function apiFetch(url: string, options: RequestInit = {}): Promise<unknown> {
   try {
     const { headers: customHeaders, ...rest } = options;
     const res = await fetch(url, {

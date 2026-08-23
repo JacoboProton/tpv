@@ -165,11 +165,10 @@ export async function POST(req: NextRequest) {
           };
           await new Promise<void>((resolve, reject) => {
             const timer = setTimeout(() => reject(new Error('SMTP timeout')), 12000);
-            transporter.sendMail(mailOptions, (err: unknown) => {
-              clearTimeout(timer);
-              if (err) reject(err instanceof Error ? err : new Error(String(err)));
-              else resolve();
-            });
+            Promise.resolve(transporter.sendMail(mailOptions)).then(
+              () => { clearTimeout(timer); resolve(); },
+              (err: unknown) => { clearTimeout(timer); reject(err instanceof Error ? err : new Error(String(err))); }
+            );
           });
           results.email = 'sent';
         } catch (e) {
