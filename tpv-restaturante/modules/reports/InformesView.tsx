@@ -54,7 +54,7 @@ const PAYMENT_METHODS_UI = PAYMENT_METHODS.map(m => ({
 // ---------- Vista contenedor ----------
 export default function InformesView() {
   const { sales } = useSales();
-  const { colors: C } = useUi();
+  const { colors: C, setView } = useUi();
   const [tab, setTab] = useState('resumen');
 
   const tabs: { id: string; label: string }[] = [
@@ -126,7 +126,7 @@ export default function InformesView() {
       {tab === 'cierres'   && <CierresGuardadosTab colors={C} />}
       {tab === 'respaldo'  && <RespaldoTab colors={C} />}
       {tab === 'tarjetas'  && <GiftCardsTab colors={C} />}
-      {tab === 'costes'    && <FoodCostView colors={C} sales={sales as unknown as import('@/lib/food-cost').FoodCostSale[]} />}
+      {tab === 'costes'    && <FoodCostView colors={C} sales={sales as unknown as import('@/lib/food-cost').FoodCostSale[]} onNavigate={(v) => setView(v)} />}
     </div>
   );
 }

@@ -173,7 +173,7 @@ export default function FoodCostView({ colors: C, sales, onNavigate }: FoodCostV
   }
 
   function handleEditProduct(productId: string) {
-    if (onNavigate) onNavigate('catalog', productId);
+    if (onNavigate) onNavigate('inventario', productId);
   }
 
   if (loading) {
