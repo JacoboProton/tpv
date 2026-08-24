@@ -36,12 +36,14 @@ export async function processSalesQueue(queue, processingRef, deps) {
                     queue.shift();
                 }
                 else {
-                    deps.showToast(`Error venta: ${lastErr}. No se pudo guardar`);
+                    deps.persistSale(sale);
+                    deps.showToast(`Venta guardada sin conexión. Se sincronizará cuando vuelva la red.`);
                     queue.shift();
                 }
             }
             catch (e2) {
-                deps.showToast(`Error venta: ${e2 instanceof Error ? e2.message : String(e2)}. No se pudo guardar`);
+                deps.persistSale(sale);
+                deps.showToast(`Venta guardada sin conexión. Se sincronizará cuando vuelva la red.`);
                 queue.shift();
             }
         }

@@ -169,7 +169,7 @@ export function executeCloseOrder(input: CloseOrderInput): CloseOrderResult {
     id: 's_' + Date.now(),
     tableId: table.id,
     tableName: table.name,
-    items: order.items.map((i) => ({ id: i.id, productId: i.productId, name: i.name, qty: i.qty, price: i.price || 0, voided: !!i.voided })),
+    items: order.items.map((i) => ({ id: i.id, productId: i.productId, name: i.name, qty: i.qty, price: i.price || 0, cost: Number(catalog.products.find(p => p.id === i.productId)?.cost ?? 0), voided: !!i.voided })),
     subtotal,
     discount: orderDiscount,
     discountAmount,

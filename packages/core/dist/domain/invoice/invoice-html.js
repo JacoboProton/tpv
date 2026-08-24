@@ -8,11 +8,12 @@ export function esc(value) {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 }
-export function buildInvoiceHtml(ticketSettings, sale) {
+export function buildInvoiceHtml(ticketSettings, sale, opts = {}) {
     const { restaurantName, companyCif, companyAddress, companyPhone, footerText } = ticketSettings;
+    const { qrDataUrl } = opts;
     const totalConIva = sale.total || 0;
     const { baseImponible, cuotaIgic } = calculateIgic(totalConIva);
-    const itemsHtml = (sale.items || []).filter((i) => !i.voided).map((i) => `<tr><td style="padding:3px 0">${esc(i.name)}</td><td style="text-align:center;width:40px">${i.qty}</td><td style="text-align:right;width:70px">${euros(i.price)}</td><td style="text-align:right;width:80px">${euros((i.price || 0) * (i.qty || 0))}</td></tr>`).join('');
+    const itemsHtml = (sale.items || []).filter((i) => !i.voided).map((i) => { var _a; return `<tr><td style="padding:3px 0">${esc(i.name)}</td><td style="text-align:center;width:40px">${i.qty}</td><td style="text-align:right;width:70px">${euros((_a = i.price) !== null && _a !== void 0 ? _a : 0)}</td><td style="text-align:right;width:80px">${euros((i.price || 0) * (i.qty || 0))}</td></tr>`; }).join('');
     return `<html><head><meta charset="utf-8"><style>
     @page { margin:8mm 12mm; size: A4; }
     body { font-family:'Segoe UI',Arial,sans-serif; font-size:11px; color:#222; margin:0; padding:0; }
@@ -56,6 +57,12 @@ export function buildInvoiceHtml(ticketSettings, sale) {
     ${sale.tip > 0 ? `<p style="font-size:10px;color:#888;text-align:right">Propina (NO fiscal): +${euros(sale.tip)}</p>` : ''}
     ${sale.discount > 0 ? `<p style="font-size:10px;color:#888;text-align:right">Descuento aplicado: ${sale.discount}%</p>` : ''}
     ${sale.invoiceEmail ? `<p style="font-size:9px;color:#888;margin-top:8px">Enviada a: ${esc(sale.invoiceEmail)}</p>` : ''}
+    ${qrDataUrl ? `
+    <div style="margin-top:14px;border-top:1px solid #ddd;padding-top:10px;text-align:center">
+      <img src="${qrDataUrl}" alt="QR verificacion" style="width:90px;height:90px" />
+      <p style="font-size:8px;color:#888;margin:4px 0 0">Verifique esta factura con la app AEAT / Verifactu.<br>
+      ${sale.verifactuNumSerie ? `Serie: ${esc(sale.verifactuNumSerie)}` : ''}</p>
+    </div>` : ''}
     <div class="footer">${esc(footerText) || 'Gracias por su visita'}</div>
   </body></html>`;
 }

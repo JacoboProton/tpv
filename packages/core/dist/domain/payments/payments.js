@@ -3,9 +3,10 @@ const METHOD_LABELS = {
     tarjeta: 'Tarjeta',
     bizum: 'Bizum',
     fiado: 'Fiado',
+    gift: 'Tarjeta regalo',
 };
 export function buildPayments(splits) {
-    return splits.map(s => (Object.assign({ method: s.method, amount: round2(s.amount) }, (s.method === 'bizum' ? { confirmed: false } : {}))));
+    return splits.map(s => (Object.assign(Object.assign({ method: s.method, amount: round2(s.amount) }, (s.code ? { code: s.code } : {})), (s.method === 'bizum' ? { confirmed: false } : {}))));
 }
 export function isFiado(payments) {
     return payments.some(p => p.method === 'fiado');

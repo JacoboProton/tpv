@@ -110,6 +110,7 @@ export const products = pgTable("products", {
 	name: text().notNull(),
 	category: text().notNull(),
 	price: numeric({ precision: 10, scale:  2 }).notNull(),
+  cost: numeric({ precision: 10, scale: 2 }).default('0').notNull(),
 	stock: integer().default(0).notNull(),
 	lowStock: integer("low_stock").default(5).notNull(),
 	ubicacion: text().default('Bar').notNull(),

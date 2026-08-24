@@ -270,7 +270,19 @@ export default function InventarioView() {
             onBlurCapture={e => (e.target as HTMLElement).style.borderColor = 'transparent'}
           />
 
-          <div className="relative" style={{ width: 80, height: 36 }}>
+                    <input
+            type="number" step="0.01" min="0" defaultValue={p.cost ?? 0}
+            onBlur={e => onUpdateField(p.id, 'cost', e.target.value)}
+            title="Coste de compra"
+            style={{ ...inputStyle, color: C.cream, width: 72 }}
+            className="font-mono rounded-lg px-2.5 py-1.5 text-sm text-center hover:border-gray-500 focus:border-gray-300 focus:outline-none"
+            onMouseEnter={e => { if (!(e.target as HTMLElement).matches(':focus')) (e.target as HTMLElement).style.borderColor = C.line; }}
+            onMouseLeave={e => { if (!(e.target as HTMLElement).matches(':focus')) (e.target as HTMLElement).style.borderColor = 'transparent'; }}
+            onFocus={e => (e.target as HTMLElement).style.borderColor = C.brass}
+            onBlurCapture={e => (e.target as HTMLElement).style.borderColor = 'transparent'}
+          />
+
+<div className="relative" style={{ width: 80, height: 36 }}>
             <button
               onClick={() => onDelete(p.id)}
               style={{

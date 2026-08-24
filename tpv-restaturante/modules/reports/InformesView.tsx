@@ -71,9 +71,10 @@ export default function InformesView() {
     { id: 'cierres',   label: 'Cierres' },
     { id: 'respaldo',  label: 'Respaldo' },
     { id: 'tarjetas',  label: 'Tarjetas regalo' },
+    { id: 'costes',    label: 'Costes' },
   ];
 
-  if (sales.length === 0 && tab !== 'accesos' && tab !== 'verifactu' && tab !== 'respaldo' && tab !== 'extracto' && tab !== 'cierres' && tab !== 'tarjetas') {
+  if (sales.length === 0 && tab !== 'accesos' && tab !== 'verifactu' && tab !== 'respaldo' && tab !== 'extracto' && tab !== 'cierres' && tab !== 'tarjetas' && tab !== 'costes') {
     return (
       <div className="text-center py-16">
         <BarChart3 className="w-10 h-10 mx-auto mb-3" style={{ color: C.muted }} />
@@ -125,6 +126,7 @@ export default function InformesView() {
       {tab === 'cierres'   && <CierresGuardadosTab colors={C} />}
       {tab === 'respaldo'  && <RespaldoTab colors={C} />}
       {tab === 'tarjetas'  && <GiftCardsTab colors={C} />}
+      {tab === 'costes'    && <FoodCostView colors={C} sales={sales as unknown as import('@/lib/food-cost').FoodCostSale[]} />}
     </div>
   );
 }
@@ -1853,3 +1855,5 @@ function GiftCardsTab({ colors: C }: { colors: Theme }) {
     </div>
   );
 }
+
+

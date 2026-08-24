@@ -247,6 +247,7 @@ export interface SaleItem {
   productId?: string | null
   name: string
   price: number
+  cost?: number
   qty: number
   modifiers?: ModifierSelection[]
   notes?: string

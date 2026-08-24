@@ -58,7 +58,19 @@ export default function SettingsModal({ C, ticketSettings, setTicketSettings, sh
             <option value="pin">Requiere PIN de administrador</option>
           </select>
           <div style={{ borderTop: `1px solid ${C.line}` }} className="my-2" />
-          <p className="font-display text-sm" style={{ color: C.cream }}>Descuento de personal</p>
+                    <p className="font-display text-sm" style={{ color: C.cream }}>Food cost</p>
+          <div>
+            <label className="text-[10px] uppercase tracking-wide mb-1 block" style={{ color: C.muted }}>Umbral de alerta (%)</label>
+            <input
+              value={str(ticketSettings.foodCostThreshold, '35')}
+              onChange={e => setTicketSettings((s) => ({ ...s, foodCostThreshold: Number(e.target.value) || 0 }))}
+              type="number" min={0} max={100} step={1}
+              style={{ background: C.surfaceLight, color: C.cream }}
+              className="w-full rounded-lg px-3 py-2 text-sm"
+            />
+          </div>
+          <div style={{ borderTop: `1px solid ${C.line}` }} className="my-2" />
+<p className="font-display text-sm" style={{ color: C.cream }}>Descuento de personal</p>
           <p style={{ color: C.muted }} className="text-[10px] -mt-2">Porcentaje por categoría (0 = sin descuento)</p>
           {(() => {
             const raw = ticketSettings.personalDiscountRates

@@ -20,6 +20,7 @@ export * from './domain/order/menu-expansion';
 export * from './domain/order/line-totals';
 export * from './domain/catalog/product-operations';
 export * from './domain/catalog/modifier-groups';
+export * from './domain/reports/sales-insights';
 export { executeCloseOrder } from './application/CloseOrder/close-order';
 export type { CloseOrderInput, CloseOrderResult, CloseOrderItem, CloseOrderModifierGroup, CloseOrderModifierOption, CloseOrderTable, CloseOrderStockLog } from './application/CloseOrder/close-order';
 export { addNormalItem, addMenuItems, addComboItems, editItemModifiers } from './application/AddItemsToOrder/add-items-to-order';

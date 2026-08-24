@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
       db.select({
         id: products.id, name: products.name, category: products.category,
         price: sql<number>`${products.price}::float`,
+        cost: sql<number>`${products.cost}::float`,
         ubicacion: products.ubicacion, course: products.course,
         image: products.image, allergens: products.allergens,
         description: products.description, featured: products.featured,
@@ -178,7 +179,7 @@ function toCategories(v: unknown): Array<{
 }
 
 function toProducts(v: unknown): Array<{
-  id: string; name: string; category: string; price: string | number;
+  id: string; name: string; category: string; price: string | number; cost?: number;
   ubicacion?: string; course?: string; image?: string | null;
   allergens?: string[]; description?: string | null; featured?: boolean;
   active?: boolean; showTpv?: boolean; showQr?: boolean; agotado?: boolean;
@@ -203,6 +204,7 @@ function toProducts(v: unknown): Array<{
     return [{
       id: p.id, name: p.name, category: p.category,
       price: typeof p.price === 'number' ? p.price : String(p.price ?? '0'),
+      cost: optNum(p.cost),
       ubicacion: optStr(p.ubicacion), course: optStr(p.course),
       image: p.image === null ? null : optStr(p.image),
       description: p.description === null ? null : optStr(p.description),
@@ -278,7 +280,7 @@ export async function PUT(req: NextRequest) {
         for (const p of prodData) {
           await tx.insert(products).values({
             tenantId, id: p.id, name: p.name, category: p.category,
-            price: String(p.price), ubicacion: p.ubicacion ?? 'Bar',
+            price: String(p.price), cost: String(p.cost ?? 0), ubicacion: p.ubicacion ?? 'Bar',
             course: p.course ?? '', image: p.image ?? null,
             allergens: p.allergens ?? [], description: p.description ?? null,
             featured: p.featured ?? false, active: p.active ?? true,
@@ -289,7 +291,7 @@ export async function PUT(req: NextRequest) {
             target: [products.id, products.tenantId],
             set: {
               name: sql`EXCLUDED.name`, category: sql`EXCLUDED.category`,
-              price: sql`EXCLUDED.price`, ubicacion: sql`EXCLUDED.ubicacion`,
+              price: sql`EXCLUDED.price`, cost: sql`EXCLUDED.cost`, ubicacion: sql`EXCLUDED.ubicacion`,
               course: sql`EXCLUDED.course`, image: sql`EXCLUDED.image`,
               allergens: sql`EXCLUDED.allergens`, description: sql`EXCLUDED.description`,
               featured: sql`EXCLUDED.featured`, active: sql`EXCLUDED.active`,
@@ -382,11 +384,13 @@ export async function PATCH(req: NextRequest) {
       type ProductSet = {
         name?: string; price?: string; description?: string;
         showTpv?: boolean; showQr?: boolean; agotado?: boolean;
+        cost?: string;
         course?: string; ubicacion?: string; carouselSort?: number;
       };
       const fieldMap: Record<string, ProductSet> = {
         name: { name: String(value ?? '') },
         price: { price: String(value ?? '0') },
+        cost: { cost: String(value ?? '0') },
         description: { description: String(value ?? '') },
         showTpv: { showTpv: Boolean(value) },
         showQr: { showQr: Boolean(value) },

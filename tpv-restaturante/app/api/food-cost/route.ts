@@ -32,6 +32,8 @@ export async function GET(req: NextRequest) {
     const recipeStatus = searchParams.get('recipeStatus');
     const costThreshold = searchParams.get('costThreshold');
     const sortBy = searchParams.get('sortBy') || 'name';
+    const tRaw = Number(searchParams.get('threshold'));
+    const threshold = Number.isFinite(tRaw) && tRaw > 0 ? tRaw : 35;
 
     let productsQuery = sql`
       SELECT p.id, p.name, p.category, p.price::float AS price, p.type, p.active
@@ -74,7 +76,8 @@ export async function GET(req: NextRequest) {
     let filtered = foodCostData;
     if (recipeStatus === 'with') filtered = filtered.filter((item) => item.hasRecipe);
     else if (recipeStatus === 'without') filtered = filtered.filter((item) => !item.hasRecipe);
-    if (costThreshold === 'above35') filtered = filtered.filter((item) => item.costPct > 35);
+    const thr = costThreshold === 'above35' ? 35 : threshold;
+    if (costThreshold === 'above35' || costThreshold === 'above') filtered = filtered.filter((item) => item.costPct > thr);
     if (sortBy === 'cost') filtered.sort((a, b) => b.costPct - a.costPct);
     else if (sortBy === 'margin') filtered.sort((a, b) => b.marginPct - a.marginPct);
     else if (sortBy === 'price') filtered.sort((a, b) => b.price - a.price);
@@ -83,12 +86,13 @@ export async function GET(req: NextRequest) {
     const totalItems = foodCostData.length;
     const itemsWithRecipe = foodCostData.filter((item) => item.hasRecipe).length;
     const itemsAbove35 = foodCostData.filter((item) => item.costPct > 35).length;
+    const itemsAboveThreshold = foodCostData.filter((item) => item.costPct > threshold).length;
     const avgFoodCost = itemsWithRecipe > 0
       ? foodCostData.filter((item) => item.hasRecipe).reduce((sum, item) => sum + item.costPct, 0) / itemsWithRecipe
       : 0;
 
     return apiOk({
-      summary: { totalItems, avgFoodCost: Math.round(avgFoodCost * 100) / 100, itemsAbove35, itemsWithRecipe },
+      summary: { totalItems, avgFoodCost: Math.round(avgFoodCost * 100) / 100, itemsAbove35, itemsAboveThreshold, itemsWithRecipe },
       items: filtered,
     });
   } catch (err) { return apiError(err); }
