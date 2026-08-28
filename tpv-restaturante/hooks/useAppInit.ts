@@ -6,7 +6,7 @@ import { setSentryUser } from '../lib/sentry-context'
 import {
   runMigrate, fetchCatalog, saveCatalog,
   fetchFloor, saveFloor,
-  fetchSales,
+  fetchSales, unpackList,
   fetchEmployees, saveEmployees,
   fetchSettings, fetchOffers, fetchCombos,
 } from '../lib/api'
@@ -102,7 +102,7 @@ export function useAppInit({
       }
       setTenants(tnts)
 
-      const preFetchCache = cacheGet<Sale[]>('sales')
+      const preFetchCache = cacheGet<Sale[]>('sales:p1:s50')
 
       const [catRaw, flrRaw, slsRaw, empsRaw]: unknown[] = await Promise.all([
         fetchCatalog(),
@@ -112,8 +112,8 @@ export function useAppInit({
       ])
       const cat = isCatalog(catRaw) ? catRaw : null
       const flr = isFloor(flrRaw) ? flrRaw : null
-      const sls = isUnknownArray(slsRaw) ? slsRaw.filter((s): s is Sale => isSale(s)) : []
-      const emps = isUnknownArray(empsRaw) ? empsRaw.filter((e): e is Employee => isEmployee(e)) : []
+      const sls = unpackList<Sale>(slsRaw).filter((s) => isSale(s))
+      const emps = unpackList<Employee>(empsRaw).filter((e) => isEmployee(e))
 
       if (cat && (!cat.products || cat.products.length === 0)) {
         const seed = seedCatalog()
@@ -155,7 +155,7 @@ export function useAppInit({
         if (missing.length > 0) salesFromApi.push(...missing)
       }
       setSales(salesFromApi)
-      cacheSet('sales', salesFromApi)
+      cacheSet('sales:p1:s50', salesFromApi)
 
       const stg = await fetchSettings().catch(() => null)
       if (isRecord(stg)) setTicketSettings(stg)

@@ -11,20 +11,29 @@ vi.mock('@/lib/rbac', () => ({ requireRole: () => async () => mockRbac }));
 vi.mock('@/lib/tenant', () => ({ getTenantId: () => 'default' }));
 
 vi.mock('@/lib/drizzle', () => {
-  function whereResult(data: any[]) {
-    const p = Promise.resolve(data);
-    (p as any).orderBy = () => p;
+  function thenable(data: any[]) {
+    const p = Promise.resolve(data) as any;
+    p.orderBy = () => p;
+    p.limit = () => p;
+    p.offset = () => p;
     return p;
   }
   function from(table: any) {
     const data = dbData.get(table) || [];
-    return {
-      where: () => whereResult(data),
-      leftJoin: () => ({ where: () => whereResult(data) }),
-    };
+    const p = thenable(data);
+    p.where = () => thenable(data);
+    p.leftJoin = () => ({ where: () => thenable(data) });
+    return p;
   }
   const db: any = {
-    select: () => ({ from }),
+    select: (fields?: any) => {
+      if (fields && fields.count !== undefined) {
+        return { from: (table: any) => ({
+          where: () => Promise.resolve([{ count: dbData.get(table)?.length || 0 }])
+        })};
+      }
+      return { from };
+    },
     insert: () => ({ values: () => ({ onConflictDoUpdate: () => Promise.resolve([]) }) }),
     update: () => ({ set: () => ({ where: () => Promise.resolve([]) }) }),
     delete: () => ({ where: () => Promise.resolve([]) }),

@@ -19,16 +19,28 @@ vi.mock('bcryptjs', () => ({ default: mockBcrypt, ...mockBcrypt }));
 vi.mock('@/lib/tenant', () => ({ getTenantId: () => 'default' }));
 
 vi.mock('@/lib/drizzle', () => {
-  function whereResult(data: any[]) {
-    const p = Promise.resolve(data);
-    (p as any).orderBy = () => p;
+  function thenable(data: any[]) {
+    const p = Promise.resolve(data) as any;
+    p.orderBy = () => p;
+    p.limit = () => p;
+    p.offset = () => p;
     return p;
   }
   function from(table: any) {
-    return { where: () => whereResult(dbData.get(table) || []) };
+    const data = dbData.get(table) || [];
+    const p = thenable(data);
+    p.where = () => thenable(data.filter((r: any) => !r.revoked));
+    return p;
   }
   const db: any = {
-    select: () => ({ from }),
+    select: (fields?: any) => {
+      if (fields && fields.count !== undefined) {
+        return { from: (table: any) => ({
+          where: () => Promise.resolve([{ count: dbData.get(table)?.length || 0 }])
+        })};
+      }
+      return { from };
+    },
     insert: () => ({ values: () => ({ onConflictDoUpdate: () => Promise.resolve([]) }) }),
     update: () => ({ set: () => ({ where: () => Promise.resolve([]) }) }),
     delete: () => ({ where: () => Promise.resolve([]) }),
@@ -66,7 +78,8 @@ describe('GET /api/employees', () => {
     const res = await GET(req());
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual([]);
+    expect(body.data).toEqual([]);
+    expect(body.pagination).toMatchObject({ page: 1, pageSize: 50, total: 0 });
   });
 
   it('returns employees from database', async () => {
@@ -86,11 +99,12 @@ describe('GET /api/employees', () => {
     const res = await GET(req());
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toHaveLength(2);
-    expect(body[0].name).toBe('Alice');
-    expect(body[0].hasPin).toBe(true);
-    expect(body[1].name).toBe('Bob');
-    expect(body[1].hasPin).toBe(false);
+    expect(body.data).toHaveLength(2);
+    expect(body.data[0].name).toBe('Alice');
+    expect(body.data[0].hasPin).toBe(true);
+    expect(body.data[1].name).toBe('Bob');
+    expect(body.data[1].hasPin).toBe(false);
+    expect(body.pagination.total).toBe(2);
   });
 });
 

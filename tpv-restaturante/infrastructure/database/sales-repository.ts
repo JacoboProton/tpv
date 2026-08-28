@@ -1,4 +1,4 @@
-import { fetchSales, addSale } from '@/lib/api'
+import { fetchSales, addSale, unpackList } from '@/lib/api'
 import { cacheSet } from '@/lib/offline'
 import type { SaleItem, Payment } from '@tpv/core'
 
@@ -26,8 +26,8 @@ export interface SalesData {
 export async function getSales(): Promise<SalesData | null> {
   try {
     const data = await fetchSales()
-    if (isRecord(data)) return data as unknown as SalesData
-    return null
+    const list = unpackList<Sale>(data)
+    return { sales: list }
   } catch {
     return null
   }

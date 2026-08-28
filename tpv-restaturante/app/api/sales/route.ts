@@ -21,6 +21,11 @@ export async function GET(req: NextRequest) {
     const year = searchParams.get('year');
     const ticketNumber = searchParams.get('ticketNumber');
 
+    // Pagination params
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+    const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '50', 10)));
+    const offset = (page - 1) * pageSize;
+
     const conditions: ReturnType<typeof eq>[] = [];
     if (tenantId !== 'all') conditions.push(eq(sales.tenantId, tenantId));
 
@@ -37,9 +42,17 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Total count for pagination metadata
+    const [{ count: total }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(sales)
+      .where(and(...conditions));
+
     const rows = await db.select().from(sales)
       .where(and(...conditions))
-      .orderBy(desc(sales.closedAt));
+      .orderBy(desc(sales.closedAt))
+      .limit(pageSize)
+      .offset(offset);
 
     const saleIds = rows.map((r: typeof sales.$inferSelect) => r.id);
     const verifactuMap: Record<string, { estado: string; numSerie: string; qrUrl: string }> = {};
@@ -76,7 +89,18 @@ export async function GET(req: NextRequest) {
       verifactuQrUrl: verifactuMap[r.id]?.qrUrl || '',
       ticketNumber: r.ticketNumber,
     }));
-    return apiOk(mapped);
+    const totalPages = Math.ceil(total / pageSize);
+    return apiOk({
+      data: mapped,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
+      }
+    });
   } catch (err) { return apiError(err); }
 }
 

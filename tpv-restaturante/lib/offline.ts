@@ -1,4 +1,15 @@
 import { z } from 'zod'
+import {
+  EmployeePutBody,
+  CatalogBody,
+  OffersBody,
+  CombosBody,
+  MealMenuBody,
+  PriceRulesBody,
+  SalePostBody,
+  RefundBody,
+} from './schemas/api-schemas'
+import { FloorPutBodySchema } from './schemas/floorSchema'
 
 const CACHE_PREFIX = 'tpv:cache:';
 const QUEUE_KEY = 'tpv:mutations';
@@ -57,22 +68,16 @@ export interface MutationV2 {
   lastError?: string
 }
 
-// Guard estructural por endpoint: comprueba solo la forma esperada.
-// La validación autoritativa de campos la hace el servidor (safeParse → 400),
-// y el loop de sync descarta los 4xx sin reintentar.
-const ANY_ARRAY = z.array(z.any())
-const ANY_OBJECT = z.object({}).passthrough()
-
 export const MUTATION_SCHEMAS: Record<string, z.ZodType> = {
-  '/api/floor': ANY_OBJECT,
-  '/api/employees': ANY_ARRAY,
-  '/api/catalog': ANY_OBJECT,
-  '/api/offers': ANY_ARRAY,
-  '/api/combos': ANY_ARRAY,
-  '/api/meal-menus': ANY_ARRAY,
-  '/api/price-rules': ANY_ARRAY,
-  '/api/sales': ANY_OBJECT,
-  '/api/sales/refund': ANY_OBJECT,
+  '/api/floor': FloorPutBodySchema,
+  '/api/employees': EmployeePutBody,
+  '/api/catalog': CatalogBody,
+  '/api/offers': OffersBody,
+  '/api/combos': CombosBody,
+  '/api/meal-menus': MealMenuBody,
+  '/api/price-rules': PriceRulesBody,
+  '/api/sales': SalePostBody,
+  '/api/sales/refund': RefundBody,
 }
 
 const COALESCE_KEYS = new Set(['/api/floor', '/api/employees', '/api/catalog', '/api/offers', '/api/combos', '/api/meal-menus', '/api/price-rules'])

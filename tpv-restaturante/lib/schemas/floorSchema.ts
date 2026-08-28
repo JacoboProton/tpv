@@ -27,7 +27,7 @@ export const OrderSchema = z.object({
   id: z.union([z.string(), z.number()]),
   tableId: z.union([z.string(), z.number()]).optional(),
   items: z.any(), // flexible for now
-  createdAt: z.string().optional(),
+  createdAt: z.union([z.string(), z.number()]).optional(),
   employeeName: z.string().nullable().optional(),
 });
 

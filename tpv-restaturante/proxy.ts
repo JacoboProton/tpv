@@ -60,6 +60,7 @@ const PUBLIC_PATHS = [
   '/api/reservations/availability',
   '/api/delivery/tracking',
   '/api/backup-cron',
+  '/api/demo-seed',
 ];
 
 function isPublicPath(pathname: string): boolean {

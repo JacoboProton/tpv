@@ -23,25 +23,47 @@ export async function GET(req: NextRequest) {
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
-    const rows = await db.select().from(employees)
+    const { searchParams } = new URL(req.url);
+
+    // Pagination params
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+    const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '50', 10)));
+    const offset = (page - 1) * pageSize;
+
+    // Total count for pagination metadata
+    const [{ count: total }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(employees)
       .where(eq(employees.tenantId, tenantId));
+
+    const rows = await db.select().from(employees)
+      .where(eq(employees.tenantId, tenantId))
+      .limit(pageSize)
+      .offset(offset);
+
     if (!auth.authorized) {
-      return apiOk(rows.map((r) => ({
-        id: r.id, name: r.name, role: r.role, hasPin: !!r.pinHash,
-      })));
+      return apiOk({
+        data: rows.map((r) => ({
+          id: r.id, name: r.name, role: r.role, hasPin: !!r.pinHash,
+        })),
+        pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize), hasNext: page < Math.ceil(total / pageSize), hasPrev: page > 1 }
+      });
     }
-    return apiOk(rows.map((r) => ({
-      id: r.id, name: r.name, role: r.role,
-      personalDiscountEnabled: r.personalDiscountEnabled,
-      monthlyLimit: Number(r.monthlyLimit || 0),
-      monthlyUsed: Number(r.monthlyUsed || 0),
-      monthlyUsedMonth: r.monthlyUsedMonth,
-      position: r.position, workType: r.workType,
-      workPct: Number(r.workPct || 100), dni: r.dni,
-      notes: r.notes, whatsappCode: r.whatsappCode,
-      whatsappLinked: r.whatsappLinked, createdAt: r.createdAt,
-      hasPin: !!r.pinHash,
-    })));
+    return apiOk({
+      data: rows.map((r) => ({
+        id: r.id, name: r.name, role: r.role,
+        personalDiscountEnabled: r.personalDiscountEnabled,
+        monthlyLimit: Number(r.monthlyLimit || 0),
+        monthlyUsed: Number(r.monthlyUsed || 0),
+        monthlyUsedMonth: r.monthlyUsedMonth,
+        position: r.position, workType: r.workType,
+        workPct: Number(r.workPct || 100), dni: r.dni,
+        notes: r.notes, whatsappCode: r.whatsappCode,
+        whatsappLinked: r.whatsappLinked, createdAt: r.createdAt,
+        hasPin: !!r.pinHash,
+      })),
+      pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize), hasNext: page < Math.ceil(total / pageSize), hasPrev: page > 1 }
+    });
   } catch (err) { return apiError(err); }
 }
 

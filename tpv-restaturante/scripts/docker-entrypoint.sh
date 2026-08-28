@@ -17,7 +17,8 @@ if [ -z "$CRON_SECRET" ]; then
   echo "[demo] CRON_SECRET generado automaticamente"
 fi
 
-npx drizzle-kit push --force
+# Ejecutar migraciones Drizzle (no destructivo como push --force)
+npx drizzle-kit migrate
 
 # Arranca el servidor (CMD: node server.js) en background.
 "$@" &

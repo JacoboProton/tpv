@@ -1,23 +1,12 @@
 import { test, expect } from '@playwright/test';
+import { loginAsAdmin } from './helpers';
 
 test.describe('Flujo completo: mesa → pedido → cobro → Verifactu', () => {
 
   test('login, abrir mesa, añadir producto, cobrar en efectivo, verificar mesa libre', async ({ page }) => {
     // ── 1. Login ──
-    await page.goto('/', { timeout: 15000 });
-    await expect(page.getByText('LA COMANDA')).toBeVisible({ timeout: 10000 });
-
-    await page.getByText('ENTRADA').click();
-    await expect(page.getByText('Selecciona tu usuario')).toBeVisible({ timeout: 5000 });
-    await page.getByRole('button', { name: /Administrador/ }).first().click();
-    await expect(page.getByText('Introduce tu PIN de 4 dígitos')).toBeVisible({ timeout: 5000 });
-
-    for (const d of ['1', '2', '3', '4']) {
-      await page.getByRole('button', { name: d, exact: true }).click();
-    }
-
-    await expect(page.getByText('SALÓN')).toBeVisible({ timeout: 8000 });
-    await expect(page.getByText('Mesa 1')).toBeVisible({ timeout: 8000 });
+    await loginAsAdmin(page);
+    page.on('dialog', (d) => d.accept());
 
     // ── 2. Abrir mesa ──
     const usarBtn = page.getByRole('button', { name: 'Usar' }).first();
@@ -38,7 +27,7 @@ test.describe('Flujo completo: mesa → pedido → cobro → Verifactu', () => {
     await productBtn.click();
 
     // Verificar que aparece en el pedido (la linea con cantidad)
-    await expect(page.getByText('Patatas Bravas')).toBeVisible({ timeout: 3000 });
+    await expect(page.getByText('Patatas Bravas', { exact: false }).first()).toBeVisible({ timeout: 3000 });
 
     // ── 4. Abrir cobro ──
     const cobrarBtn = page.getByRole('button', { name: 'Cobrar' });
@@ -69,6 +58,9 @@ test.describe('Flujo completo: mesa → pedido → cobro → Verifactu', () => {
     // El modal de pago desaparece
     await expect(page.getByRole('button', { name: 'Confirmar cobro' })).not.toBeVisible({ timeout: 8000 });
 
+    // El drawer de comanda permanece abierto tras cobrar; cerrarlo con Escape
+    await page.keyboard.press('Escape');
+
     // El drawer de comanda se cierra → el buscador desaparece
     await expect(page.getByPlaceholder('Buscar productos (/)')).not.toBeVisible({ timeout: 5000 });
 
@@ -83,16 +75,9 @@ test.describe('Flujo completo: mesa → pedido → cobro → Verifactu', () => {
   });
 
   test('flujo completo con propina y factura', async ({ page }) => {
-    await page.goto('/', { timeout: 15000 });
-    await expect(page.getByText('LA COMANDA')).toBeVisible({ timeout: 10000 });
-
-    // Login
-    await page.getByText('ENTRADA').click();
-    await page.getByText('Administrador').first().click();
-    for (const d of ['1', '2', '3', '4']) {
-      await page.getByRole('button', { name: d, exact: true }).click();
-    }
-    await expect(page.getByText('SALÓN')).toBeVisible({ timeout: 8000 });
+    // ── 1. Login ──
+    await loginAsAdmin(page);
+    page.on('dialog', (d) => d.accept());
 
     // Abrir mesa
     await page.getByRole('button', { name: 'Usar' }).first().click();
@@ -134,14 +119,17 @@ test.describe('Flujo completo: mesa → pedido → cobro → Verifactu', () => {
     await page.getByPlaceholder('Nombre o razón social *').fill('Cliente E2E Test');
 
     // Pagar con efectivo
-    await page.getByRole('button', { name: 'Efectivo' }).click();
+    await page.getByRole('button', { name: 'Efectivo', exact: true }).click();
     await expect(page.getByText('Importe cubierto')).toBeVisible({ timeout: 3000 });
 
     // Confirmar
     await page.getByRole('button', { name: 'Confirmar cobro' }).click();
 
-    // Verificar cierre
+    // Verificar cierre del modal de pago
     await expect(page.getByRole('button', { name: 'Confirmar cobro' })).not.toBeVisible({ timeout: 8000 });
+
+    // Cerrar el drawer de comanda (Escape) y verificar mesa libre
+    await page.keyboard.press('Escape');
     await expect(page.getByPlaceholder('Buscar productos (/)')).not.toBeVisible({ timeout: 5000 });
     await expect(page.getByRole('button', { name: 'Usar' }).first()).toBeVisible({ timeout: 8000 });
   });

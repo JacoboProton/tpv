@@ -11,6 +11,8 @@ let redis: RedisClient | null = null;
 const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
 const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
 const redisDirectUrl = process.env.REDIS_URL;
+const isProduction = process.env.NODE_ENV === 'production';
+
 if (redisUrl && redisToken) {
   try {
     const r = new Redis({ url: redisUrl, token: redisToken });
@@ -35,8 +37,15 @@ if (redisUrl && redisToken) {
   }
 }
 
+if (isProduction && !redis) {
+  throw new Error(
+    'Rate limiting requiere Upstash Redis en producción. ' +
+    'Configura UPSTASH_REDIS_REST_URL y UPSTASH_REDIS_REST_TOKEN (o REDIS_URL).'
+  );
+}
+
 const memStore = new Map<string, { count: number; resetAt: number }>();
-if (typeof setInterval !== 'undefined') {
+if (!isProduction && typeof setInterval !== 'undefined') {
   setInterval(() => {
     const now = Date.now();
     for (const [key, entry] of memStore) {
@@ -46,6 +55,9 @@ if (typeof setInterval !== 'undefined') {
 }
 
 async function memLimit(key: string, max: number, windowMs: number): Promise<{ allowed: boolean; remaining: number; reset: number }> {
+  if (isProduction) {
+    throw new Error('Rate limit en memoria no permitido en producción');
+  }
   const now = Date.now();
   const entry = memStore.get(key);
   if (!entry || now > entry.resetAt) {

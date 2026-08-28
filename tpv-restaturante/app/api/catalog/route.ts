@@ -16,6 +16,17 @@ export async function GET(req: NextRequest) {
   try {
     const db = getDb();
     const tenantId = getTenantId(req);
+    const { searchParams } = new URL(req.url);
+
+    // Pagination params for products
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+    const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '50', 10)));
+    const offset = (page - 1) * pageSize;
+
+    const [{ count: productsTotal }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(products)
+      .where(eq(products.tenantId, tenantId));
 
     const [rows, catRows, stockRows, comboRows, slotRows, slotItemRows, priceRuleRows] = await Promise.all([
       db.select({
@@ -29,7 +40,7 @@ export async function GET(req: NextRequest) {
         showQr: products.showQr, agotado: products.agotado,
         carouselSort: products.carouselSort, type: products.type,
         inventariable: products.inventariable,
-      }).from(products).where(eq(products.tenantId, tenantId)),
+      }).from(products).where(eq(products.tenantId, tenantId)).limit(pageSize).offset(offset),
       db.select().from(categories).where(eq(categories.tenantId, tenantId)),
       db.select().from(productStock).where(eq(productStock.tenantId, tenantId)),
       db.select({
@@ -121,10 +132,19 @@ export async function GET(req: NextRequest) {
     }));
 
     const priceRulesNormalized = priceRuleRows.map((r) => ({ ...r, active: !!r.active }));
+    const totalPages = Math.ceil(productsTotal / pageSize);
     return apiOk({
       categories: catRows, products: productsMapped,
       combos: combosMapped, mealMenus: mealMenusMapped,
       priceRules: priceRulesNormalized,
+      pagination: {
+        page,
+        pageSize,
+        total: productsTotal,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
+      }
     });
   } catch (err) { return apiError(err); }
 }

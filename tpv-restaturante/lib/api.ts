@@ -78,8 +78,8 @@ export async function runMigrate(): Promise<unknown> {
   return apiFetch('/api/migrate', { method: 'POST' });
 }
 
-export async function fetchCatalog(): Promise<unknown> {
-  return apiFetchWithCache('/api/catalog', 'catalog');
+export async function fetchCatalog(page = 1, pageSize = 50): Promise<unknown> {
+  return apiFetchWithCache(`/api/catalog?page=${page}&pageSize=${pageSize}`, `catalog:p${page}:s${pageSize}`);
 }
 export async function saveCatalog(catalog: unknown): Promise<unknown> {
   cacheSet('catalog', catalog);
@@ -102,6 +102,14 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 
 function isUnknownArray(v: unknown): v is unknown[] {
   return Array.isArray(v);
+}
+
+// Normaliza una respuesta (posiblemente paginada: { data: [...], pagination })
+// a un array plano. Backwards-compatible con respuestas tipo array.
+export function unpackList<T = unknown>(v: unknown): T[] {
+  if (Array.isArray(v)) return v as T[];
+  if (isRecord(v) && isUnknownArray(v.data)) return v.data as T[];
+  return [];
 }
 
 function isVectorClock(v: unknown): v is VectorClock {
@@ -238,8 +246,8 @@ export async function saveFloor<const T extends object>(floor: T): Promise<unkno
   }
 }
 
-export async function fetchSales(): Promise<unknown> {
-  return apiFetchWithCache('/api/sales', 'sales');
+export async function fetchSales(page = 1, pageSize = 50): Promise<unknown> {
+  return apiFetchWithCache(`/api/sales?page=${page}&pageSize=${pageSize}`, `sales:p${page}:s${pageSize}`);
 }
 
 export async function addSale(sale: unknown): Promise<unknown> {
@@ -249,8 +257,8 @@ export async function addSale(sale: unknown): Promise<unknown> {
   return apiFetch('/api/sales', { method: 'POST', body: JSON.stringify(sale), headers })
 }
 
-export async function fetchEmployees(): Promise<unknown> {
-  return apiFetchWithCache('/api/employees', 'employees');
+export async function fetchEmployees(page = 1, pageSize = 50): Promise<unknown> {
+  return apiFetchWithCache(`/api/employees?page=${page}&pageSize=${pageSize}`, `employees:p${page}:s${pageSize}`);
 }
 
 export async function saveEmployees(employees: unknown): Promise<unknown> {

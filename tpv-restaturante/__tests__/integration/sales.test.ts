@@ -15,6 +15,7 @@ vi.mock('@/lib/drizzle', () => {
     const p = Promise.resolve(data) as any;
     p.orderBy = () => p;
     p.limit = () => p;
+    p.offset = () => p;
     return p;
   }
   function from(table: any) {
@@ -25,7 +26,15 @@ vi.mock('@/lib/drizzle', () => {
     return p;
   }
   const db: any = {
-    select: () => ({ from }),
+    select: (fields?: any) => {
+      // Handle count query
+      if (fields && fields.count !== undefined) {
+        return { from: (table: any) => ({
+          where: () => Promise.resolve([{ count: dbData.get(table)?.length || 0 }])
+        })};
+      }
+      return { from };
+    },
     insert: () => ({
       values: () => ({
         onConflictDoUpdate: () => ({
@@ -56,7 +65,8 @@ describe('GET /api/sales', () => {
     const res = await GET(req());
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual([]);
+    expect(body.data).toEqual([]);
+    expect(body.pagination).toMatchObject({ page: 1, pageSize: 50, total: 0 });
   });
 
   it('returns sales with verifactu enrichment', async () => {
@@ -82,10 +92,10 @@ describe('GET /api/sales', () => {
     const res = await GET(req());
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toHaveLength(1);
-    expect(body[0].id).toBe('s1');
-    expect(body[0].verifactuStatus).toBe('enviado');
-    expect(body[0].verifactuNumSerie).toBe('ABC123');
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0].id).toBe('s1');
+    expect(body.data[0].verifactuStatus).toBe('enviado');
+    expect(body.data[0].verifactuNumSerie).toBe('ABC123');
   });
 });
 
