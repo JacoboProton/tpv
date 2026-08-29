@@ -38,7 +38,7 @@ if (redisUrl && redisToken) {
 }
 
 const memStore = new Map<string, { count: number; resetAt: number }>();
-if (!isProduction && typeof setInterval !== 'undefined') {
+if (typeof setInterval !== 'undefined') {
   setInterval(() => {
     const now = Date.now();
     for (const [key, entry] of memStore) {
@@ -47,10 +47,17 @@ if (!isProduction && typeof setInterval !== 'undefined') {
   }, 300_000);
 }
 
+let warnedMemFallback = false;
+function warnMemFallback(): void {
+  if (warnedMemFallback) return;
+  warnedMemFallback = true;
+  console.warn(
+    '[rate-limit] Upstash Redis no configurado: usando rate limit en memoria. ' +
+    'No es seguro multi-proceso; configura UPSTASH_REDIS_REST_URL y UPSTASH_REDIS_REST_TOKEN.'
+  );
+}
+
 async function memLimit(key: string, max: number, windowMs: number): Promise<{ allowed: boolean; remaining: number; reset: number }> {
-  if (isProduction) {
-    throw new Error('Rate limit en memoria no permitido en producción');
-  }
   const now = Date.now();
   const entry = memStore.get(key);
   if (!entry || now > entry.resetAt) {
@@ -65,13 +72,10 @@ async function memLimit(key: string, max: number, windowMs: number): Promise<{ a
 }
 
 async function redisLimit(key: string, max: number, windowMs: number): Promise<{ allowed: boolean; remaining: number; reset: number }> {
-  if (isProduction && !redis) {
-    throw new Error(
-      'Rate limiting requiere Upstash Redis en producción. ' +
-      'Configura UPSTASH_REDIS_REST_URL y UPSTASH_REDIS_REST_TOKEN (o REDIS_URL).'
-    );
+  if (!redis) {
+    if (isProduction) warnMemFallback();
+    return memLimit(key, max, windowMs);
   }
-  if (!redis) return memLimit(key, max, windowMs);
   const windowSeconds = Math.ceil(windowMs / 1000);
   const count = await redis.incr(key);
   if (count === 1) {
