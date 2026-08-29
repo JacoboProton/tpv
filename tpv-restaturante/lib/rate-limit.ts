@@ -37,13 +37,6 @@ if (redisUrl && redisToken) {
   }
 }
 
-if (isProduction && !redis) {
-  throw new Error(
-    'Rate limiting requiere Upstash Redis en producción. ' +
-    'Configura UPSTASH_REDIS_REST_URL y UPSTASH_REDIS_REST_TOKEN (o REDIS_URL).'
-  );
-}
-
 const memStore = new Map<string, { count: number; resetAt: number }>();
 if (!isProduction && typeof setInterval !== 'undefined') {
   setInterval(() => {
@@ -72,6 +65,12 @@ async function memLimit(key: string, max: number, windowMs: number): Promise<{ a
 }
 
 async function redisLimit(key: string, max: number, windowMs: number): Promise<{ allowed: boolean; remaining: number; reset: number }> {
+  if (isProduction && !redis) {
+    throw new Error(
+      'Rate limiting requiere Upstash Redis en producción. ' +
+      'Configura UPSTASH_REDIS_REST_URL y UPSTASH_REDIS_REST_TOKEN (o REDIS_URL).'
+    );
+  }
   if (!redis) return memLimit(key, max, windowMs);
   const windowSeconds = Math.ceil(windowMs / 1000);
   const count = await redis.incr(key);
