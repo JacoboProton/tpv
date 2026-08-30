@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo } from 'react';
-import { Ticket, Download, Search, Printer, Mail, MessageCircle, Send, X } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { Ticket, Loader2, Download, Search, Printer, Mail, MessageCircle, Send, X } from 'lucide-react';
 import { buildTicketHtml, printTicketHtml } from '../../lib/ticket-template';
+import { apiFetch, unpackList } from '../../lib/api';
 import { euros } from '@/components/constants';
 import type { Theme } from '@/components/constants';
 import type { TicketSettings } from '@tpv/core';
@@ -51,6 +52,19 @@ export default function TicketsView() {
   const [deliverPhone, setDeliverPhone] = useState('');
   const [delivering, setDelivering] = useState(false);
   const [deliverMsg, setDeliverMsg] = useState('');
+  const [rangeSales, setRangeSales] = useState<TicketSale[] | null>(null);
+  const [loadingRange, setLoadingRange] = useState(false);
+  const [rangeError, setRangeError] = useState('');
+  const salesRef = useRef<TicketSale[]>(Array.isArray(sales) ? sales : []);
+
+  useEffect(() => {
+    salesRef.current = Array.isArray(sales) ? sales : [];
+  }, [sales]);
+
+  const displaySales = useMemo(
+    () => rangeSales ?? (Array.isArray(sales) ? sales : []),
+    [rangeSales, sales],
+  );
 
   const today = new Date().toDateString();
 
@@ -62,40 +76,93 @@ export default function TicketsView() {
     return d.getTime();
   }, [daysBack]);
 
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingRange(true);
+    setRangeError('');
+    const start = (() => {
+      if (daysBack === 0) {
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        return d.getTime();
+      }
+      const d = new Date();
+      d.setDate(d.getDate() - daysBack);
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    })();
+
+    (async () => {
+      try {
+        const acc: TicketSale[] = [];
+        let page = 1;
+        let hasNext = true;
+        while (hasNext && page <= 100) {
+          const q = new URLSearchParams({ page: String(page), pageSize: '100', from: String(start) });
+          const data = await apiFetch(`/api/sales?${q}`);
+          const list = unpackList<TicketSale>(data);
+          acc.push(...list);
+          const pagination = (data as { pagination?: { hasNext?: boolean } } | null)?.pagination;
+          hasNext = pagination?.hasNext !== false && list.length === 100;
+          page += 1;
+        }
+        const byId = new Map<string, TicketSale>();
+        acc.forEach(s => byId.set(s.id, s));
+        (Array.isArray(salesRef.current) ? salesRef.current : []).forEach(s => {
+          const t = Number(s.closedAt) || 0;
+          if (t >= start && !byId.has(s.id)) byId.set(s.id, s);
+        });
+        if (!cancelled) setRangeSales([...byId.values()]);
+      } catch {
+        if (!cancelled) {
+          setRangeSales(null);
+          setRangeError('No se pudo cargar el historial completo desde el servidor');
+        }
+      } finally {
+        if (!cancelled) setLoadingRange(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [daysBack]);
+
   const filteredSales = useMemo(() => {
-    if (!Array.isArray(sales)) return [];
-    return sales.filter(s => {
-      const t = Number(s.closedAt) || new Date(s.closedAt).getTime();
-      if (daysBack > 0) {
-        if (t < cutoffTime) return false;
-      } else {
-        const saleDate = new Date(t).toDateString();
-        if (saleDate !== today) return false;
-      }
-      if (filterMethod !== 'Todas') {
-        const method = s.paymentMethod || '';
-        if (method.toLowerCase() !== filterMethod.toLowerCase()) return false;
-      }
-      if (search) {
-        const q = search.toLowerCase();
-        const matchesTable = (s.tableName || '').toLowerCase().includes(q);
-        const matchesEmployee = (s.employeeName || '').toLowerCase().includes(q);
-        const matchesId = (s.id || '').toLowerCase().includes(q);
-        if (!matchesTable && !matchesEmployee && !matchesId) return false;
-      }
-      return true;
-    }).sort((a, b) => b.closedAt - a.closedAt);
-  }, [sales, today, filterMethod, search, daysBack, cutoffTime]);
+    if (!Array.isArray(displaySales)) return [];
+    const sortKey = (s: TicketSale) => Number(s.closedAt) || 0;
+    return displaySales
+      .filter(s => {
+        const t = Number(s.closedAt) || new Date(s.closedAt).getTime();
+        if (daysBack > 0) {
+          if (t < cutoffTime) return false;
+        } else {
+          const saleDate = new Date(t).toDateString();
+          if (saleDate !== today) return false;
+        }
+        if (filterMethod !== 'Todas') {
+          const method = s.paymentMethod || '';
+          if (method.toLowerCase() !== filterMethod.toLowerCase()) return false;
+        }
+        if (search) {
+          const q = search.toLowerCase();
+          const matchesTable = (s.tableName || '').toLowerCase().includes(q);
+          const matchesEmployee = (s.employeeName || '').toLowerCase().includes(q);
+          const matchesId = (s.id || '').toLowerCase().includes(q);
+          if (!matchesTable && !matchesEmployee && !matchesId) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => sortKey(b) - sortKey(a));
+  }, [displaySales, today, filterMethod, search, daysBack, cutoffTime]);
 
   const totalAmount = filteredSales.reduce((s, x) => s + x.total, 0);
   const methods = useMemo(() => {
-    if (!Array.isArray(sales)) return ['Todas'];
+    if (!Array.isArray(displaySales)) return ['Todas'];
     const set = new Set<string>();
-    sales.forEach(s => {
+    displaySales.forEach(s => {
       if (s.paymentMethod) set.add(s.paymentMethod);
     });
     return ['Todas', ...Array.from(set)];
-  }, [sales]);
+  }, [displaySales]);
 
   function printTicket(sale: TicketSale) {
     const items = (sale.items || []).filter(i => !i.voided);
@@ -224,7 +291,13 @@ export default function TicketsView() {
         </div>
       </div>
 
-      {filteredSales.length === 0 ? (
+      {rangeError && (
+        <div className="mb-4 rounded-lg px-4 py-2 text-xs" style={{ background: C.wine + '22', border: `1px solid ${C.wine}`, color: C.wineLight }}>
+          {rangeError}
+        </div>
+      )}
+
+      {filteredSales.length === 0 && !loadingRange ? (
         <div className="text-center py-16">
           <Ticket className="w-10 h-10 mx-auto mb-3" style={{ color: C.muted }} />
           <p style={{ color: C.muted }} className="text-sm">
@@ -245,7 +318,12 @@ export default function TicketsView() {
             <span className="col-span-4">Artículos</span>
             <span className="text-right"></span>
           </div>
-          {filteredSales.map((s, i) => {
+          {loadingRange && (
+            <div className="flex items-center justify-center gap-2 py-8 text-xs" style={{ color: C.muted }}>
+              <Loader2 className="w-4 h-4 animate-spin" /> Cargando historial…
+            </div>
+          )}
+          {filteredSales.map((s) => {
             const d = new Date(s.closedAt);
             const items = (s.items || []).slice(0, 3);
             const extra = (s.items || []).length - 3;
