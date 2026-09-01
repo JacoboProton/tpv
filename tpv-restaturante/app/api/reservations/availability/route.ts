@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { apiOk, apiError, apiBadRequest, apiTooManyRequests } from '../../../../lib/infrastructure/response';
+import { apiOk, apiError, apiBadRequest, apiTooManyRequests, apiUnauthorized } from '../../../../lib/infrastructure/response';
 import { rateLimit, getClientIp } from '../../../../lib/rate-limit';
 import { eq, sql } from 'drizzle-orm';
 import { getDb } from '../../../../lib/drizzle';
-import { getTenantId } from '../../../../lib/tenant';
+import { getPublicTenantId } from '../../../../lib/tenant';
 import { settings, tables, reservations } from '../../../../db/schema';
 
 function parseJSON<T>(val: string | null | undefined, fallback: T): T {
@@ -20,12 +20,14 @@ function addMinutes(timeStr: string, mins: number) {
 // SIN requireRole — endpoint público para la página de reservas online
 // (app/reservar/page.jsx). Consulta disponibilidad de slots sin
 // autenticación. Solo expone horarios libres, ningún dato del negocio.
+// El tenant se valida contra ALLOWED_PUBLIC_TENANTS.
 export async function GET(req: NextRequest) {
   const rl = await rateLimit(`avail:${getClientIp(req)}`, 60, 60_000);
   if (!rl.allowed) return apiTooManyRequests();
   try {
     const db = getDb();
-    const tenantId = getTenantId(req);
+    const tenantId = getPublicTenantId(req);
+    if (!tenantId) return apiUnauthorized('tenant_no_autorizado');
     const { searchParams } = new URL(req.url);
     const date = searchParams.get('date');
     const pax = parseInt(searchParams.get('pax') || '2', 10);

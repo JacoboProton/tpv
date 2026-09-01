@@ -1346,6 +1346,15 @@ export const ticketCounters = pgTable("ticket_counters", {
 	index("idx_ticketCounters_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
 ]);
 
+export const verifactuCounters = pgTable("verifactu_counters", {
+	tenantId: text("tenant_id").notNull(),
+	year: integer().notNull(),
+	counter: integer().default(0).notNull(),
+}, (table) => [
+	primaryKey({ columns: [table.tenantId, table.year], name: "verifactu_counters_pkey"}),
+	index("idx_verifactuCounters_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
+]);
+
 export const productStock = pgTable("product_stock", {
 	productId: text("product_id").notNull(),
 	location: text().notNull(),

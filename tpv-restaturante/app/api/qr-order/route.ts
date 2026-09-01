@@ -1,10 +1,11 @@
 import { NextRequest } from 'next/server';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId, getPublicTenantId } from '../../../lib/tenant';
-import { qrOrders, orders, tables, deliveryOrders } from '../../../db/schema';
+import { qrOrders, orders, tables, deliveryOrders, products } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiNotFound, apiTooManyRequests, apiForbidden } from '../../../lib/infrastructure/response';
 import { rateLimit, getClientIp } from '../../../lib/rate-limit';
+import { requireRole } from '../../../lib/rbac';
 import { QrOrderPostBody } from '@/lib/schemas/api-schemas';
 
 function makeId(prefix = 'qo') { return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest) {
     }
 
     const {
-      tableId, items, amount, customerName, customerPhone, customerEmail,
+      tableId, items, customerName, customerPhone, customerEmail,
       notes, modality, address, addressLat, addressLng, zoneId, deliveryCost, scheduledAt,
     } = body;
 
@@ -72,13 +73,27 @@ export async function POST(req: NextRequest) {
     const orderId = makeId('qo');
     const now = Date.now();
 
-    const orderItems = toOrderItems(items).map((it, i) => ({
-      id: 'i_' + now + '_' + i + Math.random().toString(36).slice(2, 6),
-      productId: it.productId, name: it.name, price: it.price,
-      qty: it.qty || 1, notes: it.notes || '', modifiers: it.modifiers || [],
-      sent: true, sentAt: now, ready: false, served: false,
-      course: it.course || '', source: 'qr',
-    }));
+    const rawItems = toOrderItems(items);
+    const priceMap = new Map<string, number>();
+    const priceRows = await db
+      .select({ id: products.id, price: products.price })
+      .from(products)
+      .where(and(eq(products.tenantId, tenantId), inArray(products.id, rawItems.map(i => i.productId).filter(Boolean) as string[])));
+    for (const p of priceRows) priceMap.set(p.id, Number(p.price));
+
+    const orderItems = rawItems.map((it, i) => {
+      const serverPrice = it.productId != null ? priceMap.get(it.productId) : undefined;
+      const price = serverPrice != null ? serverPrice : Number(it.price);
+      return {
+        id: 'i_' + now + '_' + i + Math.random().toString(36).slice(2, 6),
+        productId: it.productId, name: it.name, price,
+        qty: it.qty || 1, notes: it.notes || '', modifiers: it.modifiers || [],
+        sent: true, sentAt: now, ready: false, served: false,
+        course: it.course || '', source: 'qr',
+      };
+    });
+
+    const serverAmount = orderItems.reduce((s, i) => s + Number(i.price) * i.qty, 0);
 
     const tpvOrderId = makeId('o');
     const empName = modality === 'dinein' ? 'QR' : modality === 'pickup' ? 'Recogida' : 'Domicilio';
@@ -100,8 +115,8 @@ export async function POST(req: NextRequest) {
     const qrTableId = tableId || 'online';
     await db.insert(qrOrders).values({
       id: orderId, tableId: qrTableId, items: orderItems,
-      orderStatus: body.paymentRequired ? 'paid' : 'pending',
-      modality: modality || 'dinein', amount: String(amount || 0),
+      orderStatus: 'pending',
+      modality: modality || 'dinein', amount: String(serverAmount || 0),
       deliveryCost: String(deliveryCost || 0),
       customerName: customerName || '', customerPhone: customerPhone || '',
       customerEmail: customerEmail || '', notes: notes || '',
@@ -210,13 +225,22 @@ export async function PUT(req: NextRequest) {
 
     if (action === 'status') {
       if (!id) return apiBadRequest('id required');
-      await db.update(qrOrders).set({ orderStatus: String(body.status), updatedAt: Date.now() })
+      const status = String(body.status);
+      // Un cliente solo puede cancelar su propio pedido. El resto de transiciones
+      // de estado (paid, confirmed, preparing, ready...) requieren sesión de staff.
+      if (status !== 'cancelled') {
+        const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
+        if (!auth.authorized) return apiForbidden('status_no_permitido');
+      }
+      await db.update(qrOrders).set({ orderStatus: status, updatedAt: Date.now() })
         .where(and(eq(qrOrders.id, id), eq(qrOrders.tenantId, tenantId)));
       return apiOk();
     }
 
     if (action === 'accept') {
       if (!id) return apiBadRequest('id required');
+      const auth = await requireRole(['admin', 'camarero', 'cocina'])(req);
+      if (!auth.authorized) return apiForbidden('solo_staff');
       await db.update(qrOrders).set({ accepted: true, orderStatus: 'confirmed', updatedAt: Date.now() })
         .where(and(eq(qrOrders.id, id), eq(qrOrders.tenantId, tenantId)));
       return apiOk();

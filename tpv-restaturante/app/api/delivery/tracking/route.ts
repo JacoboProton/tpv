@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { eq, sql } from 'drizzle-orm';
 import { getDb } from '../../../../lib/drizzle';
-import { getTenantId } from '../../../../lib/tenant';
+import { getPublicTenantId } from '../../../../lib/tenant';
 import { deliveryTracking, deliveryOrders } from '../../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiNotFound, apiUnauthorized } from '../../../../lib/infrastructure/response';
 import { DeliveryTrackingBody } from '@/lib/schemas/api-schemas';
@@ -9,11 +9,12 @@ import { DeliveryTrackingBody } from '@/lib/schemas/api-schemas';
 // SIN requireRole — endpoint de tracking público para que el cliente
 // delivery pueda consultar el estado de su pedido sin autenticación.
 // Solo expone datos de tracking (ubicación, estado), no datos sensibles
-// del negocio. El tenant_id se filtra vía getTenantId() desde el header.
+// del negocio. El tenant_id se filtra contra ALLOWED_PUBLIC_TENANTS.
 export async function GET(req: NextRequest) {
   try {
     const db = getDb();
-    const tenantId = getTenantId(req);
+    const tenantId = getPublicTenantId(req);
+    if (!tenantId) return apiUnauthorized('tenant_no_autorizado');
     const { searchParams } = new URL(req.url);
     const deliveryId = searchParams.get('deliveryId');
     if (deliveryId) {
@@ -41,7 +42,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const db = getDb();
-    const tenantId = getTenantId(req);
+    const tenantId = getPublicTenantId(req);
+    if (!tenantId) return apiUnauthorized('tenant_no_autorizado');
     const parsed = DeliveryTrackingBody.safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
     const body = parsed.data;

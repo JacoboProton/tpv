@@ -166,7 +166,7 @@ export function executeCloseOrder(input: CloseOrderInput): CloseOrderResult {
   const wantInvoice = !!(invoice.nif.trim() && invoice.name.trim())
   const invNum = wantInvoice ? generateInvoiceNumber() : ''
   const sale: Sale = {
-    id: 's_' + Date.now(),
+    id: 's_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
     tableId: table.id,
     tableName: table.name,
     items: order.items.map((i) => ({ id: i.id, productId: i.productId, name: i.name, qty: i.qty, price: i.price || 0, cost: Number(catalog.products.find(p => p.id === i.productId)?.cost ?? 0), voided: !!i.voided })),

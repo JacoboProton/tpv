@@ -153,7 +153,11 @@ function NfcPaymentButton({ floor, tableId, persistFloor, disabled, userName }: 
 
       await disconnectReader();
 
-      const { floor: nextFloor, sale } = closeOrderOnTable(floor, tableId, userName, 'Tarjeta (NFC)', [{ method: 'card', amount: total }]);
+      const { floor: nextFloor, sale } = closeOrderOnTable(
+        floor, tableId, userName, 'Tarjeta (NFC)',
+        [{ method: 'card', amount: total }],
+        { paymentIntentId: paymentIntent.id },
+      );
       await addSale(sale as any);
       setCtxFloor(nextFloor);
       await persistFloor(nextFloor);

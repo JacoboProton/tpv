@@ -1,11 +1,11 @@
 import { NextRequest } from 'next/server';
 import type { Sale } from '@tpv/core';
-import { eq, and, like, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { registerSaleInFiskaly, type FiskalyInvoiceResult } from '../../../lib/fiskaly';
 import { generateRegistroFactura, formatFecha } from '../../../lib/verifactu';
-import { verifactuRegistros } from '../../../db/schema';
+import { verifactuRegistros, verifactuCounters } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
 import { rateLimit } from '../../../lib/rate-limit';
@@ -56,12 +56,13 @@ export async function POST(req: NextRequest) {
     }
 
     const year = new Date(sale.closedAt ?? Date.now()).getFullYear();
-    const countRows = await db.select({ cnt: sql<string>`COUNT(*)` }).from(verifactuRegistros)
-      .where(and(
-        like(verifactuRegistros.numSerie, `VERI-${year}-%`),
-        eq(verifactuRegistros.tenantId, tenantId)
-      ));
-    const seq = parseInt(countRows[0].cnt, 10) + 1;
+    const [counterRow] = await db.insert(verifactuCounters).values({
+      tenantId, year, counter: 1,
+    }).onConflictDoUpdate({
+      target: [verifactuCounters.tenantId, verifactuCounters.year],
+      set: { counter: sql`verifactu_counters.counter + 1` },
+    }).returning({ counter: verifactuCounters.counter });
+    const seq = counterRow.counter;
     const numSerie = `VERI-${year}-${String(seq).padStart(6, '0')}`;
 
     const importeTotal = Number((sale.total ?? sale.totalWithTip ?? 0).toFixed(2));

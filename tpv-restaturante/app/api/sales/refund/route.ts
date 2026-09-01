@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { eq, sql } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import Stripe from 'stripe';
 import { getDb } from '../../../../lib/drizzle';
 import { logPayment } from '../../../../lib/payment-logger';
@@ -48,7 +48,7 @@ export async function PUT(req: NextRequest) {
       const [sale] = await db.select({
         paymentIntentId: sales.paymentIntentId,
         refunds: sales.refunds,
-      }).from(sales).where(eq(sales.id, saleId)).limit(1);
+      }).from(sales).where(and(eq(sales.id, saleId), eq(sales.tenantId, tenantId))).limit(1);
       if (!sale) {
         return Response.json({ error: 'Sale not found' }, { status: 404 });
       }
@@ -81,7 +81,9 @@ export async function PUT(req: NextRequest) {
       }
 
       const updated = [...currentRefunds, { ...refund, stripeRefundId }];
-      await db.update(sales).set({ refunds: updated }).where(eq(sales.id, saleId));
+      await db.update(sales)
+        .set({ refunds: updated })
+        .where(and(eq(sales.id, saleId), eq(sales.tenantId, tenantId)));
 
       return Response.json({ ok: true, refunds: updated, stripeRefundId });
     } catch (e) {

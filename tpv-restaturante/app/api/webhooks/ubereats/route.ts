@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '../../../../lib/drizzle';
 import { verifyWebhookSignature } from '../../../../lib/verify-webhook';
-import { getTenantId } from '../../../../lib/tenant';
+import { getPublicTenantId } from '../../../../lib/tenant';
 import { deliveryOrders } from '../../../../db/schema';
 import { apiOk, apiError, apiUnauthorized } from '../../../../lib/infrastructure/response';
 
@@ -99,7 +99,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const db = getDb();
-    const tenantId = getTenantId(req);
+    const tenantId = getPublicTenantId(req);
+    if (!tenantId) return apiUnauthorized('tenant_no_autorizado');
     const rawBody = await req.text();
     const signature = req.headers.get('x-uber-signature') || req.headers.get('x-postmates-signature') || '';
     const valid = verifyWebhookSignature(rawBody, signature, 'UBER_WEBHOOK_SECRET');
