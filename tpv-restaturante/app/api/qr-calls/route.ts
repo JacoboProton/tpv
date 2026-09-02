@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server';
 import { eq, and, desc } from 'drizzle-orm';
 import { getDb } from '../../../lib/drizzle';
-import { getTenantId } from '../../../lib/tenant';
+import { getPublicTenantId } from '../../../lib/tenant';
 import { qrCalls, tables } from '../../../db/schema';
-import { apiOk, apiError, apiBadRequest } from '../../../lib/infrastructure/response';
+import { apiOk, apiError, apiBadRequest, apiForbidden } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
 import { QrCallBody, QrCallAckBody } from '@/lib/schemas/api-schemas';
 
@@ -16,7 +16,8 @@ export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin', 'camarero'])(req);
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
-    const tenantId = getTenantId(req);
+    const tenantId = getPublicTenantId(req);
+    if (!tenantId) return apiForbidden('Tenant no autorizado');
     const now = Date.now();
     if (now - (cacheTime[tenantId] || 0) < 3000) {
       return apiOk(callsCache[tenantId] || []);
@@ -38,7 +39,8 @@ export async function POST(req: NextRequest) {
   const auth = await requireRole(['admin', 'camarero'])(req);
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
-    const tenantId = getTenantId(req);
+    const tenantId = getPublicTenantId(req);
+    if (!tenantId) return apiForbidden('Tenant no autorizado');
     const parsed = QrCallBody.safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
     const body = parsed.data;
@@ -67,7 +69,8 @@ export async function PUT(req: NextRequest) {
   const auth = await requireRole(['admin', 'camarero'])(req);
   if (!auth.authorized) return apiError(new Error(auth.error), auth.status);
   try {
-    const tenantId = getTenantId(req);
+    const tenantId = getPublicTenantId(req);
+    if (!tenantId) return apiForbidden('Tenant no autorizado');
     const parsed = QrCallAckBody.safeParse(await req.json());
     if (!parsed.success) return apiBadRequest(parsed.error.message);
     const body = parsed.data;

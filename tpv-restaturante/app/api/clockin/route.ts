@@ -1,11 +1,11 @@
 import { NextRequest } from 'next/server';
-import { eq, and, sql, desc } from 'drizzle-orm';
+import { eq, and, sql, desc, inArray } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { createHash } from 'crypto';
 import { getDb } from '../../../lib/drizzle';
 import { getTenantId } from '../../../lib/tenant';
 import { clockinLogs, clockinCorrections, employees } from '../../../db/schema';
-import { apiOk, apiError, apiBadRequest, apiForbidden } from '../../../lib/infrastructure/response';
+import { apiOk, apiError, apiBadRequest, apiForbidden, apiNotFound } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
 import { ClockinBody } from '@/lib/schemas/api-schemas';
 import { z } from 'zod';
@@ -172,7 +172,7 @@ export async function PUT(req: NextRequest) {
       await db.update(clockinLogs).set({
         createdAt, action: newAction,
         edited: true, editedBy: String(body.editedBy || ''), editReason: String(body.editReason || ''),
-      }).where(eq(clockinLogs.id, id));
+      }).where(and(eq(clockinLogs.id, id), eq(clockinLogs.tenantId, tenantId)));
       return apiOk();
     }
 
@@ -226,7 +226,13 @@ export async function PUT(req: NextRequest) {
       const resolvedBy = String(body.resolvedBy ?? '');
       await db.update(clockinCorrections)
         .set({ status, resolvedBy })
-        .where(eq(clockinCorrections.id, correctionId));
+        .where(and(
+          eq(clockinCorrections.id, correctionId),
+          inArray(
+            clockinCorrections.clockinId,
+            db.select({ id: clockinLogs.id }).from(clockinLogs).where(eq(clockinLogs.tenantId, tenantId)),
+          ),
+        ));
       return apiOk();
     }
 

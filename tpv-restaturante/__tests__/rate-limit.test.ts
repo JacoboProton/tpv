@@ -43,7 +43,15 @@ describe('lib/rate-limit getClientIp', () => {
     return new Request('http://localhost/api/x', { headers });
   }
 
-  it('uses x-forwarded-for first address', () => {
+  it('uses the trusted peer-ip header (set by custom server) first', () => {
+    expect(getClientIp(req({
+      'x-tpv-peer-ip': '203.0.113.7',
+      'x-forwarded-for': '1.2.3.4, 5.6.7.8',
+      'x-real-ip': '9.9.9.9',
+    }))).toBe('203.0.113.7');
+  });
+
+  it('uses x-forwarded-for first address when no peer-ip', () => {
     expect(getClientIp(req({ 'x-forwarded-for': '1.2.3.4, 5.6.7.8' }))).toBe('1.2.3.4');
     expect(getClientIp(req({ 'x-forwarded-for': ' 10.0.0.1 ' }))).toBe('10.0.0.1');
   });

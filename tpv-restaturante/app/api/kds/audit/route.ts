@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server';
-import { apiOk, apiError, apiBadRequest } from '../../../../lib/infrastructure/response';
+import { apiOk, apiError, apiBadRequest, apiForbidden } from '../../../../lib/infrastructure/response';
 import { eq, and, desc } from 'drizzle-orm';
 import { getDb } from '../../../../lib/drizzle';
-import { getTenantId } from '../../../../lib/tenant';
+import { getPublicTenantId } from '../../../../lib/tenant';
 import { kdsAuditLog } from '../../../../db/schema';
 import { requireRole } from '../../../../lib/rbac';
 import { KdsAuditBody } from '@/lib/schemas/api-schemas';
@@ -17,7 +17,8 @@ export async function POST(req: NextRequest) {
     const { action, details } = body;
     if (!action) return apiBadRequest('action required');
     const db = getDb();
-    const tenantId = getTenantId(req);
+    const tenantId = getPublicTenantId(req);
+    if (!tenantId) return apiForbidden('Tenant no autorizado');
     await db.insert(kdsAuditLog).values({
       tenantId, action, details: details || {}, createdAt: Date.now(),
     });
@@ -34,7 +35,8 @@ export async function GET(req: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0');
     const action = searchParams.get('action');
     const db = getDb();
-    const tenantId = getTenantId(req);
+    const tenantId = getPublicTenantId(req);
+    if (!tenantId) return apiForbidden('Tenant no autorizado');
 
     const filters = action
       ? and(eq(kdsAuditLog.tenantId, tenantId), eq(kdsAuditLog.action, action))

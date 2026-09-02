@@ -1,12 +1,13 @@
 import { NextRequest } from 'next/server';
 import { getSessionEmployee } from '../../../../lib/rbac';
-import { getTenantId } from '../../../../lib/tenant';
-import { apiOk, apiError } from '../../../../lib/infrastructure/response';
+import { getPublicTenantId } from '../../../../lib/tenant';
+import { apiOk, apiError, apiForbidden } from '../../../../lib/infrastructure/response';
 import { SignJWT } from 'jose';
 
 export async function GET(req: NextRequest) {
   try {
-    const tenantId = getTenantId(req);
+    const tenantId = getPublicTenantId(req);
+    if (!tenantId) return apiForbidden('Tenant no autorizado');
     const emp = await getSessionEmployee(req);
     
     const employeeId = emp?.id || 'anonymous';

@@ -108,9 +108,16 @@ export async function checkRateLimit(
 }
 
 export function getClientIp(req: Request): string {
+  // IP verificada por nuestro custom server (header interno no spoofeable).
+  const peerIp = req.headers.get('x-tpv-peer-ip');
+  if (peerIp) return peerIp.trim();
+  // Tras un load balancer de confianza (Render/Railway/Vercel), el primer
+  // valor de x-forwarded-for es la IP real del cliente, firmada por el proxy.
+  // Sin ese proxy de confianza, un cliente podría fabricarlo; el custom server
+  // ya lo sobreescribe, así que aquí preferimos el header interno si existe.
   const forwarded = req.headers.get('x-forwarded-for');
   if (forwarded) return forwarded.split(',')[0].trim();
   const realIp = req.headers.get('x-real-ip');
-  if (realIp) return realIp;
+  if (realIp) return realIp.trim();
   return '127.0.0.1';
 }

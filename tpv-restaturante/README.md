@@ -268,6 +268,17 @@ Pasos:
 | `ALLOWED_ORIGINS` | `https://tu-dominio.onrender.com` | CORS; sin ella otros orígenes no reciben headers CORS |
 | `ALLOWED_PUBLIC_TENANTS` | `default` (o los que quieras públicos) | Tenants alcanzables por rutas públicas |
 
+> **Sobre `NEXT_PUBLIC_TPV_API_KEY` (clave pública).** Es un tradeoff del modelo
+> offline-first: el cliente (POS web, KDS, app móvil) necesita autenticar sus
+> requests cuando no hay sesión JWT, y por ser `NEXT_PUBLIC_` queda incrustada en
+> el bundle del navegador. **No escala privilegios**: el proxy solo la acepta con
+> rol de cliente (`x-client-type`, nunca empleado/admin). Mitigaciones requeridas
+> en despliegue:
+> - Genera una clave **aleatoria larga** (no la compartas entre entornos).
+> - Trátala como pública y **rota** si se filtra o revoca con `POST /api/api-keys`
+>   (rotación por tenant/cliente + `activate=false` para desactivar).
+> - No reutilices la clave de cliente para nada que requiera rol empleado/admin.
+
 3. Opcionales: Stripe, Fiskaly, Supabase Realtime, `GLOVO_WEBHOOK_SECRET`, `UBER_WEBHOOK_SECRET`.
 4. Comprueba en logs `[demo] seed -> 200 {"ok":true,...}`.
 5. Login demo: **Administrador 1234** (Ana `1111`, Luis `2222`).
@@ -317,7 +328,8 @@ Todas las rutas API operacionales están protegidas con `requireRole()` de `lib/
 
 Puntos clave:
 
-- Las rutas públicas **nunca usan `getTenantId()`** a ciegas: usan `getPublicTenantId()` (whitelist `ALLOWED_PUBLIC_TENANTS`) y rechazan con 401 si el tenant no está autorizado. Esto evita la exfiltración/inyección cross-tenant anónima (tracking delivery, disponibilidad de reservas, webhooks de delivery, pedidos QR).
+- Las rutas públicas **nunca usan `getTenantId()`** a ciegas: usan `getPublicTenantId()` (whitelist `ALLOWED_PUBLIC_TENANTS`) y rechazan con 401 si el tenant no está autorizado. Esto evita la exfiltración/inyección cross-tenant anónima (tracking delivery, disponibilidad de reservas, webhooks de delivery, pedidos QR, **qr-calls, kds/audit, token de realtime**).
+- El token de Realtime (`/api/realtime/token`) solo se emite para tenants en `ALLOWED_PUBLIC_TENANTS`, y el cliente de Realtime se autentica con ese JWT (<code>c.setAuth</code>) antes de suscribirse a `floor-sync:<tenant>`.
 - `requireRole()` devuelve el rol leído **desde la BD** (no confía en `x-employee-role`).
 - Operaciones sobre recursos multi-tenant (p. ej. refunds sobre ventas) filtran por `tenantId` del caller, no solo por el `id` del recurso (evita IDOR cross-tenant).
 - El helper inseguro original (`lib/auth-deprecated.ts`) está renombrado y lanza error si se importa.
