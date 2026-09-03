@@ -24,7 +24,7 @@ export async function GET(_req: NextRequest) {
 
     const tenantId = getTenantId(_req);
     const db = getDb();
-    const backup = await backupAll();
+    const backup = await backupAll(tenantId);
     const backupId = `backup_${Date.now()}`;
 
     await db.execute(sql`

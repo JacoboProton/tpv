@@ -250,6 +250,7 @@ export async function addSale(sale: Record<string, unknown>): Promise<{ ok: bool
     const result = await apiFetch<{ ok: boolean }>('/sales', {
       method: 'POST',
       body: JSON.stringify(sale),
+      headers: { 'x-idempotency-key': String(sale.id) },
     });
     logInfo('Sale successfully synced to server', { saleId: sale.id });
     return result;
@@ -284,6 +285,7 @@ export async function processPendingSales(): Promise<void> {
         await apiFetch<{ ok: boolean }>('/sales', {
           method: 'POST',
           body: JSON.stringify(item.sale),
+          headers: { 'x-idempotency-key': String(item.sale.id) },
         });
         logDebug('Pending sale synced successfully', { saleId: item.sale.id });
       } catch (e) {
@@ -320,6 +322,7 @@ export async function syncCachedSales(): Promise<void> {
         await apiFetch<{ ok: boolean }>('/sales', {
           method: 'POST',
           body: JSON.stringify(sale),
+          headers: { 'x-idempotency-key': String(sale.id) },
         });
         syncedIds.add(sale.id);
         logDebug('Cached sale synced', { saleId: sale.id });

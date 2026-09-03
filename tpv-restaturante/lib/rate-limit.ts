@@ -107,6 +107,26 @@ export async function checkRateLimit(
   return { allowed: result.allowed, remaining: result.remaining, resetAt: result.reset };
 }
 
+export async function getBlockMillis(key: string): Promise<number> {
+  if (redis) {
+    const ttl = await redis.ttl(key);
+    return ttl > 0 ? ttl * 1000 : 0;
+  }
+  const entry = memStore.get(key);
+  if (!entry) return 0;
+  const remain = entry.resetAt - Date.now();
+  return remain > 0 ? remain : 0;
+}
+
+export async function setBlock(key: string, windowMs: number): Promise<void> {
+  if (redis) {
+    await redis.incr(key);
+    await redis.expire(key, Math.ceil(windowMs / 1000));
+    return;
+  }
+  memStore.set(key, { count: 1, resetAt: Date.now() + windowMs });
+}
+
 export function getClientIp(req: Request): string {
   // IP verificada por nuestro custom server (header interno no spoofeable).
   const peerIp = req.headers.get('x-tpv-peer-ip');

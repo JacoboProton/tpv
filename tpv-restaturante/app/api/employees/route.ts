@@ -7,13 +7,23 @@ import { createHash } from 'crypto';
 import { employees } from '../../../db/schema';
 import { apiOk, apiError, apiBadRequest, apiNotFound } from '../../../lib/infrastructure/response';
 import { requireRole } from '../../../lib/rbac';
-import { rateLimit, getClientIp } from '../../../lib/rate-limit';
+import { rateLimit, getClientIp, getBlockMillis, setBlock } from '../../../lib/rate-limit';
 import { withIdempotency } from '../../../lib/idempotency';
 import { signLoginTicket } from '../../../lib/auth/jwt';
 import { EmployeePostBody, EmployeePutBody } from '@/lib/schemas/api-schemas';
 
 function sha256(s: string): string {
   return createHash('sha256').update(s, 'utf8').digest('hex');
+}
+
+const VERIFY_MAX_FAILURES = 4;
+const VERIFY_LOCK_MS = 5 * 60 * 1000;
+
+function formatLockout(ms: number): string {
+  const s = Math.max(1, Math.ceil(ms / 1000));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${String(r).padStart(2, '0')}`;
 }
 
 export async function GET(req: NextRequest) {
@@ -145,8 +155,15 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'verify') {
-      const rl = await rateLimit(`verify:${getClientIp(req)}`, 10, 60_000);
-      if (!rl.allowed) return apiError(new Error('Demasiados intentos'), 429);
+      const ip = getClientIp(req);
+      // Bloqueo server-side: persistente y no reiniciable borrando el storage del
+      // cliente (la app móvil solo muestra el contador; la autoridad es el server).
+      const blockMs = await getBlockMillis(`verify-block:${ip}`);
+      if (blockMs > 0) {
+        return apiError(new Error(`Demasiados intentos fallidos. Prueba en ${formatLockout(blockMs)}`), 429);
+      }
+      const burst = await rateLimit(`verify:${ip}`, 10, 60_000);
+      if (!burst.allowed) return apiError(new Error('Demasiados intentos'), 429);
       const pin = typeof body.pin === 'string' ? body.pin : undefined;
       const pinHash = typeof body.pinHash === 'string' ? body.pinHash : undefined;
       if (!pin && !pinHash) return apiBadRequest('PIN requerido');
@@ -163,7 +180,11 @@ export async function POST(req: NextRequest) {
         }
         return false;
       });
-      if (!emp) return apiError(new Error('PIN invalido'), 401);
+      if (!emp) {
+        const fail = await rateLimit(`verify-fail:${ip}`, VERIFY_MAX_FAILURES, VERIFY_LOCK_MS);
+        if (!fail.allowed) await setBlock(`verify-block:${ip}`, VERIFY_LOCK_MS);
+        return apiError(new Error('PIN invalido'), 401);
+      }
       const deviceId = typeof body.deviceId === 'string' ? body.deviceId : undefined;
       const loginTicket = await signLoginTicket({ sub: emp.id, tenantId, deviceId });
       return apiOk({

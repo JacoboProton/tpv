@@ -347,7 +347,10 @@ export const backups = pgTable("backups", {
 	data: jsonb().notNull(),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	createdAt: bigint("created_at", { mode: "number" }).notNull(),
-});
+	tenantId: text("tenant_id").default('default').notNull(),
+}, (table) => [
+	index("idx_backups_tenant").using("btree", table.tenantId.asc().nullsLast().op("text_ops")),
+]);
 
 export const modifierGroups = pgTable("modifier_groups", {
 	id: text().primaryKey().notNull(),
